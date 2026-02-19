@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: LicenseRef-FNCL-1.0
+# SPDX-License-Identifier: LicenseRef-FNCL-1.1
 # Copyright (c) 2026 Cpt_Kirk
 cmake_minimum_required(VERSION 3.16)
 

@@ -5,7 +5,7 @@
 
 A runtime configurable Home Assistant dashboard for the ESP32-P4 Smart 86 Box development board.
 
-## Projektbeschreibung
+## project description
 BETTA HA Panel turns the Smart86 Box into a standalone 720x720 Home Assistant wall panel. It is built for a dedicated touchscreen experience with fast access to your most important entities, scenes, and automations.
 
 The dashboard is configured directly on the device via the integrated BETTA Editor. Layout and settings are stored as JSON in LittleFS, so you can iterate quickly without rebuilding firmware for every UI change.
@@ -15,6 +15,20 @@ The dashboard is configured directly on the device via the integrated BETTA Edit
 - Integrated provisioning flow for Wi-Fi and Home Assistant (including the setup AP `BETTA-Setup`)
 - Multi-page widget dashboard, e.g., sensor, button, slider, graph, light, heating, and weather tiles
 - Subtle Lottie-animated weather icons for a more dynamic forecast view
+
+## getting started
+- download: [betta86-ha-panel.factory.bin](https://github.com/cptkirki/BETTA-HA-PANEL/blob/main/release/betta86-ha-panel.factory.bin)
+- use esptool to flash or use a webflasher of your choice, for example: https://espressif.github.io/esptool-js/
+- Use the outer USB-C port on the device for flashing.
+- Choose Baudrate: 115200
+<img width="204" height="129" alt="image" src="https://github.com/user-attachments/assets/38bdee4a-e2e4-42ea-81ea-962cbd1dc082" />
+- connect to the correct COM port
+- change Flash Adress to: 0x0
+<img width="411" height="236" alt="image" src="https://github.com/user-attachments/assets/151c0026-15cc-450d-af28-d5629c5ec5e5" />
+- choose the downloaded .bin file (make sure its fully downloaded 4.19 MB)
+- Program
+<img width="662" height="469" alt="image" src="https://github.com/user-attachments/assets/732007c8-9e7d-4411-8360-665553782b6c" />
+- follow the instruction on the screen
 
 A few examples:
 Widgets can be configured and placed (drag and drop) on the canvas:

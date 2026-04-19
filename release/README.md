@@ -1,13 +1,31 @@
 <!-- SPDX-License-Identifier: LicenseRef-FNCL-1.1 | Copyright (c) 2026 Cpt_Kirk -->
+## Getting Started
+- Download the latest factory image: [betta86-ha-panel-v0.7.factory.bin](https://github.com/cptkirki/BETTA-HA-PANEL/blob/main/release/betta86-ha-panel-v0.7.factory.bin)
+- Flash it with esptool or with a web flasher of your choice, for example: https://espressif.github.io/esptool-js/
+- Use the outer USB-C port on the Smart86 Box for flashing.
+- Choose baud rate `115200`.
+  <img width="204" height="129" alt="image" src="https://github.com/user-attachments/assets/38bdee4a-e2e4-42ea-81ea-962cbd1dc082" />
+- Connect to the correct COM port.
+- Set the flash address to `0x0`.
+  <img width="411" height="236" alt="image" src="https://github.com/user-attachments/assets/151c0026-15cc-450d-af28-d5629c5ec5e5" />
+- Select the downloaded `.bin` file. The v0.7 factory image is about 4.6 MB and already includes the C6 network adapter firmware used for this release.
+- Click `Program`.
+  <img width="662" height="469" alt="image" src="https://github.com/user-attachments/assets/732007c8-9e7d-4411-8360-665553782b6c" />
+- Reboot the device by pressing the reset button or briefly cutting power.
+- On first boot, the panel creates a setup access point named `BETTA-Setup`.
+- Connect to `BETTA-Setup` and open http://192.168.4.1.
+- Enter your Wi-Fi country/region code, scan for your network, enter the password, and save.
+- After reboot, the panel joins your Wi-Fi and receives an IP address from your local network.
+- Open that IP address in your browser to continue the Home Assistant setup and start configuring the dashboard.
+  <img width="613" height="416" alt="image" src="https://github.com/user-attachments/assets/a81fab35-d599-490a-9e1f-2675924b099d" />
+
+
+
 ## ESP-Hosted C6 Firmware Source
 
 The original C6 adapter firmware used for this release was:
 
 - https://github.com/esphome/esp-hosted-firmware/releases/tag/v2.11.7
-
-SHA256:
-
-- `2AA46DBCD18F5B2046F58B82CDC62BDF21AF137930E67C4B3B114F6E3E0DAF15`
 
 Important:
 

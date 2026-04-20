@@ -62,12 +62,11 @@ Widgets can be configured and placed (drag and drop) on the canvas:
 <img width="1426" height="766" alt="image" src="https://github.com/user-attachments/assets/9f8ba27f-943a-4e7b-8e18-ff7bf37bfea0" />
 
 <p>
-  <img src="images/light%20on%20example.jpg" alt="Light tiles ON example" width="49%" />
-  <img src="images/heating%20on%20example.jpg" alt="Heating ON example" width="49%" />
+  <img src="images/light%20on%20example.jpg" alt="Light tiles ON example" width="360" height="360" />
+  <img src="images/heating%20on%20example.jpg" alt="Heating ON example" width="360" height="360" />
 </p>
 <p>
-  <img width="360" height="360" alt="image" src="https://github.com/user-attachments/assets/97be77c3-0716-4641-994c-efe90c929953" />
-  <img width="360" height="360" alt="image" src="https://github.com/user-attachments/assets/9caf6e2b-6ea9-4b76-b404-1b58da822712" />
+  <img width="360" height="360" alt="image" src="https://github.com/user-attachments/assets/97be77c3-0716-4641-994c-efe90c929953" /><img width="360" height="360" alt="image" src="https://github.com/user-attachments/assets/9caf6e2b-6ea9-4b76-b404-1b58da822712" />
 
 </p>
 Light tiles support on/off, brightness, RGB-capable lights, and color-temperature-capable lights. The controls are only exposed when Home Assistant reports the corresponding capability for the selected entity.

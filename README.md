@@ -65,7 +65,11 @@ Widgets can be configured and placed (drag and drop) on the canvas:
   <img src="images/light%20on%20example.jpg" alt="Light tiles ON example" width="49%" />
   <img src="images/heating%20on%20example.jpg" alt="Heating ON example" width="49%" />
 </p>
+<p>
+  <img width="360" height="360" alt="image" src="https://github.com/user-attachments/assets/97be77c3-0716-4641-994c-efe90c929953" />
+  <img width="360" height="360" alt="image" src="https://github.com/user-attachments/assets/9caf6e2b-6ea9-4b76-b404-1b58da822712" />
 
+</p>
 Light tiles support on/off, brightness, RGB-capable lights, and color-temperature-capable lights. The controls are only exposed when Home Assistant reports the corresponding capability for the selected entity.
 
 The BETTA Editor also supports entity autocomplete, domain validation, page titles, widget geometry, widget-specific options, import/export of the layout JSON, and custom UI translations.
@@ -82,3 +86,7 @@ Configuration via webconfig in BETTA Editor:
 Available Widgets:
 
 <img width="319" height="130" alt="image" src="https://github.com/user-attachments/assets/1a248656-d01f-4585-a639-6d7dceafd08d" />
+
+### Energy Dashboard
+the energy Dashboard automatically gets all information from Homeassistant
+<img width="1142" height="809" alt="image" src="https://github.com/user-attachments/assets/96d51c1d-743a-4c7a-b2c6-29f2cff1e41f" />

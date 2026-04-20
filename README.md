@@ -1,5 +1,6 @@
 <!-- SPDX-License-Identifier: LicenseRef-FNCL-1.1 | Copyright (c) 2026 Cpt_Kirk -->
 <img src="images/BETTAOS.jpg" alt="BETTA OS Logo" width="10%" /> 
+
 # BETTA HA Panel 
 
 <p float="left">

@@ -333,6 +333,14 @@ static void w_todo_drain_pending(w_todo_ctx_t *ctx)
 static void w_todo_request_items(w_todo_ctx_t *ctx)
 {
     if (ctx == NULL || ctx->entity_id[0] == '\0' || ctx->fetching) {
+        /* Log once so we can tell from the serial monitor whether the
+         * widget is even trying and, if not, which guard is holding it
+         * back (empty entity vs already in flight). */
+        static bool s_logged_skip_empty = false;
+        if (ctx != NULL && ctx->entity_id[0] == '\0' && !s_logged_skip_empty) {
+            s_logged_skip_empty = true;
+            ESP_LOGW(W_TODO_TAG, "skip: no entity_id configured");
+        }
         return;
     }
 
@@ -342,6 +350,17 @@ static void w_todo_request_items(w_todo_ctx_t *ctx)
      * grace so the follow-up state_changed bursts have drained too. */
     if (!ha_client_is_connected() || !ha_client_is_initial_sync_done()) {
         ctx->next_fetch_unix_ms = w_todo_now_ms() + 1500;
+        /* Surface this once per widget so a forever-loading tile is
+         * traceable: the HA client never flipped to "initial sync done". */
+        static bool s_logged_gate = false;
+        if (!s_logged_gate) {
+            s_logged_gate = true;
+            ESP_LOGI(W_TODO_TAG,
+                "waiting for HA: connected=%d initial_sync_done=%d (%s)",
+                (int)ha_client_is_connected(),
+                (int)ha_client_is_initial_sync_done(),
+                ctx->entity_id);
+        }
         return;
     }
 

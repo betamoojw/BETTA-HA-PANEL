@@ -6,11 +6,10 @@
 A runtime-configurable Home Assistant wall panel for ESP32-P4 touchscreen devices. Build your dashboard directly on the device — no YAML edits, no firmware rebuilds.
 
 <p float="left">
-  <img src="images/heating%20on%20example.jpg" alt="Heating tile" width="32%" />
-  <img src="images/light%20on%20example.jpg" alt="Light tile" width="32%" />
-  <img src="images/weather%20forecast.jpg" alt="Weather forecast" width="32%" />
+  <img width="32%" alt="Media Player" src="https://github.com/user-attachments/assets/86b2c85b-b9b4-4368-bcbf-44b0256ca634" />
+  <img width="32%" alt="Page settings" src="https://github.com/user-attachments/assets/9caf6e2b-6ea9-4b76-b404-1b58da822712" />
+  <img width="32%" alt="Widget inspector" src="https://github.com/user-attachments/assets/97be77c3-0716-4641-994c-efe90c929953" />
 </p>
-
 ---
 
 ## Supported hardware
@@ -30,7 +29,7 @@ Both variants share the same dashboard engine, web editor, and Home Assistant in
 
 - **Live Home Assistant link** — WebSocket connection with REST fallback for forecasts and long-poll states.
 - **On-device editor** — BETTA Editor in the browser at `http://<panel-ip>`; drag-and-drop widgets, multi-page layouts, room-grouped entity picker.
-- **Widget library** — sensor, button, slider, graph, light, heating, weather, 3-day weather, media player, todo list, cover, energy dashboard, empty tile.
+- **Widget library** — sensor, button, slider, graph, light, heating, weather, up to 5 day weather forecast, media player, todo list, cover, energy dashboard, empty tile.
 - **Advanced light control** — brightness, color temperature, RGB — exposed only when Home Assistant reports the capability.
 - **Energy dashboard** — automatic grid / solar / battery / gas / water flow visualization driven by the Home Assistant energy model.
 - **Graphs** — line, smoothed line, or bar-chart modes; event-rate sampling up to 4096 points with progressive decimation.
@@ -54,7 +53,10 @@ Both variants share the same dashboard engine, web editor, and Home Assistant in
 
 Future updates install via OTA from the editor — no cable needed.
 
-<img width="1426" alt="BETTA Editor layout view" src="https://github.com/user-attachments/assets/9f8ba27f-943a-4e7b-8e18-ff7bf37bfea0" />
+<img width="1080" alt="image" src="https://github.com/user-attachments/assets/cda02fa3-8270-48c2-bde8-987ebf069c36" />
+<img width="1080" alt="image" src="https://github.com/user-attachments/assets/5d72053d-2889-413f-bc8a-f2170ea1e889" />
+
+
 
 ---
 
@@ -63,11 +65,10 @@ Future updates install via OTA from the editor — no cable needed.
 - **Dual panel support** — first release with dedicated `panel4` and `panel10` firmware images.
 - **Media Player widget** — title / artist display, transport controls, volume, progress bar flanked by current and total time.
 - **Todo List widget** — read/complete Home Assistant todo entities directly on the panel.
-- **Cover widget** — up / stop / down for blinds and shutters.
+- **On Board Theme Editor** — Customize the look and feel of your dashboard.
 - **Web editor polish** — whole-tile row click targets, red-circle delete buttons with confirm dialogs, canvas auto-sizes to the selected panel variant.
 - **Missing-entity diagnostics** — the editor shows a banner when layout entities are absent in Home Assistant; details at `/api/ha/diagnostics`.
-- **Multi-variant release tooling** — `tools/make_factory_bin.ps1 -Variant both` produces factory and OTA images for both devices in a single run.
-- **Stability** — hardened WebSocket/TLS send path, robust watchdog for the initial entity sync, moved large buffers off the HA client task stack (fixes a rare crash when adjusting media player volume).
+- **Stability** — hardened WebSocket/TLS send path, robust watchdog for the initial entity sync, moved large buffers off the HA client task stack 
 
 Full history: [release-notes.md](release-notes.md).
 
@@ -92,13 +93,15 @@ Build artifacts land in `release/` and `release/ota/`. Previous versions are mov
 
 ## Editor preview
 
+
 <p>
-  <img width="49%" alt="Widget inspector" src="https://github.com/user-attachments/assets/97be77c3-0716-4641-994c-efe90c929953" />
-  <img width="49%" alt="Page settings" src="https://github.com/user-attachments/assets/9caf6e2b-6ea9-4b76-b404-1b58da822712" />
+  <img width="49%" alt="Energy dashboard" src="https://github.com/user-attachments/assets/96d51c1d-743a-4c7a-b2c6-29f2cff1e41f" />
+  <img width="49%" alt="languages" src="https://github.com/user-attachments/assets/93702c1a-994c-4390-bfbc-6b4eb6b9d779" />
 </p>
 <p>
-  <img width="40%" alt="Settings view" src="https://github.com/user-attachments/assets/8c05cce8-983f-4715-a1fb-38ebbcbee563" />
-  <img width="58%" alt="Energy dashboard" src="https://github.com/user-attachments/assets/96d51c1d-743a-4c7a-b2c6-29f2cff1e41f" />
+  <img width="49%" alt="theme editor" src="https://github.com/user-attachments/assets/2c016e94-bd7e-4c4e-a4e5-2826e6ba6269" />
+  <img width="49%" alt="OTA firmware" alt="image" src="https://github.com/user-attachments/assets/f655f102-47dc-4881-aed1-3e6a8cd451a4" />
+
 </p>
 
 ---

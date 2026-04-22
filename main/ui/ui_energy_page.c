@@ -267,8 +267,20 @@ static void energy_format_kwh(char *dst, size_t dst_size, float kwh)
         snprintf(dst, dst_size, "%.0f kWh", (double)kwh);
     } else if (abs_kwh >= 10.0f) {
         snprintf(dst, dst_size, "%.1f kWh", (double)kwh);
-    } else {
+    } else if (abs_kwh >= 1.0f) {
         snprintf(dst, dst_size, "%.2f kWh", (double)kwh);
+    } else {
+        /* Below 1 kWh switch to Wh so small consumers stay readable
+           (e.g. "45 Wh" instead of "0.05 kWh"). */
+        float wh = kwh * 1000.0f;
+        float abs_wh = fabsf(wh);
+        if (abs_wh >= 100.0f) {
+            snprintf(dst, dst_size, "%.0f Wh", (double)wh);
+        } else if (abs_wh >= 10.0f) {
+            snprintf(dst, dst_size, "%.1f Wh", (double)wh);
+        } else {
+            snprintf(dst, dst_size, "%.2f Wh", (double)wh);
+        }
     }
 }
 

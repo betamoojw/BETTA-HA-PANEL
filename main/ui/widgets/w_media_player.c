@@ -627,9 +627,8 @@ esp_err_t w_media_player_create(const ui_widget_def_t *def, lv_obj_t *parent, ui
         lv_obj_align(now_artist, LV_ALIGN_TOP_LEFT, col_x, y);
     }
 
-    /* Progress bar (width of the active column). */
+    /* Progress bar (flanked by current position / duration labels). */
     lv_obj_t *progress = lv_bar_create(card);
-    lv_obj_set_size(progress, col_w, 6);
     lv_bar_set_range(progress, 0, 100);
     lv_bar_set_value(progress, 0, LV_ANIM_OFF);
     lv_obj_set_style_radius(progress, 3, LV_PART_MAIN);
@@ -639,11 +638,13 @@ esp_err_t w_media_player_create(const ui_widget_def_t *def, lv_obj_t *parent, ui
     lv_obj_t *pos_label = lv_label_create(card);
     lv_label_set_text(pos_label, "");
     lv_obj_set_style_text_font(pos_label, APP_FONT_TEXT_14, LV_PART_MAIN);
+    lv_obj_set_style_text_align(pos_label, LV_TEXT_ALIGN_RIGHT, LV_PART_MAIN);
     ctx->pos_label = pos_label;
 
     lv_obj_t *dur_label = lv_label_create(card);
     lv_label_set_text(dur_label, "");
     lv_obj_set_style_text_font(dur_label, APP_FONT_TEXT_14, LV_PART_MAIN);
+    lv_obj_set_style_text_align(dur_label, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN);
     ctx->dur_label = dur_label;
 
     /* Controls row */
@@ -678,9 +679,17 @@ esp_err_t w_media_player_create(const ui_widget_def_t *def, lv_obj_t *parent, ui
     const lv_coord_t ctrl_y = vol_y - controls_row_h;
     const lv_coord_t prog_y = ctrl_y - progress_row_h;
 
-    lv_obj_align(progress, LV_ALIGN_TOP_LEFT, col_x, prog_y);
-    lv_obj_align(pos_label, LV_ALIGN_TOP_LEFT, col_x, prog_y + 12);
-    lv_obj_align(dur_label, LV_ALIGN_TOP_LEFT, col_x + col_w - 60, prog_y + 12);
+    /* Progress row: [ m:ss ][=====bar=====][ m:ss ]. Times flank the bar. */
+    const lv_coord_t time_label_w = 50;
+    const lv_coord_t time_gap = 6;
+    const lv_coord_t bar_w = col_w - 2 * (time_label_w + time_gap);
+    const lv_coord_t bar_x = col_x + time_label_w + time_gap;
+    lv_obj_set_width(pos_label, time_label_w);
+    lv_obj_set_width(dur_label, time_label_w);
+    lv_obj_set_size(progress, bar_w > 20 ? bar_w : 20, 6);
+    lv_obj_align(progress, LV_ALIGN_TOP_LEFT, bar_x, prog_y + 6);
+    lv_obj_align(pos_label, LV_ALIGN_TOP_LEFT, col_x, prog_y + 1);
+    lv_obj_align(dur_label, LV_ALIGN_TOP_LEFT, col_x + col_w - time_label_w, prog_y + 1);
 
     /* Controls: centered within the active column. */
     const lv_coord_t col_mid_dx = col_x + col_w / 2 - content_w / 2;

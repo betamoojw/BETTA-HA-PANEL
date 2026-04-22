@@ -29,7 +29,7 @@ Both variants share the same dashboard engine, web editor, and Home Assistant in
 
 - **Live Home Assistant link** — WebSocket connection with REST fallback for forecasts and long-poll states.
 - **On-device editor** — BETTA Editor in the browser at `http://<panel-ip>`; drag-and-drop widgets, multi-page layouts, room-grouped entity picker.
-- **Widget library** — sensor, button, slider, graph, light, heating, weather, up to 5 day weather forecast, media player, todo list, cover, energy dashboard, empty tile.
+- **Widget library** — sensor, button, slider, graph, light, heating, weather, up to 5 day weather forecast, media player, todo list, energy dashboard, empty tile.
 - **Advanced light control** — brightness, color temperature, RGB — exposed only when Home Assistant reports the capability.
 - **Energy dashboard** — automatic grid / solar / battery / gas / water flow visualization driven by the Home Assistant energy model.
 - **Graphs** — line, smoothed line, or bar-chart modes; event-rate sampling up to 4096 points with progressive decimation.

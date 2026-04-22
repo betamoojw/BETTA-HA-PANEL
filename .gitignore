@@ -15,6 +15,8 @@ MERGE-PROTOCOL.md
 managed_components/
 tools/
 release/network_adapter_esp32c6*.bin
+release/archive/
+release/ota/archive/
 main/ui/weather_icons/**
 !main/ui/weather_icons/
 !main/ui/weather_icons/UPSTREAM_LINK.txt

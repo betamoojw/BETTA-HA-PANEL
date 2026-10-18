@@ -283,6 +283,15 @@ void app_main(void)
         auto_update_task_start(s_runtime_settings.ota_auto_install);
     }
 
+#if CONFIG_APP_PANEL_VARIANT_S3_480
+    /* Provisioning can last longer than the dim timeout. Keep GT911 active so
+     * a touch can wake the S3 setup screen before HA has been configured. */
+    esp_err_t setup_touch_err = touch_init();
+    if (setup_touch_err != ESP_OK) {
+        ESP_LOGW(TAG_TOUCH, "Setup touch init failed: %s", esp_err_to_name(setup_touch_err));
+    }
+#endif
+
     if (boot_screen_mode == BOOT_SCREEN_DASHBOARD) {
         ui_boot_splash_set_status(ui_i18n_get("boot.initializing_touch", "Initializing touch"));
         esp_err_t touch_err = touch_init();

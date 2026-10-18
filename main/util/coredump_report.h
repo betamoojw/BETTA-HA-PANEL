@@ -18,8 +18,8 @@ typedef struct {
     bool present;      /* a checksum-valid dump is stored; the fields below are only meaningful then */
     char task[16];      /* name of the task that crashed */
     uint32_t pc;         /* program counter at the crash */
-    uint32_t mcause;     /* RISC-V trap cause */
-    uint32_t mtval;      /* RISC-V trap value (the bad address, for a load/store fault) */
+    uint32_t mcause;     /* RISC-V mcause / Xtensa EXCCAUSE (legacy API/archive key) */
+    uint32_t mtval;      /* RISC-V mtval / Xtensa EXCVADDR */
     uint32_t ra;         /* return address */
     uint32_t sp;         /* stack pointer */
     size_t size;        /* bytes of the stored dump in flash, including its checksum */
@@ -42,6 +42,6 @@ bool coredump_report_supported(void);
  * reset-reason line: a dump only means something next to knowing this boot followed a panic. */
 void coredump_report_log_at_boot(void);
 
-/* A short RISC-V mcause name ("Load access fault", ...) for the log and the API, or NULL for a value
+/* A short architecture-specific exception name for the log and the API, or NULL for a value
  * this table does not name (still shown as the raw number). */
 const char *coredump_report_mcause_name(uint32_t mcause);

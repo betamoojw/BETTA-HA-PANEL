@@ -10,6 +10,7 @@ cd "$(dirname "$0")/.."
 variant="${VARIANT:-panel4}"
 cjson="managed_components/espressif__cjson/cJSON"
 case "$variant" in
+  panels3) variant_flags=(-DCONFIG_IDF_TARGET_ESP32S3=1 -DCONFIG_APP_PANEL_VARIANT_S3_480=1) ;;
   panel4) variant_flags=(-DCONFIG_IDF_TARGET_ESP32P4=1 -DCONFIG_APP_PANEL_VARIANT_4INCH_720=1) ;;
   tab5) variant_flags=(-DCONFIG_IDF_TARGET_ESP32P4=1 -DCONFIG_APP_PANEL_VARIANT_TAB5_1280=1) ;;
   panel10) variant_flags=(-DCONFIG_IDF_TARGET_ESP32P4=1 -DCONFIG_APP_PANEL_VARIANT_10INCH_1280=1) ;;
@@ -53,6 +54,13 @@ cc -std=gnu11 -Wall -Wextra -Werror -g -I main -I tests/host/stubs \
   tests/host/test_ha_controls.c main/ha/ha_registry_discovery.c main/ha/ha_control_options.c \
   main/ha/ha_attr_serialize.c "${cjson_sources[@]}" "${cjson_libs[@]}" -lm -o "$out/test_ha_controls"
 "$out/test_ha_controls"
+
+# Exercise S3 identity, memory limits and navigation independently of the host variant.
+cc -std=gnu11 -Wall -Wextra -Werror -g -I main -I tests/host/stubs \
+  -DCONFIG_IDF_TARGET_ESP32S3=1 -DCONFIG_APP_PANEL_VARIANT_S3_480=1 "${cjson_flags[@]}" \
+  tests/host/test_panels3.c main/layout/widget_types.c main/ui/nav_layout.c main/ui/text_scale.c main/net/update_check_parse.c \
+  "${cjson_sources[@]}" "${cjson_libs[@]}" -lm -o "$out/test_panels3"
+"$out/test_panels3"
 
 # Exercise Tab5 geometry and orientation independently of the default host variant.
 cc -std=gnu11 -Wall -Wextra -Werror -g -I main -I tests/host/stubs \

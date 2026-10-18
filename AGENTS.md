@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: LicenseRef-FNCL-1.1 | Copyright (c) 2026 andre68723 -- file added in the andre68723/BETTA-HA-PANEL fork, see docs/release-notes.md -->
 # Agent guide: architecture and development
 
-BETTA HA Panel is ESP-IDF firmware for ESP32-P4 touch panels. An
+BETTA HA Panel is ESP-IDF firmware for ESP32-P4 and Guition ESP32-S3 touch panels. An
 embedded browser editor configures a Home Assistant dashboard at runtime. This
 fork starts at upstream commit `420df764` (v0.8.2); user-facing changes are
 grouped under v0.9.0 in `docs/release-notes.md`. The intended local fork version
@@ -152,7 +152,7 @@ paneljc since the state pass is one pass per widget; the per-entity pass was qua
 ## Variants and build
 
 Use `tools/build.sh <variant> <idf.py arguments>` with ESP-IDF 6.1 activated.
-Variants: `panel4`, `panel10`, `paneljc`, `paneljc-v2`, `tab5` (one M5Stack Tab5 ST7121/v1.3 unit began device trials on 2026-10-05; see `docs/choose-display.md`). This wrapper
+Variants: `panel4`, `panel10`, `paneljc`, `paneljc-v2`, `tab5`, `panels3` (device trial scope is in `docs/choose-display.md`). This wrapper
 selects the target, config overlays and `build/<variant>/`; a bare `idf.py`
 can select the wrong flash configuration. The root `CMakeLists.txt` selects a
 variant manifest and applies `tools/apply_component_patches.py` to fetched
@@ -173,8 +173,8 @@ for the local `panel4` and `paneljc` builds. Host tests run without a prior
 ESP-IDF build, using a system `libcjson` package or fetched cJSON sources.
 Firmware builds and host tests do not establish hardware behaviour. Check the
 specific board on device before claiming it is verified. `panel10` and
-`paneljc-v2` have only been compile-checked in this fork. The ESP32-S3 board (`panels3`) was removed: no hardware, and its 480 px screen
-cannot hold the newer widgets. See `docs/choose-display.md` for variant
+`paneljc-v2` have only been compile-checked in this fork. The ESP32-S3 board (`panels3`) is restored in this checkout;
+read `docs/hardware/panels3.md` for its compact layout and device-validation limits. See `docs/choose-display.md` for variant
 limits and `docs/release-notes.md` for release gaps.
 
 For an unresponsive network, identify the board before touching USB. Opening

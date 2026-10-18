@@ -505,7 +505,7 @@ static bool load_display_precisions(const cJSON *states)
 
 static void print_usage(const char *program)
 {
-    fprintf(stderr, "Usage: %s [--fixture path] [--page id] [--rotation 0|90|180|270 (Tab5)] [--text-step 0|1|2] [--text-cap 0..3] [--theme id] [--style ", program);
+    fprintf(stderr, "Usage: %s [--fixture path] [--page id] [--rotation 0|90|180|270 (Tab5)] [--text-step 0|1|2] [--text-cap -1..3] [--theme id] [--style ", program);
     ui_style_kind_t kind;
     for (size_t i = 0; ui_style_at(i, &kind); i++) {
         fprintf(stderr, "%s%s", i > 0 ? "|" : "", ui_style_name(kind));
@@ -546,6 +546,20 @@ static bool sim_area_intersect(lv_area_t *res, const lv_area_t *a, const lv_area
  * and its text, so tools/check_widget_layout.py can find text that overlaps or leaves its tile.
  * Content of a scrolling list is reported as far as it is visible: a row half cut off at the bottom is what a
  * scrolling list looks like, not a layout defect, and a row scrolled out of sight is not reported at all. */
+/* Exercise scrollable detail fields without emulating a touchscreen gesture. */
+static bool scroll_popup_bottom(lv_obj_t *obj)
+{
+    if (lv_obj_is_scrollable(obj) && !lv_obj_check_type(obj, &lv_roller_class) &&
+        lv_obj_get_scroll_bottom(obj) > 0) {
+        lv_obj_scroll_to_y(obj, lv_obj_get_scroll_bottom(obj), LV_ANIM_OFF);
+        return true;
+    }
+    for (uint32_t i = 0; i < lv_obj_get_child_count(obj); i++) {
+        if (scroll_popup_bottom(lv_obj_get_child(obj, i))) return true;
+    }
+    return false;
+}
+
 static void dump_object(FILE *out, const ui_widget_def_t *def, lv_obj_t *obj, int depth, const lv_area_t *clip)
 {
     lv_area_t scroll_clip;
@@ -782,8 +796,9 @@ int main(int argc, char **argv)
             else return 2;
         }
         else if (strcmp(argv[i - 1], "--text-cap") == 0) {
-            if (value[0] < '0' || value[0] > '3' || value[1] != '\0') return 2;
-            ui_fonts_set_cap_override(value[0] - '0');
+            if (!strcmp(value, "-1")) ui_fonts_set_cap_override(-1);
+            else if (value[0] >= '0' && value[0] <= '3' && value[1] == '\0') ui_fonts_set_cap_override(value[0] - '0');
+            else return 2;
         }
         else if (strcmp(argv[i - 1], "--tap") == 0) {
             int tx = 0, ty = 0;
@@ -1111,6 +1126,7 @@ int main(int argc, char **argv)
         snprintf(line, sizeof(line), "http://%s", json_string(setup, "ip"));
         ui_boot_splash_set_status(line);
     }
+    const bool scroll_detail = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(root, "popup_scroll_bottom"));
     cJSON_Delete(root);
 
     /* --tap: a click on whatever is at the screen point (popups first), to render popups that open on a tap. */
@@ -1122,6 +1138,14 @@ int main(int argc, char **argv)
         if (target != NULL) lv_obj_send_event(target, LV_EVENT_CLICKED, NULL);
     }
     if (tap_count > 0) for (int n = 0; n < 12; n++) { lv_timer_handler(); lv_delay_ms(5); }
+    if (scroll_detail) {
+        lv_obj_update_layout(lv_layer_top());
+        if (!scroll_popup_bottom(lv_layer_top())) {
+            fprintf(stderr, "Requested detail has no scrollable overflow\n");
+            free(widgets);
+            return 1;
+        }
+    }
     if (screenshot_path != NULL && exit_after_ms == 0) exit_after_ms = 250;
     int64_t deadline_us = exit_after_ms > 0 ? esp_timer_get_time() + (int64_t)exit_after_ms * 1000 : INT64_MAX;
     while (esp_timer_get_time() < deadline_us) {

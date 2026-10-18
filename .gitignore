@@ -26,6 +26,7 @@ tools/*
 !tools/screenshot.sh
 !tools/simulator.sh
 !tools/build.sh
+!tools/build.ps1
 !tools/clean.sh
 !tools/check.sh
 !tools/check_web.py

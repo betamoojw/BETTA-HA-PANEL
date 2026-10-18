@@ -3,7 +3,7 @@
 
 # BETTA HA Panel
 
-A Home Assistant dashboard for ESP32-P4 touchscreens. Arrange widgets, import rooms and
+A Home Assistant dashboard for ESP32-P4 and Guition ESP32-S3-4848S040 touchscreens. Arrange widgets, import rooms and
 choose your appearance in the panel's browser editor. Everyday layout changes need no
 YAML and no firmware rebuild.
 
@@ -25,10 +25,10 @@ use: solar forecast, evcc wallbox, Bambu printer, Matter-based vacuums and more 
 information. A few other things changed with them. The list of what is
 different from upstream v0.8.2 is in the [release notes](docs/release-notes.md).
 
-This is a personal project, built around the panels I own. All of them are ESP32-P4
-devices, so I removed the ESP32-S3 variant of upstream: I have no test device for it, and
-its 480 px screen cannot hold the newer widgets. Use the fork as it is; the hardware table
-below says what has been tried on a device.
+This fork originally focused on ESP32-P4 devices. The Guition ESP32-S3-4848S040
+profile is restored in this checkout with native Wi-Fi and a compact text profile.
+Its 480 px display needs smaller layouts, and a physical device trial is pending.
+The hardware table below says what has been tried on a device.
 
 ## What you can do
 
@@ -51,6 +51,7 @@ The [feature guide](docs/features.md), [widget library](docs/widgets/README.md) 
 | Variant | Device | Screen | Fork verification |
 | --- | --- | --- | --- |
 | `panel4` | Waveshare ESP32-P4-WIFI6-Touch-LCD-4B, 4-inch | 720 × 720 | Runs on hardware |
+| `panels3` | [Guition ESP32-S3-4848S040](docs/hardware/panels3.md), 4-inch | 480 × 480 | Build/simulator, physical display/touch and LAN editor/API checked; OTA trial pending |
 | `tab5` | **M5Stack Tab5**, 5-inch | 1280 × 720 / 720 × 1280, automatic rotation | ST7121/v1.3 device trial on 2026-10-05 |
 | `panel10` | Waveshare ESP32-P4-WIFI6-Touch-LCD-10.1 | 1280 × 800 | Profile compile checked with Nano BSP; LCD-X trial pending |
 | `paneljc` | Guition JC8012P4A1, 10.1-inch, original/V1 panel | 1280 × 800 | Runs on hardware |

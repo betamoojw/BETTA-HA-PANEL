@@ -111,7 +111,9 @@ static lv_obj_t *roller(lv_obj_t *parent, int x, int y, int width, const char *o
     lv_roller_set_visible_row_count(obj, 3);
     lv_obj_set_size(obj, width, DT_ROLLER_H);
     lv_obj_set_pos(obj, x, y);
-    lv_obj_set_style_text_font(obj, ui_font_role(UI_TEXT_KEY), LV_PART_MAIN);
+    const char *sample = strcspn(options, "\n") > 2 ? "8888" : "88";
+    lv_obj_set_style_text_font(obj, ui_text_fit(sample, ui_font_role(UI_TEXT_KEY),
+        width - 16, DT_ROLLER_H / 3), LV_PART_MAIN);
     lv_obj_set_style_text_color(obj, lv_color_hex(APP_UI_COLOR_TEXT_PRIMARY), LV_PART_MAIN);
     lv_obj_set_style_bg_color(obj, lv_color_hex(APP_UI_COLOR_NAV_BTN_BG_IDLE), LV_PART_MAIN);
     lv_obj_set_style_bg_opa(obj, LV_OPA_COVER, LV_PART_MAIN);
@@ -171,7 +173,8 @@ static void popup_open(w_datetime_ctx_t *ctx)
     if (card_w > 500) card_w = 500;
     /* padding + title row, then per field group a label and a roller, then the button row */
     const int groups = (ctx->value.has_date ? 1 : 0) + (ctx->value.has_time ? 1 : 0);
-    int card_h = 14 + 48 + groups * (32 + DT_ROLLER_H + 10) + 14 + DT_BUTTON_H + 14;
+    const int caption_h = lv_font_get_line_height(DT_FONT_CAPTION) + 6;
+    int card_h = 28 + 48 + groups * (caption_h + DT_ROLLER_H + 10) + DT_BUTTON_H + caption_h + 16;
     if (card_h > screen_h - 48) card_h = screen_h - 48;
 
     lv_obj_t *overlay = lv_obj_create(lv_layer_top());
@@ -209,41 +212,56 @@ static void popup_open(w_datetime_ctx_t *ctx)
     lv_obj_t *close = ui_popup_close_button(card, lv_color_hex(APP_UI_COLOR_NAV_BTN_BG_IDLE), popup_close, ctx);
     lv_obj_align(close, LV_ALIGN_TOP_RIGHT, 0, 0);
 
+    /* Both date and time need more vertical room than a 480px screen. Keep
+     * the title/actions visible and scroll only the field groups. */
+    lv_obj_t *body = lv_obj_create(card);
+    lv_obj_remove_style_all(body);
+    lv_obj_set_pos(body, 0, 48);
+    lv_obj_set_size(body, card_w - 28, card_h - 28 - 48 - DT_BUTTON_H - caption_h - 16);
+    lv_obj_set_scroll_dir(body, LV_DIR_VER);
+    lv_obj_set_scrollbar_mode(body, LV_SCROLLBAR_MODE_AUTO);
+    lv_obj_set_style_width(body, 4, LV_PART_SCROLLBAR);
+    lv_obj_set_style_bg_color(body, lv_color_hex(APP_UI_COLOR_TEXT_MUTED), LV_PART_SCROLLBAR);
+    lv_obj_set_style_bg_opa(body, LV_OPA_50, LV_PART_SCROLLBAR);
+    const int inner_w = card_w - 28;
+    const int year_w = inner_w < 460 ? inner_w * 37 / 100 : DT_YEAR_W;
+    const int date_w = inner_w < 460 ? (inner_w - year_w - 2 * DT_ROLLER_GAP) / 2 : DT_ROLLER_W;
+    const int time_w = inner_w < 460 ? (inner_w - 2 * DT_ROLLER_GAP) / 3 : DT_ROLLER_W;
     char options[800];
-    int y = 48;
+    int y = 0;
     if (ctx->value.has_date) {
-        lv_obj_t *label = lv_label_create(card);
+        lv_obj_t *label = lv_label_create(body);
         lv_label_set_text(label, ui_i18n_get("datetime.date", "Date"));
         lv_obj_set_style_text_font(label, DT_FONT_CAPTION, LV_PART_MAIN);
         lv_obj_set_style_text_color(label, lv_color_hex(APP_UI_COLOR_TEXT_MUTED), LV_PART_MAIN);
         lv_obj_set_pos(label, 0, y);
-        y += 32;
+        y += caption_h;
         numeric_options(options, sizeof(options), 1, 31, true);
-        ctx->day_roller = roller(card, 0, y, DT_ROLLER_W, options, ctx->value.day - 1);
+        ctx->day_roller = roller(body, 0, y, date_w, options, ctx->value.day - 1);
         numeric_options(options, sizeof(options), 1, 12, true);
-        ctx->month_roller = roller(card, DT_ROLLER_W + DT_ROLLER_GAP, y, DT_ROLLER_W, options, ctx->value.month - 1);
+        ctx->month_roller = roller(body, date_w + DT_ROLLER_GAP, y, date_w, options, ctx->value.month - 1);
         ctx->first_year = ctx->value.year - 60;
         if (ctx->first_year < 1970) ctx->first_year = 1970;
         int last_year = ctx->first_year + 120;
         if (last_year > 9999) last_year = 9999;
         numeric_options(options, sizeof(options), ctx->first_year, last_year, false);
-        ctx->year_roller = roller(card, 2 * (DT_ROLLER_W + DT_ROLLER_GAP), y, DT_YEAR_W, options,
+        ctx->year_roller = roller(body, 2 * (date_w + DT_ROLLER_GAP), y, year_w, options,
                                   ctx->value.year - ctx->first_year);
         y += DT_ROLLER_H + 10;
     }
     if (ctx->value.has_time) {
-        lv_obj_t *label = lv_label_create(card);
+        lv_obj_t *label = lv_label_create(body);
         lv_label_set_text(label, ui_i18n_get("datetime.time", "Time"));
         lv_obj_set_style_text_font(label, DT_FONT_CAPTION, LV_PART_MAIN);
         lv_obj_set_style_text_color(label, lv_color_hex(APP_UI_COLOR_TEXT_MUTED), LV_PART_MAIN);
         lv_obj_set_pos(label, 0, y);
-        y += 32;
+        y += caption_h;
         numeric_options(options, sizeof(options), 0, 23, true);
-        ctx->hour_roller = roller(card, 0, y, DT_ROLLER_W, options, ctx->value.hour);
+        ctx->hour_roller = roller(body, 0, y, time_w, options, ctx->value.hour);
         numeric_options(options, sizeof(options), 0, 59, true);
-        ctx->minute_roller = roller(card, DT_ROLLER_W + DT_ROLLER_GAP, y, DT_ROLLER_W, options, ctx->value.minute);
+        ctx->minute_roller = roller(body, time_w + DT_ROLLER_GAP, y, time_w, options, ctx->value.minute);
         if (ctx->value.second != 0) {
-            ctx->second_roller = roller(card, 2 * (DT_ROLLER_W + DT_ROLLER_GAP), y, DT_ROLLER_W, options, ctx->value.second);
+            ctx->second_roller = roller(body, 2 * (time_w + DT_ROLLER_GAP), y, time_w, options, ctx->value.second);
         }
     }
 
@@ -259,7 +277,8 @@ static void popup_open(w_datetime_ctx_t *ctx)
     lv_obj_add_event_cb(save, popup_save, LV_EVENT_CLICKED, ctx);
     lv_obj_t *save_label = lv_label_create(save);
     lv_label_set_text(save_label, ui_i18n_get("datetime.save", "Save"));
-    lv_obj_set_style_text_font(save_label, ui_font_role(UI_TEXT_VALUE), LV_PART_MAIN);
+    lv_obj_set_style_text_font(save_label, ui_text_fit(lv_label_get_text(save_label),
+        ui_font_role(UI_TEXT_VALUE), DT_BUTTON_W - 24, DT_BUTTON_H - 12), LV_PART_MAIN);
     lv_obj_center(save_label);
     lv_obj_t *cancel = lv_btn_create(card);
     lv_obj_set_size(cancel, DT_BUTTON_W, DT_BUTTON_H);
@@ -268,7 +287,8 @@ static void popup_open(w_datetime_ctx_t *ctx)
     lv_obj_add_event_cb(cancel, popup_close, LV_EVENT_CLICKED, ctx);
     lv_obj_t *cancel_label = lv_label_create(cancel);
     lv_label_set_text(cancel_label, ui_i18n_get("datetime.cancel", "Cancel"));
-    lv_obj_set_style_text_font(cancel_label, ui_font_role(UI_TEXT_VALUE), LV_PART_MAIN);
+    lv_obj_set_style_text_font(cancel_label, ui_text_fit(lv_label_get_text(cancel_label),
+        ui_font_role(UI_TEXT_VALUE), DT_BUTTON_W - 24, DT_BUTTON_H - 12), LV_PART_MAIN);
     lv_obj_center(cancel_label);
 }
 

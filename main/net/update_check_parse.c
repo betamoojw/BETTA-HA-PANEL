@@ -19,6 +19,7 @@ const char *update_check_variant_for_project(const char *project_name)
         const char *variant;
     } k_variants[] = {
         {"betta-ha-panel", "panel4"},
+        {"betta-ha-panel-s3", "panels3"},
         {"betta-ha-panel-10.1", "panel10"},
         {"betta-ha-panel-jc", "paneljc"},
         {"betta-ha-panel-tab5", "tab5"},

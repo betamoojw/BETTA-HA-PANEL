@@ -42,6 +42,7 @@
 #include "util/ota_validate.h"
 
 static bool s_wifi_connected = false;
+static bool s_wifi_driver_initialized = false;
 static EventGroupHandle_t s_wifi_event_group = NULL;
 /* esp_hosted's RPC response-table locking only landed in 2.12.13 (we're on
  * 2.12.12; kept as a second layer on 2.12.13): concurrent esp_wifi_* calls from different tasks (e.g. the
@@ -88,7 +89,9 @@ static int s_wifi_max_retries = WIFI_MAX_RETRIES_DEFAULT;
 static int64_t s_last_recover_disc_conn_ms = 0;
 static int64_t s_last_recover_stop_start_ms = 0;
 static int64_t s_last_connect_request_ms = 0;
+#if CONFIG_ESP_HOSTED_ENABLED
 static int64_t s_last_hosted_hard_recover_ms = 0;
+#endif
 static esp_timer_handle_t s_reconnect_timer = NULL;
 static uint8_t s_pending_reconnect_reason = 0;
 static int s_pending_reconnect_attempt = 0;
@@ -916,19 +919,6 @@ static void c6_deferred_update_task(void *arg)
 }
 #endif
 
-void wifi_mgr_run_deferred_c6_update(void)
-{
-#if CONFIG_ESP_HOSTED_ENABLED
-    if (!s_c6_update_deferred) {
-        return;
-    }
-    s_c6_update_deferred = false;
-    if (xTaskCreate(c6_deferred_update_task, "c6_update", 8192, NULL, 4, NULL) != pdPASS) {
-        ESP_LOGW(TAG_WIFI, "Could not start the deferred C6 update task");
-    }
-#endif
-}
-
 static void hosted_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data)
 {
     (void)arg;
@@ -1033,6 +1023,19 @@ static esp_err_t wifi_mgr_init_hosted_transport(void)
 }
 #endif
 
+void wifi_mgr_run_deferred_c6_update(void)
+{
+#if CONFIG_ESP_HOSTED_ENABLED
+    if (!s_c6_update_deferred) {
+        return;
+    }
+    s_c6_update_deferred = false;
+    if (xTaskCreate(c6_deferred_update_task, "c6_update", 8192, NULL, 4, NULL) != pdPASS) {
+        ESP_LOGW(TAG_WIFI, "Could not start the deferred C6 update task");
+    }
+#endif
+}
+
 static esp_err_t wifi_mgr_ensure_stack_initialized(void)
 {
     if (s_wifi_event_group == NULL) {
@@ -1061,11 +1064,16 @@ static esp_err_t wifi_mgr_ensure_stack_initialized(void)
     ESP_RETURN_ON_ERROR(wifi_mgr_init_hosted_transport(), TAG_WIFI, "init ESP-Hosted transport");
 #endif
 
-    wifi_init_config_t wifi_init_cfg = WIFI_INIT_CONFIG_DEFAULT();
-    err = esp_wifi_init(&wifi_init_cfg);
-    if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
-        ESP_LOGE(TAG_WIFI, "esp_wifi_init failed: %s", esp_err_to_name(err));
-        return err;
+    /* STA timeout can enter setup AP without deinitializing the driver.
+     * Native S3 Wi-Fi reports an error if it is initialized again. */
+    if (!s_wifi_driver_initialized) {
+        wifi_init_config_t wifi_init_cfg = WIFI_INIT_CONFIG_DEFAULT();
+        err = esp_wifi_init(&wifi_init_cfg);
+        if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
+            ESP_LOGE(TAG_WIFI, "esp_wifi_init failed: %s", esp_err_to_name(err));
+            return err;
+        }
+        s_wifi_driver_initialized = true;
     }
 
     if (s_wifi_event_instance == NULL) {

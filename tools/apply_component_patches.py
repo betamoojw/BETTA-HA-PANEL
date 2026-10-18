@@ -127,6 +127,20 @@ PATCHES = [
                "        .lane_bit_rate_mbps = config != NULL ? config->dsi_bus.lane_bit_rate_mbps\n"
                "            : (board_version == BSP_TAB5_BOARD_VERSION_ST7121 ? BSP_LCD_ST712X_MIPI_DSI_LANE_BITRATE_MBPS\n"
                "                                                               : BSP_LCD_MIPI_DSI_LANE_BITRATE_MBPS),\n")),
+    ("espressif__esp_lvgl_adapter", "src/display/bridge/v9/lvgl_bridge_v9.c",
+     "RGB cache-safe ISR: keep the v9 bridge callback context in internal RAM",
+     replace, ("    esp_lv_adapter_display_bridge_v9_t *impl = calloc(1, sizeof(*impl));",
+               "    /* andre68723/BETTA-HA-PANEL: the RGB driver rejects PSRAM user_ctx\n"
+               "     * with LCD_RGB_ISR_IRAM_SAFE. Frame/draw buffers still use PSRAM. */\n"
+               "    esp_lv_adapter_display_bridge_v9_t *impl;\n"
+               "#if CONFIG_SOC_LCD_RGB_SUPPORTED && CONFIG_LCD_RGB_ISR_IRAM_SAFE\n"
+               "    if (cfg->base.profile.interface == ESP_LV_ADAPTER_PANEL_IF_RGB) {\n"
+               "        impl = heap_caps_calloc(1, sizeof(*impl), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);\n"
+               "    } else\n"
+               "#endif\n"
+               "    {\n"
+               "        impl = calloc(1, sizeof(*impl));\n"
+               "    }")),
     ("espressif__esp_lvgl_port", "src/common/ppa/lcd_ppa.c",
      "esp_lvgl_port: PPA rotation waits at most 1 s for the hardware (a missing done interrupt hung the LVGL task, paneljc 2026-10-05), part 1",
      replace_ppa_legacy, ("#include \"lcd_ppa.h\"\n",

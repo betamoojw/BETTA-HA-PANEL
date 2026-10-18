@@ -29,7 +29,15 @@ def demo_fixture(variant):
         for widget in page.get('widgets', []):
             templates.setdefault(widget['type'], copy.deepcopy(widget))
     fixture = compact if variant == 'panel4' else wide
-    if variant == 'tab5':
+    if variant == 'panels3':
+        fixture = json.loads((ROOT / 'tests/simulator/panels3.json').read_text(encoding='utf-8'))
+        for kind in ('wallbox_evcc', 'bambu_printer', 'weather_3day'):
+            widget = copy.deepcopy(templates[kind])
+            widget['rect'] = {'x': 12, 'y': 12, 'w': 456, 'h': 336}
+            fixture['pages'].append({'id': kind, 'title': widget['title'], 'widgets': [widget]})
+        fixture['pages'].append(copy.deepcopy(next(p for p in gallery['pages'] if p.get('type') == 'energy_dashboard')))
+        fixture['states'].extend(copy.deepcopy(gallery['states']))
+    elif variant == 'tab5':
         fixture['pages'][0] = demo_page(gallery, variant)
     elif variant != 'panel4':
         choices = [('weather_3day', 'Wetter', (20, 20, 600, 280)),
@@ -84,11 +92,11 @@ def demo_responses(variant, fixture_path=None, all_widgets=False):
     width, height, canvas_height = GEOMETRY[variant]
     version = responses['/api/version']
     version.update(board=variant, screen_w=width, screen_h=height, canvas_w=width, canvas_h=canvas_height,
-                   max_pages=8 if width < 1000 else 12,
-                   full_nav_pages=5 if width < 1000 else 10,
+                   max_pages=5 if variant == 'panels3' else (8 if width < 1000 else 12),
+                   full_nav_pages=3 if variant == 'panels3' else (5 if width < 1000 else 10),
                    version='LOCAL-EDITOR', safe_mode=False)
     sizes = (16, 20, 24, 28, 32, 36, 42, 48, 56, 64)
-    offset = 1 if variant == 'tab5' else 0
+    offset = -1 if variant == 'panels3' else (1 if variant == 'tab5' else 0)
     version['text'].update(board=variant, floor=20 if variant in ('panel4', 'tab5') else 16,
                            sizes=[[sizes[index + offset + step] for index in (1, 2, 3, 5, 6)] for step in range(3)])
     responses['/api/settings']['ui'].update(language='de', text_step=0)

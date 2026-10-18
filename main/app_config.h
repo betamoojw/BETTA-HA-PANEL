@@ -10,7 +10,14 @@
  * Selected via CONFIG_APP_PANEL_VARIANT_* (see main/Kconfig.projbuild).
  * Defaults fall back to the 4" 720x720 baseline so an older sdkconfig
  * (pre-variant) still builds the smart86 target unchanged. */
-#if defined(CONFIG_APP_PANEL_VARIANT_10INCH_1280)
+#if defined(CONFIG_APP_PANEL_VARIANT_S3_480)
+#  define APP_NAME               "betta-ha-panel-s3"
+#  define APP_BOARD_DESCRIPTION  "Guition ESP32-S3-4848S040"
+#  define APP_SCREEN_WIDTH       480
+#  define APP_SCREEN_HEIGHT      480
+#  define APP_CONTENT_BOX_WIDTH  480
+#  define APP_CONTENT_BOX_HEIGHT 360
+#elif defined(CONFIG_APP_PANEL_VARIANT_10INCH_1280)
 #  define APP_NAME               "betta-ha-panel-10.1"
 #  define APP_BOARD_DESCRIPTION  "Waveshare ESP32-P4 Module Nano + 10.1\" DSI panel"
 #  define APP_SCREEN_WIDTH       1280
@@ -112,8 +119,10 @@
  * 720 px bar at 64 px each, 12 the 1280 px bar comfortably; the limit is nav_layout_max_pages() (host-tested), not memory. */
 #if APP_SCREEN_WIDTH >= 1000
 #  define APP_MAX_PAGES 12
-#else
+#elif APP_SCREEN_WIDTH >= 700
 #  define APP_MAX_PAGES 8
+#else
+#  define APP_MAX_PAGES 5
 #endif
 #define APP_MAX_WIDGETS_PER_PAGE 32
 /* The total stays at 224 widgets (7 pages of 32): this was set when 224 widgets needed a minute to build; they take 3.6 s now, so the total is a policy cap, not a measured limit. */
@@ -139,8 +148,14 @@
 
 /* All ESP32-P4 variants (10" and 4") keep the cache in PSRAM (about 8 MB for
  * 4096 entities and states, of 24+ MB free); raise the ceiling for large HA installs. */
+#if defined(CONFIG_APP_PANEL_VARIANT_S3_480)
+/* Leave room in 8 MB PSRAM for RGB buffers, TLS, fonts and images. */
+#define APP_HA_MAX_ENTITIES 512
+#define APP_HA_MAX_STATES 512
+#else
 #define APP_HA_MAX_ENTITIES 4096
 #define APP_HA_MAX_STATES 4096
+#endif
 /* Must fit weather entity attributes incl. the compact forecast array plus temperature/humidity/units.
  * The P4 boards have plenty of PSRAM: leave room for the weather detail attributes (pressure, wind,
  * visibility) next to the forecast. */

@@ -63,6 +63,17 @@
                 "SDKCONFIG_DEFAULTS": "config/sdkconfig.defaults;config/sdkconfig.defaults.tab5",
                 "SDKCONFIG": "${sourceDir}/build/tab5/sdkconfig"
             }
+        },
+        {
+            "name": "panels3",
+            "displayName": "Guition ESP32-S3-4848S040 480x480",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build/panels3",
+            "cacheVariables": {
+                "IDF_TARGET": "esp32s3",
+                "SDKCONFIG_DEFAULTS": "config/sdkconfig.defaults.panels3",
+                "SDKCONFIG": "${sourceDir}/build/panels3/sdkconfig"
+            }
         }
     ]
 }

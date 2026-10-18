@@ -58,7 +58,7 @@ def text_rect(rec):
     return rec
 
 
-MIN_TEXT_PX = {"panel4": 20, "tab5": 20}  # the 4-inch class has no text below 20 px (docs/appearance.md)
+MIN_TEXT_PX = {"panel4": 20, "tab5": 20, "panels3": 16}
 
 
 def is_symbol_text(text):
@@ -128,6 +128,56 @@ def case_fixture(gallery_fixture):
     return dict(gallery_fixture, pages=pages)
 
 
+def compact_fixture(fixture):
+    """Exercise existing samples inside the S3 canvas, one tile per page.
+
+    Large-board gallery coordinates are not valid S3 layouts. Keep each tile's
+    options/states and small dimensions, bound large tiles to the 456x336 inset,
+    and leave automatic House/Energy pages to their real layout code.
+    """
+    fixture = json.loads(json.dumps(fixture))
+    pages = []
+    for page in fixture["pages"]:
+        if page.get("type") in ("house_dashboard", "energy_dashboard") or not page.get("widgets"):
+            pages.append(page)
+            continue
+        for index, widget in enumerate(page["widgets"]):
+            rect = widget["rect"]
+            rect.update(x=12, y=12, w=min(rect["w"], 456), h=min(rect["h"], 336))
+            name = page["id"] if len(page["widgets"]) == 1 else f"{page['id']}_{index}"
+            pages.append(dict(page, id=name, widgets=[widget]))
+    fixture["pages"] = pages
+    return fixture
+
+
+def compact_popup_fixtures(gallery):
+    """Open the real small-screen detail views with synthetic data only."""
+    gallery = compact_fixture(gallery)
+    fixtures = {}
+    for kind in ("select_tile", "datetime_tile", "solar_forecast", "room_tile", "energy_timeline"):
+        page = next(p for p in gallery["pages"] if any(w["type"] == kind for w in p.get("widgets", [])))
+        fixtures[f"popup_{kind}"] = dict(gallery, pages=[page], tap_widget=page["widgets"][0]["id"])
+    for kind, point in (("weather_3day", [70, 180]), ("bambu_printer", [189, 374]),
+                        ("wallbox_evcc", [280, 366])):
+        page = next(p for p in gallery["pages"] if any(w["type"] == kind for w in p.get("widgets", [])))
+        fixtures[f"popup_{kind}"] = dict(gallery, pages=[page], tap_points=[point])
+    fixtures["popup_notification"] = json.loads((REPO / "tests/simulator/notification_bold.json").read_text())
+    page = next(p for p in gallery["pages"] if any(w["type"] == "sensor" for w in p.get("widgets", [])))
+    fixtures["popup_history"] = dict(gallery, pages=[page], history_popup={
+        "entity_id": page["widgets"][0]["entity_id"], "title": "Room temperature",
+        "current": "21.8 °C", "numeric": True, "device_class": "temperature"})
+    original = next(p for p in gallery["pages"] if any(w["type"] == "datetime_tile" for w in p.get("widgets", [])))
+    for name, state, has_time in (("date", "2026-10-18", False), ("date_time", "2026-10-18 06:30:45", True)):
+        page = json.loads(json.dumps(original))
+        entity = f"input_datetime.compact_{name}"
+        page["widgets"][0]["entity_id"] = entity
+        states = [*gallery["states"], {"entity_id": entity, "state": state,
+                  "attributes": {"has_date": True, "has_time": has_time}}]
+        fixtures[f"popup_{name}"] = dict(gallery, pages=[page], states=states, tap_widget=page["widgets"][0]["id"])
+    fixtures["popup_date_time_scrolled"] = dict(fixtures["popup_date_time"], popup_scroll_bottom=True)
+    return fixtures
+
+
 def render_dumps(binary, fixture_path, page_ids, out_dir, extra_args=()):
     env = dict(os.environ, SDL_VIDEODRIVER="dummy")
     jobs = [(page, style, language, Path(out_dir) / f"{page}_{style}_{language}.jsonl")
@@ -159,11 +209,11 @@ def check_dumps(dumps, min_px=0):
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--fixture", type=Path, help="simulator fixture (default: the gallery fixture)")
-    parser.add_argument("--variant", default="panel4", choices=("panel4", "panel10", "paneljc", "paneljc-v2", "tab5"),
+    parser.add_argument("--variant", default="panel4", choices=("panel4", "panel10", "paneljc", "paneljc-v2", "tab5", "panels3"),
                         help="panel geometry and font mapping to check (default: panel4)")
     parser.add_argument("--text-step", type=int, choices=(0, 1, 2), default=0,
                         help="user text size step to render (Standard, Larger, Largest; default 0)")
-    parser.add_argument("--text-cap", type=int, choices=(0, 1, 2, 3),
+    parser.add_argument("--text-cap", type=int, choices=(-1, 0, 1, 2, 3),
                         help="force the tile growth cap of every tile (calibration; default: the calibrated cap per tile)")
     parser.add_argument("--rotation", type=int, choices=(0, 90, 180, 270),
                         help="display rotation (90/270 require the tab5 variant)")
@@ -194,12 +244,28 @@ def main():
                 for kind in ("numeric", "state"):
                     fixtures[f"readability_history_{kind}"] = json.loads(
                         (REPO / f"tests/simulator/readability_history_{kind}.json").read_text())
+            if args.variant == "panels3":
+                for name in ("wallbox_evcc", "wallbox_disconnected", "wallbox_sessions"):
+                    fixtures[name] = json.loads((REPO / f"tests/simulator/{name}.json").read_text())
+                fixtures = {name: compact_fixture(fixture) for name, fixture in fixtures.items()}
+                fixtures.update(compact_popup_fixtures(gallery))
         problems = []
+        render_count = 0
         for name, fixture in fixtures.items():
             fixture_path = Path(temp) / f"{name}.json"
             fixture_path.write_text(json.dumps(fixture, ensure_ascii=False), encoding="utf-8")
             titles = {page["id"]: page.get("title", page["id"]) for page in fixture["pages"]}
-            dumps = render_dumps(binary, fixture_path, list(titles), temp, extra_args)
+            taps = [arg for point in fixture.get("tap_points", []) for arg in ("--tap", f"{point[0]},{point[1]}")]
+            dumps = render_dumps(binary, fixture_path, list(titles), temp, [*extra_args, *taps])
+            render_count += len(dumps)
+            if name.startswith("popup_"):
+                for context, path in dumps:
+                    records = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line]
+                    if not any(record["widget"] == "popup" for record in records):
+                        problems.append(f"{context}detail popup did not open")
+                    if name == "popup_date_time_scrolled" and not any(
+                            record.get("text") in ("Time", "Uhrzeit") for record in records):
+                        problems.append(f"{context}time fields were not reachable by scrolling")
             if name.startswith("readability"):
                 for context, path in dumps:
                     records = [json.loads(line) for line in path.read_text().splitlines() if line]
@@ -216,7 +282,7 @@ def main():
                          for page in [problem.split(":", 1)[0]]]
     for problem in problems:
         print(problem)
-    print(f"widget layout: {'ok' if not problems else f'{len(problems)} problem(s)'}")
+    print(f"widget layout: {'ok' if not problems else f'{len(problems)} problem(s)'} ({render_count} renders)")
     return 1 if problems else 0
 
 

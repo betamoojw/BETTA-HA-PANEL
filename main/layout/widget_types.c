@@ -113,6 +113,9 @@ widget_size_limits_t widget_type_size_limits(const char *type)
     if (info != NULL) {
         limits = info->limits;
     }
+    if (CBH <= 360 && type != NULL && strcmp(type, "wallbox_evcc") == 0) {
+        limits.min_h = 320;
+    }
     if (limits.max_w > CBW) {
         limits.max_w = CBW;
     }

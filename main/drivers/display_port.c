@@ -6,13 +6,17 @@
 
 #include <stdlib.h>
 #include "app_config.h"
+#include "soc/soc_caps.h"
+#if CONFIG_APP_DISPLAY_PPA
 #include "driver/ppa.h"
+#endif
 #include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "util/log_tags.h"
 
+#if SOC_MIPI_DSI_SUPPORTED
 /* One display per panel. The adapter owns its LVGL buffers and flush handshake;
  * this context owns only the rotation scratch buffer and optional accelerator.
  * LVGL waits for the preceding color-transfer completion before calling the
@@ -161,6 +165,8 @@ fail:
     return NULL;
 }
 
+#endif /* SOC_MIPI_DSI_SUPPORTED */
+
 esp_err_t display_port_init(void)
 {
     esp_lv_adapter_config_t config = ESP_LV_ADAPTER_DEFAULT_CONFIG();
@@ -191,6 +197,7 @@ void display_port_unlock(void)
     esp_lv_adapter_unlock();
 }
 
+#if SOC_MIPI_DSI_SUPPORTED
 lv_display_t *display_port_add_dsi(esp_lcd_panel_handle_t panel,
                                   esp_lcd_panel_io_handle_t io,
                                   uint16_t width, uint16_t height,
@@ -235,3 +242,5 @@ lv_display_t *display_port_add_dsi(esp_lcd_panel_handle_t panel,
     }
     return NULL;
 }
+
+#endif /* SOC_MIPI_DSI_SUPPORTED */

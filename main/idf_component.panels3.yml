@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: LicenseRef-FNCL-1.1
+# Copyright (c) 2026 Cpt_Kirk
+# Modified 2026 by andre68723 -- see docs/release-notes.md
+# Native ESP32-S3 Wi-Fi; no P4 BSP, ESP-Hosted, camera or codec dependency.
+dependencies:
+  idf: ">=5.5.5"
+  espressif/esp_lvgl_adapter: "0.7.3"
+  lvgl/lvgl: "9.6.0~1"
+  espressif/esp_lcd_st7701: "2.0.2"
+  espressif/esp_lcd_panel_io_additions: "1.0.1"
+  espressif/esp_lcd_touch: "1.2.1"
+  espressif/esp_lcd_touch_gt911: "1.2.0~2"
+  joltwallet/littlefs: "1.23.0"
+  espressif/esp_websocket_client: "1.8.0"
+  espressif/mqtt: "1.1.0"
+  espressif/cjson:
+    version: "1.7.19~2"
+    rules:
+      - if: "idf_version >=6.0"

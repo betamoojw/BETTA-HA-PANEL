@@ -82,6 +82,11 @@ also renders the Matte comparison (`tests/simulator/matte_reference.json`) and e
   arcs and knobs and for whether a tile still shows what it is for.
 - A new or changed widget layout needs a tile in the gallery fixture (`tests/simulator/gallery_data.json`,
   `build_spec()` in `tools/gallery_content.py`) and its minimum size and variants in `layout_cases.json`.
+- `--variant panels3` checks the existing fixtures one card per page, with large
+  cards bounded to the 456 × 336 inset, plus real detail popups and date/time
+  scrolling in English and German. Explicit `--fixture` layouts keep their coordinates.
+  Run text steps 0, 1 and 2. Calibrate its separate table with
+  `python3 tools/calibrate_text_caps.py --variant panels3 --write`.
 - Two LVGL traps behind most findings: an object placed with `lv_obj_align()` keeps that anchor, so a later
   `lv_obj_set_pos()` offsets from it (use `lv_obj_align(obj, LV_ALIGN_TOP_LEFT, x, y)`); sizes read right after creation
   are 0 until `lv_obj_update_layout()` runs.

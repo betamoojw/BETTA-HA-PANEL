@@ -17,6 +17,7 @@ endmenu
 
 config APP_DISPLAY_PPA
     bool "Use PPA for shared display rotation"
+    depends on SOC_PPA_SUPPORTED
     default y
     help
         Shared adapter bitmap rotation uses a bounded PPA transaction. Disable
@@ -38,24 +39,35 @@ menu "Panel Hardware Variant"
 
 choice APP_PANEL_VARIANT
     prompt "Display panel variant"
+    default APP_PANEL_VARIANT_S3_480 if IDF_TARGET_ESP32S3
     default APP_PANEL_VARIANT_4INCH_720
     help
         Select the physical LCD / touch panel this firmware image targets.
         Affects screen resolution (APP_SCREEN_WIDTH/HEIGHT), panel init
         sequence and touch-controller driver selection.
 
+config APP_PANEL_VARIANT_S3_480
+    bool "4\" 480x480 (Guition ESP32-S3-4848S040)"
+    depends on IDF_TARGET_ESP32S3
+    help
+        ST7701S RGB565 display, GT911 touch and native ESP32-S3 Wi-Fi.
+        Requires 16 MB flash and 8 MB Octal PSRAM.
+
 config APP_PANEL_VARIANT_4INCH_720
     bool "4\" 720x720 round (smart86 base)"
+    depends on IDF_TARGET_ESP32P4
     help
         Original smart86 4-inch 720x720 square/round panel.
 
 config APP_PANEL_VARIANT_10INCH_1280
     bool "10.1\" 1280x800 (betta large)"
+    depends on IDF_TARGET_ESP32P4
     help
         10.1-inch 1280x800 panel variant.
 
 config APP_PANEL_VARIANT_10INCH_JC
     bool "10.1\" 800x1280 (Guition JC8012P4A1, ESP32-P4)"
+    depends on IDF_TARGET_ESP32P4
     help
         Guition JC8012P4A1 10.1-inch 800x1280 MIPI-DSI panel.
         Display: JD9365 controller, 2-lane MIPI-DSI.
@@ -65,6 +77,7 @@ config APP_PANEL_VARIANT_10INCH_JC
 
 config APP_PANEL_VARIANT_TAB5_1280
     bool "5\" 1280x720 (M5Stack Tab5, ESP32-P4) - untested on hardware"
+    depends on IDF_TARGET_ESP32P4
     help
         M5Stack Tab5, 5-inch 1280x720 landscape, ESP32-P4 + ESP32-C6 (ESP-Hosted).
         Display and touch come from Espressif's m5stack_tab5 BSP, Wi-Fi from ESP-Hosted over SDIO.

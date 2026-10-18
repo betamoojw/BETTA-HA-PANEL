@@ -80,7 +80,7 @@ def check_editor_files():
         elif not (WWW / name).read_bytes().endswith(b"\n"):
             fail(f"www/{name} must end with a newline, the build concatenates the stylesheets")
     for path in sorted([WWW / "styles.css", *(WWW / "css").glob("*.css")]):
-        if str(path.relative_to(WWW)) not in listed_css:
+        if path.relative_to(WWW).as_posix() not in listed_css:
             fail(f"www/{path.relative_to(WWW)} is not in WEBUI_CSS_SOURCES")
     for name in listed_js:
         if not (WWW / name).exists():

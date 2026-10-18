@@ -115,7 +115,13 @@ static bool weather_render_columns(lv_obj_t *card, w_weather_tile_ctx_t *ctx, co
     lv_text_get_size(&temp_size, temp_text, temp_font, 0, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
     const lv_coord_t temp_block_w = temp_size.x + 44 > 150 ? temp_size.x + 44 : 150;
     lv_obj_set_pos(ctx->meta_label, inline_head ? text_x + temp_block_w : text_x, inline_head ? block_y + (temp_h - meta_h) / 2 : block_y + temp_h + line_gap);
-    if (inline_head) lv_obj_set_width(ctx->meta_label, text_w - temp_block_w);
+    if (inline_head) {
+        const lv_coord_t width = text_w - temp_block_w;
+        const lv_font_t *fit = ui_text_fit(meta_text, meta_font, width, meta_h);
+        lv_obj_set_width(ctx->meta_label, width);
+        lv_obj_set_height(ctx->meta_label, fit->line_height);
+        lv_obj_set_style_text_font(ctx->meta_label, fit, LV_PART_MAIN);
+    }
     ui_text_record(ctx->temp_label, UI_TEXT_VALUE, true);
     ui_text_record(ctx->meta_label, UI_TEXT_META, true);
 

@@ -31,7 +31,7 @@ tools/simulator.sh panel4 --fixture <file> --page <id> --theme classic_v1 --styl
 SDL_VIDEODRIVER=dummy tools/simulator.sh panel4 --fixture <file> --page <id> --screenshot out.bmp --exit-after-ms 500
 ```
 
-- Geometry is the first argument: `panel4`, `panel10`, `paneljc`, `paneljc-v2` or `tab5` (1280 × 720 landscape,
+- Geometry is the first argument: `panels3` (480 × 480), `panel4`, `panel10`, `paneljc`, `paneljc-v2` or `tab5` (1280 × 720 landscape,
   720 × 1280 portrait).
 - `--theme` takes a built-in id (`dark_v2`, `classic_v1`, `light`, `ocean`, `contrast`, `black`; no custom themes),
   `--style` one of `flat`, `glow`, `glass`, `matte`, `--page` a page id (default the first).
@@ -63,6 +63,8 @@ A fixture is the layout's `pages` plus `states`. Get the pages from an authentic
   `entity_picture` `file:<path>` shows that PNG.
 - `tap_widget` opens a widget's read-only popup by id. `setup_screen` (`ssid`, `password`, `ip`) renders the Wi-Fi
   setup splash; use public demo values.
+- `popup_scroll_bottom: true` scrolls an overflowing detail container to its end,
+  for checking fields below the fold while the action buttons remain visible.
 - A page of type `house_dashboard` (with `house.rooms`) or `energy_dashboard` (with `energy`) renders like on the panel.
 
 Regression fixtures: `matte_reference.json` (light, cover, climate, dimmer, German long titles, unavailable and unit

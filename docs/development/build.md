@@ -34,9 +34,34 @@ tools/build.sh panel4 -p <port> flash monitor       # exit the monitor with Ctrl
 tools/package_release.sh <built-version> panel4     # factory and OTA files plus SHA256SUMS in release/out/<version>/
 ```
 
-Variants: `panel4`, `panel10`, `paneljc`, `paneljc-v2`, `tab5`. `package_release.sh` checks the version the build
+Variants: `panel4`, `panel10`, `paneljc`, `paneljc-v2`, `tab5`, `panels3`. `package_release.sh` checks the version the build
 reports (for example `v0.9.0`) and publishes nothing. `flash` writes bootloader, table and app separately, not a
 merged factory file; flash the factory file with the [USB procedure](../getting-started.md#2-flash-the-panel).
+
+## Guition ESP32-S3 { #guition-esp32-s3 }
+
+Activate ESP-IDF 6.1 with the ESP32-S3 tools installed, then build **only**
+`panels3`. Its independent defaults select `esp32s3`, 16 MB flash and Octal
+80 MHz PSRAM. Do not combine them with the P4 base defaults. No C6 image is needed.
+
+```bash
+tools/build.sh panels3 build
+tools/build.sh panels3 -p <port> flash monitor
+tools/package_release.sh v0.9.0 panels3
+```
+
+On Windows, use an ESP-IDF PowerShell terminal (Git Bash is rejected by IDF 6):
+
+```powershell
+./tools/build.ps1 panels3 build
+./tools/build.ps1 panels3 -p COM3 flash monitor
+```
+
+The app is `build/panels3/betta-ha-panel-s3.bin`; the dedicated dependency lock is
+`dependencies.lock.panels3`. USB flashing writes the matching bootloader, table
+and app. For a packaged factory image use `esptool --chip esp32s3` and write at
+`0x0`; an OTA-only app is not a factory image. Review the
+[device limits](../hardware/panels3.md#limits-and-validation) before migrating a layout.
 
 ## Install a downloaded image
 

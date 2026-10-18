@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: LicenseRef-FNCL-1.1
+# Copyright (c) 2026 andre68723
+# Guition 4848S040, 16 MB flash. Two 6.5 MiB OTA slots; 2.625 MiB LittleFS.
+# Name, Type, SubType, Offset, Size, Flags
+nvs, data, nvs, 0x9000, 0x6000,
+otadata, data, ota, 0xF000, 0x2000,
+phy_init, data, phy, 0x11000, 0x1000,
+ota_0, app, ota_0, 0x20000, 0x680000,
+ota_1, app, ota_1, 0x6A0000, 0x680000,
+coredump, data, coredump, 0xD20000, 0x40000,
+storage, data, littlefs, 0xD60000, 0x2A0000,

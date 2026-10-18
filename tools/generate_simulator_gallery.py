@@ -52,6 +52,7 @@ GEOMETRY = {
     "paneljc": (1280, 800, 680),
     "paneljc-v2": (1280, 800, 680),
     "tab5": (1280, 720, 600),
+    "panels3": (480, 480, 360),
 }
 
 
@@ -123,7 +124,7 @@ def build_simulator(variant="panel4"):
     check_run(["cmake", "-S", "tests/simulator", "-B", str(build_dir), f"-DSIM_VARIANT={variant}",
                "-DCMAKE_BUILD_TYPE=Debug"])
     check_run(["cmake", "--build", str(build_dir), "--parallel"])
-    return build_dir / "betta-widget-sim"
+    return build_dir / ("betta-widget-sim.exe" if os.name == "nt" else "betta-widget-sim")
 
 
 def render_images(spec, fixture, output_dir, variant="panel4"):

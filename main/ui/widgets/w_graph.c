@@ -1304,7 +1304,9 @@ static void graph_apply_layout(w_graph_ctx_t *ctx)
     if (ui_widget_name_enabled(ctx->title_label) && lv_obj_get_height(ctx->title_label) > header_h)
         header_h = lv_obj_get_height(ctx->title_label);
     lv_obj_align(ctx->meta_label, LV_ALIGN_TOP_LEFT, 0, header_h + 2);
-    lv_coord_t chart_y = lv_obj_get_y(ctx->meta_label) + lv_obj_get_height(ctx->meta_label) + 4;
+    /* align() is deferred until LVGL's next layout pass. Reading its old Y
+     * placed the chart over the stats after the header font changed. */
+    lv_coord_t chart_y = header_h + 2 + lv_obj_get_height(ctx->meta_label) + 4;
     if (chart_y < 20) {
         chart_y = 20;
     }

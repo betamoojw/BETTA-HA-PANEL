@@ -36,6 +36,10 @@ static void test_roles_and_profiles(void)
     CHECK_EQ(text_scale_floor_px(TEXT_BOARD_PANEL4), 20);
     CHECK_EQ(text_scale_floor_px(TEXT_BOARD_TAB5), 20);
     CHECK_EQ(text_scale_floor_px(TEXT_BOARD_WIDE10), 16);
+    CHECK_EQ(text_scale_floor_px(TEXT_BOARD_S3), 16);
+    CHECK_EQ(text_scale_px(TEXT_BOARD_S3, UI_TEXT_META, 0), 16);
+    CHECK_EQ(text_scale_px(TEXT_BOARD_S3, UI_TEXT_LABEL, 0), 20);
+    CHECK_EQ(text_scale_px(TEXT_BOARD_S3, UI_TEXT_VALUE, 0), 24);
     CHECK_EQ(text_scale_px(TEXT_BOARD_PANEL4, UI_TEXT_UNASSIGNED, 0), 0);
     CHECK_EQ(text_scale_index(TEXT_BOARD_PANEL4, UI_TEXT_UNASSIGNED, 0), -1);
 }
@@ -174,6 +178,11 @@ static void test_capped_growth(void)
     CHECK_EQ(text_scale_tile_cap(TEXT_BOARD_WIDE10, "energy_page", 1280, 800), 1);
     CHECK_EQ(text_scale_tile_cap(TEXT_BOARD_TAB5, "energy_page", 1280, 720), 1);
     CHECK_EQ(text_scale_tile_cap(TEXT_BOARD_PANEL4, "energy_page", 720, 720), 0);
+    CHECK_EQ(text_scale_tile_cap(TEXT_BOARD_S3, "energy_page", 480, 360), 0);
+    CHECK_EQ(text_scale_tile_cap(TEXT_BOARD_S3, "wallbox_evcc", 360, 320), -1);
+    CHECK_EQ(text_scale_tile_cap(TEXT_BOARD_S3, "light_tile", 456, 336), -1);
+    CHECK_EQ(text_scale_px_capped(TEXT_BOARD_S3, UI_TEXT_LABEL, 2,
+        text_scale_tile_cap(TEXT_BOARD_S3, "wallbox_evcc", 360, 320)), 20);
     /* unknown types and unset sizes are not capped */
     for (int b = 0; b < TEXT_BOARD_COUNT; b++) {
         CHECK_EQ(text_scale_tile_cap((text_board_t)b, "no_such_widget", 100, 100), TEXT_TILE_CAP_NONE);

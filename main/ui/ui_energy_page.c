@@ -30,7 +30,7 @@
 #define ha_history_days_free free /* the simulator has no worker: its synthetic results are plain allocations */
 #endif
 
-#define ENERGY_ICON_FONT (mdi_font_energy_42())
+#define ENERGY_ICON_FONT (APP_VIEW_WIDTH <= 480 ? ui_font_icon(ICON_SYMBOL_MEDIUM) : mdi_font_energy_42())
 
 /* Arrow codepoints of the arrow font (mdi_font_arrows_20): U+F0045 arrow-down, U+F004D arrow-left, U+F0054 arrow-right, U+F005D arrow-up */
 #define ENERGY_ARROW_DOWN  "\xF3\xB0\x81\x85"  /* U+F0045 */
@@ -90,6 +90,22 @@ static void energy_arrow_value_font_prepare(void)
 #define ENERGY_ARC_BATTERY 1
 #define ENERGY_ARC_GRID 2
 
+#if APP_SCREEN_WIDTH <= 480
+/* Six readable nodes in the 480x360 canvas. Keep the flow topology and popup
+ * actions; the larger boards retain their existing geometry below. */
+#define ENERGY_NODE_GRID_X 80
+#define ENERGY_NODE_SOLAR_X 242
+#define ENERGY_NODE_HOME_X 405
+#define ENERGY_NODE_BATTERY_X 242
+#define ENERGY_NODE_GRID_Y 180
+#define ENERGY_NODE_SOLAR_Y 80
+#define ENERGY_NODE_HOME_Y 180
+#define ENERGY_NODE_BATTERY_Y 278
+#define ENERGY_NODE_SIZE 92
+#define ENERGY_HOME_SIZE 96
+#define ENERGY_DOT_SIZE 8
+#define ENERGY_ARC_RADIUS 20.0f
+#else
 #define ENERGY_NODE_GRID_X 130
 #define ENERGY_NODE_SOLAR_X 360
 #define ENERGY_NODE_HOME_X 560
@@ -109,7 +125,12 @@ static void energy_arrow_value_font_prepare(void)
 #define ENERGY_HOME_SIZE 139
 #define ENERGY_DOT_SIZE 16
 #define ENERGY_ARC_RADIUS 50.0f
-#if defined(CONFIG_APP_PANEL_VARIANT_4INCH_720) || defined(CONFIG_APP_PANEL_VARIANT_TAB5_1280)
+#endif
+#if APP_SCREEN_WIDTH <= 480
+#define ENERGY_NODE_TITLE_WIDTH 146
+#define ENERGY_NODE_TITLE_TOP_OFFSET 26
+#define ENERGY_NODE_TITLE_BOTTOM_OFFSET 4
+#elif defined(CONFIG_APP_PANEL_VARIANT_4INCH_720) || defined(CONFIG_APP_PANEL_VARIANT_TAB5_1280)
 #define ENERGY_NODE_TITLE_WIDTH 190
 #define ENERGY_NODE_TITLE_TOP_OFFSET 34
 #define ENERGY_NODE_TITLE_BOTTOM_OFFSET 4
@@ -119,7 +140,7 @@ static void energy_arrow_value_font_prepare(void)
 #define ENERGY_NODE_TITLE_BOTTOM_OFFSET 8
 #endif
 #define ENERGY_NODE_BORDER_WIDTH 3
-#define ENERGY_VALUE_INSET (APP_VIEW_WIDTH == 720 ? 8 : 18)
+#define ENERGY_VALUE_INSET (APP_VIEW_WIDTH <= 720 ? 8 : 18)
 #define ENERGY_HOME_ARC_PAD 14
 #define ENERGY_HOME_ARC_WIDTH 6
 #define ENERGY_FLOW_LINE_WIDTH 3
@@ -127,8 +148,8 @@ static void energy_arrow_value_font_prepare(void)
 #define ENERGY_EXPONENT_FONT ui_font_role(UI_TEXT_META)
 #define ENERGY_TITLE_FONT ui_font_role(UI_TEXT_LABEL)
 #define ENERGY_STATS_FONT ui_font_role(UI_TEXT_META)
-#define ENERGY_STATS_X 24
-#define ENERGY_STATS_WIDTH 300
+#define ENERGY_STATS_X (APP_VIEW_WIDTH <= 480 ? 12 : 24)
+#define ENERGY_STATS_WIDTH (APP_VIEW_WIDTH <= 480 ? 180 : 300)
 #define ENERGY_STATS_TODAY_Y (APP_VIEW_CONTENT_HEIGHT - 56)
 #define ENERGY_STATS_AUTARKY_Y (APP_VIEW_CONTENT_HEIGHT - 32)
 
@@ -455,6 +476,18 @@ static void energy_set_obj_hidden(lv_obj_t *obj, bool hidden)
 }
 
 /* State of charge next to the battery node title ("Battery 87 %"). */
+static void energy_set_dynamic_title(lv_obj_t *label, const char *text)
+{
+    if (APP_VIEW_WIDTH <= 480) {
+        const lv_font_t *font = ui_text_fit(text, ENERGY_TITLE_FONT, ENERGY_NODE_TITLE_WIDTH,
+                                           lv_font_get_line_height(ENERGY_TITLE_FONT));
+        lv_obj_set_style_text_font(label, font, LV_PART_MAIN);
+        lv_obj_set_height(label, font->line_height);
+        lv_label_set_long_mode(label, LV_LABEL_LONG_DOT);
+    }
+    lv_label_set_text(label, text);
+}
+
 static void energy_update_battery_title(energy_page_ctx_t *ctx)
 {
     char title[48];
@@ -464,7 +497,7 @@ static void energy_update_battery_title(energy_page_ctx_t *ctx)
     } else {
         snprintf(title, sizeof(title), "%s", ui_i18n_get("energy.battery", "Battery"));
     }
-    lv_label_set_text(ctx->nodes[ENERGY_NODE_BATTERY].title_label, title);
+    energy_set_dynamic_title(ctx->nodes[ENERGY_NODE_BATTERY].title_label, title);
 }
 
 /* Live PV production next to the solar node title ("Solar 4230 W"), Home Assistant source only. */
@@ -477,7 +510,7 @@ static void energy_update_solar_title(energy_page_ctx_t *ctx)
     } else {
         snprintf(title, sizeof(title), "%s", ui_i18n_get("energy.solar", "Solar"));
     }
-    lv_label_set_text(ctx->nodes[ENERGY_NODE_SOLAR].title_label, title);
+    energy_set_dynamic_title(ctx->nodes[ENERGY_NODE_SOLAR].title_label, title);
 }
 
 static void energy_set_node_hidden(energy_node_t *node, bool hidden)
@@ -642,7 +675,8 @@ static void energy_fit_node_value(energy_node_t *node, const char *text)
         lv_point_t size; lv_text_get_size(&size, plain, font, 0, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
         chosen = fonts[i];
         if (size.x <= lv_obj_get_width(node->circle) - ENERGY_VALUE_INSET &&
-            size.y <= lv_obj_get_height(node->circle) - 54) break;
+            size.y <= lv_obj_get_height(node->circle) -
+                (APP_VIEW_WIDTH <= 480 ? (int)lv_font_get_line_height(ENERGY_ICON_FONT) + 8 : 54)) break;
     }
     if (arrows) {
         node->fitted_font.fallback = chosen;

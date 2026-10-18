@@ -1,0 +1,20 @@
+{
+  "pages": [
+    {
+      "id": "compact",
+      "title": "Living room",
+      "widgets": [
+        {"id":"temperature","type":"sensor","title":"Temperature","entity_id":"sensor.temperature","sensor_show_label":true,"rect":{"x":12,"y":12,"w":220,"h":148}},
+        {"id":"humidity","type":"sensor","title":"Humidity","entity_id":"sensor.humidity","sensor_show_label":true,"rect":{"x":248,"y":12,"w":220,"h":148}},
+        {"id":"lamp","type":"light_tile","title":"Desk lamp","entity_id":"light.desk","rect":{"x":12,"y":176,"w":220,"h":172}},
+        {"id":"window","type":"sensor","title":"Window","entity_id":"binary_sensor.window","sensor_show_label":true,"rect":{"x":248,"y":176,"w":220,"h":172}}
+      ]
+    }
+  ],
+  "states": [
+    {"entity_id":"sensor.temperature","state":"21.8","attributes":{"unit_of_measurement":"°C"}},
+    {"entity_id":"sensor.humidity","state":"48","attributes":{"unit_of_measurement":"%"}},
+    {"entity_id":"light.desk","state":"on","attributes":{"brightness":170,"supported_color_modes":["brightness"]}},
+    {"entity_id":"binary_sensor.window","state":"off","attributes":{"device_class":"window"}}
+  ]
+}

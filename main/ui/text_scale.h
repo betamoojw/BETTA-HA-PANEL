@@ -27,6 +27,7 @@ typedef enum {
     TEXT_BOARD_PANEL4, /* 4-inch, about 255 ppi: the reference density */
     TEXT_BOARD_TAB5,   /* 5-inch, about 294 ppi */
     TEXT_BOARD_WIDE10, /* 10.1-inch boards, about 149 ppi: the same role sizes as the Panel4 (see text_scale.c for why not smaller) */
+    TEXT_BOARD_S3,     /* 4-inch 480x480, about 170 ppi */
     TEXT_BOARD_COUNT
 } text_board_t;
 
@@ -100,7 +101,7 @@ icon_metrics_t text_scale_emoji_metrics(int text_px);
 
 /* Boards whose widgets lay out from the line heights of the fonts in use (the "adaptive" branches that were written for the Panel4):
  * the Panel4 and the Tab5. The 10-inch boards keep their fixed row heights; text growth there is limited per tile (text_scale_tile_cap). */
-#if defined(CONFIG_APP_PANEL_VARIANT_4INCH_720) || defined(CONFIG_APP_PANEL_VARIANT_TAB5_1280)
+#if defined(CONFIG_APP_PANEL_VARIANT_S3_480) || defined(CONFIG_APP_PANEL_VARIANT_4INCH_720) || defined(CONFIG_APP_PANEL_VARIANT_TAB5_1280)
 #define UI_TEXT_ADAPTIVE 1
 #else
 #define UI_TEXT_ADAPTIVE 0
@@ -109,7 +110,9 @@ icon_metrics_t text_scale_emoji_metrics(int text_px);
 /* Board of the firmware or simulator build (from CONFIG_APP_PANEL_VARIANT_*). */
 static inline text_board_t text_scale_build_board(void)
 {
-#if defined(CONFIG_APP_PANEL_VARIANT_TAB5_1280)
+#if defined(CONFIG_APP_PANEL_VARIANT_S3_480)
+    return TEXT_BOARD_S3;
+#elif defined(CONFIG_APP_PANEL_VARIANT_TAB5_1280)
     return TEXT_BOARD_TAB5;
 #elif defined(CONFIG_APP_PANEL_VARIANT_4INCH_720)
     return TEXT_BOARD_PANEL4;

@@ -34,7 +34,8 @@ text_board_t ui_fonts_board(void);
 /* A widget builds and updates its text inside a tile context: the size of the tile caps how far its text may grow
  * (text_scale_tile_cap), so a tile that is too small keeps a smaller text instead of overlapping. The widget factory sets the
  * context around every widget callback; popups, the bars and pages outside a tile are not capped. ui_fonts_set_cap_override(n)
- * forces the cap of every tile (0..TEXT_TILE_CAP_NONE) for calibration and tests; -1 turns it off. */
+ * forces the cap of every tile (-1..TEXT_TILE_CAP_NONE) for calibration and tests; -2 turns it off.
+ * Cap -1 is the S3's compact base size and must remain independently testable. */
 void ui_fonts_tile_begin(const char *widget_type, int w, int h);
 void ui_fonts_tile_end(void);
 void ui_fonts_set_cap_override(int cap);

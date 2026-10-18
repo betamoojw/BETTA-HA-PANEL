@@ -2,7 +2,7 @@
 # Copyright (c) 2026 andre68723 -- file added in the andre68723/BETTA-HA-PANEL fork, see docs/release-notes.md
 [project]
 site_name = "BETTA HA Panel"
-site_description = "A Home Assistant touchscreen dashboard for ESP32-P4 panels."
+site_description = "A Home Assistant touchscreen dashboard for ESP32-P4 and Guition ESP32-S3 panels."
 site_author = "andre68723"
 site_url = "https://andre68723.github.io/BETTA-HA-PANEL/"
 repo_url = "https://github.com/andre68723/BETTA-HA-PANEL"
@@ -25,6 +25,7 @@ nav = [
       { 'M5Stack Tab5' = "hardware/tab5.md" },
       { 'Waveshare 10.1-inch panel' = "hardware/panel10.md" },
       { 'Guition JC8012P4A1' = "hardware/paneljc.md" },
+      { 'Guition ESP32-S3-4848S040' = "hardware/panels3.md" },
     ] },
   ] },
   { "Use the panel" = [

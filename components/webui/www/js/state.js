@@ -43,7 +43,7 @@ function widgetSizeLimitsForCanvas(type) {
     case "car_widget":
       return { minW: 200, minH: 200, maxW: 480, maxH: 560 };
     case "wallbox_evcc":
-      return { minW: 320, minH: 360, maxW: CANVAS_WIDTH, maxH: CANVAS_HEIGHT };
+      return { minW: 320, minH: CANVAS_HEIGHT <= 360 ? 320 : 360, maxW: CANVAS_WIDTH, maxH: CANVAS_HEIGHT };
     case "bambu_printer":
       return { minW: 320, minH: 320, maxW: CANVAS_WIDTH, maxH: CANVAS_HEIGHT };
     case "todo_list":

@@ -142,7 +142,10 @@ static void render_plot(history_popup_t *popup, float lowest, float highest, siz
     /* the plot starts below the summary line and the top axis label, which grow with the text size (50 px at the reference size) */
     const int summary_h = (int)lv_font_get_line_height(ui_font_role(UI_TEXT_LABEL));
     const int axis_h = (int)lv_font_get_line_height(ui_font_role(UI_TEXT_META));
-    const int chart_top = 6 + summary_h + axis_h / 2 > 50 ? 6 + summary_h + axis_h / 2 : 50, chart_h = 235;
+    const int chart_top = 6 + summary_h + axis_h / 2 > 50 ? 6 + summary_h + axis_h / 2 : 50;
+    int chart_h = 235;
+    const int available = lv_obj_get_height(popup->body) - chart_top - axis_h - 16;
+    if (available < chart_h) chart_h = available > 60 ? available : 60;
     const int chart_w = lv_obj_get_width(popup->body) - axis_w - 8;
     lv_obj_t *chart = lv_chart_create(popup->body);
     lv_obj_set_size(chart, chart_w, chart_h);

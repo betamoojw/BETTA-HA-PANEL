@@ -506,6 +506,7 @@ static void solar_popup_open(lv_event_t *event)
     ctx->popup = lv_obj_create(lv_layer_top());
     lv_obj_set_size(ctx->popup, APP_VIEW_WIDTH - 32, APP_VIEW_HEIGHT - 80);
     lv_obj_center(ctx->popup); theme_default_style_card(ctx->popup);
+    lv_obj_set_style_text_color(ctx->popup, theme_default_color_text_primary(), LV_PART_MAIN);
     lv_obj_set_style_bg_opa(ctx->popup, LV_OPA_COVER, LV_PART_MAIN);
     lv_obj_set_scrollable(ctx->popup, false);
     lv_obj_t *heading = lv_label_create(ctx->popup);
@@ -517,6 +518,9 @@ static void solar_popup_open(lv_event_t *event)
     lv_obj_align(heading, LV_ALIGN_TOP_LEFT, 12, 8);
     lv_obj_t *close = ui_popup_close_button(ctx->popup, lv_color_hex(APP_UI_COLOR_NAV_BTN_BG_IDLE), solar_popup_close_clicked, ctx);
     lv_obj_align(close, LV_ALIGN_TOP_RIGHT, -8, 0);
+    lv_obj_update_layout(ctx->popup);
+    int row_step = (lv_obj_get_content_height(ctx->popup) - 72) / SOLAR_FORECAST_ROWS;
+    if (row_step > 55) row_step = 55;
     for (int i = 0; i < SOLAR_FORECAST_ROWS; i++) {
         char day[24], value[48];
         if (!i) snprintf(day, sizeof(day), "%s", ui_i18n_get("solar.rest", "Rest"));
@@ -525,10 +529,10 @@ static void solar_popup_open(lv_event_t *event)
         else snprintf(value, sizeof(value), "-- %s", ctx->units[i]);
         lv_obj_t *label = lv_label_create(ctx->popup); lv_label_set_text(label, day);
         ui_text_set(label, UI_TEXT_LABEL, true);
-        lv_obj_align(label, LV_ALIGN_TOP_LEFT, 16, 72 + i * 55);
+        lv_obj_align(label, LV_ALIGN_TOP_LEFT, 16, 72 + i * row_step);
         lv_obj_t *reading = lv_label_create(ctx->popup); lv_label_set_text(reading, value);
         ui_text_set(reading, UI_TEXT_VALUE, true);
-        lv_obj_align(reading, LV_ALIGN_TOP_RIGHT, -16, 70 + i * 55);
+        lv_obj_align(reading, LV_ALIGN_TOP_RIGHT, -16, 70 + i * row_step);
     }
     ctx->popup_timer = lv_timer_create(solar_popup_timeout, 60000, ctx);
 }

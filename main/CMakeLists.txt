@@ -15,7 +15,12 @@ endif()
 # The 4" (smart86) and 10.1" (nano) panels use different BSPs and different
 # touch controllers, so their display_init/touch_init implementations live
 # in separate source files.  Exactly one pair is compiled per build.
-if(CONFIG_APP_PANEL_VARIANT_10INCH_1280)
+if(CONFIG_APP_PANEL_VARIANT_S3_480)
+    set(PANEL_DRIVER_SRCS
+        "drivers/display_init_panels3.c"
+        "drivers/touch_init_panels3.c"
+    )
+elseif(CONFIG_APP_PANEL_VARIANT_10INCH_1280)
     set(PANEL_DRIVER_SRCS
         "drivers/display_init_panel10.c"
         "drivers/touch_init_panel10.c"
@@ -45,7 +50,9 @@ endif()
 # the expected esp_lvgl_port/esp_lcd_jd9365 versions. Regenerated on every
 # configure from the same dependencies.lock file the root CMakeLists.txt
 # already selects for this variant.
-if(CONFIG_APP_PANEL_VARIANT_10INCH_JC)
+if(CONFIG_APP_PANEL_VARIANT_S3_480)
+    set(APP_DEPENDENCIES_LOCK "${CMAKE_SOURCE_DIR}/dependencies.lock.panels3")
+elseif(CONFIG_APP_PANEL_VARIANT_10INCH_JC)
     set(APP_DEPENDENCIES_LOCK "${CMAKE_SOURCE_DIR}/dependencies.lock.paneljc")
 elseif(CONFIG_APP_PANEL_VARIANT_TAB5_1280)
     set(APP_DEPENDENCIES_LOCK "${CMAKE_SOURCE_DIR}/dependencies.lock.tab5")
@@ -379,7 +386,6 @@ idf_component_register(
         esp_driver_gpio
         esp_driver_i2c
         esp_driver_ledc
-        esp_driver_ppa
         esp_lvgl_adapter
         esp_websocket_client
         mqtt
@@ -395,11 +401,18 @@ idf_component_register(
         littlefs
         webui
         esp_driver_i2s
-        esp_driver_jpeg
         espcoredump
 )
 
-# ESP-Hosted (P4 + C6 coprocessor) is used by every variant.
+# Hardware accelerators exist only on P4; S3 uses RGB and software JPEG.
+if(IDF_TARGET STREQUAL "esp32p4")
+    idf_component_optional_requires(PRIVATE esp_driver_ppa esp_driver_jpeg)
+endif()
+if(CONFIG_APP_PANEL_VARIANT_S3_480)
+    target_include_directories(${COMPONENT_LIB} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/drivers/panels3_bsp_shim")
+endif()
+
+# P4 uses ESP-Hosted; S3 has native Wi-Fi.
 idf_component_optional_requires(PRIVATE esp_wifi_remote esp_hosted)
 if(CONFIG_APP_FEATURE_AMBIENT_CAMERA)
     idf_component_optional_requires(PRIVATE espressif__esp_video)
@@ -430,7 +443,7 @@ file(MAKE_DIRECTORY "${HOSTED_C6_FW_EMBED_DIR}")
 set(HOSTED_C6_HOST_MANIFEST_FILE
     "${CMAKE_CURRENT_LIST_DIR}/../managed_components/espressif__esp_hosted/idf_component.yml")
 set(HOSTED_C6_EXPECTED_VERSION "unknown")
-if(EXISTS "${HOSTED_C6_HOST_MANIFEST_FILE}")
+if(CONFIG_ESP_HOSTED_ENABLED AND EXISTS "${HOSTED_C6_HOST_MANIFEST_FILE}")
     file(READ "${HOSTED_C6_HOST_MANIFEST_FILE}" HOSTED_C6_HOST_MANIFEST_TEXT)
     string(REGEX MATCH "\nversion:[ \t]*\"?([0-9]+\\.[0-9]+\\.[0-9]+)\"?"
         _HOSTED_C6_VER_MATCH "${HOSTED_C6_HOST_MANIFEST_TEXT}")
@@ -443,10 +456,10 @@ if(NOT HOSTED_C6_EXPECTED_VERSION STREQUAL "unknown")
     set(HOSTED_C6_FW_BIN_RELEASE_VERSIONED
         "${CMAKE_SOURCE_DIR}/release/network_adapter_esp32c6_${HOSTED_C6_EXPECTED_VERSION}.bin")
 endif()
-if(DEFINED HOSTED_C6_FW_BIN_RELEASE_VERSIONED AND EXISTS "${HOSTED_C6_FW_BIN_RELEASE_VERSIONED}")
+if(CONFIG_ESP_HOSTED_ENABLED AND DEFINED HOSTED_C6_FW_BIN_RELEASE_VERSIONED AND EXISTS "${HOSTED_C6_FW_BIN_RELEASE_VERSIONED}")
     set(HOSTED_C6_FW_BIN "${HOSTED_C6_FW_BIN_RELEASE_VERSIONED}")
     message(STATUS "Using release C6 firmware image: ${HOSTED_C6_FW_BIN_RELEASE_VERSIONED}")
-elseif(EXISTS "${HOSTED_C6_FW_BIN_RELEASE_GENERIC}")
+elseif(CONFIG_ESP_HOSTED_ENABLED AND EXISTS "${HOSTED_C6_FW_BIN_RELEASE_GENERIC}")
     set(HOSTED_C6_FW_BIN "${HOSTED_C6_FW_BIN_RELEASE_GENERIC}")
     message(STATUS "Using release C6 firmware image: ${HOSTED_C6_FW_BIN_RELEASE_GENERIC}")
 elseif(NOT HOSTED_C6_EXPECTED_VERSION STREQUAL "unknown")
@@ -461,7 +474,7 @@ if(HOSTED_C6_FW_BIN)
     target_add_binary_data(${COMPONENT_LIB} "${HOSTED_C6_FW_EMBED}" BINARY)
     set(APP_HAVE_HOSTED_C6_FW_IMAGE 1)
     message(STATUS "Embedding ESP-Hosted C6 firmware image: ${HOSTED_C6_FW_BIN}")
-else()
+elseif(CONFIG_ESP_HOSTED_ENABLED)
     message(WARNING
         "No ESP-Hosted C6 firmware image found in release/. "
         "Runtime C6 auto-update will be skipped until a release image is provided.")

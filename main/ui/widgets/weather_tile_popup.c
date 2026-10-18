@@ -101,6 +101,21 @@ static void weather_popup_add_row(lv_obj_t *list, const char *label, const char 
     ui_text_set(v, UI_TEXT_VALUE, true);
     lv_obj_set_style_text_color(v, lv_color_hex(APP_UI_COLOR_TEXT_PRIMARY), LV_PART_MAIN);
     lv_obj_align(v, LV_ALIGN_RIGHT_MID, -2, 0);
+
+    /* Long translated names and large values must share one bounded row. */
+    lv_obj_update_layout(list);
+    const int width = s_weather_popup_row_w > 0 ? s_weather_popup_row_w : lv_obj_get_content_width(list);
+    const lv_font_t *vf = ui_text_fit(value, ui_font_role(UI_TEXT_VALUE), width * 2 / 5,
+                                     ui_font_role(UI_TEXT_VALUE)->line_height);
+    lv_point_t value_size;
+    lv_text_get_size(&value_size, value, vf, 0, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
+    const int name_width = width - value_size.x - 16;
+    const lv_font_t *lf = ui_text_fit(label, ui_font_role(UI_TEXT_LABEL), name_width,
+                                     ui_font_role(UI_TEXT_VALUE)->line_height);
+    lv_obj_set_style_text_font(l, lf, LV_PART_MAIN);
+    lv_obj_set_size(l, name_width, lf->line_height);
+    lv_label_set_long_mode(l, LV_LABEL_LONG_DOT);
+    lv_obj_set_style_text_font(v, vf, LV_PART_MAIN);
 }
 
 static const char *weather_compass_point(int bearing, char *buf, size_t buf_size)

@@ -44,12 +44,12 @@ text_board_t ui_fonts_board(void) { return s_board_set ? s_board : text_scale_bu
 
 static int s_tile_depth;
 static int s_tile_cap = TEXT_TILE_CAP_NONE;
-static int s_cap_override = -1;
+static int s_cap_override = -2;
 
 void ui_fonts_tile_begin(const char *widget_type, int w, int h)
 {
     s_tile_depth++;
-    s_tile_cap = s_cap_override >= 0 ? s_cap_override : text_scale_tile_cap(ui_fonts_board(), widget_type, w, h);
+    s_tile_cap = s_cap_override >= -1 ? s_cap_override : text_scale_tile_cap(ui_fonts_board(), widget_type, w, h);
 }
 
 void ui_fonts_tile_end(void)
@@ -58,7 +58,7 @@ void ui_fonts_tile_end(void)
     if (s_tile_depth == 0) s_tile_cap = TEXT_TILE_CAP_NONE;
 }
 
-void ui_fonts_set_cap_override(int cap) { s_cap_override = cap < 0 ? -1 : (cap > TEXT_TILE_CAP_NONE ? TEXT_TILE_CAP_NONE : cap); }
+void ui_fonts_set_cap_override(int cap) { s_cap_override = cap < -1 ? -2 : (cap > TEXT_TILE_CAP_NONE ? TEXT_TILE_CAP_NONE : cap); }
 
 int ui_fonts_role_px(ui_text_role_t role)
 {

@@ -6,6 +6,30 @@ Changes of **this fork**, compared with upstream v0.8.2. The release notes of th
 
 ## v0.9.0 (fork)
 
+### Local S3 support
+
+This checkout restores the Guition ESP32-S3-4848S040 (`panels3`) profile removed
+by the original v0.9.0 fork. It uses ST7701S RGB, GT911 touch, native Wi-Fi, 16 MB
+flash, 8 MB Octal PSRAM, five pages and a compact font profile. The shared display
+adapter, brightness policy and S3 OTA identity are retained. P4-only dependencies
+and C6 updater code are excluded from S3 builds. A Windows PowerShell build wrapper
+is available. See the [device guide](hardware/panels3.md) for limits and validation;
+the connected S3 boots, its owner confirmed clear text/colors, accurate touch and
+normal page switching after changing RGB to partial refresh, and the editor/API
+respond over native Wi-Fi.
+Other hardware checks remain pending and no new release is published.
+
+Complex S3 cards now have their own calibrated text-growth table. The Energy
+page fits all six nodes on 480 × 360, Wallbox fits from 320 × 320, and date/time
+fields scroll beneath fixed actions. Graph statistics no longer overlap the plot;
+translated weather/detail rows and date/time actions fit their available width.
+Solar detail text follows the theme and all six forecast rows fit the popup.
+The S3 RGB profile uses an 8 MHz pixel clock and IDF 6.1's conditional
+bounce-buffer recovery to reduce bandwidth pressure and avoid unconditional
+DMA resets that can introduce a one-frame shift when the interrupt is late.
+RGB/GDMA interrupts share core 1 with LVGL and remain cache-safe during flash
+access; the core-0 Wi-Fi task no longer shares their interrupt affinity.
+
 !!! info "Development fork · based on upstream v0.8.2"
 
     Changes below belong to **andre68723's fork**, compared with upstream commit

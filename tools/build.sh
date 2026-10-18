@@ -5,7 +5,7 @@
 # Builds one variant with the full define set, so a call can never fall back to the root default
 # (which boot-loops on a 16 MB board). ESP-IDF 6.1 must be in the environment (source its export.sh).
 #
-#   tools/build.sh <variant> [idf.py arguments]      variants: panel4 panel10 paneljc paneljc-v2 tab5
+#   tools/build.sh <variant> [idf.py arguments]      variants: panel4 panel10 paneljc paneljc-v2 tab5 panels3
 #   tools/build.sh panel4 build
 #   tools/build.sh paneljc reconfigure build
 #   tools/build.sh paneljc -p /dev/cu.usbmodemXXXX flash
@@ -22,11 +22,12 @@ target=esp32p4
 [ -n "$variant" ] || { sed -n 4,17p "$0" | sed 's/^# \{0,1\}//'; exit 2; }
 shift
 case "$variant" in
+  panels3)          target=esp32s3; defaults="config/sdkconfig.defaults.panels3" ;;
   panel4|panel10)   defaults="config/sdkconfig.defaults;config/sdkconfig.defaults.$variant" ;;
   tab5)             defaults="config/sdkconfig.defaults;config/sdkconfig.defaults.tab5" ;;
   paneljc)          defaults="config/sdkconfig.defaults;config/sdkconfig.defaults.paneljc" ;;
   paneljc-v2)       defaults="config/sdkconfig.defaults;config/sdkconfig.defaults.paneljc;config/sdkconfig.defaults.paneljc.v2" ;;
-  *) echo "unknown variant '$variant' (panel4 panel10 paneljc paneljc-v2 tab5)"; exit 2 ;;
+  *) echo "unknown variant '$variant' (panel4 panel10 paneljc paneljc-v2 tab5 panels3)"; exit 2 ;;
 esac
 [ -z "${EXTRA_DEFAULTS:-}" ] || defaults="$defaults;$EXTRA_DEFAULTS"
 command -v idf.py >/dev/null 2>&1 || { echo "idf.py not found: source ESP-IDF's export.sh first"; exit 2; }

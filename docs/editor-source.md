@@ -75,7 +75,8 @@ Open `http://127.0.0.1:8766/`. Sources are served directly from `components/webu
 Only Python's standard library is needed. Save writes `.local/editor-local/paneljc-state.json`; Export downloads
 JSON. The local toolbar identifies the test environment. Ctrl+C stops the server.
 
-- `--variant panel4|panel10|paneljc|paneljc-v2|tab5` selects geometry, page limits and text-role metadata.
+- `--variant panel4|panel10|paneljc|paneljc-v2|tab5|panels3` selects geometry, page limits and text-role metadata.
+  The S3 demo includes Wallbox, printer, forecast and Energy pages on its 480 × 360 canvas.
 - `--fixture path/to/layout.json` replaces the demo layout; an optional `states` array supplies synthetic readings.
   Layout-only files use the demo states, so unknown bindings show missing readings.
 - `--demo all` supplies every widget type, optional bindings and house/energy pages on 12 pages;

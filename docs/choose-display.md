@@ -12,6 +12,7 @@ and bottom navigation; the reserved bars use 120 pixels of screen height.
 
 | Device | Display | Dashboard area | Firmware | Audio / camera in BETTA | Validation in this fork |
 | --- | --- | --- | --- | --- | --- |
+| [Guition ESP32-S3-4848S040](hardware/panels3.md) | 4-inch, 480 × 480 | 480 × 360 | `panels3` | Audio/camera sensing disabled | Build/simulator, physical display/touch and LAN editor/API checked; OTA trial pending |
 | [Waveshare LCD-4B](hardware/panel4.md) | 4-inch, 720 × 720 | 720 × 600 | `panel4` | Chimes; no camera sensing | Exercised on a v1.3 unit |
 | [M5Stack Tab5](hardware/tab5.md) | 5-inch, 1280 × 720 / 720 × 1280, automatic rotation | 1280 × 600 / 720 × 1160 | `tab5` | Chimes; light/presence sensing, off by default | One ST7121/v1.3 device trial on 2026-10-05 |
 | [Waveshare LCD-X 10.1-inch kit](hardware/panel10.md) | 10.1-inch, 1280 × 800 | 1280 × 680 | `panel10` | Audio unused; no camera sensing | Not yet tried on a real LCD-X kit |

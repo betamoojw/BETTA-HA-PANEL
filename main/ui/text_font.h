@@ -2,7 +2,7 @@
  * Copyright (c) 2026 andre68723 -- file added in the andre68723/BETTA-HA-PANEL fork, see docs/release-notes.md
  *
  * The font manager: every text, symbol, icon and emoji font of the panel is an lv_tiny_ttf instance made on demand from the
- * four embedded subsets (ui/fonts/ttf_data.h). Sizes come from the role, the board profile and the user step
+ * five embedded subsets (ui/fonts/ttf_data.h). Sizes come from the role, the board profile and the user step
  * (ui/text_scale.h); the manager applies the line metrics of the former bitmap fonts, which lv_tiny_ttf would otherwise
  * replace by the font's own (about 20 % taller lines), and wires the fallback chains at run time.
  *
@@ -21,7 +21,7 @@
 
 #include "ui/text_scale.h"
 
-#define UI_FONT_MAX_INSTANCES 64
+#define UI_FONT_MAX_INSTANCES 96
 
 /* User step 0 (Standard), 1 (Larger), 2 (Largest); applies to fonts requested after the call, so rebuild the UI after changing it. */
 void ui_fonts_set_user_step(int step);

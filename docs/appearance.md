@@ -73,6 +73,17 @@ usual viewing distance.
 New installations use **Glow**. If a saved style is no longer available the panel shows **Flat** until you
 choose another; custom themes keep working.
 
+## Language
+
+Choose English, Deutsch (`de`), Español (`es`), Français (`fr`), Polski (`pl`),
+**简体中文** (`zh-cn`) or **繁體中文** (`zh-tw`) in
+Settings → Language & time. Selection is saved immediately and applies to both
+the editor and panel. Custom translation uploads still override built-in texts.
+Chinese works in widget titles, entity names and notifications on every board
+profile. The embedded font covers the built-in catalogs and common simplified
+and traditional characters; rare characters outside its subset show a placeholder.
+The browser uses its installed CJK font fallback. Saved page titles are not translated.
+
 ## Related guides
 
 [Web editor](editor.md#settings) ·

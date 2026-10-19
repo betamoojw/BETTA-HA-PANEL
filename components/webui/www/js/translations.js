@@ -24,6 +24,11 @@ function renderLanguageOptions() {
   optionCodes.add(DEFAULT_UI_LANGUAGE);
   optionCodes.add("en");
   optionCodes.add("de");
+  optionCodes.add("es");
+  optionCodes.add("fr");
+  optionCodes.add("pl");
+  optionCodes.add("zh-cn");
+  optionCodes.add("zh-tw");
   optionCodes.add(editor.i18nLanguage || DEFAULT_UI_LANGUAGE);
   for (const language of editor.languageCatalog || []) {
     const code = normalizeLanguageCode(language?.code, "");
@@ -37,7 +42,8 @@ function renderLanguageOptions() {
     const option = document.createElement("option");
     option.value = code;
     const optionKey = `settings.language.option_${code}`;
-    option.textContent = (editor.i18nMap && editor.i18nMap[optionKey]) || code.toUpperCase();
+    const nativeName = { "de": "Deutsch", "en": "English", "es": "Español", "fr": "Français", "pl": "Polski", "zh-cn": "简体中文", "zh-tw": "繁體中文" }[code];
+    option.textContent = nativeName || (editor.i18nMap && editor.i18nMap[optionKey]) || code.toUpperCase();
     el.settingsLanguage.appendChild(option);
   }
   el.settingsLanguage.value = sorted.includes(current) ? current : (sorted[0] || DEFAULT_UI_LANGUAGE);

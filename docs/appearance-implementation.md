@@ -40,7 +40,7 @@ button or card background is not covered by this exception and should follow Fla
 
 ## Type and icons: the same in every style
 
-The four looks differ in surfaces, shapes and effects, never in typeface or icon family: all text is Poppins and all
+The four looks differ in surfaces, shapes and effects, never in typeface or icon family: Latin text uses Poppins and all
 icons and symbols are Material Design Icons in every style. That is an architecture decision, recorded with its
 reasons in [development.md](development/conventions.md#text-and-fonts).
 
@@ -134,6 +134,7 @@ light or dark fallback when loaded.
   its open, stop and close controls; Climate retains setpoint, mode, fan and swing controls. Short
   titles are uppercased with a UTF-8-aware helper, including German `ß` → `SS`; long titles use
   an ellipsis. Widgets use Poppins Medium and MDI; notification emphasis uses Poppins Bold.
+  Chinese falls back to the shared Noto CJK subset, including in measurement and emphasis fonts.
 
 Implementation: the Matte case of `ui_style_apply_card()` after widget creation and state changes,
 `ui_style_radius()` and `ui_style_track_radius()` for shapes, and the Matte cases in

@@ -3,9 +3,9 @@
 
 ## Text and fonts
 
-- Every text, symbol, icon and emoji is an `lv_tiny_ttf` font made at run time by `main/ui/text_font.c` from four
+- Every text, symbol, icon and emoji is an `lv_tiny_ttf` font made at run time by `main/ui/text_font.c` from five
   committed subsets in `main/ui/fonts/`: Poppins **Medium** (default text), Poppins **Bold**
-  (notification emphasis), Material Design Icons, Noto Emoji (monochrome). No bitmap fonts, no `lv_font_conv`;
+  (notification emphasis), Material Design Icons, Noto Emoji (monochrome), and a compact Noto CJK fallback. No bitmap fonts, no `lv_font_conv`;
   `tools/generate_widget_fonts.py` subsets the sources (see `main/ui/fonts/README.md`). The subsets cover Basic Latin,
   Latin-1, Euro and common punctuation; add a missing character to the range and regenerate. LVGL's Montserrat fonts are
   not compiled in; `LV_FONT_DEFAULT` is the tiny built-in unscii 8.

@@ -14,7 +14,7 @@
 /* LVGL's own default font (the built-in unscii 8, see the root CMakeLists.txt): always there, the last resort when a font cannot be made. */
 #define FALLBACK_FONT ((const lv_font_t *)LV_FONT_DEFAULT)
 
-typedef enum { FAMILY_TEXT, FAMILY_BOLD, FAMILY_ICON, FAMILY_EMOJI } font_family_t;
+typedef enum { FAMILY_TEXT, FAMILY_BOLD, FAMILY_ICON, FAMILY_EMOJI, FAMILY_CJK } font_family_t;
 
 typedef struct {
     font_family_t family;
@@ -153,13 +153,35 @@ const lv_font_t *ui_font_emoji_for_text(int text_px)
     return font;
 }
 
+/* Shared by regular, emphasis and measurement fonts. Keep the Latin line metrics;
+ * only glyphs missing from Poppins reach this cache. Outlines use embedded rodata. */
+static const lv_font_t *cjk_for_text(int px)
+{
+    font_instance_t *inst = find_instance(FAMILY_CJK, px);
+    if (inst != NULL) return inst->font;
+    const lv_font_t *emoji = ui_font_emoji_for_text(px);
+    if (s_count >= UI_FONT_MAX_INSTANCES - 1) { s_stats.budget_hits++; return emoji; }
+    lv_font_t *font = make_font(ttf_cjk_data, ttf_cjk_size, px, LV_FONT_KERNING_NONE, 32);
+    if (font == NULL) return emoji;
+    int line_height, base_line;
+    text_scale_text_metrics(px, &line_height, &base_line);
+    apply_metrics(font, line_height, base_line);
+    font->fallback = emoji;
+    if (add_instance(FAMILY_CJK, px, font) == NULL) {
+        s_stats.budget_hits++;
+        lv_tiny_ttf_destroy(font);
+        return emoji;
+    }
+    return font;
+}
+
 const lv_font_t *ui_font_text_px(int px)
 {
     if (px < 8) px = 8;
     if (px > text_scale_max_px()) px = text_scale_max_px();
     font_instance_t *inst = find_instance(FAMILY_TEXT, px);
     if (inst != NULL) return inst->font;
-    if (s_count >= UI_FONT_MAX_INSTANCES - 1) {
+    if (s_count >= UI_FONT_MAX_INSTANCES - 2) {
         s_stats.budget_hits++;
         const lv_font_t *near = nearest_text(px);
         if (near != NULL) return near;
@@ -169,7 +191,7 @@ const lv_font_t *ui_font_text_px(int px)
     int line_height = 0, base_line = 0;
     text_scale_text_metrics(px, &line_height, &base_line);
     apply_metrics(font, line_height, base_line);
-    font->fallback = ui_font_emoji_for_text(px);
+    font->fallback = cjk_for_text(px);
     if (add_instance(FAMILY_TEXT, px, font) == NULL) {
         s_stats.budget_hits++;
         lv_tiny_ttf_destroy(font);
@@ -265,6 +287,6 @@ const lv_font_t *ui_font_probe(int px)
     int line_height = 0, base_line = 0;
     text_scale_text_metrics(px, &line_height, &base_line);
     apply_metrics(s_probe, line_height, base_line);
-    s_probe->fallback = ui_font_emoji_for_text(px);
+    s_probe->fallback = cjk_for_text(px);
     return s_probe;
 }

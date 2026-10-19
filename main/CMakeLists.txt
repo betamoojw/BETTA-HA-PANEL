@@ -560,6 +560,7 @@ target_sources(${COMPONENT_LIB} PRIVATE
     "${CMAKE_CURRENT_LIST_DIR}/ui/fonts/ttf_poppins_data.c"
     "${CMAKE_CURRENT_LIST_DIR}/ui/fonts/ttf_poppins_bold_data.c"
     "${CMAKE_CURRENT_LIST_DIR}/ui/fonts/ttf_mdi_data.c"
+    "${CMAKE_CURRENT_LIST_DIR}/ui/fonts/ttf_cjk_data.c"
     "${CMAKE_CURRENT_LIST_DIR}/ui/fonts/ttf_emoji_data.c")
 
 set(APP_UI_WEATHER_LOTTIE_ASSETS 0)

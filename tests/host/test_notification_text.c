@@ -291,6 +291,12 @@ static void test_ingress_fit(void)
 
 int main(void)
 {
+    {
+        const char *chinese = "客厅温度 21°C，繁體中文通知";
+        char out[128];
+        notif_text_sanitize(chinese, strlen(chinese), out, sizeof(out));
+        CHECK_STR(out, chinese);
+    }
     test_plain_text();
     test_supported_emoji();
     test_symbol_replacements();

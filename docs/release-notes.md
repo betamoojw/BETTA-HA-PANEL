@@ -6,6 +6,33 @@ Changes of **this fork**, compared with upstream v0.8.2. The release notes of th
 
 ## v0.9.0 (fork)
 
+### European languages
+
+German retains this fork's complete catalogs. Spanish, French and Polish now
+cover the current editor and panel, including complex widgets, Live Display,
+settings and diagnostics. The reference is `betamoojw`'s `dev` revision
+`db7641566be6b8d36d501154f9c49211ef365367`; its partial catalogs were extended,
+without replacing the newer German translations. Native language names appear
+in the selector, and custom translations still override built-in strings.
+Poppins regular text and emphasis include Polish accents and French ligatures;
+the browser preview uses the same expanded subset. Catalog generation is offline.
+Host and SDL checks passed. On 2026-10-19, the Guition ESP32-S3-4848S040
+also passed German, Spanish, French and Polish rendering checks; the owner
+confirmed clear accented characters, stable output and working local touch.
+
+### Chinese and CJK text
+
+Simplified and traditional Chinese are available in the editor and on the panel,
+adapted from [`betamoojw` commit `4e117ca`](https://github.com/betamoojw/BETTA-HA-PANEL-4-Guiton-ESP32S3/commit/4e117ca03c05e7f6ef96de2e435cb24da7c785e7).
+The catalogs cover the current widgets, settings and Live Display. JSON sources
+generate separate browser modules and portable firmware strings. Shared runtime
+TrueType fallback replaces the reference's fixed-size bitmap fonts, preserving
+Poppins metrics and supporting Chinese titles and notifications at every text size.
+The compact Noto subset covers 699 codepoints, not the complete CJK Unicode repertoire.
+It includes every built-in panel translation and common room/device names without
+consuming the S3's PSRAM headroom with a full CJK font.
+See [Language](appearance.md#language) and the font source guide in `main/ui/fonts/README.md`.
+
 ### Browser live display
 
 Live LCD mirroring and remote touch are adapted from

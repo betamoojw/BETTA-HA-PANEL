@@ -3,7 +3,7 @@
  *
  * Font manager failure acceptance (ui/text_font.c): a creation failure and the instance budget never give a caller a NULL font, keep the
  * instances bounded and keep every font that was created before. Deliberate synthetic requests: ordinary role and step cycling cannot
- * reach the budget (46 retained keys at most), so every integer size and every icon font is requested here.
+ * reach the budget, so every integer size and every icon font is requested here.
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -21,6 +21,29 @@ int sim_font_budget_regression(void)
     const lv_font_t *strong = ui_font_emphasis(kept);
     CHECK(strong != kept && strong == ui_font_emphasis(kept));
     CHECK(strong->line_height == kept->line_height && strong->base_line == kept->base_line);
+    /* Both Chinese scripts, mixed Latin/CJK and emphasis use a real glyph,
+     * including measurement used by fitting; fallback must not change Latin metrics. */
+    const uint32_t chinese[] = {0x4e2d, 0x6587, 0x7b80, 0x7e41, 0x9ad4, 0x7535, 0x96fb, 0xff0c};
+    for (unsigned i = 0; i < sizeof(chinese) / sizeof(chinese[0]); i++) {
+        lv_font_glyph_dsc_t glyph = {0};
+        CHECK(lv_font_get_glyph_dsc(kept, &glyph, chinese[i], 0));
+        CHECK(!glyph.is_placeholder && glyph.box_w > 0);
+        CHECK(lv_font_get_glyph_dsc(strong, &glyph, chinese[i], 0));
+        CHECK(!glyph.is_placeholder);
+        CHECK(lv_font_get_glyph_dsc(ui_font_probe(20), &glyph, chinese[i], 0));
+        CHECK(!glyph.is_placeholder);
+    }
+    const uint32_t latin[] = {0x104, 0x105, 0x106, 0x107, 0x118, 0x119, 0x141, 0x142,
+        0x143, 0x144, 0xD3, 0xF3, 0x15A, 0x15B, 0x179, 0x17A, 0x17B, 0x17C, 0x152, 0x153, 0x178};
+    for (size_t i = 0; i < sizeof(latin) / sizeof(latin[0]); i++) {
+        lv_font_glyph_dsc_t glyph;
+        CHECK(lv_font_get_glyph_dsc(kept, &glyph, latin[i], 0));
+        CHECK(!glyph.is_placeholder && glyph.box_w > 0);
+        CHECK(lv_font_get_glyph_dsc(strong, &glyph, latin[i], 0));
+        CHECK(!glyph.is_placeholder);
+        CHECK(lv_font_get_glyph_dsc(ui_font_probe(20), &glyph, latin[i], 0));
+        CHECK(!glyph.is_placeholder);
+    }
     const ui_fonts_stats_t before = ui_fonts_stats();
 
     /* A creation failure below the budget: a nearest existing size or LVGL's default, never NULL; the failure is counted. */

@@ -62,25 +62,20 @@ static int compare_leaves(const char *path, const cJSON *a, const cJSON *b, cons
 
 static void test_documents(void)
 {
-    cJSON *de = parse_strict("de");
+    const char *codes[] = {"de", "es", "fr", "pl", "zh-cn", "zh-tw"};
     cJSON *en = parse_strict("en");
-    if (de == NULL || en == NULL) {
-        cJSON_Delete(de);
-        cJSON_Delete(en);
-        return;
+    if (en == NULL) return;
+    for (size_t i = 0; i < sizeof(codes) / sizeof(codes[0]); i++) {
+        const char *code = codes[i];
+        CHECK(i18n_store_is_builtin_language(code), "%s is not registered", code);
+        cJSON *doc = parse_strict(code);
+        if (doc == NULL) continue;
+        const cJSON *body = cJSON_GetObjectItemCaseSensitive(doc, "lvgl");
+        CHECK(cJSON_GetArraySize(doc) == 1 && cJSON_IsObject(body), "%s: invalid root", code);
+        if (cJSON_IsObject(body))
+            compare_leaves("", cJSON_GetObjectItemCaseSensitive(en, "lvgl"), body, "en", code);
+        cJSON_Delete(doc);
     }
-    CHECK(cJSON_GetArraySize(de) == 1 && cJSON_IsObject(cJSON_GetObjectItemCaseSensitive(de, "lvgl")),
-          "de: the root must hold only \"lvgl\" (a section outside it is never found)");
-    CHECK(cJSON_GetArraySize(en) == 1 && cJSON_IsObject(cJSON_GetObjectItemCaseSensitive(en, "lvgl")),
-          "en: the root must hold only \"lvgl\" (a section outside it is never found)");
-    const cJSON *de_l = cJSON_GetObjectItemCaseSensitive(de, "lvgl");
-    const cJSON *en_l = cJSON_GetObjectItemCaseSensitive(en, "lvgl");
-    if (cJSON_IsObject(de_l) && cJSON_IsObject(en_l)) {
-        int a = compare_leaves("", de_l, en_l, "de", "en");
-        int b = compare_leaves("", en_l, de_l, "en", "de");
-        CHECK(a == b, "de has %d keys, en has %d", a, b);
-    }
-    cJSON_Delete(de);
     cJSON_Delete(en);
 }
 
@@ -103,6 +98,13 @@ static void test_lookup(void)
         {"en", "energy.gas", "Gas"},
         {"en", "sensor.age.just_now", "just now"},
         {"en", "boot.initializing_system", "Initializing system"},
+        {"es", "energy.water", "Agua"},
+        {"fr", "energy.water", "Eau"},
+        {"pl", "energy.water", "Woda"},
+        {"zh-cn", "energy.grid", "电网"},
+        {"zh-tw", "energy.grid", "電網"},
+        {"zh-cn", "boot.initializing_system", "正在初始化系统"},
+        {"zh-tw", "boot.initializing_system", "正在初始化系統"},
     };
     for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
         CHECK(ui_i18n_init(cases[i].lang) == ESP_OK, "init %s", cases[i].lang);

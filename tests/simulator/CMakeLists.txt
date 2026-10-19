@@ -199,6 +199,7 @@ add_executable(betta-widget-sim
     "${REPO_ROOT}/main/ui/fonts/ttf_poppins_data.c"
     "${REPO_ROOT}/main/ui/fonts/ttf_poppins_bold_data.c"
     "${REPO_ROOT}/main/ui/fonts/ttf_mdi_data.c"
+    "${REPO_ROOT}/main/ui/fonts/ttf_cjk_data.c"
     "${REPO_ROOT}/main/ui/fonts/ttf_emoji_data.c")
 target_include_directories(betta-widget-sim PRIVATE
     "${REPO_ROOT}/main"

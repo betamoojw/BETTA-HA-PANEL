@@ -30,8 +30,11 @@ first, then review on hardware.
   input files are unchanged since its last pass is skipped (`build/check-stamps/`, `--force` runs it anyway). The widget
   layout runs at the standard text step on every check and at the Larger and Largest steps with `--full` and in CI.
   [Run levels](tools.md#run-levels) say which tool runs when.
-- `tests/host/test_i18n_builtin.c` loads both built-in translation tables as strict JSON (trailing data fails), requires
-  `lvgl` as the only root key and equal keys in `de` and `en`, and checks real `ui_i18n_get()` lookups in both languages.
+- `tests/host/test_i18n_builtin.c` parses all seven built-in tables as strict JSON, requires one `lvgl` root and current English keys,
+  and checks real `ui_i18n_get()` lookups. `tests/webui/chinese_i18n.test.mjs` checks all generated
+  catalogs, current browser keys and printf/interpolation placeholders. `multilingual_selection.test.mjs` exercises
+  language events, saved JSON, reload and custom overrides. Font checks cover Chinese and European accents.
+  `tests/simulator/languages.json` exercises the compact complex pages; use `--language de|es|fr|pl` at each text step.
 - `tests/host/test_history_stats.c` covers the Recorder statistics parser with reply shapes from a real Home Assistant:
   metadata and eligibility (measurement versus counter, unit class, state class), the 168-hour window, gaps, duplicates,
   off-hour and out-of-window rows, and hourly changes summed into local days across both daylight-saving changes.

@@ -1,8 +1,8 @@
 <!-- SPDX-License-Identifier: LicenseRef-FNCL-1.1 | Copyright (c) 2026 Cpt_Kirk | Modified 2026 by andre68723 in the andre68723/BETTA-HA-PANEL fork, see docs/release-notes.md -->
 # Fonts of the panel
 
-Every text, symbol, icon and emoji of the firmware is drawn by LVGL's `lv_tiny_ttf` from **four small TrueType subsets** that are
-embedded in the image as const arrays (they stay in flash, `lv_tiny_ttf` reads them in place). No bitmap font is generated per size and
+Every text, symbol, icon and emoji of the firmware is drawn by LVGL's `lv_tiny_ttf` from **five TrueType subsets** that are
+embedded in the image as const arrays (`lv_tiny_ttf` reads them in place; S3 XIP also copies read-only data to PSRAM). No bitmap font is generated per size and
 `lv_font_conv` is not used: a size is an integer given at run time, so the text size can follow the board, the role and the user's setting
 (`docs/appearance.md`, "Text size") without regenerating anything.
 
@@ -12,10 +12,30 @@ embedded in the image as const arrays (they stay in flash, `lv_tiny_ttf` reads t
 | Emphasis | `poppins_bold_subset.ttf` | Poppins Bold (Google Fonts) | same Latin range and kerning | SIL OFL 1.1, `POPPINS-OFL.txt` |
 | Symbols and icons | `mdi_subset.ttf` | Material Design Icons webfont (`materialdesignicons-webfont.ttf` in this directory) | `mdi_codepoints.txt` | Apache-2.0, `MDI-APACHE-2.0.txt` |
 | Emoji | `noto_emoji_subset.ttf` | Noto Emoji (monochrome outlines), static instance wght 400 of `NotoEmoji[wght].ttf` | `emoji_codepoints.txt` | SIL OFL 1.1, `NOTO_EMOJI-OFL.txt` |
+| Chinese fallback | `noto_cjk_subset.ttf` | Noto Sans SC, static wght 400 | `cjk_codepoints.txt` | SIL OFL 1.1, `NOTO_CJK-OFL.txt` |
 
-Each subset also exists as a C array (`ttf_poppins_data.c`, `ttf_poppins_bold_data.c`, `ttf_mdi_data.c`, `ttf_emoji_data.c`, declared in `ttf_data.h`); `emoji_codepoints.inc` is the
+Each subset also exists as a C array (`ttf_poppins_data.c`, `ttf_poppins_bold_data.c`, `ttf_mdi_data.c`, `ttf_emoji_data.c`, `ttf_cjk_data.c`, declared in `ttf_data.h`); `emoji_codepoints.inc` is the
 sorted emoji list `ui/notification_text.c` includes. All of these files are **generated** by `tools/generate_widget_fonts.py`: edit a manifest, run the
 tool, commit the result.
+
+## Chinese subset
+
+`cjk_codepoints.txt` contains 699 codepoints: every Chinese character and
+punctuation mark in the built-in panel catalogs, plus common room and device
+names from `cjk_extra.txt`. It is not full Unicode CJK coverage. Both languages share Noto Sans SC
+outlines; regional traditional glyph-shape variants are not selected dynamically.
+The subset is 204,804 bytes. Keep it compact: S3 XIP copies it into PSRAM at boot,
+so a large font reduces memory available to widgets and Live Display.
+Each requested size has a 32-glyph cache;
+the shared font budget is 96 instances, including text, icons and emoji.
+Regular, bold and measurement fonts share the same CJK fallback at a given size.
+
+Source: [Noto Sans SC variable TrueType](https://github.com/notofonts/noto-cjk/tree/main/Sans/Variable/TTF/Subset),
+version 2.004, source SHA256
+`d68bafcb48a2707749396aa12bbbd833cb70401f3a9a689fd2902c7e0d295964`.
+Regenerate with `python3 tools/generate_widget_fonts.py --cjk-manifest --cjk NotoSansSC-VF.ttf`,
+then run `--check`. Extend `cjk_extra.txt` for additional characters; keep the
+resulting app within each board's OTA slot. The browser uses installed CJK fonts.
 
 ## How the firmware uses them
 
@@ -27,7 +47,7 @@ It shares the instance budget; failure returns the base font. Two things matter 
 - **Metrics.** `lv_tiny_ttf` takes line height and base line from the font itself, which makes Poppins lines about 20 % taller than the former bitmap fonts and
   shifts every tile. The manager therefore applies a metrics table (`ui/text_scale.c`: Poppins 16 ... 64 px, each icon font, the emoji sizes) after every create, and
   the tiny_ttf base line is the table value minus 1. A new size or icon font needs its row in the table; compare it with a screenshot before using it.
-- **Fallbacks.** Each text font falls back to the emoji font of its size, each symbol font to the text font of its role, so a label can mix text, a symbol and an
+- **Fallbacks.** Each text font falls back to CJK, then emoji, each symbol font to the text font of its role, so a label can mix text, a symbol and an
   emoji. The chains are set at run time and never rewritten while labels use a font.
 
 LVGL's own compile-time default font is the tiny built-in unscii 8 (`CONFIG_LV_USE_CUSTOM_FONT_DEFAULT`, root `CMakeLists.txt`); the UI sets the manager's `meta`
@@ -37,7 +57,7 @@ Subsetting flags and why (`tools/generate_widget_fonts.py`): hinting is off (`lv
 Noto's tiny `gasp`); **glyph bounds are recalculated**, because stb_truetype sizes each cached A8 glyph from the box in the glyph header and a webfont exporter can leave it
 loose (the MDI icons start at x 0 although their ink starts further right, which doubled the bitmap area of the symbols and differed from the old tight boxes);
 `--check` fails when a header box is not tight. The scale factor depends only on unitsPerEm, so the head box does not matter for it. `desubroutinize` is not used: it
-concerns CFF outlines and all four sources are `glyf` fonts.
+concerns CFF outlines and all five sources are `glyf` fonts.
 
 ## Regenerate
 
@@ -61,8 +81,8 @@ python3 tools/generate_widget_fonts.py --web
 python3 tools/generate_widget_fonts.py --check
 ```
 
-Text range (Latin-1, Euro and common punctuation, including Dutch/German accents, `°`, `µ`, `²`, `³` and subscript digits):
-`0x20-0x7E, 0xA0-0xFF, 0x2013-0x2014, 0x2018-0x2019, 0x201C-0x201D, 0x2022, 0x2026, 0x2080-0x2089, 0x20AC, 0x2212`. Add a character there and regenerate rather than
+Text range (Latin-1, Euro and common punctuation, including German, Spanish, French and Polish accents and `Œ/œ/Ÿ`, `°`, `µ`, `²`, `³` and subscript digits):
+`0x20-0x7E, 0xA0-0xFF, 0x104-0x107, 0x118-0x119, 0x141-0x144, 0x152-0x153, 0x15A-0x15B, 0x178-0x17C, 0x2013-0x2014, 0x2018-0x2019, 0x201C-0x201D, 0x2022, 0x2026, 0x2080-0x2089, 0x20AC, 0x2212`. Add a character there and regenerate rather than
 fixing one size. The text font is Poppins **Medium**, not Regular: LVGL's former built-in Montserrat was the Medium weight and Regular's thinner strokes read
 noticeably weaker on the 4" panel.
 

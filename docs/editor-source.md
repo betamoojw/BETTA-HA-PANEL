@@ -24,6 +24,7 @@ www/css/layout-actions.css widget context menu and page-transfer dialog
 www/css/inspector.css compact Inspector fields, tabs and independently scrolling desktop lists
 www/js/config.js      constants, the entity picker configurations
 www/js/i18n.js        built-in translations (en, de)
+www/js/i18n-{es,fr,pl,zh-*}.js generated additional catalogs (sources in components/webui/i18n/)
 www/js/state.js       size limits, the `editor` state object, the DOM element map `el`
 www/js/util.js        normalizers, layout normalization, status line, `t()`, storage
 www/js/ui-basics.js   style cards, firmware info, HA diagnostics, canvas geometry

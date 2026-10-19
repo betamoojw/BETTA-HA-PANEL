@@ -148,6 +148,32 @@ layout were checked again. Backups and private captures remain outside Git.
 - Touch uses the board's default orientation, with no axis mirroring.
   Resistive/no-touch assemblies are outside this profile.
 
+### Chinese validation
+
+On 2026-10-19, a working-tree build based on `d490f0f9` was flashed to COM18.
+Both Chinese languages passed editor selection, panel rendering and Live Display
+checks; simplified Chinese also persisted across browser reload. Remote navigation
+worked, and the owner confirmed clear traditional Chinese text, stable display
+and accurate local touch with the mirror connected. Only this S3 was device-tested.
+The compact font contains 699 codepoints (204,804 bytes); S3 XIP also consumes
+PSRAM for embedded font data, so a larger general-purpose subset was excluded.
+Free PSRAM was about 2.50 MB after boot. The 8 MHz direct-DMA driver is unchanged.
+The final app SHA256 is `fb44ffec01b014783d03566ce8379ace39c830254f247b4087d0f6e7dbbcbba9`;
+boot ELF prefix `5fe432646` matched, OTA state was valid and no new crash was found.
+App-only flashing preserved NVS and LittleFS digests before boot. The temporary
+language change was restored to English after the trial; local backups were kept.
+
+### European language validation
+
+On 2026-10-19, a working-tree build based on `d490f0f9` passed German,
+Spanish, French and Polish Energy-page and accented-character checks on this S3.
+The owner confirmed clear text, stable output and working local touch/navigation.
+The app SHA256 was `49d0999b64a9cd54393a594cbaddaf6bfa59eb7aff9eaa2ce5df6d9377503e6a`;
+boot ELF prefix `dbb50c086` matched and OTA state was valid. App-only flashing
+preserved metadata/NVS and filesystem digests. After testing, simplified Chinese
+was restored and settings (excluding live Wi-Fi signal strength) and layout
+matched the pre-flash snapshots. Local backups remain outside Git.
+
 ## Manufacturer references
 
 - [Guition specifications](https://www.guition.com/ku/icms/upload/fb081940d6fc11f09850077a33e1404f/FTPData/UEditor/file/2026121/1768961092477/ESP32-4848S040%20Specifications-EN.pdf)

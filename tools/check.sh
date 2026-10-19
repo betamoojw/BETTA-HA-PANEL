@@ -121,6 +121,7 @@ else
 fi
 
 step "HTML and translation tables" "" python3 tools/check_web.py
+step "Chinese catalog assets" "" python3 tools/generate_i18n.py --check
 SKIP_RC=2 SKIP_WHY="fontTools not installed" step "font subsets" \
   "tools/generate_widget_fonts.py main/ui/fonts" python3 tools/generate_widget_fonts.py --check
 step "source file sizes" "" python3 tools/check_source_sizes.py

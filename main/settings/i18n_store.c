@@ -13,6 +13,12 @@
 #include <string.h>
 #include <sys/stat.h>
 
+#include "i18n/es.inc"
+#include "i18n/fr.inc"
+#include "i18n/pl.inc"
+#include "i18n/zh-cn.inc"
+#include "i18n/zh-tw.inc"
+
 static const char *I18N_BUILTIN_DE =
     "{\"lvgl\":{"
     "\"common\":{\"on\":\"AN\",\"off\":\"AUS\",\"unavailable\":\"nicht verfügbar\",\"paused\":\"pausiert\",\"playing\":\"spielt\",\"start\":\"Start\",\"pause\":\"Pause\",\"unknown\":\"Unbekannt\"},"
@@ -127,7 +133,9 @@ bool i18n_store_is_builtin_language(const char *language_code)
     if (language_code == NULL) {
         return false;
     }
-    return strcmp(language_code, "de") == 0 || strcmp(language_code, "en") == 0;
+    return strcmp(language_code, "de") == 0 || strcmp(language_code, "en") == 0 ||
+           strcmp(language_code, "es") == 0 || strcmp(language_code, "fr") == 0 || strcmp(language_code, "pl") == 0 ||
+           strcmp(language_code, "zh-cn") == 0 || strcmp(language_code, "zh-tw") == 0;
 }
 
 const char *i18n_store_builtin_translation_json(const char *language_code)
@@ -138,6 +146,11 @@ const char *i18n_store_builtin_translation_json(const char *language_code)
     if (strcmp(language_code, "en") == 0) {
         return I18N_BUILTIN_EN;
     }
+    if (strcmp(language_code, "es") == 0) return I18N_BUILTIN_ES;
+    if (strcmp(language_code, "fr") == 0) return I18N_BUILTIN_FR;
+    if (strcmp(language_code, "pl") == 0) return I18N_BUILTIN_PL;
+    if (strcmp(language_code, "zh-cn") == 0) return I18N_BUILTIN_ZH_CN;
+    if (strcmp(language_code, "zh-tw") == 0) return I18N_BUILTIN_ZH_TW;
     if (strcmp(language_code, "de") == 0) {
         return I18N_BUILTIN_DE;
     }
@@ -289,6 +302,11 @@ esp_err_t i18n_store_list_languages(
     size_t count = 0;
     (void)i18n_store_add_language(out_codes, max_codes, &count, "en");
     (void)i18n_store_add_language(out_codes, max_codes, &count, "de");
+    (void)i18n_store_add_language(out_codes, max_codes, &count, "es");
+    (void)i18n_store_add_language(out_codes, max_codes, &count, "fr");
+    (void)i18n_store_add_language(out_codes, max_codes, &count, "pl");
+    (void)i18n_store_add_language(out_codes, max_codes, &count, "zh-cn");
+    (void)i18n_store_add_language(out_codes, max_codes, &count, "zh-tw");
 
     if (!i18n_store_ensure_dir()) {
         *out_count = count;

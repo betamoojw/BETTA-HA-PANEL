@@ -43,6 +43,7 @@ tools/*
 !tools/generate_simulator_gallery.py
 !tools/generate_notification_emoji.py
 !tools/generate_widget_fonts.py
+!tools/generate_chinese_i18n.py
 !tools/check_widget_layout.py
 !tools/compare_editor_previews.py
 !tools/check_readability.py
@@ -75,3 +76,5 @@ main/idf_component.yml
 
 # macOS
 .DS_Store
+
+!/tools/generate_i18n.py

@@ -33,9 +33,8 @@
 #define PANELS3_VSYNC_GPIO 17
 /* Low to high: B1..B5, G0..G5, R1..R5. */
 #define PANELS3_DATA_GPIOS {4, 5, 6, 7, 15, 8, 20, 3, 46, 9, 10, 11, 12, 13, 14, 0}
-/* Leave PSRAM/cache bandwidth for Wi-Fi, fonts and widget rendering. At 12 MHz
- * the COM18 unit occasionally shifted even while idle; 8 MHz gives each
- * ten-line bounce-buffer refill 50% more time without using scarce SRAM. */
+/* Direct PSRAM scanout shares bandwidth with the CPU. Keep the pixel clock
+ * bounded to leave headroom for Wi-Fi, fonts and browser mirror transfers. */
 #define PANELS3_PCLK_HZ 8000000
 #define PANELS3_H_PULSE 8
 #define PANELS3_H_FRONT 10
@@ -43,7 +42,6 @@
 #define PANELS3_V_PULSE 8
 #define PANELS3_V_FRONT 10
 #define PANELS3_V_BACK 20
-#define PANELS3_BOUNCE_LINES 10
 
 static bool s_display_ready;
 static lv_display_t *s_lv_display;
@@ -185,21 +183,12 @@ static esp_err_t panel_create(void)
             .vsync_back_porch  = PANELS3_V_BACK,
             .flags.pclk_active_neg = 0,  /* pclk_inverted: False per ESPHome Guition 4848S040 config */
         },
-        /* One scanout framebuffer and separate partial LVGL draw buffers.
-         * Full-refresh buffer-switch waits stalled on the S3 with IDF 6.1;
-         * partial transfers finish synchronously when copied into scanout.
-         * Two internal bounce buffers absorb short PSRAM bandwidth spikes:
-         * the CPU refills one from PSRAM while RGB DMA sends the other.
-         * Each buffer is 10 lines × 480 px × 2 B = 9.6 KiB. Keep the buffers
-         * bounded because networking also needs internal SRAM. IDF 6.1's
-         * bounce EOF counter recovers missed refills at VSYNC; forcing a DMA
-         * restart every frame can itself cause a one-frame shift if late. */
-        .num_fbs               = 1,
-        .bounce_buffer_size_px = APP_SCREEN_WIDTH * PANELS3_BOUNCE_LINES,
-        .flags = {
-            .fb_in_psram         = 1,
-            .bb_invalidate_cache = 0,  /* LVGL may write PSRAM concurrently; retain dirty cache lines. */
-        },
+        /* Partial LVGL buffers copy into one PSRAM scanout framebuffer.
+         * At this bounded pixel clock, direct EDMA avoids the hard real-time
+         * CPU bounce-refill deadline and releases 19.2 KB of internal RAM. */
+        .num_fbs = 1,
+        .bounce_buffer_size_px = 0,
+        .flags.fb_in_psram = 1,
     };
 
     /* ST7701S vendor config: board-specific init sequence for Guition 4848S040 */
@@ -233,7 +222,7 @@ static esp_err_t panel_create(void)
      * is already deleted at this point and the call would fail with an error.
      * The ST7701S init sequence has already enabled the display output. */
 
-    ESP_LOGI(TAG_DISPLAY, "ST7701S panel ready (%dx%d, PCLK=%dHz, 1x FB in PSRAM, bounce buffers)",
+    ESP_LOGI(TAG_DISPLAY, "ST7701S panel ready (%dx%d, PCLK=%dHz, 1x FB in PSRAM, direct DMA)",
         APP_SCREEN_WIDTH, APP_SCREEN_HEIGHT, PANELS3_PCLK_HZ);
     return ESP_OK;
 }
@@ -241,9 +230,7 @@ static esp_err_t panel_create(void)
 static void panel_init_task(void *arg)
 {
     (void)arg;
-    /* Both RGB and GDMA allocate their interrupts on the calling core. Keep
-     * bounce-buffer refills on the LVGL core, where they preempt drawing rather
-     * than racing a PSRAM-to-PSRAM copy on the other core. Wi-Fi stays on CPU0. */
+    /* Keep RGB/GDMA completion callbacks on the LVGL core. Wi-Fi stays on CPU0. */
     ESP_LOGI(TAG_DISPLAY, "RGB/GDMA initialization on core %d (cache-safe ISR)", xPortGetCoreID());
     s_panel_init_result = panel_create();
     xSemaphoreGive(s_panel_init_done);

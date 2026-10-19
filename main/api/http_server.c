@@ -3,6 +3,7 @@
  * Modified 2026 by andre68723 in the andre68723/BETTA-HA-PANEL fork, see docs/release-notes.md
  */
 #include "api/http_server.h"
+#include "api/api_remote_display.h"
 #include "api/http_guard.h"
 
 #include <stdbool.h>
@@ -130,6 +131,8 @@ esp_err_t http_server_start(void)
     }
     ESP_RETURN_ON_ERROR(httpd_register_uri_handler(s_server, &favicon_uri), TAG_HTTP, "register /favicon.ico");
     ESP_RETURN_ON_ERROR(api_routes_register(s_server), TAG_HTTP, "register api routes");
+
+    ESP_RETURN_ON_ERROR(api_remote_display_register(s_server), TAG_HTTP, "register live display");
 
     ESP_LOGI(TAG_HTTP, "HTTP server listening on port %d", APP_HTTP_PORT);
     return ESP_OK;

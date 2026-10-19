@@ -3,6 +3,7 @@
  * Modified 2026 by andre68723 in the andre68723/BETTA-HA-PANEL fork, see docs/release-notes.md
  */
 #include "api/api_routes.h"
+#include "ui/ui_remote_display.h"
 #include "api/api_ota.h"
 #include "util/ota_chip_rev.h"
 #include "util/sha256_soft.h"
@@ -168,6 +169,7 @@ static bool ota_begin_status(api_ota_state_t state, const char *source, size_t t
     }
     xSemaphoreGive(s_ota_mutex);
     if (started) {
+        ui_remote_display_suspend(true);
         const char *status_text = (state == API_OTA_STATE_URL) ? "Downloading firmware..." : "Receiving firmware...";
         ui_ota_progress_begin(status_text, total);
     }
@@ -228,6 +230,7 @@ static void ota_finish_status_error(const char *message)
     strlcpy(s_ota_status.error, message != NULL ? message : "OTA failed", sizeof(s_ota_status.error));
     xSemaphoreGive(s_ota_mutex);
     ui_ota_progress_error(message);
+    ui_remote_display_suspend(false);
 }
 
 static void ota_set_sha256_verified(bool verified)

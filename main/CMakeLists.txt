@@ -179,6 +179,8 @@ idf_component_register(
         "api/api_factory_reset.c"
         "api/api_restart.c"
         "api/api_screenshot.c"
+        "api/api_remote_display.c"
+        "ui/ui_remote_display.c"
         "api/api_ota.c"
         "api/ota_transfer.c"
         "api/api_theme.c"

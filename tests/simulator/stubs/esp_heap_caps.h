@@ -10,6 +10,12 @@
 #define MALLOC_CAP_8BIT 0
 #define MALLOC_CAP_INTERNAL 0
 
+static inline size_t heap_caps_get_free_size(unsigned caps)
+{
+    (void)caps;
+    return 32U * 1024U * 1024U;
+}
+
 static inline void *heap_caps_calloc(size_t count, size_t size, unsigned caps)
 {
     (void)caps;

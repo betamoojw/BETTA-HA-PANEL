@@ -18,6 +18,7 @@
   <link rel="stylesheet" href="/css/layout-actions.css" />
   <link rel="stylesheet" href="/css/evcc-wallbox.css" />
   <link rel="stylesheet" href="/css/inspector.css" />
+  <link rel="stylesheet" href="/css/remote-display.css" />
 </head>
 <body>
   <div id="provisioningRoot" class="provisioning-shell hidden">
@@ -99,6 +100,7 @@
       <div class="mode-tabs">
         <button id="layoutTabBtn" class="btn tab active">Layout</button>
         <button id="settingsTabBtn" class="btn tab">Settings</button>
+        <button id="remoteTabBtn" class="btn tab hidden" type="button">Live Display</button>
       </div>
 
       <div id="layoutPane" class="pane">
@@ -919,6 +921,19 @@
         <button type="button" class="ha-diagnostics-banner__close" id="haDiagnosticsDismiss" aria-label="Dismiss">&times;</button>
       </div>
       <div class="workspace-body">
+        <section id="remotePane" class="remote-pane hidden">
+          <div class="row remote-toolbar">
+            <button id="remoteConnect" class="btn" type="button">Connect</button>
+            <button id="remoteDisconnect" class="btn" type="button">Disconnect</button>
+            <label class="row row-inline"><input id="remoteControl" type="checkbox" disabled /><span id="remoteControlLabel">Enable control</span></label>
+            <button id="remoteScreenshot" class="btn" type="button" disabled>Download PNG</button>
+            <label class="row row-inline"><input id="remoteActual" type="checkbox" /><span id="remoteActualLabel">Actual size</span></label>
+          </div>
+          <p id="remoteHint" class="meta">Local touch has priority. Viewing does not wake the display.</p>
+          <div class="remote-status"><span id="remoteStatus" role="status">Disconnected</span><time id="remoteFrameTime"></time></div>
+          <div class="remote-surface"><canvas id="remoteCanvas" width="480" height="480" aria-label="Live LCD display"></canvas></div>
+        </section>
+
         <div class="canvas-wrap">
           <div id="canvasStage" class="canvas-stage">
             <div id="canvas" class="canvas"></div>
@@ -1807,6 +1822,7 @@
   <script src="/js/bind.js"></script>
   <script src="/js/theme.js"></script>
   <script src="/js/menus.js"></script>
+  <script src="/js/remote-display.js"></script>
   <script src="/js/main.js"></script>
 </body>
 </html>

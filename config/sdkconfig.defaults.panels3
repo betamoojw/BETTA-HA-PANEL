@@ -106,13 +106,12 @@ CONFIG_LV_USE_MATRIX=y
 CONFIG_LV_USE_LODEPNG=y
 CONFIG_LV_USE_IMGFONT=y
 
-# RGB scanout uses one PSRAM framebuffer, partial draws and internal bounce buffers.
+# RGB scanout uses one PSRAM framebuffer, partial draws and direct EDMA.
 # CONFIG_APP_DISPLAY_PPA is not set
 # CONFIG_ESP_LVGL_ADAPTER_ENABLE_FS is not set
 # CONFIG_ESP_LVGL_ADAPTER_ENABLE_DECODER is not set
 # CONFIG_ESP_LVGL_ADAPTER_ENABLE_FREETYPE is not set
 CONFIG_SPIRAM_XIP_FROM_PSRAM=y
-# IDF 6.1 already detects missed bounce-buffer EOFs and recovers at VSYNC.
 # Unconditional restarts can produce single-frame shifts when an ISR is late.
 # CONFIG_LCD_RGB_RESTART_IN_VSYNC is not set
 CONFIG_LCD_RGB_ISR_IRAM_SAFE=y

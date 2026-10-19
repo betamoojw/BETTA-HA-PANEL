@@ -214,5 +214,23 @@ target_compile_definitions(betta-widget-sim PRIVATE
 target_compile_options(betta-widget-sim PRIVATE -Wall -Wextra -Werror -Wno-unused-parameter)
 target_link_libraries(betta-widget-sim PRIVATE lvgl SDL2::SDL2 sim_cjson m)
 
+add_executable(betta-remote-test remote_display_regression.c
+    "${REPO_ROOT}/main/ui/ui_remote_display.c")
+target_include_directories(betta-remote-test PRIVATE "${REPO_ROOT}/main" "${CMAKE_CURRENT_LIST_DIR}/stubs")
+target_compile_definitions(betta-remote-test PRIVATE CONFIG_APP_REMOTE_DISPLAY=1)
+target_compile_options(betta-remote-test PRIVATE -Wall -Wextra -Werror -Wno-unused-parameter -UNDEBUG)
+target_link_libraries(betta-remote-test PRIVATE lvgl SDL2::SDL2 m)
+enable_testing()
+foreach(geometry "480;480" "720;720" "1280;800" "1280;720")
+    list(GET geometry 0 remote_w)
+    list(GET geometry 1 remote_h)
+    foreach(mode RANGE 0 2)
+        foreach(rotation RANGE 0 3)
+            add_test(NAME "remote-${remote_w}x${remote_h}-${mode}-${rotation}"
+                COMMAND betta-remote-test ${remote_w} ${remote_h} ${mode} ${rotation})
+        endforeach()
+    endforeach()
+endforeach()
+
 # the real top bar/navigation compiles with -Werror here; its wide-screen branch leaves a variable unused
 set_source_files_properties("${REPO_ROOT}/main/ui/ui_pages.c" PROPERTIES COMPILE_OPTIONS "-Wno-unused-but-set-variable")

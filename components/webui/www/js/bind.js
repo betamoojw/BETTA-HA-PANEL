@@ -23,6 +23,7 @@ function bindUi() {
   applySectionCollapseState();
 
   el.layoutTabBtn.onclick = () => setActivePane("layout");
+  document.getElementById("remoteTabBtn")?.addEventListener("click", () => setActivePane("remote"));
   el.settingsTabBtn.onclick = async () => {
     setActivePane("settings");
     await loadSettings(true);

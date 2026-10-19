@@ -221,24 +221,20 @@ Device guide: [Guition ESP32-S3-4848S040](panels3.md), including device validati
 The ST7701S register table and manufacturer-demo porch values come from upstream
 commit `fc15f27`, with the existing RGB666 internal COLMOD setting retained.
 ESPHome confirms the wiring and mode 3, but uses a 12 MHz clock and different back
-porches. The attached unit's initial 2026-10-18 trial used 12 MHz. The current
-profile uses 8 MHz to give bounce-buffer refills more time under PSRAM contention.
-One RGB565 framebuffer lives in PSRAM, with two 10-line bounce buffers in internal
-RAM. Cache invalidation is disabled to avoid discarding concurrent LVGL writes.
-The shared adapter uses partial refresh and no PPA acceleration. Double full
-refresh stalled the LVGL task on the connected S3 with IDF 6.1; the partial path
-copies draw buffers synchronously into scanout and avoids that buffer-switch wait.
-The owner confirmed clear text and correct colors after this change on 2026-10-18.
-IDF 6.1 checks bounce-buffer EOF progress and recovers missed refills at VSYNC.
-The profile leaves unconditional VSYNC restarts disabled: the driver's restart
-path notes that a late restart can itself introduce a single-frame shift.
-RGB/GDMA construction runs on core 1, matching the shared LVGL task, so bounce
-refills preempt rendering instead of racing its copy on core 0. Cache-safe RGB
-interrupts stay enabled during flash access, alongside PSRAM XIP.
+porches. The current profile uses an 8 MHz clock and direct EDMA scanout from
+one RGB565 framebuffer in PSRAM. It does not use internal bounce buffers: this
+avoids the CPU refill deadline and releases 19.2 KB of internal RAM. PSRAM
+bandwidth is still shared with rendering and network activity.
+The shared adapter uses partial refresh and no PPA acceleration. The partial
+path copies draw buffers synchronously into scanout and avoids the
+buffer-switch wait used by double full refresh.
+Unconditional VSYNC restarts remain disabled because a late restart can itself
+introduce a single-frame shift. RGB/GDMA completion callbacks run on core 1,
+matching LVGL. Cache-safe RGB interrupts and PSRAM XIP remain enabled.
 The adapter patch in `tools/apply_component_patches.py` keeps the RGB v9 bridge
 callback context in internal RAM when cache-safe interrupts are enabled. IDF
 rejects a PSRAM callback context in this mode; the 2,576-byte context is internal,
 while the large LVGL draw buffers and scanout framebuffer remain in PSRAM.
-See [Espressif's RGB guide](https://docs.espressif.com/projects/esp-idf/en/stable/esp32s3/api-reference/peripherals/lcd/rgb_lcd.html#bounce-buffer-with-single-psram-frame-buffer)
+See [Espressif's RGB guide](https://docs.espressif.com/projects/esp-idf/en/stable/esp32s3/api-reference/peripherals/lcd/rgb_lcd.html#single-frame-buffer-in-psram)
 for the bandwidth and recovery constraints. This does not remove single-buffer
 tearing during a draw.

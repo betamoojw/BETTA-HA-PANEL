@@ -5,6 +5,25 @@ Open `http://<panel-ip>` in a browser once the panel has joined your Wi-Fi. The 
 edits its saved layout and settings. First-time Wi-Fi and Home Assistant setup are in
 [Install and set up](getting-started.md).
 
+## Live Display
+
+Open **Live Display** to view the panel's current screen, including popups and
+notifications. It connects automatically; **Disconnect** stops the mirror.
+**Actual size** shows one screen pixel per browser pixel, and **Download PNG**
+saves the last complete frame. Only one browser viewer can connect at a time.
+
+Viewing is read-only and does not wake the backlight. Select **Enable control**
+to tap, drag or hold controls just as on the panel; these actions can also
+operate the configured Home Assistant entities. Physical touch takes priority.
+Leaving the pane, hiding the browser tab, losing focus or losing the connection
+cancels remote input. Reconnecting always starts with control disabled.
+
+The feature is shared by all board profiles and follows the logical display
+orientation. Rotation reconnects with the new dimensions. Firmware updates pause
+the mirror. Slow links reduce the update rate; this is a live view, not video.
+It shows LVGL's rendered pixels and cannot diagnose electrical display flicker.
+The panel's configured administrator login also protects mirror session creation.
+
 ## Layout: pages and widgets { #layout-workspace }
 
 ![Current editor showing a living-room page and its light inspector](img/examples/editor-layout.png)

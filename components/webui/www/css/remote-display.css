@@ -1,0 +1,11 @@
+/* SPDX-License-Identifier: LicenseRef-FNCL-1.1
+ * Copyright (c) 2026 andre68723
+ */
+.mode-tabs.has-remote { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.remote-pane { grid-column: 1 / -1; min-width: 0; }
+.remote-toolbar { flex-wrap: wrap; align-items: center; }
+.remote-toolbar label { margin: 0; width: auto; }
+.remote-status { display: flex; gap: 16px; margin: 12px 0; }
+.remote-surface { overflow: auto; padding: 12px; background: #0d1826; border: 1px solid #2f4860; }
+#remoteCanvas { display: block; width: min(100%, 800px); height: auto; margin: auto; touch-action: none; user-select: none; }
+#remoteCanvas.actual-size { width: var(--remote-width); max-width: none; }

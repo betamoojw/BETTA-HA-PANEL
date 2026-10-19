@@ -952,6 +952,7 @@ function renderEnergyCanvasPreview(page) {
 }
 
 function renderCanvas() {
+  if (editor.activePane === "remote") return;
   if (editor.activePane === "settings") {
     setActiveSettingsSection(editor.activeSettingsSection);
     return;

@@ -3,6 +3,16 @@
 
 ## Checks without a device
 
+The `betta-remote-test` simulator target exercises the production remote-display
+module with real LVGL. Run it with width, height, render mode (0 partial, 1
+direct, 2 full) and rotation (0–3), for example `betta-remote-test 480 480 0 0`.
+It checks complete capture, bounded dirty-region redraw, idle updates, rotated input, read-only default,
+physical-touch priority, cancellation, heartbeat expiry, OTA suspension and
+reopening. The web tests also cover protocol corruption, edge tiles on larger
+screens, reconnects and browser lifecycle cancellation.
+Build the target, then run `ctest --test-dir build/simulator/panels3 --output-on-failure`
+for its 48 registered geometry/mode/rotation cases.
+
 Firmware and the SDL2 simulator share the LVGL widget sources; the editor has its own checks. Run the local checks
 first, then review on hardware.
 

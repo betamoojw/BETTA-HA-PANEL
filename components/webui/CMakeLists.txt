@@ -34,6 +34,7 @@ set(WEBUI_JS_SOURCES
     js/bind.js
     js/theme.js
     js/menus.js
+    js/remote-display.js
     js/main.js)
 
 # Base editor styles first, then one file per appearance style (docs/appearance.md).
@@ -50,7 +51,8 @@ set(WEBUI_CSS_SOURCES
     css/layout-toolbar.css
     css/layout-actions.css
     css/evcc-wallbox.css
-    css/inspector.css)
+    css/inspector.css
+    css/remote-display.css)
 
 set(WEBUI_JS_DEPENDS "")
 set(_webui_js_fingerprint "")

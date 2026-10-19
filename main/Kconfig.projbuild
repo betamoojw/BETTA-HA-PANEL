@@ -147,6 +147,17 @@ config APP_BETTA_EASTER_EGG
 
 endmenu
 
+config APP_REMOTE_DISPLAY
+    bool "Browser live display and remote touch"
+    default y
+    select HTTPD_WS_SUPPORT
+    select HTTPD_WS_PRE_HANDSHAKE_CB_SUPPORT
+    select HTTPD_WS_POST_HANDSHAKE_CB_SUPPORT
+    help
+        Mirror the logical RGB565 LVGL display on every board profile.
+        Frame buffers use PSRAM only while a viewer is connected.
+        Remote control requires explicit opt-in in the browser.
+
 menu "Wi-Fi Station"
 
 config APP_WIFI_SSID

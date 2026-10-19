@@ -6,6 +6,22 @@ Changes of **this fork**, compared with upstream v0.8.2. The release notes of th
 
 ## v0.9.0 (fork)
 
+### Browser live display
+
+Live LCD mirroring and remote touch are adapted from
+[`betamoojw` commit `57df6a3`](https://github.com/betamoojw/BETTA-HA-PANEL-4-Guiton-ESP32S3/commit/57df6a3d91defebb10bd361142e53f2619346470).
+The shared implementation supports all board geometries, partial/direct/full
+refresh and runtime rotation rather than the reference's fixed 480 × 480
+full-refresh profile. The editor adds Live Display, optional remote control,
+actual-size view and PNG download. Authentication, same-origin session tokens,
+physical-touch priority, input cancellation and OTA suspension are retained.
+Capture replays only dirty regions after the initial frame, avoiding repeated
+full-screen redraws for small changes. The COM18 S3 unit passed browser mirror,
+remote navigation, reconnect and settings-preservation checks on 2026-10-19;
+the owner confirmed stable colors/position with the mirror both open and closed
+after the direct-EDMA change. Other boards have host coverage, not device proof.
+See [Web editor](editor.md#live-display) for use and limits.
+
 ### Local S3 support
 
 This checkout restores the Guition ESP32-S3-4848S040 (`panels3`) profile removed
@@ -24,9 +40,9 @@ page fits all six nodes on 480 × 360, Wallbox fits from 320 × 320, and date/ti
 fields scroll beneath fixed actions. Graph statistics no longer overlap the plot;
 translated weather/detail rows and date/time actions fit their available width.
 Solar detail text follows the theme and all six forecast rows fit the popup.
-The S3 RGB profile uses an 8 MHz pixel clock and IDF 6.1's conditional
-bounce-buffer recovery to reduce bandwidth pressure and avoid unconditional
-DMA resets that can introduce a one-frame shift when the interrupt is late.
+The S3 RGB profile uses an 8 MHz pixel clock and direct EDMA scanout from PSRAM.
+It avoids CPU bounce-buffer refill deadlines and releases 19.2 KB of internal
+RAM. Unconditional DMA resets remain disabled.
 RGB/GDMA interrupts share core 1 with LVGL and remain cache-safe during flash
 access; the core-0 Wi-Fi task no longer shares their interrupt affinity.
 

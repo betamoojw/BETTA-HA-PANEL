@@ -390,6 +390,8 @@ function bindCrashBanner() {
 async function loadAppVersion() {
   try {
     const payload = await apiGet("/api/version");
+    document.getElementById("remoteTabBtn")?.classList.toggle("hidden", payload?.remote_display !== true);
+    document.querySelector(".mode-tabs")?.classList.toggle("has-remote", payload?.remote_display === true);
     editor.appVersion = typeof payload?.version === "string" ? payload.version : "";
     editor.appProject = typeof payload?.project === "string" ? payload.project : "";
     editor.appScreenW = Number(payload?.screen_w) || 0;

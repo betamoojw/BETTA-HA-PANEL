@@ -138,6 +138,7 @@ if command -v cmake >/dev/null 2>&1 && command -v sdl2-config >/dev/null 2>&1; t
         SDL_VIDEODRIVER=dummy tools/simulator.sh "$0" --regression "$r" || exit 1
       done' "$variant"
   done
+  step "remote display capture and input" "$sim_inputs" ctest --test-dir build/simulator/panel4 --output-on-failure
   # Text grows with the user's Larger and Largest steps and tiles cap it; nothing may overlap. The standard step
   # runs on every check, the other two with --full (and always in CI).
   steps="0"; [ "$full" -eq 1 ] && steps="0 1 2"

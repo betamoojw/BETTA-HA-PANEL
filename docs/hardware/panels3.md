@@ -114,6 +114,28 @@ crash report. At the owner's request, the old reports were erased from the panel
 after verifying their local backups. The warning disappeared; settings and the
 original layout remained unchanged. The diagnostics remain preserved locally.
 
+### Browser mirror validation
+
+On 2026-10-19, the mirror implementation based on `54f70265` passed 268 editor
+checks and 48 real-LVGL capture/input cases covering four geometries, three
+render modes and four rotations. Only the S3 firmware was built and flashed.
+The COM18 unit passed complete/delta frame decoding, remote page switching,
+read-only default, heartbeat expiry, stale-session rejection and reconnect tests.
+The browser displayed the actual Energy page and downloaded a 480 × 480 PNG.
+
+The owner observed whole-screen jitter with the initial bounce-buffer images,
+including after disconnecting the mirror. A 6 MHz trial did not resolve it;
+the byte-identical previously stable image also jittered in the same setup.
+The final image uses 8 MHz direct EDMA scanout. The owner confirmed stable idle
+and page switching, normal colors and position with mirroring open and closed.
+Free internal memory was 70,227 bytes at the protocol-check sample. This remains
+a short trial on computer USB power, not a sustained-load or all-board result.
+Its app SHA256 is `9c256375283267c93c7ea6709e44202dc917c6ff88414575624a89334b637f09`;
+the boot ELF prefix `ada66942d` matches the saved build. OTA state was valid,
+HA reconnected and no new crash or watchdog restart was reported. The app-only
+write preserved NVS/boot metadata and LittleFS digests; settings and the original
+layout were checked again. Backups and private captures remain outside Git.
+
 - Brightness/dimming, real Home Assistant service actions and OTA rollback
   still need completion of the device trial.
 - The profile allows five pages and caches up to 512 Home Assistant entities and

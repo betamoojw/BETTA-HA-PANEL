@@ -288,25 +288,28 @@ function setActiveSettingsSection(sectionId) {
 
 function setActivePane(pane) {
   setupSettingsWorkspace();
-  editor.activePane = pane === "settings" ? "settings" : "layout";
+  editor.activePane = pane === "remote" ? "remote" : pane === "settings" ? "settings" : "layout";
   const showLayout = editor.activePane === "layout";
+  const showSettings = editor.activePane === "settings";
+  const showRemote = editor.activePane === "remote";
+  window.RemoteDisplay?.setVisible(showRemote);
   document.querySelectorAll(".layout-toolbar-only").forEach(node => node.classList.toggle("hidden", !showLayout));
-  if (el.stackedSaveBtn) el.stackedSaveBtn.classList.toggle("hidden", showLayout);
+  if (el.stackedSaveBtn) el.stackedSaveBtn.classList.toggle("hidden", !showSettings);
   if (typeof closeAllDropdowns === "function") closeAllDropdowns();
   const textSizes = document.getElementById("layoutTextSizeDetails");
   if (textSizes) textSizes.open = false;
   renderHaDiagnosticsBanner();
   el.layoutPane.classList.toggle("hidden", !showLayout);
-  el.settingsPane.classList.toggle("hidden", showLayout);
+  el.settingsPane.classList.toggle("hidden", !showSettings);
   if (el.settingsContentPane) {
-    el.settingsContentPane.classList.toggle("hidden", showLayout);
+    el.settingsContentPane.classList.toggle("hidden", !showSettings);
   }
   if (el.canvasWrap) {
     el.canvasWrap.classList.toggle("hidden", !showLayout);
   }
   if (el.actionsPanel) {
     // The right column serves both modes: the layout inspector or the settings actions.
-    el.actionsPanel.classList.remove("hidden");
+    el.actionsPanel.classList.toggle("hidden", showRemote);
     for (const child of el.actionsPanel.children) {
       const settingsOnly = child.id === "settingsSidebarActions";
       child.classList.toggle("hidden", settingsOnly ? showLayout : !showLayout);
@@ -315,10 +318,11 @@ function setActivePane(pane) {
     if (showLayout && typeof updateInspectorPanels === "function") updateInspectorPanels();
   }
   el.layoutTabBtn.classList.toggle("active", showLayout);
-  el.settingsTabBtn.classList.toggle("active", !showLayout);
-  if (showLayout) {
+  el.settingsTabBtn.classList.toggle("active", showSettings);
+  if (!showSettings) {
     clearOtaStatusPoll();
-    renderCanvas();
+    if (showLayout) renderCanvas();
+    if (showRemote && el.canvasTitle) el.canvasTitle.textContent = document.getElementById("remoteTabBtn").textContent;
   } else if (editor.ota.status?.running || editor.ota.status?.rebooting) {
     setActiveSettingsSection(editor.activeSettingsSection);
     scheduleOtaStatusPoll();

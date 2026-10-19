@@ -43,6 +43,7 @@
 #include "ui/ui_boot_splash.h"
 #include "ui/ui_i18n.h"
 #include "ui/ui_runtime.h"
+#include "ui/ui_remote_display.h"
 #include "ui/theme/theme_store.h"
 #include "util/boot_guard.h"
 #include "util/coredump_report.h"
@@ -309,6 +310,9 @@ void app_main(void)
         }
         ESP_ERROR_CHECK(ui_runtime_start());
         ui_boot_splash_hide();
+        esp_err_t remote_err = ui_remote_display_init();
+        if (remote_err != ESP_OK && remote_err != ESP_ERR_NOT_SUPPORTED)
+            ESP_LOGW(TAG_DISPLAY, "Live display unavailable: %s", esp_err_to_name(remote_err));
         ESP_ERROR_CHECK(display_orientation_start());
 
         ha_client_config_t ha_cfg = {

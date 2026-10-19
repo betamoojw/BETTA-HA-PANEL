@@ -33,6 +33,7 @@
 #include "ui/ui_display_protection.h"
 #include "util/boot_guard.h"
 #include "util/coredump_archive.h"
+#include "ui/ui_remote_display.h"
 #include "ui/lvgl_alloc.h"
 #include "ui/nav_layout.h"
 #include "util/ota_health.h"
@@ -435,6 +436,7 @@ esp_err_t api_version_get_handler(httpd_req_t *req)
 
     /* The last two reports, with a legacy summary of the newest for older editors. */
     coredump_archive_add_json(root);
+    cJSON_AddBoolToObject(root, "remote_display", ui_remote_display_available());
 
     /* Wi-Fi/C6 connectivity diagnostics (net/wifi_diag_store.h): "current" is this boot's live
      * counters (wifi_mgr.c), all zero/absent in the normal case; "prev_boot" is whatever was

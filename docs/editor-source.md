@@ -30,6 +30,7 @@ www/js/util.js        normalizers, layout normalization, status line, `t()`, sto
 www/js/ui-basics.js   style cards, firmware info, HA diagnostics, canvas geometry
 www/js/inspector-hints.js Inspector info icons and help popups; settings sentence summaries
 www/js/translations.js loading and applying translations, language files
+www/js/timezones.js   searchable location picker and bounded device-clock polling
 www/js/settings.js    settings pages: Wi-Fi, OTA, device status, alerts, backup, security, saving
 www/js/brightness-test.js  temporary brightness tests: shared controls, serialized requests and device countdown
 www/js/update-check.js the panel's daily firmware update check: banner, OTA URL, its two settings
@@ -127,6 +128,11 @@ Keep prototype work in the adapter until explicitly integrating it. Production c
 workspace adapter over one model, validation/save path and history; the local reload switch is an experiment.
 
 ## Device-backed preview
+
+Time zone locations come from `net/timezone_catalog.c` and the vendored recurring
+rules in `net/tzdb/`. Regenerate with `tools/generate_timezones.py` and keep the
+snapshot attribution. `api/api_time_status.c` supplies a small clock-only reply
+at `/api/settings?time_only=1`; the picker polls it only while its page is visible.
 
 For live readings, serve `www/` on localhost and proxy `/api` to a panel; saves then go to that panel.
 Back up its layout or make the proxy read-only. The local test server above does not provide this mode.

@@ -815,7 +815,7 @@
   "settings.hardware.night_enabled": "启用夜间模式",
   "settings.time.heading": "时间",
   "settings.time.ntp_server": "NTP服务器",
-  "settings.time.timezone": "时区 (POSIX TZ)",
+  "settings.time.timezone": "时区",
   "settings.time.zone": "时区",
   "settings.time.custom": "其他（输入 POSIX TZ）",
   "settings.ui.heading": "语言与时间",
@@ -1291,5 +1291,14 @@
   "provision.wifi.hint": "保存重新启动面板。重新启动后，将显示 HA 配置。",
   "provision.ha.hint": "保存重新启动面板。重新启动后，编辑器将解锁。",
   "settings.language.option_de": "Deutsch",
-  "settings.language.option_en": "English"
+  "settings.language.option_en": "English",
+  "settings.time.search": "搜索时区…",
+  "settings.time.show_zones": "显示时区",
+  "settings.time.search_hint": "输入城市或区域名称的一部分，然后选择时区。",
+  "settings.time.no_matches": "没有匹配的时区",
+  "settings.time.local_time": "当前本地时间",
+  "settings.time.clock_unavailable": "设备时间不可用或尚未同步",
+  "settings.time.legacy_active": "现有旧格式时区",
+  "settings.time.legacy_hint": "已保留现有时区。选择一个地点以替换它。",
+  "settings.time.list_unavailable": "时区列表不可用，请重新加载设置。"
 }

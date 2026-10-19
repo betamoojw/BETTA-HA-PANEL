@@ -131,3 +131,19 @@ test("custom translation upload uses the adjacent language code and JSON file", 
   assert.equal(run("translationRequest.options.method"), 'PUT');
   assert.deepEqual(JSON.parse(run("translationRequest.options.body")), { 'tabs.settings': 'Instellingen' });
 });
+
+test("named timezone selection dispatches live save and survives reload", async () => {
+  const run = setupBindings();
+  run(`globalThis.setTimeout = callback => { callback(); return 0; };
+    closeTimezoneOptions = () => {};
+    document.getElementById = id => id === 'settingsTimezoneHint' ? ({textContent: ''}) : null;
+    realHardwareBinder();
+    selectTimezone('Asia/Shanghai');`);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(run("puts[0].time.timezone"), 'Asia/Shanghai');
+  assert.equal(run("puts[0].reboot"), false);
+  run(`editor.settings = {time: {timezone: puts[0].time.timezone}};
+    el.settingsTimezone.value = '';
+    renderTimezoneSettings(editor.settings.time);`);
+  assert.equal(run("el.settingsTimezone.value"), 'Asia/Shanghai');
+});

@@ -103,7 +103,7 @@ Everything outside the dashboard is under **Settings**, in three groups:
 | | **Top bar** | Items beside the clock ([guide](top-bar.md)) |
 | | **Sound** | Volume and night mute, on displays with audio ([guide](notifications.md#sound)) |
 | | **Alerts** | Doorbell and event cards ([guide](notifications.md#doorbell-and-event-alerts)) |
-| System | **Language & time** | Language, time zone from a list, time server |
+| System | **Language & time** | Language, searchable city time zone, device local time, time server |
 | | **Backup & security** | Backup and restore, admin password, factory reset |
 | | **Firmware** | Update check, manual install, versions and memory |
 
@@ -143,3 +143,15 @@ so share it only with someone you trust.
 
 For access protection see the [Security](SECURITY.md). Developers: [Web editor source](editor-source.md) and
 [crash-dump details](coredump.md).
+
+### Time zones
+
+In **Language & time**, search for a city or region, then choose a location such
+as `Asia/Shanghai` or `Europe/Berlin`. Selection is saved and applies immediately,
+without restarting the panel. The clock preview reports the panel's local time,
+not the browser's time zone. It stops showing a running clock if device status
+becomes stale. An unsynchronized panel shows an unavailable message.
+
+Existing POSIX rules stay unchanged until another location is selected. They
+remain usable through settings backups and the API. Location rules use a bundled
+snapshot of recurring daylight-saving rules, not full historical IANA data.

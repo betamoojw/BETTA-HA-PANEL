@@ -310,5 +310,5 @@
 #ifdef CONFIG_APP_TIME_TZ
 #define APP_TIME_TZ CONFIG_APP_TIME_TZ
 #else
-#define APP_TIME_TZ "CET-1CEST,M3.5.0/2,M10.5.0/3"
+#define APP_TIME_TZ "Europe/Berlin"
 #endif

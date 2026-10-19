@@ -819,7 +819,7 @@ WEB_I18N_BUILTIN["es"] = {
   "settings.hardware.night_enabled": "Habilitar modo nocturno",
   "settings.time.heading": "Hora",
   "settings.time.ntp_server": "Servidor NTP",
-  "settings.time.timezone": "Zona horaria (POSIX TZ)",
+  "settings.time.timezone": "Zona horaria",
   "settings.time.zone": "Zona horaria",
   "settings.time.custom": "Otra (introducir POSIX TZ)",
   "settings.ui.heading": "Idioma y hora",
@@ -1295,5 +1295,14 @@ WEB_I18N_BUILTIN["es"] = {
   "provision.wifi.hint": "Guardar reinicia el panel. Después se muestra la configuración HA.",
   "provision.ha.hint": "Guardar reinicia el panel. Después se desbloquea el editor.",
   "settings.language.option_de": "Deutsch",
-  "settings.language.option_en": "English"
+  "settings.language.option_en": "English",
+  "settings.time.search": "Buscar zona horaria…",
+  "settings.time.show_zones": "Mostrar zonas horarias",
+  "settings.time.search_hint": "Escribe parte del nombre de una ciudad o región y selecciona una zona horaria.",
+  "settings.time.no_matches": "No hay zonas horarias coincidentes",
+  "settings.time.local_time": "Hora local actual",
+  "settings.time.clock_unavailable": "La hora del dispositivo no está disponible o no está sincronizada",
+  "settings.time.legacy_active": "Zona horaria existente en formato antiguo",
+  "settings.time.legacy_hint": "Se conserva la zona horaria existente. Selecciona una ubicación para reemplazarla.",
+  "settings.time.list_unavailable": "La lista de zonas horarias no está disponible. Vuelve a cargar los ajustes."
 };

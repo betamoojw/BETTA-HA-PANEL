@@ -205,3 +205,7 @@ cc -std=gnu11 -Wall -Wextra -Werror -g -I main -I tests/host/stubs "${variant_fl
   "${cjson_sources[@]}" "${cjson_libs[@]}" -lm -o "$out/test_backup_layout"
 "$out/test_backup_layout"
 "$out/test_evcc"
+
+cc -std=gnu11 -Wall -Wextra -Werror -I main \
+  tests/host/test_timezone_catalog.c main/net/timezone_catalog.c -o "$out/test_timezone_catalog"
+"$out/test_timezone_catalog"

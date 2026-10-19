@@ -815,7 +815,7 @@
   "settings.hardware.night_enabled": "Włącz tryb nocny",
   "settings.time.heading": "Czas",
   "settings.time.ntp_server": "Serwer NTP",
-  "settings.time.timezone": "Strefa czasowa (POSIX TZ)",
+  "settings.time.timezone": "Strefa czasowa",
   "settings.time.zone": "Strefa czasowa",
   "settings.time.custom": "Inna (wpisz POSIX TZ)",
   "settings.ui.heading": "Język i czas",
@@ -1291,5 +1291,14 @@
   "provision.wifi.hint": "Zapis restartuje panel. Potem pojawi się konfiguracja HA.",
   "provision.ha.hint": "Zapis restartuje panel. Potem edytor zostanie odblokowany.",
   "settings.language.option_de": "Deutsch",
-  "settings.language.option_en": "English"
+  "settings.language.option_en": "English",
+  "settings.time.search": "Szukaj strefy czasowej…",
+  "settings.time.show_zones": "Pokaż strefy czasowe",
+  "settings.time.search_hint": "Wpisz część nazwy miasta lub regionu, a następnie wybierz strefę czasową.",
+  "settings.time.no_matches": "Brak pasujących stref czasowych",
+  "settings.time.local_time": "Aktualny czas lokalny",
+  "settings.time.clock_unavailable": "Czas urządzenia jest niedostępny lub nie został zsynchronizowany",
+  "settings.time.legacy_active": "Dotychczasowa strefa czasowa w starym formacie",
+  "settings.time.legacy_hint": "Dotychczasowa strefa czasowa została zachowana. Wybierz lokalizację, aby ją zastąpić.",
+  "settings.time.list_unavailable": "Lista stref czasowych jest niedostępna. Wczytaj ustawienia ponownie."
 }

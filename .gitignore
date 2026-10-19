@@ -78,3 +78,5 @@ main/idf_component.yml
 .DS_Store
 
 !/tools/generate_i18n.py
+
+!/tools/generate_timezones.py

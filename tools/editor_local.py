@@ -212,6 +212,21 @@ def build_server(port=8766, variant='paneljc', fixture_path=None, state_path=Non
                              and search in (item['name'] + ' ' + item['id']).lower()]
                     return self.reply({'items': items, 'status': 'ready', 'pending': False,
                                        'total': len(items), 'loaded': len(items)})
+                if url.path == '/api/settings':
+                    value = copy.deepcopy(responses[url.path])
+                    clock = {'active_timezone': value.get('time', {}).get('timezone', ''),
+                             'clock_valid': False, 'local_time': ''}
+                    try:
+                        from datetime import datetime
+                        from zoneinfo import ZoneInfo
+                        clock.update(clock_valid=True, local_time=datetime.now(
+                            ZoneInfo(clock['active_timezone'])).strftime('%Y-%m-%dT%H:%M:%S'))
+                    except (KeyError, ValueError, ImportError): pass
+                    if query.get('time_only') == ['1']: return self.reply(clock)
+                    value.setdefault('time', {}).update(clock)
+                    value['time']['timezones'] = sorted(json.loads(
+                        (ROOT / 'main/net/tzdb/zones.json').read_text(encoding='utf8')))
+                    return self.reply(value)
                 value = responses.get(url.path, {'items': []})
                 if url.path == '/api/state' and 'entity_id' in query:
                     value = {'items': [s for s in value['items'] if s['entity_id'] == query['entity_id'][0]]}

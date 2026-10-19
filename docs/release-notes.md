@@ -6,6 +6,13 @@ Changes of **this fork**, compared with upstream v0.8.2. The release notes of th
 
 ## v0.9.0 (fork)
 
+### Readable time zones
+
+Adapted from `betamoojw` commit `4c8e40e`: searchable Region/City identifiers,
+a device-local clock and a bundled recurring-rules catalog shared by all boards.
+Changes apply immediately; existing POSIX settings and backups stay supported.
+The picker and clock status have translations in all seven built-in languages.
+
 ### European languages
 
 German retains this fork's complete catalogs. Spanish, French and Polish now

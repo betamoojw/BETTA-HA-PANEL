@@ -656,8 +656,7 @@ function renderSettings() {
   if (el.settingsHardwareNightEnd) el.settingsHardwareNightEnd.value = hardware.night_end || "06:00";
   syncDisplayFields();
   el.settingsNtpServer.value = time.ntp_server || "";
-  el.settingsTimezone.value = time.timezone || "";
-  renderTimezonePresets();
+  renderTimezoneSettings(time);
   if (el.settingsLanguage) {
     el.settingsLanguage.value = normalizeUiLanguage(ui.language);
   }
@@ -1479,31 +1478,6 @@ function renderAlertList() {
   });
 }
 
-// The time zone list: the preset that matches the stored POSIX string, else "custom" with the text field shown.
-function renderTimezonePresets() {
-  const select = el.settingsTimezonePreset;
-  if (!select) return;
-  const current = (el.settingsTimezone?.value || "").trim();
-  const match = TIMEZONE_PRESETS.find((preset) => preset.tz === current);
-  select.replaceChildren(
-    ...TIMEZONE_PRESETS.map((preset) => new Option(preset.label, preset.id)),
-    new Option(t("settings.time.custom"), "custom"),
-  );
-  select.value = match ? match.id : "custom";
-  if (el.settingsTimezoneCustomRow) el.settingsTimezoneCustomRow.hidden = Boolean(match);
-}
-
-function onTimezonePresetChange() {
-  const preset = TIMEZONE_PRESETS.find((p) => p.id === el.settingsTimezonePreset.value);
-  if (el.settingsTimezoneCustomRow) el.settingsTimezoneCustomRow.hidden = Boolean(preset);
-  if (!preset) {
-    el.settingsTimezone.focus();
-    return;
-  }
-  el.settingsTimezone.value = preset.tz;
-  el.settingsTimezone.dispatchEvent(new Event("change", { bubbles: true })); // applies live, like typing it
-}
-
 function bindAlerts() {
   const add = document.getElementById("settingsAlertsAdd");
   const save = document.getElementById("settingsAlertsSave");
@@ -2118,7 +2092,8 @@ function pushUiLive() {
 }
 
 function bindHardwareLive() {
-  for (const input of [el.settingsUiStyle, el.settingsUiTextStep, el.settingsLanguage, el.settingsTimezone, el.settingsTopbarSlot1,
+  if (el.settingsTimezone) el.settingsTimezone.addEventListener("change", pushTimezoneLive);
+  for (const input of [el.settingsUiStyle, el.settingsUiTextStep, el.settingsLanguage, el.settingsTopbarSlot1,
     el.settingsTopbarSlot2, el.settingsTopbarSlot3, el.settingsTopbarWeatherEntity, el.settingsTopbarStockEntity]) {
     if (input) input.addEventListener("change", pushUiLive);
   }
@@ -2126,8 +2101,6 @@ function bindHardwareLive() {
     updateTextStepInfo();
     renderCanvas();
   });
-  if (el.settingsTimezonePreset) el.settingsTimezonePreset.addEventListener("change", onTimezonePresetChange);
-  if (el.settingsTimezone) el.settingsTimezone.addEventListener("input", renderTimezonePresets);
   const inputs = [
     el.settingsSoundVolume,
     el.settingsHardwareActiveBrightness,

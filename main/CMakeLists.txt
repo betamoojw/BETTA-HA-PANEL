@@ -236,6 +236,8 @@ idf_component_register(
         "net/wifi_mgr.c"
         "net/wifi_diag_store.c"
         "net/time_sync.c"
+        "net/timezone_catalog.c"
+        "api/api_time_status.c"
         "net/mqtt_mgr.c"
         "net/wifi_signal_level.c"
         "net/setup_passphrase.c"

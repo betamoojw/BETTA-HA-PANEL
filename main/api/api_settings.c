@@ -3,6 +3,7 @@
  * Modified 2026 by andre68723 in the andre68723/BETTA-HA-PANEL fork, see docs/release-notes.md
  */
 #include "api/api_routes.h"
+#include "api/api_time_status.h"
 
 #include <ctype.h>
 #include <math.h>
@@ -231,6 +232,10 @@ static void schedule_restart(void)
 
 esp_err_t api_settings_get_handler(httpd_req_t *req)
 {
+    char query[48], clock_only[4];
+    if (httpd_req_get_url_query_str(req, query, sizeof(query)) == ESP_OK &&
+        httpd_query_key_value(query, "time_only", clock_only, sizeof(clock_only)) == ESP_OK &&
+        strcmp(clock_only, "1") == 0) return api_time_status_get(req);
     runtime_settings_t *settings = calloc(1, sizeof(runtime_settings_t));
     if (settings == NULL) {
         return httpd_resp_send_500(req);
@@ -346,6 +351,11 @@ esp_err_t api_settings_get_handler(httpd_req_t *req)
 
     cJSON_AddStringToObject(time_cfg, "ntp_server", settings->ntp_server);
     cJSON_AddStringToObject(time_cfg, "timezone", settings->time_tz);
+    api_time_status_add(time_cfg);
+    cJSON *zones = cJSON_AddArrayToObject(time_cfg, "timezones");
+    for (size_t i = 0; zones && time_sync_tz_name(i); ++i) {
+        cJSON_AddItemToArray(zones, cJSON_CreateString(time_sync_tz_name(i)));
+    }
     cJSON_AddItemToObject(root, "time", time_cfg);
 
     cJSON_AddStringToObject(ui, "language", settings->ui_language);
@@ -899,9 +909,12 @@ esp_err_t api_settings_put_handler(httpd_req_t *req)
         free(settings);
         return send_json_error(req, "400 Bad Request", "time.ntp_server and mqtt.broker_host may only contain letters, digits, '.', '-', '_' and ':'");
     }
-    if (!settings_timezone_valid(settings->time_tz)) {
+    if (!settings_timezone_valid(settings->time_tz) ||
+        (strcmp(settings->time_tz, settings[1].time_tz) != 0 &&
+         strchr(settings->time_tz, '/') && !strchr(settings->time_tz, ',') &&
+         !time_sync_tz_rules(settings->time_tz))) {
         free(settings);
-        return send_json_error(req, "400 Bad Request", "time.timezone must be printable ASCII (POSIX TZ string)");
+        return send_json_error(req, "400 Bad Request", "time.timezone must be a supported Region/City name or printable POSIX TZ rules");
     }
     if (!settings_topic_prefix_valid(settings->mqtt_topic_prefix)) {
         free(settings);

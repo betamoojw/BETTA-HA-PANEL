@@ -174,6 +174,17 @@ preserved metadata/NVS and filesystem digests. After testing, simplified Chinese
 was restored and settings (excluding live Wi-Fi signal strength) and layout
 matched the pre-flash snapshots. Local backups remain outside Git.
 
+### Time zone validation
+
+On 2026-10-19, the time zone working-tree build based on `dba487f9` passed
+Shanghai, Kolkata, Kathmandu and UTC offset/persistence checks on COM18.
+The device-backed browser passed search, selection and reload; invalid locations
+were rejected. The original `CST-8`, language, brightness and layout were restored.
+Boot ELF prefix `99ebaa5b1` matched and OTA state was valid. App-only flashing
+preserved metadata/NVS and filesystem digests. The owner confirmed correct
+Beijing time, normal local touch/page switching and no visible display anomaly
+during this trial. The display driver was unchanged; this was not a sustained-load test.
+
 ## Manufacturer references
 
 - [Guition specifications](https://www.guition.com/ku/icms/upload/fb081940d6fc11f09850077a33e1404f/FTPData/UEditor/file/2026121/1768961092477/ESP32-4848S040%20Specifications-EN.pdf)

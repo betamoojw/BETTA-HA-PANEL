@@ -819,7 +819,7 @@ WEB_I18N_BUILTIN["zh-tw"] = {
   "settings.hardware.night_enabled": "啟用夜間模式",
   "settings.time.heading": "時間",
   "settings.time.ntp_server": "NTP伺服器",
-  "settings.time.timezone": "時區 (POSIX TZ)",
+  "settings.time.timezone": "時區",
   "settings.time.zone": "時區",
   "settings.time.custom": "其他（輸入 POSIX TZ）",
   "settings.ui.heading": "語言與時間",
@@ -1295,5 +1295,14 @@ WEB_I18N_BUILTIN["zh-tw"] = {
   "provision.wifi.hint": "儲存重新啟動面板。重新啟動後，將顯示 HA 配置。",
   "provision.ha.hint": "儲存重新啟動面板。重新啟動後，編輯器將解鎖。",
   "settings.language.option_de": "Deutsch",
-  "settings.language.option_en": "English"
+  "settings.language.option_en": "English",
+  "settings.time.search": "搜尋時區…",
+  "settings.time.show_zones": "顯示時區",
+  "settings.time.search_hint": "輸入城市或區域名稱的一部分，然後選擇時區。",
+  "settings.time.no_matches": "沒有符合的時區",
+  "settings.time.local_time": "目前本地時間",
+  "settings.time.clock_unavailable": "裝置時間無法取得或尚未同步",
+  "settings.time.legacy_active": "現有舊格式時區",
+  "settings.time.legacy_hint": "已保留現有時區。選擇一個地點以取代它。",
+  "settings.time.list_unavailable": "時區清單無法取得，請重新載入設定。"
 };

@@ -815,7 +815,7 @@
   "settings.hardware.night_enabled": "Activer le mode nuit",
   "settings.time.heading": "Temps",
   "settings.time.ntp_server": "Serveur NTP",
-  "settings.time.timezone": "Fuseau horaire (POSIX TZ)",
+  "settings.time.timezone": "Fuseau horaire",
   "settings.time.zone": "Fuseau horaire",
   "settings.time.custom": "Autre (saisir un POSIX TZ)",
   "settings.ui.heading": "Langue et heure",
@@ -1291,5 +1291,14 @@
   "provision.wifi.hint": "Enregistrer redémarre le panneau. La configuration HA s'affiche ensuite.",
   "provision.ha.hint": "Enregistrer redémarre le panneau. L'éditeur est ensuite déverrouillé.",
   "settings.language.option_de": "Deutsch",
-  "settings.language.option_en": "English"
+  "settings.language.option_en": "English",
+  "settings.time.search": "Rechercher un fuseau horaire…",
+  "settings.time.show_zones": "Afficher les fuseaux horaires",
+  "settings.time.search_hint": "Saisissez une partie du nom d’une ville ou d’une région, puis sélectionnez un fuseau horaire.",
+  "settings.time.no_matches": "Aucun fuseau horaire correspondant",
+  "settings.time.local_time": "Heure locale actuelle",
+  "settings.time.clock_unavailable": "Heure de l’appareil indisponible ou non synchronisée",
+  "settings.time.legacy_active": "Fuseau horaire existant au format ancien",
+  "settings.time.legacy_hint": "Le fuseau horaire existant est conservé. Sélectionnez un lieu pour le remplacer.",
+  "settings.time.list_unavailable": "Liste des fuseaux horaires indisponible. Rechargez les paramètres."
 }

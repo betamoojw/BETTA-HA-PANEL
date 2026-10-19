@@ -173,3 +173,5 @@ fi
 [ -z "$skipped" ] || printf 'not run:%s\n' "$skipped"
 if [ $status -eq 0 ]; then echo "all checks passed (logs: $logdir)"; else echo "CHECKS FAILED (logs: $logdir)"; fi
 exit $status
+
+python3 tools/generate_timezones.py --check

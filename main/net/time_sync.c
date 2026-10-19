@@ -4,6 +4,7 @@
 #include "net/time_sync.h"
 
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 
 #include "esp_log.h"
@@ -14,16 +15,42 @@
 #include "app_config.h"
 #include "util/log_tags.h"
 
-esp_err_t time_sync_set_timezone(const char *tz)
+#include "net/timezone_catalog.h"
+static char s_timezone[APP_TIME_TZ_MAX_LEN];
+
+const char *time_sync_tz_name(size_t index) { return timezone_catalog_name(index); }
+const char *time_sync_tz_rules(const char *name) { return timezone_catalog_rules(name); }
+
+const char *time_sync_get_tz(void)
 {
-    const char *tz_value = (tz != NULL && tz[0] != '\0') ? tz : APP_TIME_TZ;
-    if (setenv("TZ", tz_value, 1) != 0) {
-        ESP_LOGW(TAG_TIME, "Failed to set TZ='%s'", tz_value);
+    return s_timezone;
+}
+
+static esp_err_t apply_timezone(const char *name, const char *rules)
+{
+    if (strlen(name) >= sizeof(s_timezone)) return ESP_ERR_INVALID_ARG;
+    if (setenv("TZ", rules, 1) != 0) {
+        ESP_LOGW(TAG_TIME, "Failed to set timezone '%s'", name);
         return ESP_FAIL;
     }
     tzset();
-    ESP_LOGI(TAG_TIME, "Timezone set: %s", tz_value);
+    memmove(s_timezone, name, strlen(name) + 1);
+    ESP_LOGI(TAG_TIME, "Timezone set: %s", s_timezone);
     return ESP_OK;
+}
+
+esp_err_t time_sync_set_tz(const char *name)
+{
+    const char *rules = time_sync_tz_rules(name);
+    return rules != NULL ? apply_timezone(name, rules) : ESP_ERR_INVALID_ARG;
+}
+
+esp_err_t time_sync_set_timezone(const char *tz)
+{
+    const char *value = (tz != NULL && tz[0] != '\0') ? tz : APP_TIME_TZ;
+    const char *rules = time_sync_tz_rules(value);
+    /* Old POSIX DST rules can also contain '/', so do not classify by slash. */
+    return apply_timezone(value, rules != NULL ? rules : value);
 }
 
 esp_err_t time_sync_start(const char *ntp_server)

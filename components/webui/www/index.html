@@ -295,12 +295,23 @@
 
           <h2 id="settingsTimeHeading">Time</h2>
           <div class="form">
-            <label class="field-md"><span id="settingsTimezonePresetLabel">Timezone</span>
-              <select id="settingsTimezonePreset"></select>
-            </label>
-            <label class="field-lg" id="settingsTimezoneCustomRow" hidden><span id="settingsTimezoneLabel">Timezone (POSIX TZ)</span>
-              <input id="settingsTimezone" type="text" placeholder="CET-1CEST,M3.5.0/2,M10.5.0/3" maxlength="127" />
-            </label>
+            <div class="timezone-field">
+              <label id="settingsTimezoneLabel" for="settingsTimezoneSearch">Timezone</label>
+              <input id="settingsTimezone" type="hidden" />
+              <div id="settingsTimezonePicker" class="timezone-picker">
+                <div class="timezone-control">
+                  <input id="settingsTimezoneSearch" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="settingsTimezoneOptions" aria-describedby="settingsTimezoneHint" autocomplete="off" spellcheck="false" placeholder="Search timezone…" />
+                  <button id="settingsTimezoneToggle" class="btn" type="button" aria-label="Show timezones" aria-controls="settingsTimezoneOptions" aria-expanded="false">▾</button>
+                </div>
+                <div id="settingsTimezoneOptions" class="timezone-options" role="listbox" aria-labelledby="settingsTimezoneLabel" hidden></div>
+              </div>
+              <div id="settingsTimezoneHint" class="meta"></div>
+            </div>
+            <div class="timezone-clock">
+              <span id="settingsLocalTimeLabel">Current local time</span>
+              <output id="settingsLocalTime">—</output>
+              <span id="settingsActiveTimezone" class="meta"></span>
+            </div>
             <label class="field-md"><span id="settingsNtpServerLabel">NTP Server</span>
               <input id="settingsNtpServer" type="text" placeholder="pool.ntp.org" maxlength="127" />
             </label>
@@ -1809,6 +1820,7 @@
   <script src="/js/ui-basics.js"></script>
   <script src="/js/inspector-hints.js"></script>
   <script src="/js/translations.js"></script>
+  <script src="/js/timezones.js"></script>
   <script src="/js/settings.js"></script>
   <script src="/js/brightness-test.js"></script>
   <script src="/js/update-check.js"></script>

@@ -474,8 +474,8 @@ function createWidgetIdForPage(page, type) {
   }
 }
 
-async function apiGet(path) {
-  const response = await fetch(path, { cache: "no-store" });
+async function apiGet(path, signal) {
+  const response = await fetch(path, { cache: "no-store", signal });
   if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
   return response.json();
 }

@@ -18,6 +18,7 @@ endif()
 if(CONFIG_APP_PANEL_VARIANT_S3_480)
     set(PANEL_DRIVER_SRCS
         "drivers/display_init_panels3.c"
+        "drivers/display_panels3_dma.c"
         "drivers/touch_init_panels3.c"
     )
 elseif(CONFIG_APP_PANEL_VARIANT_10INCH_1280)
@@ -413,6 +414,11 @@ if(IDF_TARGET STREQUAL "esp32p4")
     idf_component_optional_requires(PRIVATE esp_driver_ppa esp_driver_jpeg)
 endif()
 if(CONFIG_APP_PANEL_VARIANT_S3_480)
+    idf_component_optional_requires(PRIVATE esp_driver_dma)
+    target_link_options(${COMPONENT_LIB} INTERFACE
+        "-Wl,--wrap=gdma_new_ahb_channel"
+        "-Wl,--wrap=gdma_reset"
+        "-Wl,--wrap=esp_intr_alloc_intrstatus")
     target_include_directories(${COMPONENT_LIB} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/drivers/panels3_bsp_shim")
 endif()
 

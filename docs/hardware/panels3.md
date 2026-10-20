@@ -185,6 +185,24 @@ preserved metadata/NVS and filesystem digests. The owner confirmed correct
 Beijing time, normal local touch/page switching and no visible display anomaly
 during this trial. The display driver was unchanged; this was not a sustained-load test.
 
+### Save stability validation
+
+On 2026-10-20, the owner reproduced persistent right displacement after editor
+saves. The profile now uses 6 MHz direct EDMA, a 9,600-byte internal draw buffer and one post-write
+resynchronization on the LVGL task after a quiet interval. Physical validation
+of this combination passed on COM18: the owner confirmed stable idle, editor
+saves/page switching and aligned physical touch. This remains a short device
+trial, not sustained-load or all-widget validation. ELF prefix `05b98b7f1` matched;
+12 editor saves coalesced to three requested resets, with no additional reset
+between 94 and 168 seconds uptime. OTA was valid and HA authenticated. App-only
+flashing preserved NVS/filesystem digests; settings matched except live clock
+and signal fields. Owner edits to the layout were retained, and detailed private
+evidence remains in local backups.
+The trials also exposed a discarded boot-overlay hide request on display-lock
+timeout. LVGL now retains the request until it can remove the overlay. Real-LVGL
+tests reproduce the old failure and pass the fixed automatic/manual-progress
+and immediate-hide cases. The owner confirmed dashboard entry and aligned touch.
+
 ## Manufacturer references
 
 - [Guition specifications](https://www.guition.com/ku/icms/upload/fb081940d6fc11f09850077a33e1404f/FTPData/UEditor/file/2026121/1768961092477/ESP32-4848S040%20Specifications-EN.pdf)

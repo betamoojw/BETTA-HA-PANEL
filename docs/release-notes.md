@@ -74,11 +74,10 @@ page fits all six nodes on 480 × 360, Wallbox fits from 320 × 320, and date/ti
 fields scroll beneath fixed actions. Graph statistics no longer overlap the plot;
 translated weather/detail rows and date/time actions fit their available width.
 Solar detail text follows the theme and all six forecast rows fit the popup.
-The S3 RGB profile uses an 8 MHz pixel clock and direct EDMA scanout from PSRAM.
-It avoids CPU bounce-buffer refill deadlines and releases 19.2 KB of internal
-RAM. Unconditional DMA resets remain disabled.
-RGB/GDMA interrupts share core 1 with LVGL and remain cache-safe during flash
-access; the core-0 Wi-Fi task no longer shares their interrupt affinity.
+The S3 RGB profile uses 6 MHz direct EDMA and internal partial draws.
+Serialized writes schedule one resynchronization on LVGL after a quiet interval.
+Boot-overlay hide retries through LVGL after lock timeout. The owner confirmed
+stable idle, saves/page changes and aligned touch on the COM18 S3.
 
 !!! info "Development fork · based on upstream v0.8.2"
 

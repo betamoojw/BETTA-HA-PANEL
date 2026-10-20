@@ -6,6 +6,7 @@
 #include "ui/ui_boot_splash.h"
 
 #include <stdint.h>
+#include <stdatomic.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -100,6 +101,19 @@ typedef struct {
 } boot_splash_state_t;
 
 static boot_splash_state_t s_splash = {0};
+static atomic_bool s_hide_requested;
+static bool s_manual_progress;
+
+/* Called only while LVGL is locked, including from its timer callback. */
+static void splash_hide_locked(void)
+{
+    if (s_splash.timer != NULL) lv_timer_del(s_splash.timer);
+    if (s_splash.root != NULL) lv_obj_del(s_splash.root);
+    memset(&s_splash, 0, sizeof(s_splash));
+    atomic_store(&s_hide_requested, false);
+    lv_obj_invalidate(lv_scr_act());
+    ESP_LOGI(TAG_UI, "Boot splash hidden");
+}
 static const int64_t BOOT_SPLASH_MIN_SHOW_MS = 1200;
 static int16_t s_status_x_offset = SPLASH_STATUS_X_OFFSET_DEFAULT;
 static lv_coord_t s_status_width = SPLASH_STATUS_WIDTH_DEFAULT;
@@ -233,7 +247,11 @@ static void splash_step_progress(void)
 static void splash_timer_cb(lv_timer_t *timer)
 {
     (void)timer;
-    splash_step_progress();
+    if (atomic_load(&s_hide_requested)) {
+        splash_hide_locked();
+        return;
+    }
+    if (!s_manual_progress) splash_step_progress();
 }
 
 static lv_obj_t *splash_create_emblem(lv_obj_t *parent)
@@ -341,6 +359,8 @@ esp_err_t ui_boot_splash_show(void)
     s_splash.status_line_count = 0;
     splash_add_status_line(ui_i18n_get("boot.initializing_system", "Initializing system"));
     s_splash.progress_value = 0;
+    s_manual_progress = false;
+    atomic_store(&s_hide_requested, false);
     s_splash.timer = lv_timer_create(splash_timer_cb, 280, NULL);
     s_splash.shown_at_ms = splash_now_ms();
 
@@ -410,10 +430,8 @@ void ui_boot_splash_set_progress(uint8_t progress_percent)
         return;
     }
 
-    if (s_splash.timer != NULL) {
-        lv_timer_del(s_splash.timer);
-        s_splash.timer = NULL;
-    }
+    /* Keep the timer alive to service a deferred hide even in manual mode. */
+    s_manual_progress = true;
     if (progress_percent > 100U) {
         progress_percent = 100U;
     }
@@ -465,23 +483,14 @@ void ui_boot_splash_hide(void)
         vTaskDelay(pdMS_TO_TICKS((uint32_t)remaining));
     }
 
+    /* The UI may be rendering the dashboard for longer than this bounded wait.
+     * Retain the request so the LVGL timer removes the overlay when it resumes. */
+    atomic_store(&s_hide_requested, true);
     if (!display_lock(2000)) {
-        ESP_LOGW(TAG_UI, "Boot splash hide: display_lock timeout (LVGL still rendering)");
+        ESP_LOGW(TAG_UI, "Boot splash hide deferred until LVGL rendering completes");
         return;
     }
-
-    if (s_splash.timer != NULL) {
-        lv_timer_del(s_splash.timer);
-        s_splash.timer = NULL;
-    }
-    if (s_splash.root != NULL) {
-        lv_obj_del(s_splash.root);
-    }
-    memset(&s_splash, 0, sizeof(s_splash));
-
-    lv_obj_invalidate(lv_scr_act());
-    lv_refr_now(NULL);
+    splash_hide_locked();
     display_unlock();
     display_note_activity();
-    ESP_LOGI(TAG_UI, "Boot splash hidden");
 }

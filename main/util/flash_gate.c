@@ -7,6 +7,10 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 
+#if CONFIG_APP_PANEL_VARIANT_S3_480
+#include "drivers/display_panels3_dma.h"
+#endif
+
 static _Atomic(SemaphoreHandle_t) s_gate;
 
 bool flash_gate_enter(uint32_t timeout_ms)
@@ -34,6 +38,9 @@ bool flash_gate_enter(uint32_t timeout_ms)
 void flash_gate_leave(void)
 {
     if (s_gate != NULL) {
+#if CONFIG_APP_PANEL_VARIANT_S3_480
+        display_panels3_flash_complete();
+#endif
         xSemaphoreGive(s_gate);
     }
 }

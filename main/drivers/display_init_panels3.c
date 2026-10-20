@@ -8,6 +8,7 @@
 #include "drivers/display_init.h"
 #include "drivers/display_backlight.h"
 #include "drivers/display_port.h"
+#include "drivers/display_panels3_dma.h"
 #include "app_config.h"
 #include "driver/gpio.h"
 #include "driver/ledc.h"
@@ -18,6 +19,7 @@
 #include "esp_lcd_panel_rgb.h"
 #include "esp_lcd_st7701.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
@@ -33,9 +35,12 @@
 #define PANELS3_VSYNC_GPIO 17
 /* Low to high: B1..B5, G0..G5, R1..R5. */
 #define PANELS3_DATA_GPIOS {4, 5, 6, 7, 15, 8, 20, 3, 46, 9, 10, 11, 12, 13, 14, 0}
-/* Direct PSRAM scanout shares bandwidth with the CPU. Keep the pixel clock
- * bounded to leave headroom for Wi-Fi, fonts and browser mirror transfers. */
-#define PANELS3_PCLK_HZ 8000000
+/* Direct EDMA avoids the CPU bounce-refill deadline. Internal partial draws
+ * remove the extra PSRAM source read/copy during dashboard rendering. */
+#define PANELS3_PCLK_HZ 6000000
+#define PANELS3_DRAW_LINES 10
+_Static_assert(PANELS3_DRAW_LINES * APP_SCREEN_WIDTH * 2 <= 16384,
+               "Bound internal partial draw memory");
 #define PANELS3_H_PULSE 8
 #define PANELS3_H_FRONT 10
 #define PANELS3_H_BACK 50
@@ -49,6 +54,33 @@ static esp_lcd_panel_handle_t s_panel;
 static SemaphoreHandle_t s_panel_init_done;
 static esp_err_t s_panel_init_result;
 static bool s_panel_init_started;
+static portMUX_TYPE s_flash_lock = portMUX_INITIALIZER_UNLOCKED;
+static int64_t s_flash_completed_us;
+static bool s_flash_resync_pending;
+
+void display_panels3_flash_complete(void)
+{
+    portENTER_CRITICAL(&s_flash_lock);
+    s_flash_completed_us = esp_timer_get_time();
+    s_flash_resync_pending = true;
+    portEXIT_CRITICAL(&s_flash_lock);
+}
+
+static void resync_after_flash(lv_timer_t *timer)
+{
+    (void)timer;
+    const int64_t now = esp_timer_get_time();
+    portENTER_CRITICAL(&s_flash_lock);
+    bool pending = s_flash_resync_pending && now - s_flash_completed_us >= 1000000;
+    if (pending) s_flash_resync_pending = false;
+    portEXIT_CRITICAL(&s_flash_lock);
+    if (!pending) return;
+    /* LVGL calls this on its own task after synchronous rendering completes.
+     * A flash bus stall may desynchronize direct scanout. Repair it once at
+     * VSYNC after a quiet interval, never continuously on idle frames. */
+    esp_err_t err = esp_lcd_rgb_panel_restart(s_panel);
+    ESP_LOGI(TAG_DISPLAY, "RGB post-write resync request: %s", esp_err_to_name(err));
+}
 
 static esp_err_t backlight_ledc_init(void)
 {
@@ -183,9 +215,7 @@ static esp_err_t panel_create(void)
             .vsync_back_porch  = PANELS3_V_BACK,
             .flags.pclk_active_neg = 0,  /* pclk_inverted: False per ESPHome Guition 4848S040 config */
         },
-        /* Partial LVGL buffers copy into one PSRAM scanout framebuffer.
-         * At this bounded pixel clock, direct EDMA avoids the hard real-time
-         * CPU bounce-refill deadline and releases 19.2 KB of internal RAM. */
+        /* One PSRAM scanout framebuffer; no CPU refill ISR on each strip. */
         .num_fbs = 1,
         .bounce_buffer_size_px = 0,
         .flags.fb_in_psram = 1,
@@ -222,7 +252,7 @@ static esp_err_t panel_create(void)
      * is already deleted at this point and the call would fail with an error.
      * The ST7701S init sequence has already enabled the display output. */
 
-    ESP_LOGI(TAG_DISPLAY, "ST7701S panel ready (%dx%d, PCLK=%dHz, 1x FB in PSRAM, direct DMA)",
+    ESP_LOGI(TAG_DISPLAY, "ST7701S panel ready (%dx%d, PCLK=%dHz, 1x FB in PSRAM, direct DMA, internal draws)",
         APP_SCREEN_WIDTH, APP_SCREEN_HEIGHT, PANELS3_PCLK_HZ);
     return ESP_OK;
 }
@@ -232,7 +262,9 @@ static void panel_init_task(void *arg)
     (void)arg;
     /* Keep RGB/GDMA completion callbacks on the LVGL core. Wi-Fi stays on CPU0. */
     ESP_LOGI(TAG_DISPLAY, "RGB/GDMA initialization on core %d (cache-safe ISR)", xPortGetCoreID());
+    display_panels3_dma_begin();
     s_panel_init_result = panel_create();
+    display_panels3_dma_end();
     xSemaphoreGive(s_panel_init_done);
     vTaskDelete(NULL);
 }
@@ -263,12 +295,20 @@ esp_err_t display_init(void)
     esp_lv_adapter_display_config_t config = ESP_LV_ADAPTER_DISPLAY_RGB_DEFAULT_CONFIG(
         s_panel, NULL, APP_SCREEN_WIDTH, APP_SCREEN_HEIGHT, ESP_LV_ADAPTER_ROTATE_0);
     config.tear_avoid_mode = ESP_LV_ADAPTER_TEAR_AVOID_MODE_NONE;
-    config.profile.use_psram = true;
+    /* A single 9,600-byte internal draw buffer avoids copying from PSRAM to
+     * PSRAM while direct EDMA is reading the same external-memory bus. */
+    config.profile.use_psram = false;
+    config.profile.buffer_height = PANELS3_DRAW_LINES;
+    config.profile.require_double_buffer = false;
     config.profile.enable_ppa_accel = false;
     s_lv_display = esp_lv_adapter_register_display(&config);
     if (!s_lv_display) return ESP_ERR_NO_MEM;
     lv_display_set_default(s_lv_display);
     lv_display_set_antialiasing(s_lv_display, APP_LVGL_ANTIALIASING != 0);
+    if (!display_lock(1000)) return ESP_ERR_TIMEOUT;
+    lv_timer_t *recovery = lv_timer_create(resync_after_flash, 200, NULL);
+    display_unlock();
+    if (!recovery) return ESP_ERR_NO_MEM;
     ESP_RETURN_ON_ERROR(display_port_start(), TAG_DISPLAY, "Adapter start");
     ESP_RETURN_ON_ERROR(display_brightness_start(), TAG_DISPLAY, "Brightness timer");
     s_display_ready = true;

@@ -7,7 +7,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
-#include "bsp/esp32_p4_nano.h"
+#include "bsp/esp32_p4_wifi6_touch_lcd_x.h"
 #include "bsp/touch.h"
 #include "esp_err.h"
 #include "esp_lcd_touch.h"
@@ -108,8 +108,10 @@ esp_err_t touch_init(void)
     }
 
     esp_err_t err = ESP_FAIL;
+    // The LCD-X BSP requires a config; LVGL applies the display rotation.
+    const bsp_display_cfg_t bsp_cfg = {0};
     for (int attempt = 1; attempt <= TOUCH_INIT_RETRIES; attempt++) {
-        err = bsp_touch_new(NULL, &s_touch_handle);
+        err = bsp_touch_new(&bsp_cfg, &s_touch_handle);
         if (err == ESP_OK && s_touch_handle != NULL) {
             break;
         }

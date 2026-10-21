@@ -6,6 +6,7 @@ Changes of **this fork**, compared with upstream v0.8.2. The release notes of th
 
 ## v0.9.0 (fork)
 
+`panel10` now uses LCD-X BSP 2.0.3, GPIO26 backlight/GPIO27 reset, Rev3.x configuration and a separate dependency lock. COM24 v3.2 display/touch and LAN passed on 2026-10-21; owner confirmed working Live Display (see the device guide).
 ### Readable time zones
 
 Adapted from `betamoojw` commit `4c8e40e`: searchable Region/City identifiers,
@@ -84,7 +85,7 @@ stable idle, saves/page changes and aligned touch on the COM18 S3.
     Changes below belong to **andre68723's fork**, compared with upstream commit
     `420df764`. Images for all five variants are on
     [GitHub Releases](https://github.com/andre68723/BETTA-HA-PANEL/releases).
-    `panel10` and `paneljc-v2` images are compile-checked only and need testers. **Guition JC and Tab5 support are new in this fork**; they have no upstream v0.8.2
+    `paneljc-v2` remains compile-checked only; the local LCD-X panel10 trial is documented above. **Guition JC and Tab5 support are new in this fork**; they have no upstream v0.8.2
     baseline. Device measurements below validate fork builds, rather than compare
     them with upstream firmware.
 
@@ -111,10 +112,10 @@ stable idle, saves/page changes and aligned touch on the COM18 S3.
       with their test dates in [Development](development/learnings.md).
     - The new flash layout is verified on panel4 and paneljc only. Graph history has a quota (a quarter of the filesystem, at most 1 MiB, plus a 512 KiB free reserve) and removes orphaned files; the quota is host-tested, but its effect on the 16 MiB boards (2.625 MiB filesystem; a full graph file is about 32 KiB) is not measured on a device, and panic dumps were
       measured idle (about 21-23 KiB), not under load.
-    - Panel10 and paneljc-v2 have been compile-checked only. Tab5 ran on one device
+    - Panel10 passed a Rev3.2 device trial; paneljc-v2 is compile-checked only. Tab5 ran on one device
       (ST7121, ESP32-P4 v1.3; first trial 2026-10-05). Panel4, paneljc and Tab5 were
-      updated over the air to v0.9.0 on 2026-10-15. Current P4 builds target v1.x
-      silicon, not v3.x. See [hardware](choose-display.md).
+      updated over the air to v0.9.0 on 2026-10-15. Panel10 targets v3.x; other P4 profiles target v1.x
+      silicon. See [hardware](choose-display.md).
     - The Alarm tile was tried against a template alarm with and without a numeric
       code (2026-10-15); a wrong code and text codes have not been tried.
     - Some interactions still need device trials, including doorbell camera and
@@ -168,14 +169,14 @@ Follow [Installation](getting-started.md) and [partition migration](development/
       layout, settings and Home Assistant connection. On the panel4 and the paneljc an OTA upload into each slot was
       accepted and validated after 60 s (ota_0 to ota_1 and back), and a test image that panicked while pending verification was rolled back to the
       previous app by the bootloader, with a decodable panic dump left in the new coredump partition (20.6 KiB on the panel4, 22.4 KiB on the paneljc).
-      `panel10` and `paneljc-v2` have only been compile-checked; one Tab5 device trial began on 2026-10-05.
+      `panel10` passed the documented LCD-X trial; `paneljc-v2` is compile-checked only; one Tab5 device trial began on 2026-10-05.
 
 ### Hardware and platform
 
 - **Display device support:** upstream's Waveshare `panel4` and `panel10` profiles
   are retained. **Guition JC8012P4A1 (`paneljc` / `paneljc-v2`) and M5Stack Tab5
   (`tab5`) are added by this fork.** Panel4 and the original paneljc have device
-  trials, including one Tab5 on 2026-10-05; panel10 and paneljc-v2 are compile checked only. Builds use
+  trials, including one Tab5 on 2026-10-05; panel10 has a Rev3.2 trial and paneljc-v2 is compile checked only. Builds use
   ESP-IDF 6.1 and matching ESP-Hosted/C6 firmware.
 
 - **M5Stack Tab5:** 5-inch ESP32-P4 + ESP32-C6, with landscape and portrait

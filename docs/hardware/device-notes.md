@@ -84,10 +84,15 @@ Device guide: [Waveshare 10.1-inch panel](panel10.md).
 
 The shared ESP32-P4/C6 configuration uses 360 MHz CPU and 200 MHz Hex PSRAM. It does not establish hardware operation or a memory baseline for panel10. Match the exact controller/display assembly and chip revision before flashing. No audio driver is enabled for this variant.
 
-`display_init_panel10.c` and `touch_init_panel10.c` currently use
-`bsp/esp32_p4_nano.h`. The LCD-X controller assembly has different connector
-geometry from that Nano board. Correcting this guide's illustration and links
-does not validate its pin assignments, display initialization or touch mapping.
+`display_init_panel10.c` and `touch_init_panel10.c` use the vendored Waveshare
+LCD-X BSP 2.0.3, with the shared adapter 0.7.3. GPIO26 drives backlight PWM,
+GPIO27 resets the JD9365 panel, and GPIO7/8 carry touch I2C. The BSP probes
+GT9271 at 0x5D and 0x14 through the GT911-compatible driver. The native
+800 x 1280 panel is rotated to 1280 x 800 by the shared display runtime.
+The profile selects ESP32-P4 Rev3.x, matching the COM24 v3.2 unit identified
+on 2026-10-21. Its separate `dependencies.lock.panel10` keeps this BSP out
+of the Panel4 dependency resolution. Physical display/touch checks remain
+required after flashing.
 
 ## Guition JC8012P4A1 (`paneljc`) { #paneljc }
 

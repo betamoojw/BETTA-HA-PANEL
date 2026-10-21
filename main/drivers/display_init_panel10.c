@@ -8,7 +8,7 @@
 #include <stdbool.h>
 
 #include "bsp/display.h"
-#include "bsp/esp32_p4_nano.h"
+#include "bsp/esp32_p4_wifi6_touch_lcd_x.h"
 #include "esp_check.h"
 #include "esp_err.h"
 #include "esp_lcd_panel_ops.h"

@@ -54,6 +54,21 @@ display-lock timeouts; their cause and repeatability have not been established.
 Backlight optical measurements, remote-touch input, P4 application OTA and
 long-duration stability have not been verified.
 
+On 2026-10-21, clean commit `0a551a2` was reflashed on the same COM24 unit
+using esptool 5.3.1 and the P4 flasher stub with GD25Q256 flash. In one stub
+session, application write/readback passed and pre/post-write MD5 checksums
+matched for metadata/NVS, the coredump partition and all 18.625 MiB of LittleFS
+through the 32 MiB boundary. Firmware remained stopped until comparison passed.
+After boot, the source stamp and valid OTA state matched; layout and saved
+settings were preserved (time, clock-valid status and RSSI are live values).
+Boot splash exit and touch initialization appeared in the log. The separate
+clean-build display trial also passed owner-confirmed screen stability, local
+touch alignment and Live Display following local page changes.
+
+The earlier ROM-only storage digests are not valid full-filesystem evidence:
+ROM cannot address beyond 16 MiB. Use the [stub preservation procedure](../development/build.md#32-mib-p4-preservation-checks).
+This verifies bytes before boot; normal boot diagnostics may subsequently write NVS.
+
 ## Technical notes
 
 Pin assignments, schematic checks, BSP versions and open points are in the [device technical notes](device-notes.md#panel10).

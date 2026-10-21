@@ -27,6 +27,7 @@ tools/*
 !tools/simulator.sh
 !tools/build.sh
 !tools/build.ps1
+!tools/flash_storage_check.py
 !tools/clean.sh
 !tools/check.sh
 !tools/check_web.py

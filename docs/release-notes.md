@@ -6,7 +6,7 @@ Changes of **this fork**, compared with upstream v0.8.2. The release notes of th
 
 ## v0.9.0 (fork)
 
-`panel10` now uses LCD-X BSP 2.0.3, GPIO26 backlight/GPIO27 reset, Rev3.x configuration and a separate dependency lock. COM24 v3.2 display/touch and LAN passed on 2026-10-21; owner confirmed working Live Display (see the device guide).
+`panel10` now uses LCD-X BSP 2.0.3, GPIO26 backlight/GPIO27 reset, Rev3.x configuration and a separate dependency lock. COM24 v3.2 display/touch and LAN passed on 2026-10-21; owner confirmed working Live Display. The 32 MiB P4 checksum helper requires a supported flasher stub and rejects ROM fallback; an app-only reflash of `0a551a2` preserved metadata/NVS, coredump and complete LittleFS checksums before boot (see the device guide).
 ### Readable time zones
 
 Adapted from `betamoojw` commit `4c8e40e`: searchable Region/City identifiers,

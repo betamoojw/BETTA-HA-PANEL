@@ -38,6 +38,36 @@ Variants: `panel4`, `panel10`, `paneljc`, `paneljc-v2`, `tab5`, `panels3`. `pack
 reports (for example `v0.9.0`) and publishes nothing. `flash` writes bootloader, table and app separately, not a
 merged factory file; flash the factory file with the [USB procedure](../getting-started.md#2-flash-the-panel).
 
+## 32 MiB P4 preservation checks
+
+For an authorized app-only USB update on the current `config/partitions.csv`
+layout, use `tools/flash_storage_check.py` with the ESP-IDF Python environment
+(esptool 5.3.1). Capture before and after the write, **without booting firmware
+between captures**. Opening the serial port enters download mode; do this only
+during an authorized device update. Collect settings/layout and diagnostics over
+HTTP first. Keep snapshots in a new ignored `.local/` directory.
+
+```bash
+python tools/flash_storage_check.py capture --port <port> --table build/panel10/partition_table/partition-table.bin --out .local/<run>/before.json
+# Stop on any failure. Write only the already-verified active app slot, with:
+# esptool --chip esp32p4 --port <port> --after no-reset write-flash ...
+# Verify the app; keep --after no-reset for every intervening serial command.
+python tools/flash_storage_check.py capture --port <port> --table build/panel10/partition_table/partition-table.bin --out .local/<run>/after.json
+python tools/flash_storage_check.py compare .local/<run>/before.json .local/<run>/after.json
+```
+
+The helper requires a running P4 flasher stub and a W25Q256/GD25Q256 JEDEC ID,
+checks the installed table, and compares metadata/NVS, coredump and all LittleFS
+bytes through 32 MiB. Unsupported chips, ROM fallback, legacy records, changed
+device identity and existing output files fail closed. It never writes flash or
+automatically boots the application. Do not reuse the earlier local ROM-only
+`rom-digests.py` helper: ROM cannot address the full storage partition. See
+[Espressif's addressing limits](https://docs.espressif.com/projects/esptool/en/latest/esp32p4/troubleshooting.html#flash-and-external-memory-support-limitations).
+After a successful comparison, boot and verify the source stamp, OTA state and
+logical settings/layout separately. Boot diagnostics and graph history can
+legitimately change persistent bytes after boot. Host regression checks:
+`python -m unittest discover -s tests -p test_flash_storage_check.py`.
+
 ## Guition ESP32-S3 { #guition-esp32-s3 }
 
 Activate ESP-IDF 6.1 with the ESP32-S3 tools installed, then build **only**

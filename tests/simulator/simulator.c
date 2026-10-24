@@ -40,6 +40,8 @@
 #include "simulator_frame.h"
 #include "ui/ui_conn_popup.h"
 #include "ui/ui_pages.h"
+#include "ui/ui_alert_center.h"
+#include "ui/fonts/app_symbols.h"
 #include "typography_dump.h"
 
 #ifndef SIM_DEFAULT_FIXTURE
@@ -746,7 +748,7 @@ int main(int argc, char **argv)
     extern int sim_energy_regression(void);
     extern int sim_font_budget_regression(void);
     extern int sim_notification_regression(void);
-    bool notification_regression = false; bool screen_settings_regression = false;
+    bool notification_regression = false; bool screen_settings_regression = false; bool alerts_regression = false;
     bool font_budget_regression = false;
     bool energy_regression = false;
     bool bambu_regression = false;
@@ -777,6 +779,7 @@ int main(int argc, char **argv)
         else if (strcmp(argv[i - 1], "--regression") == 0 && strcmp(value, "history") == 0) history_regression = true;
         else if (strcmp(argv[i - 1], "--regression") == 0 && strcmp(value, "energy") == 0) energy_regression = true;
         else if (strcmp(argv[i - 1], "--regression") == 0 && strcmp(value, "controls") == 0) controls_regression = true;
+        else if (strcmp(argv[i - 1], "--regression") == 0 && strcmp(value, "alerts") == 0) alerts_regression = true;
         else if (strcmp(argv[i - 1], "--regression") == 0 && strcmp(value, "screen-settings") == 0) screen_settings_regression = true;
         else if (strcmp(argv[i - 1], "--regression") == 0 && strcmp(value, "notification") == 0) notification_regression = true;
         else if (strcmp(argv[i - 1], "--regression") == 0 && strcmp(value, "fonts") == 0) font_budget_regression = true;
@@ -922,6 +925,7 @@ int main(int argc, char **argv)
         cJSON_Delete(root);
         return sim_energy_regression();
     }
+    if (alerts_regression) { extern int sim_alert_center_regression(void); cJSON_Delete(root); return sim_alert_center_regression(); }
     if (screen_settings_regression) { extern int sim_screen_settings_regression(void); cJSON_Delete(root); return sim_screen_settings_regression(); }
     if (notification_regression) {
         cJSON_Delete(root);
@@ -1104,9 +1108,26 @@ int main(int argc, char **argv)
     for (int i = 0; tap_id[0] != '\0' && i < created; i++) {
         if (strcmp(widgets[i].def.id, tap_id) == 0) lv_obj_send_event(widgets[i].instance.obj, LV_EVENT_CLICKED, NULL);
     }
+    /* Synthetic appearance-only assistant action; no voice/network session. */
+    if (cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(root, "topbar_ai"))) {
+        lv_obj_t *assistant = ui_pages_create_topbar_action(screen, APP_SYMBOL_AI_AGENT, NULL, NULL);
+        ui_pages_set_topbar_auxiliary(assistant);
+    }
+    if (cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(root, "alert_demo"))) {
+        coredump_record_t report = {0};
+        memset(report.id, 'a', 64); strcpy(report.task, "lvgl");
+        strcpy(report.git_commit, "demo"); strcpy(report.version, "synthetic");
+        strcpy(report.panic_reason, "Demo report for local layout verification only.");
+        report.diagnostic.cause = COREDUMP_CAUSE_PPA_TIMEOUT;
+        ui_alert_center_crash(0, &report);
+        ui_alert_center_set(UI_ALERT_WIFI, "Wi-Fi (demo)", "Synthetic disconnected network. No device is connected.", 0);
+        ui_alert_center_set(UI_ALERT_ENTITY_0, "Doorbell / 门铃 / 門鈴 (demo)", "Synthetic front door alert.", 0);
+        ui_alert_center_refresh(0);
+    }
     /* "open_popup": "wifi" | "ha" | "mqtt" opens the top bar's connectivity popup (data comes from pages_stubs.c). */
     const char *popup = json_string(root, "open_popup");
-    if (strcmp(popup, "wifi") == 0) ui_conn_popup_show_wifi();
+    if (strcmp(popup, "alerts") == 0) ui_alert_center_open();
+    else if (strcmp(popup, "wifi") == 0) ui_conn_popup_show_wifi();
     else if (strcmp(popup, "ha") == 0) ui_conn_popup_show_ha();
     else if (strcmp(popup, "mqtt") == 0) ui_conn_popup_show_mqtt();
     /* Public demo credentials render the real boot splash, matching app_show_wifi_setup_screen(). */

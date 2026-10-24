@@ -607,6 +607,30 @@
       "ocean": "Ocean",
       "contrast": "Wysoki kontrast",
       "black": "Czysta czerń"
+    },
+    "alerts": {
+      "title": "Alerty",
+      "empty": "Brak alertów",
+      "unknown": "Nieznany",
+      "crash": "Zachowany raport awarii",
+      "ppa": "Przekroczono czas akceleratora grafiki",
+      "lvgl": "Zablokowane zadanie wyświetlacza",
+      "runtime": "Zablokowane zadanie interfejsu",
+      "time": "Czas",
+      "task": "Zadanie",
+      "reason": "Przyczyna",
+      "version": "Wersja",
+      "build": "Kompilacja",
+      "retained": "Raport historyczny nie musi oznaczać bieżącej usterki. Pobierz go lub usuń w Ustawieniach WWW > Urządzenie.",
+      "wifi": "Brak połączenia Wi-Fi",
+      "wifi_detail": "Panel nie może połączyć się z Wi-Fi. Sprawdź punkt dostępowy i ustawienia sieci. Połączenie zostanie wznowione automatycznie.",
+      "ha": "Brak połączenia z Home Assistant",
+      "ha_detail": "Dane mogą być nieaktualne. Sprawdź Home Assistant i połączenie w ustawieniach WWW.",
+      "mqtt": "Brak połączenia MQTT",
+      "mqtt_detail": "Powiadomienia MQTT są niedostępne. Sprawdź serwer i ustawienia MQTT. Połączenie zostanie wznowione automatycznie.",
+      "entity": "Encja",
+      "state": "Stan",
+      "sensor": "Alert czujnika / dzwonka"
     }
   }
 }

@@ -85,14 +85,28 @@ Close a card with its close button or by tapping outside it. Connections are con
 [web editor](editor.md#settings); MQTT is described under [Notifications](notifications.md).
 The cards grow with the text size. Long values wrap, and details can scroll when they exceed the screen height.
 
-## Crash warning
+## Alerts { #crash-warning }
 
-A yellow warning triangle appears beside the connection chips while the panel retains
-a crash report. Open **Settings → Device → Device status** in the web editor to download
-or erase the reports individually. The panel keeps the two newest reports.
+The yellow triangle sits to the left of the AI agent icon, or to the left of the
+connection icons when the assistant is hidden. Tap it to open **Alerts** with
+scrollable details. It is hidden when there are no alerts. Closing the screen
+does not delete reports or send Home Assistant commands.
 
-The triangle stays visible after dismissing the editor's crash banner and disappears
-after the last report is erased. It indicates a recorded crash, not a connection failure.
+- **Crash reports:** the two newest retained reports, with time, task, cause,
+  build and report identifiers. These are historical records, not necessarily
+  current faults. Download or erase them in **Web Settings → Device**.
+- **Connections:** Wi-Fi, Home Assistant and MQTT failures after a 30-second boot
+  grace period. Unconfigured integrations stay silent. A Wi-Fi outage shows one
+  network alert instead of duplicate HA/MQTT failures. Entries clear on recovery.
+- **Configured sensors:** an editor alert whose entity is `on` stays listed until
+  a usable state turns off. Unknown/unavailable samples do not erase a known
+  active alert. An already-active sensor appears after boot without ringing.
+- **Doorbell events:** a new `event.*` timestamp adds a temporary entry for the
+  configured timeout (30 seconds by default, at most one hour). Boot/reload does
+  not replay earlier events. These entries are not a persistent event history.
+
+The list updates while open, and an empty list shows **No alerts**. All display
+variants, rotations, text sizes and seven built-in languages share the screen.
 
 ## What fits on each display
 

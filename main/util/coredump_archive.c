@@ -7,6 +7,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdatomic.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 
 #include "component_versions.h"
 #include "esp_app_desc.h"
@@ -24,12 +26,22 @@ static coredump_record_t s_live;
 static const esp_partition_t *s_partition;
 static bool s_ready;
 static atomic_uint s_report_count;
+static coredump_record_t s_ui_records[COREDUMP_STORE_LIMIT];
+static size_t s_ui_count;
+static StaticSemaphore_t s_ui_lock_storage;
+static SemaphoreHandle_t s_ui_lock;
 static size_t list_records(coredump_record_t out[COREDUMP_STORE_LIMIT]);
 
 static void update_count(void)
 {
     coredump_record_t records[COREDUMP_STORE_LIMIT];
-    atomic_store(&s_report_count, (unsigned)list_records(records));
+    size_t count = list_records(records);
+    if (!s_ui_lock) s_ui_lock = xSemaphoreCreateMutexStatic(&s_ui_lock_storage);
+    xSemaphoreTake(s_ui_lock, portMAX_DELAY); /* tiny metadata copy; UI never waits */
+    memcpy(s_ui_records, records, count * sizeof(*records));
+    s_ui_count = count;
+    xSemaphoreGive(s_ui_lock);
+    atomic_store(&s_report_count, (unsigned)count);
 }
 
 unsigned coredump_archive_count(void)
@@ -219,4 +231,13 @@ void coredump_archive_add_json(cJSON *root)
         add_record(item, &records[i]);
         cJSON_AddItemToArray(items, item);
     }
+}
+
+bool coredump_archive_snapshot(coredump_record_t out[COREDUMP_STORE_LIMIT], size_t *count)
+{
+    if (!out || !count || !s_ui_lock || xSemaphoreTake(s_ui_lock, 0) != pdTRUE) return false;
+    *count = s_ui_count;
+    memcpy(out, s_ui_records, s_ui_count * sizeof(*out));
+    xSemaphoreGive(s_ui_lock);
+    return true;
 }

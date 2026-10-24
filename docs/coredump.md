@@ -28,7 +28,7 @@ RTC diagnostic marker.
 The editor banner announces the newest report. Dismissing it hides that banner only.
 A **yellow warning triangle in the display's top bar** stays visible while any report
 is retained, including one whose editor banner was dismissed. It disappears after the
-last report is erased; see [Top bar](top-bar.md#crash-warning).
+last report is erased and no other alerts remain. Tap it to read report details; see [Top bar](top-bar.md#crash-warning).
 
 ## Collection
 

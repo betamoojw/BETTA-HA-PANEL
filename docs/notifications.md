@@ -37,6 +37,8 @@ Alerts let the panel raise a card itself, with no automation. Open **Settings â†
 
 Alerts are saved with the layout, so use the **Save alerts** button on that page; the Save button on the right
 does not include them. The state present when the panel starts is only remembered, so a restart never rings.
+The [header Alerts screen](top-bar.md#crash-warning) also lists active configured
+sensors and recent doorbell events; viewing it never triggers their action buttons.
 
 ## Send from Home Assistant
 

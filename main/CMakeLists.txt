@@ -269,6 +269,8 @@ idf_component_register(
         "ui/ui_ota_progress.c"
         "ui/ui_pages.c"
         "ui/ui_conn_popup.c"
+    "ui/ui_alert_center.c"
+    "ui/alert_policy.c"
         "ui/nav_layout.c"
         "ui/ui_energy_page.c"
         "ui/ui_house_page.c"

@@ -38,8 +38,11 @@ void ui_pages_set_topbar_status(
     bool wifi_connected, bool wifi_setup_ap_active, bool api_connected, bool api_initial_sync_done);
 void ui_pages_set_topbar_datetime(const struct tm *timeinfo);
 void ui_pages_set_clock_24h(bool format_24h);
-/* Yellow crash marker, set only by the UI task/display-lock holder. */
-void ui_pages_set_crash_warning(bool visible);
+/* Yellow alert action, set only by the UI task/display-lock holder. */
+void ui_pages_set_alert_warning(bool visible);
+/* Icon action with the same geometry, theme and hit area as the settings chip. */
+lv_obj_t *ui_pages_create_topbar_action(lv_obj_t *parent, const char *symbol,
+    lv_event_cb_t clicked, void *user_data);
 /* Optional topbar action; call again after changing its visibility. */
 void ui_pages_set_topbar_auxiliary(lv_obj_t *button);
 void ui_pages_set_topbar_left_slots(const char *slot_1, const char *slot_2, const char *slot_3);

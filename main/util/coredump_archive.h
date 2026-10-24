@@ -18,3 +18,6 @@ void coredump_archive_add_json(cJSON *root);
 bool coredump_archive_get(const char *id, coredump_record_t *out);
 bool coredump_archive_read(const char *id, size_t offset, void *buffer, size_t size);
 esp_err_t coredump_archive_delete(const char *id);
+
+/* Non-blocking UI read of cached metadata; never reads flash. False while refreshing. */
+bool coredump_archive_snapshot(coredump_record_t out[COREDUMP_STORE_LIMIT], size_t *count);

@@ -8,6 +8,7 @@
 #endif
 #include "ui/display_geometry.h"
 #include "ui/ui_pages.h"
+#include "ui/ui_alert_center.h"
 
 #include <inttypes.h>
 #include <stdint.h>
@@ -735,16 +736,15 @@ static void ui_pages_layout_topbar_right(void)
         x -= TOPBAR_STATUS_CHIP_W + TOPBAR_CHIP_GAP;
     }
     lv_obj_align(s_api_chip, LV_ALIGN_RIGHT_MID, x, 0);
-    if (s_crash_warning != NULL && !lv_obj_is_hidden(s_crash_warning)) {
-        x -= TOPBAR_STATUS_CHIP_W + TOPBAR_CHIP_GAP;
-        lv_obj_align(s_crash_warning, LV_ALIGN_RIGHT_MID, x, 0);
-    }
-    lv_coord_t right_start = APP_VIEW_WIDTH + x -
-        (s_crash_warning != NULL && !lv_obj_is_hidden(s_crash_warning) ? 32 : TOPBAR_STATUS_CHIP_W);
+    lv_coord_t right_start = APP_VIEW_WIDTH + x - TOPBAR_STATUS_CHIP_W;
     if (s_auxiliary_chip != NULL && !lv_obj_is_hidden(s_auxiliary_chip)) {
         lv_obj_update_layout(s_auxiliary_chip);
         right_start -= TOPBAR_CHIP_GAP + lv_obj_get_width(s_auxiliary_chip);
         lv_obj_set_pos(s_auxiliary_chip, right_start, (60 - lv_obj_get_height(s_auxiliary_chip)) / 2);
+    }
+    if (s_crash_warning != NULL && !lv_obj_is_hidden(s_crash_warning)) {
+        right_start -= TOPBAR_CHIP_GAP + TOPBAR_STATUS_CHIP_W;
+        lv_obj_set_pos(s_crash_warning, right_start, 10);
     }
     lv_coord_t clock_w = APP_VIEW_WIDTH < 1000 ? 88 : 180;
     s_clock_shift = LV_MIN(0, right_start - 8 - (APP_VIEW_WIDTH + clock_w) / 2);
@@ -758,7 +758,7 @@ void ui_pages_set_topbar_auxiliary(lv_obj_t *button)
     ui_pages_layout_topbar_right();
 }
 
-void ui_pages_set_crash_warning(bool visible)
+void ui_pages_set_alert_warning(bool visible)
 {
     if (s_crash_warning != NULL && lv_obj_is_hidden(s_crash_warning) == visible) {
         lv_obj_set_hidden(s_crash_warning, !visible);
@@ -791,9 +791,9 @@ static void ui_pages_mqtt_status_timer_cb(lv_timer_t *timer)
 }
 
 /* One status chip: a framed square-ish box that centers a single glyph. */
-static lv_obj_t *ui_pages_create_status_chip(lv_event_cb_t clicked)
+static lv_obj_t *ui_pages_create_status_chip(lv_obj_t *parent, lv_event_cb_t clicked, void *user_data)
 {
-    lv_obj_t *chip = lv_obj_create(s_topbar);
+    lv_obj_t *chip = lv_obj_create(parent);
     lv_obj_remove_style_all(chip);
     lv_obj_set_size(chip, TOPBAR_STATUS_CHIP_W, 40);
     ui_pages_style_topbar_chip(chip);
@@ -804,9 +804,23 @@ static lv_obj_t *ui_pages_create_status_chip(lv_event_cb_t clicked)
     lv_obj_set_scrollable(chip, false);
     lv_obj_set_clickable(chip, true);
     lv_obj_set_ext_click_area(chip, TOPBAR_CHIP_TOUCH_PAD);
-    lv_obj_add_event_cb(chip, clicked, LV_EVENT_CLICKED, NULL);
+    if (clicked) lv_obj_add_event_cb(chip, clicked, LV_EVENT_CLICKED, user_data);
     return chip;
 }
+
+lv_obj_t *ui_pages_create_topbar_action(lv_obj_t *parent, const char *symbol,
+    lv_event_cb_t clicked, void *user_data)
+{
+    lv_obj_t *chip = ui_pages_create_status_chip(parent, clicked, user_data);
+    lv_obj_t *glyph = lv_label_create(chip);
+    lv_label_set_text(glyph, symbol);
+    lv_obj_set_style_text_font(glyph, TOPBAR_ICON_FONT, 0);
+    lv_obj_set_style_text_color(glyph, lv_color_hex(APP_UI_COLOR_TOPBAR_TEXT), 0);
+    return chip;
+}
+
+static void ui_pages_alert_clicked(lv_event_t *event)
+{ (void)event; ui_alert_center_open(); }
 
 static void ui_pages_settings_clicked(lv_event_t *event)
 {
@@ -923,15 +937,11 @@ static void ui_pages_create_topbar(lv_obj_t *screen)
 
     /* Home Assistant and MQTT chips: one MDI glyph each. Without the generated status font a plain "HA" text
      * label takes the Home Assistant glyph's place and MQTT shows no chip. */
-    s_api_chip = ui_pages_create_status_chip(ui_pages_ha_chip_event_cb);
-    s_mqtt_chip = ui_pages_create_status_chip(ui_pages_mqtt_chip_event_cb);
+    s_api_chip = ui_pages_create_status_chip(s_topbar, ui_pages_ha_chip_event_cb, NULL);
+    s_mqtt_chip = ui_pages_create_status_chip(s_topbar, ui_pages_mqtt_chip_event_cb, NULL);
     lv_obj_set_hidden(s_mqtt_chip, true); /* shown once MQTT is started */
-    s_crash_warning = lv_label_create(s_topbar);
-    lv_label_set_text(s_crash_warning, APP_SYMBOL_ALERT);
-    lv_obj_set_width(s_crash_warning, 32);
-    lv_obj_set_style_text_font(s_crash_warning, TOPBAR_ICON_FONT, LV_PART_MAIN);
-    lv_obj_set_style_text_color(s_crash_warning, lv_color_hex(0xFBC02D), LV_PART_MAIN);
-    lv_obj_set_style_text_align(s_crash_warning, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+    s_crash_warning = ui_pages_create_topbar_action(s_topbar, APP_SYMBOL_ALERT, ui_pages_alert_clicked, NULL);
+    lv_obj_set_style_text_color(lv_obj_get_child(s_crash_warning, 0), lv_color_hex(0xFBC02D), 0);
     lv_obj_set_hidden(s_crash_warning, true);
 
     const lv_font_t *status_font = APP_VIEW_WIDTH < 1000 ? mdi_font_status_20() : mdi_font_status_24();
@@ -958,12 +968,8 @@ static void ui_pages_create_topbar(lv_obj_t *screen)
         s_mqtt_status_timer = lv_timer_create(ui_pages_mqtt_status_timer_cb, 2000, NULL);
     }
 
-    s_settings_chip = ui_pages_create_status_chip(ui_pages_settings_clicked);
-    lv_obj_t *settings_glyph = lv_label_create(s_settings_chip);
-    lv_label_set_text(settings_glyph, APP_SYMBOL_SETTINGS);
-    lv_obj_set_style_text_font(settings_glyph, TOPBAR_ICON_FONT, 0);
-    lv_obj_set_style_text_color(settings_glyph, lv_color_hex(APP_UI_COLOR_TOPBAR_TEXT), 0);
-    s_wifi_chip = ui_pages_create_status_chip(ui_pages_wifi_chip_event_cb);
+    s_settings_chip = ui_pages_create_topbar_action(s_topbar, APP_SYMBOL_SETTINGS, ui_pages_settings_clicked, NULL);
+    s_wifi_chip = ui_pages_create_status_chip(s_topbar, ui_pages_wifi_chip_event_cb, NULL);
     s_wifi_icon = lv_label_create(s_wifi_chip);
     s_wifi_chip_w = TOPBAR_STATUS_CHIP_W;
     lv_obj_set_style_text_font(s_wifi_icon, TOPBAR_ICON_FONT, 0);
@@ -1040,6 +1046,7 @@ static void ui_pages_create_nav(lv_obj_t *screen)
 
 void ui_pages_init(void)
 {
+    ui_alert_center_close();
     memset(s_pages, 0, sizeof(s_pages));
     s_page_count = 0;
     s_current_index = -1;

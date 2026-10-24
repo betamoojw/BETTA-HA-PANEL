@@ -28,6 +28,9 @@
 #include "layout/layout_store.h"
 #include "net/wifi_mgr.h"
 #include "util/coredump_archive.h"
+#include "ui/ui_alert_center.h"
+#include "ui/alert_policy.h"
+#include "net/mqtt_mgr.h"
 #include "settings/runtime_settings.h"
 #include "ui/fonts/mdi_font_registry.h"
 #include "ui/theme/ui_typography.h"
@@ -285,12 +288,17 @@ static bool ui_runtime_json_item_to_float(cJSON *item, float *out)
     return false;
 }
 
+static bool s_alert_wifi_expected, s_alert_ha_expected, s_alert_mqtt_expected;
+
 static void ui_runtime_load_topbar_settings(void)
 {
     runtime_settings_t settings = {0};
     if (runtime_settings_load(&settings) != ESP_OK) {
         runtime_settings_set_defaults(&settings);
     }
+    s_alert_wifi_expected = settings.wifi_ssid[0] != 0;
+    s_alert_ha_expected = settings.ha_ws_url[0] && settings.ha_access_token[0];
+    s_alert_mqtt_expected = settings.mqtt_enabled && settings.mqtt_broker_host[0];
     for (size_t i = 0; i < APP_TOPBAR_LEFT_SLOTS; i++) {
         snprintf(
             s_topbar_left_slots[i],
@@ -513,7 +521,29 @@ static void ui_runtime_clamp_widget_rect(ui_widget_def_t *def)
 
 static void ui_runtime_refresh_topbar(void)
 {
-    ui_pages_set_crash_warning(coredump_archive_count() > 0);
+    /* Metadata only: never run filesystem operations while holding the display lock. */
+    static coredump_record_t *reports;
+    if (!reports) reports = lv_malloc(sizeof(*reports) * COREDUMP_STORE_LIMIT);
+    size_t count;
+    if (reports && coredump_archive_snapshot(reports, &count))
+        for (unsigned i = 0; i < COREDUMP_STORE_LIMIT; i++) ui_alert_center_crash(i, i < count ? &reports[i] : NULL);
+    uint64_t now_ms = esp_timer_get_time() / 1000;
+    unsigned failures = alert_policy_connections(now_ms, s_alert_wifi_expected, wifi_mgr_is_connected(),
+        s_alert_ha_expected, ha_client_is_connected(), s_alert_mqtt_expected, mqtt_mgr_is_connected());
+    if (failures & 1U)
+        ui_alert_center_set(UI_ALERT_WIFI, ui_i18n_get("alerts.wifi", "Wi-Fi disconnected"),
+            ui_i18n_get("alerts.wifi_detail", "The panel cannot reach Wi-Fi. Check the access point and network settings. Reconnection is automatic."), 0);
+    else ui_alert_center_clear(UI_ALERT_WIFI);
+    if (failures & 2U)
+        ui_alert_center_set(UI_ALERT_HA, ui_i18n_get("alerts.ha", "Home Assistant disconnected"),
+            ui_i18n_get("alerts.ha_detail", "Dashboard data may be stale. Check Home Assistant availability and the configured connection in Web Settings."), 0);
+    else ui_alert_center_clear(UI_ALERT_HA);
+    if (failures & 4U)
+        ui_alert_center_set(UI_ALERT_MQTT, ui_i18n_get("alerts.mqtt", "MQTT disconnected"),
+            ui_i18n_get("alerts.mqtt_detail", "MQTT notifications are unavailable. Check the broker and MQTT settings. Reconnection is automatic."), 0);
+    else ui_alert_center_clear(UI_ALERT_MQTT);
+    ui_runtime_check_alerts(NULL);
+    ui_alert_center_refresh(now_ms);
     time_t now = time(NULL);
     struct tm info = {0};
     localtime_r(&now, &info);
@@ -1278,6 +1308,7 @@ typedef struct {
     chime_kind_t sound;
     char last_state[APP_MAX_STATE_LEN];
     bool primed;
+    bool active;
 } ui_alert_t;
 
 static ui_alert_t s_alerts[UI_MAX_ALERTS];
@@ -1285,6 +1316,7 @@ static size_t s_alert_count = 0;
 
 static void ui_runtime_load_alerts(cJSON *root)
 {
+    for (unsigned i = 0; i < UI_MAX_ALERTS; i++) ui_alert_center_clear(UI_ALERT_ENTITY_0 + i);
     memset(s_alerts, 0, sizeof(s_alerts));
     s_alert_count = 0;
     cJSON *alerts = cJSON_GetObjectItemCaseSensitive(root, "alerts");
@@ -1308,7 +1340,7 @@ static void ui_runtime_load_alerts(cJSON *root)
         cJSON *timeout = cJSON_GetObjectItemCaseSensitive(item, "timeout_sec");
         alert->timeout_sec = cJSON_IsNumber(timeout) && timeout->valuedouble > 0.0 ? (uint32_t)timeout->valuedouble : 30U;
         if (alert->message[0] == '\0') {
-            strlcpy(alert->message, alert->title[0] != '\0' ? alert->title : "Alert", sizeof(alert->message));
+            strlcpy(alert->message, alert->title[0] != '\0' ? alert->title : ui_i18n_get("alerts.title", "Alerts"), sizeof(alert->message));
         }
         s_alert_count++;
     }
@@ -1326,17 +1358,22 @@ static void ui_runtime_check_alerts(const char *entity_id)
         if (!ha_model_get_state(alert->entity_id, &state)) {
             continue;
         }
-        const bool usable = strcmp(state.state, "unavailable") != 0 && strcmp(state.state, "unknown") != 0;
-        bool fire = false;
-        if (alert->primed && usable) {
-            if (strncmp(alert->entity_id, "event.", 6) == 0) {
-                fire = strcmp(state.state, alert->last_state) != 0;
-            } else {
-                fire = strcmp(state.state, "on") == 0 && strcmp(alert->last_state, "on") != 0;
+        bool is_event = strncmp(alert->entity_id, "event.", 6) == 0;
+        bool fire = alert_policy_sample(is_event, &alert->primed, &alert->active,
+            alert->last_state, sizeof(alert->last_state), state.state);
+        if ((!is_event && alert->active) || (is_event && fire)) {
+            char *detail = lv_malloc(APP_NOTIFICATION_MAX_MESSAGE_LEN + APP_MAX_ENTITY_ID_LEN + APP_MAX_STATE_LEN + 80);
+            if (detail) {
+                snprintf(detail, APP_NOTIFICATION_MAX_MESSAGE_LEN + APP_MAX_ENTITY_ID_LEN + APP_MAX_STATE_LEN + 80,
+                    "%s\n%s: %s\n%s: %s", alert->message, ui_i18n_get("alerts.entity", "Entity"), alert->entity_id,
+                    ui_i18n_get("alerts.state", "State"), state.state);
+                uint64_t expires = is_event ? (uint64_t)(esp_timer_get_time() / 1000) +
+                    (uint64_t)LV_MIN(alert->timeout_sec, 3600U) * 1000 : 0;
+                ui_alert_center_set(UI_ALERT_ENTITY_0 + i,
+                    alert->title[0] ? alert->title : ui_i18n_get("alerts.sensor", "Sensor / doorbell alert"), detail, expires);
+                lv_free(detail);
             }
-        }
-        strlcpy(alert->last_state, state.state, sizeof(alert->last_state));
-        alert->primed = true;
+        } else if (!is_event && !alert->active) ui_alert_center_clear(UI_ALERT_ENTITY_0 + i);
         if (!fire) {
             continue;
         }

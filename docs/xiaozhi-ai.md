@@ -20,7 +20,8 @@ It requires internet access and an account with the cloud service.
 
 ## Conversation
 
-Open **Xiaozhi AI** on the panel's top bar. Hold **Talk**, speak toward the
+Tap the **AI agent (robot) icon** on the panel's top bar. Its frame, size and
+colour follow the settings icon and the selected theme. Hold **Talk**, speak toward the
 microphone, then release to request a reply. The browser's Talk button also
 uses the **panel microphone**, not the computer microphone. Capture ends after
 at most 60 seconds even if the browser disappears.
@@ -60,3 +61,19 @@ hardware test. Home Assistant tool execution and wake-word detection are not
 implemented.
 
 [Implementation](development/xiaozhi-ai.md) · [Waveshare panel](hardware/panel10.md)
+
+On 2026-10-24, the AI agent header icon build (`a4eeaa88-dirty`, app SHA256
+`514afdf107d81d5b5e8b6ce5c701f6e413329e83e9e186277ccb0b1b0dbcba79`)
+passed an app-only COM24 update with the supported P4 stub. Application readback
+matched; metadata/NVS, crash storage and complete LittleFS checksums were unchanged
+before boot. The running ELF matched and OTA was valid. Remote clicks opened and
+closed the assistant, and screenshots showed matching icon frames without overlap
+at 1280 x 800 and 800 x 1280. The original 90-degree portrait setting, English,
+latest settings, layout and themes were restored and compared. This was a header
+UI test, not a cloud speech or audio acceptance test.
+
+The owner confirmed the icon and click behavior, portrait layout, stable physical
+output and aligned touch. Monitoring covered 31 samples over 454 seconds without
+an unexpected restart or new crash. After restoration, the owner intentionally
+selected 180 degrees and asked to retain it. Final comparison preserved that
+choice and English; layout differences were only orientation projection.

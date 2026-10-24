@@ -46,7 +46,7 @@ void simulator_frame_apply(const cJSON *frame)
     }
     ui_pages_set_topbar_datetime(&tm_now);
     ui_pages_set_topbar_status(true, false, true, true);
-    ui_pages_set_crash_warning(cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(frame, "crash_warning")));
+    ui_pages_set_alert_warning(cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(frame, "crash_warning")));
 
     const char *weather = field(frame, "weather_temperature");
     if (weather[0] != '\0') {

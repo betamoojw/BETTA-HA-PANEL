@@ -607,6 +607,30 @@
       "ocean": "Océano",
       "contrast": "Alto contraste",
       "black": "Negro puro"
+    },
+    "alerts": {
+      "title": "Alertas",
+      "empty": "Sin alertas",
+      "unknown": "Desconocido",
+      "crash": "Informe de fallo guardado",
+      "ppa": "Tiempo de espera del acelerador gráfico agotado",
+      "lvgl": "Tarea de pantalla bloqueada",
+      "runtime": "Tarea de interfaz bloqueada",
+      "time": "Hora",
+      "task": "Tarea",
+      "reason": "Motivo",
+      "version": "Versión",
+      "build": "Compilación",
+      "retained": "Informe histórico; no indica necesariamente un fallo actual. Descárguelo o elimínelo en Ajustes web > Dispositivo.",
+      "wifi": "Wi-Fi desconectado",
+      "wifi_detail": "El panel no puede conectarse a Wi-Fi. Revise el punto de acceso y la configuración de red. La reconexión es automática.",
+      "ha": "Home Assistant desconectado",
+      "ha_detail": "Los datos pueden estar desactualizados. Revise Home Assistant y la conexión en los ajustes web.",
+      "mqtt": "MQTT desconectado",
+      "mqtt_detail": "Las notificaciones MQTT no están disponibles. Revise el servidor y los ajustes MQTT. La reconexión es automática.",
+      "entity": "Entidad",
+      "state": "Estado",
+      "sensor": "Alerta de sensor / timbre"
     }
   }
 }

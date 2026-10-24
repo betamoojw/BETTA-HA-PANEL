@@ -169,14 +169,20 @@ int sim_screen_settings_regression(void)
         g_sim_mqtt = (state & 1) != 0;
         ui_pages_init();
         ui_pages_set_topbar_status(true, (state & 2) != 0, true, true);
-        ui_pages_set_crash_warning((state & 4) != 0);
+        ui_pages_set_alert_warning((state & 4) != 0);
         lv_obj_update_layout(lv_screen_active());
         lv_obj_t *gear = find_text(lv_screen_active(), APP_SYMBOL_SETTINGS);
         lv_obj_t *bar = lv_obj_get_parent(lv_obj_get_parent(gear));
         if (lv_display_get_horizontal_resolution(lv_display_get_default()) >= 800) {
-            lv_obj_t *assistant = lv_button_create(bar);
-            lv_obj_set_size(assistant, 120, 42);
+            lv_obj_t *assistant = ui_pages_create_topbar_action(bar, APP_SYMBOL_AI_AGENT, NULL, NULL);
             ui_pages_set_topbar_auxiliary(assistant);
+            lv_obj_update_layout(assistant);
+            CHECK(lv_obj_get_width(assistant) == lv_obj_get_width(lv_obj_get_parent(gear)));
+            CHECK(lv_obj_get_height(assistant) == lv_obj_get_height(lv_obj_get_parent(gear)));
+            if (state & 4) {
+                lv_obj_t *warning = find_text(bar, APP_SYMBOL_ALERT);
+                CHECK(lv_obj_get_x(lv_obj_get_parent(warning)) < lv_obj_get_x(assistant));
+            }
             lv_obj_update_layout(lv_screen_active());
         }
         for (uint32_t i = 0; i < lv_obj_get_child_count(bar); i++) {

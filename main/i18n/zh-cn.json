@@ -607,6 +607,30 @@
       "ocean": "海洋",
       "contrast": "高对比度",
       "black": "纯黑"
+    },
+    "alerts": {
+      "title": "告警",
+      "empty": "暂无告警",
+      "unknown": "未知",
+      "crash": "已保留的崩溃报告",
+      "ppa": "显示加速器超时",
+      "lvgl": "显示任务停止响应",
+      "runtime": "界面任务停止响应",
+      "time": "时间",
+      "task": "任务",
+      "reason": "原因",
+      "version": "版本",
+      "build": "构建",
+      "retained": "这是历史报告，不一定代表当前故障。可在网页设置的设备页面下载或删除。",
+      "wifi": "Wi-Fi 连接已断开",
+      "wifi_detail": "面板无法连接 Wi-Fi。请检查无线接入点和网络设置，系统会自动重新连接。",
+      "ha": "Home Assistant 连接已断开",
+      "ha_detail": "仪表盘数据可能已过期。请检查 Home Assistant 是否可用，以及网页设置中的连接配置。",
+      "mqtt": "MQTT 连接已断开",
+      "mqtt_detail": "MQTT 通知暂时不可用。请检查服务器和 MQTT 设置，系统会自动重新连接。",
+      "entity": "实体",
+      "state": "状态",
+      "sensor": "传感器或门铃告警"
     }
   }
 }

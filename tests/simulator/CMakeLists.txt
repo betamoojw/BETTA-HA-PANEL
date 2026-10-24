@@ -90,6 +90,7 @@ add_executable(betta-widget-sim
     font_budget_regression.c
     notification_regression.c
     screen_settings_regression.c
+    alert_center_regression.c
     "${REPO_ROOT}/main/settings/brightness_model.c"
     pages_stubs.c
     "${REPO_ROOT}/main/build_stamp.c"
@@ -143,6 +144,8 @@ add_executable(betta-widget-sim
     "${REPO_ROOT}/main/settings/screen_settings_model.c"
     "${REPO_ROOT}/main/net/timezone_catalog.c"
     "${REPO_ROOT}/main/ui/ui_conn_popup.c"
+    "${REPO_ROOT}/main/ui/ui_alert_center.c"
+    "${REPO_ROOT}/main/ui/alert_policy.c"
     "${REPO_ROOT}/main/ui/nav_layout.c"
     "${REPO_ROOT}/main/ui/ui_house_page.c"
     "${REPO_ROOT}/main/ui/ui_energy_page.c"
@@ -288,3 +291,5 @@ endforeach()
 
 # the real top bar/navigation compiles with -Werror here; its wide-screen branch leaves a variable unused
 set_source_files_properties("${REPO_ROOT}/main/ui/ui_pages.c" PROPERTIES COMPILE_OPTIONS "-Wno-unused-but-set-variable")
+
+add_test(NAME alert-center-events-and-layout COMMAND betta-widget-sim --fixture "${CMAKE_CURRENT_LIST_DIR}/screen_settings.json" --regression alerts)

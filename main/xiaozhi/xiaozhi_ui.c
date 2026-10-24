@@ -6,6 +6,7 @@
 #include "ui/text_font.h"
 #include "ui/ui_i18n.h"
 #include "ui/ui_pages.h"
+#include "ui/fonts/app_symbols.h"
 #include "ui/theme/ui_typography.h"
 #include <stdio.h>
 #include <string.h>
@@ -55,19 +56,16 @@ void xiaozhi_ui_create(lv_obj_t *screen)
     lv_obj_set_size(root, LV_PCT(100), LV_PCT(100));
     lv_obj_set_clickable(root, false);
     lv_obj_set_scrollable(root, false);
-    v->button = lv_button_create(root); lv_obj_set_size(v->button, 120, 42);
+    v->button = ui_pages_create_topbar_action(root, APP_SYMBOL_AI_AGENT, toggle, v);
     lv_obj_set_hidden(v->button, true);
     ui_pages_set_topbar_auxiliary(v->button);
-    lv_obj_t *label = lv_label_create(v->button); lv_label_set_text(label, ui_i18n_get("xiaozhi.title", "Xiaozhi AI")); lv_obj_center(label);
-    lv_obj_set_style_text_font(v->button, ui_font_role(UI_TEXT_LABEL), 0);
-    lv_obj_add_event_cb(v->button, toggle, LV_EVENT_CLICKED, v);
     v->panel = lv_obj_create(root); lv_obj_set_size(v->panel, LV_PCT(80), LV_PCT(75)); lv_obj_center(v->panel);
     lv_obj_set_style_bg_opa(v->panel, LV_OPA_COVER, 0); lv_obj_set_hidden(v->panel, true);
     lv_obj_set_style_text_font(v->panel, ui_font_role(UI_TEXT_LABEL), 0);
     v->label = lv_label_create(v->panel); lv_obj_set_size(v->label, LV_PCT(95), LV_PCT(75));
     lv_label_set_long_mode(v->label, LV_LABEL_LONG_WRAP);
     lv_obj_t *talk = lv_button_create(v->panel); lv_obj_set_size(talk, 240, 60); lv_obj_align(talk, LV_ALIGN_BOTTOM_MID, 0, -8);
-    label = lv_label_create(talk); lv_label_set_text(label, ui_i18n_get("xiaozhi.talk", "Hold to talk")); lv_obj_center(label);
+    lv_obj_t *label = lv_label_create(talk); lv_label_set_text(label, ui_i18n_get("xiaozhi.talk", "Hold to talk")); lv_obj_center(label);
     lv_obj_add_event_cb(talk, press, LV_EVENT_ALL, v);
     v->timer = lv_timer_create(refresh, 250, v);
     if (!v->timer) { lv_obj_delete(root); lv_free(v); return; }

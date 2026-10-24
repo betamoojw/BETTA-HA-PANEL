@@ -607,6 +607,30 @@
       "ocean": "海洋",
       "contrast": "高對比",
       "black": "純黑"
+    },
+    "alerts": {
+      "title": "警示",
+      "empty": "目前沒有警示",
+      "unknown": "未知",
+      "crash": "已保留的當機報告",
+      "ppa": "顯示加速器逾時",
+      "lvgl": "顯示工作停止回應",
+      "runtime": "介面工作停止回應",
+      "time": "時間",
+      "task": "工作",
+      "reason": "原因",
+      "version": "版本",
+      "build": "建置",
+      "retained": "這是歷史報告，不一定代表目前故障。可在網頁設定的裝置頁面下載或刪除。",
+      "wifi": "Wi-Fi 連線已中斷",
+      "wifi_detail": "面板無法連接 Wi-Fi。請檢查無線存取點和網路設定，系統會自動重新連線。",
+      "ha": "Home Assistant 連線已中斷",
+      "ha_detail": "儀表板資料可能已過期。請檢查 Home Assistant 是否可用，以及網頁設定中的連線組態。",
+      "mqtt": "MQTT 連線已中斷",
+      "mqtt_detail": "MQTT 通知暫時無法使用。請檢查伺服器和 MQTT 設定，系統會自動重新連線。",
+      "entity": "實體",
+      "state": "狀態",
+      "sensor": "感測器或門鈴警示"
     }
   }
 }

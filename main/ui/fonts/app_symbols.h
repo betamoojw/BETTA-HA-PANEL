@@ -54,3 +54,5 @@
 #define APP_SYMBOL_CLOSE        "\xF3\xB0\x85\x96" /* U+F0156 close */
 #define APP_SYMBOL_ALERT        "\xF3\xB0\x80\xA6" /* U+F0026 alert */
 #define APP_SYMBOL_SETTINGS     "\xF3\xB0\x92\x93" /* U+F0493 cog */
+
+#define APP_SYMBOL_AI_AGENT     "\xF3\xB0\x9A\xA9" /* U+F06A9 robot */

@@ -3,6 +3,8 @@
 
 ## Checks without a device
 
+See [Alert center](alert-center.md) for the shared header alert regression.
+
 ### Native screen settings
 
 Run `tools/simulator.sh <variant> --regression screen-settings --fixture tests/simulator/screen_settings.json`.

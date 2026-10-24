@@ -89,3 +89,9 @@ in all four styles; `--variant paneljc|tab5` renders the house and energy pages 
   Assistant show as connected). The navigation lists at most `APP_MAX_PAGES` pages, ending at the selected one.
 - States are a snapshot and can differ from a device screenshot (`tools/screenshot.sh <ip>`). Check on the panel before
   claiming hardware behaviour.
+
+Fixtures may set `"topbar_ai": true` to render the shared AI agent icon for
+header appearance checks. This is a synthetic action without a voice session.
+
+Use `"alert_demo": true` and `"open_popup": "alerts"` for synthetic alert details.
+`--regression alerts` checks policies, visibility, expiry, recovery and popup lifecycle.

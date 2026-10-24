@@ -10,6 +10,14 @@
 
 static bool enabled;
 static unsigned disconnects;
+lv_obj_t *ui_pages_create_topbar_action(lv_obj_t *parent, const char *symbol,
+    lv_event_cb_t clicked, void *user_data)
+{
+    lv_obj_t *button = lv_obj_create(parent);
+    lv_obj_t *label = lv_label_create(button); lv_label_set_text(label, symbol);
+    lv_obj_add_event_cb(button, clicked, LV_EVENT_CLICKED, user_data);
+    return button;
+}
 void ui_pages_set_topbar_auxiliary(lv_obj_t *button) { assert(button != NULL); }
 const lv_font_t *ui_font_role(ui_text_role_t role) { (void)role; return LV_FONT_DEFAULT; }
 const char *ui_i18n_get(const char *key, const char *fallback) { (void)key; return fallback; }
@@ -48,8 +56,15 @@ int main(void)
     }
     lv_obj_t *other = lv_obj_create(NULL);
     xiaozhi_ui_create(other);
+    lv_obj_t *root = lv_obj_get_child(other, 0);
+    lv_obj_t *button = lv_obj_get_child(root, 0), *panel = lv_obj_get_child(root, 1);
+    assert(lv_obj_is_hidden(panel));
+    lv_obj_send_event(button, LV_EVENT_CLICKED, NULL);
+    assert(!lv_obj_is_hidden(panel));
+    lv_obj_send_event(button, LV_EVENT_CLICKED, NULL);
+    assert(lv_obj_is_hidden(panel) && disconnects == 101);
     lv_obj_delete(other);
-    assert(disconnects == 101 && timer_count() == baseline);
+    assert(disconnects == 102 && timer_count() == baseline);
     lv_display_delete(display);
     lv_deinit();
     puts("PASS: 100 dashboard rebuilds, enabled/disabled timers, screen deletion");

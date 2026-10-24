@@ -7,6 +7,7 @@
  */
 #include "ui/ui_display_protection.h"
 #include "util/user_activity.h"
+#include "ui/ui_analog_clock.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -53,7 +54,7 @@ static lv_obj_t *s_weather_group;
 static lv_obj_t *s_icon;
 static lv_obj_t *s_temperature;
 static lv_obj_t *s_condition;
-static lv_obj_t *s_clock_group, *s_clock_time, *s_clock_date;
+static lv_obj_t *s_clock_group, *s_clock_time, *s_clock_date, *s_clock_dial;
 static uint32_t s_last_clock_ms;
 static lv_obj_t *s_snow[4];
 static ha_state_t *s_weather_state; /* large HA attributes prefer PSRAM */
@@ -236,6 +237,29 @@ static void overlay_event(lv_event_t *event)
     }
 }
 
+static void clock_layout(void)
+{
+    lv_display_t *display = lv_display_get_default();
+    int width = lv_display_get_horizontal_resolution(display);
+    int height = lv_display_get_vertical_resolution(display);
+    bool analog = s_settings.clock.analog && s_clock_dial;
+    int diameter = LV_MIN(400, LV_MIN(width, height) * 2 / 3);
+    int date_height = s_settings.clock.show_date ?
+        lv_font_get_line_height(lv_obj_get_style_text_font(s_clock_date, 0)) + 16 : 0;
+    lv_obj_set_size(s_clock_group, analog ? diameter : width - 60,
+                    analog ? diameter + date_height : 170);
+    lv_obj_set_hidden(s_clock_time, analog);
+    if (s_clock_dial) {
+        lv_obj_set_hidden(s_clock_dial, !analog);
+        lv_obj_set_size(s_clock_dial, diameter, diameter);
+        lv_obj_align(s_clock_dial, LV_ALIGN_TOP_MID, 0, 0);
+    }
+    lv_obj_set_hidden(s_clock_date, !s_settings.clock.show_date);
+    lv_obj_align(s_clock_date, LV_ALIGN_BOTTOM_MID, 0, 0);
+    s_last_clock_ms = now_ms() - 1000U;
+    lv_obj_update_layout(s_clock_group);
+}
+
 static void enter_state(saver_state_t next)
 {
     if (next == s_state) return;
@@ -251,6 +275,7 @@ static void enter_state(saver_state_t next)
         saver_position(s_weather_group);
         display_set_brightness_percent(s_settings.hardware_saver_weather_brightness_percent);
     } else if (next == SAVER_CLOCK) {
+        clock_layout();
         lv_obj_set_hidden(s_weather_group, true);
         for (size_t i = 0; i < 4; i++) lv_obj_set_hidden(s_snow[i], true);
         saver_position(s_clock_group);
@@ -410,9 +435,11 @@ void ui_display_protection_poll(void)
         time_t timestamp = time(NULL);
         struct tm local;
         char text[32], date[32];
-        display_clock_format(&s_settings.clock, localtime_r(&timestamp, &local), text, sizeof(text), date, sizeof(date));
+        const struct tm *local_time = localtime_r(&timestamp, &local);
+        display_clock_format(&s_settings.clock, local_time, text, sizeof(text), date, sizeof(date));
         lv_label_set_text(s_clock_time, text);
         lv_label_set_text(s_clock_date, date);
+        if (s_settings.clock.analog) ui_analog_clock_update(s_clock_dial, local_time, s_settings.clock.show_seconds);
     }
 }
 
@@ -463,6 +490,8 @@ static void create_overlay(void)
     lv_obj_set_size(s_clock_group, width - 60, 170);
     lv_obj_set_clickable(s_clock_group, false);
     lv_obj_set_scrollable(s_clock_group, false);
+    s_clock_dial = ui_analog_clock_create(s_clock_group);
+    if (s_clock_dial) lv_obj_set_hidden(s_clock_dial, true);
     s_clock_time = lv_label_create(s_clock_group);
     lv_label_set_text(s_clock_time, "--:--");
     /* The longest 12-hour form fits compact panels even at the largest text step. */

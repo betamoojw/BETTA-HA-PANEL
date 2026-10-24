@@ -205,6 +205,8 @@ int sim_screen_settings_regression(void)
         set_mode(1);
         lv_obj_update_layout(ui_screen_settings_root());
         check_bounds(ui_screen_settings_root(), ui_screen_settings_root());
+        lv_obj_add_state(control(SCREEN_CLOCK_ANALOG), LV_STATE_CHECKED);
+        lv_obj_send_event(control(SCREEN_CLOCK_ANALOG), LV_EVENT_VALUE_CHANGED, NULL);
         lv_obj_t *clock_off = control(SCREEN_CLOCK_OFF);
         lv_obj_remove_state(clock_off, LV_STATE_CHECKED);
         lv_obj_send_event(clock_off, LV_EVENT_VALUE_CHANGED, NULL);
@@ -216,13 +218,13 @@ int sim_screen_settings_regression(void)
         strcpy(settings.ui_language, "en"); strcpy(settings.ha_ws_url, "ws://example.invalid/api/websocket");
         settings.hardware_active_brightness_percent = 76;
         click_save(); CHECK(ui_screen_settings_root() == NULL);
-        CHECK(settings.display_clock.brightness == 17 && !settings.display_clock.off_enabled);
+        CHECK(settings.display_clock.brightness == 17 && !settings.display_clock.off_enabled && settings.display_clock.analog);
         CHECK(settings.hardware_active_brightness_percent == 76 && strcmp(settings.ui_language, "en") == 0);
         CHECK(strcmp(settings.ha_ws_url, "ws://example.invalid/api/websocket") == 0);
         ui_screen_settings_open(); CHECK(lv_slider_get_value(control(SCREEN_CLOCK_BRIGHTNESS)) == 17);
         set_mode(0); click_save(); CHECK(strcmp(settings.hardware_saver_mode, "disabled") == 0);
         ui_screen_settings_open(); set_mode(1); click_save();
-        CHECK(settings.display_clock.brightness == 17 && !settings.display_clock.off_enabled);
+        CHECK(settings.display_clock.brightness == 17 && !settings.display_clock.off_enabled && settings.display_clock.analog);
         ui_screen_settings_open(); set_mode(2); fail_save = true; click_save();
         CHECK(ui_screen_settings_root() != NULL && strcmp(settings.hardware_saver_mode, "clock") == 0);
         fail_save = false; click_save(); CHECK(ui_screen_settings_root() == NULL);
@@ -240,6 +242,16 @@ int sim_screen_settings_regression(void)
         cJSON *json = cJSON_Parse(bad[i]); display_clock_t before = clock;
         CHECK(!display_clock_parse(json, &clock) && display_clock_equal(&clock, &before)); cJSON_Delete(json);
     }
+    CHECK(!clock.analog);
+    cJSON *patch = cJSON_Parse("{\"analog\":true}");
+    CHECK(display_clock_parse(patch, &clock) && clock.analog); cJSON_Delete(patch);
+    patch = cJSON_Parse("{\"analog\":1}");
+    CHECK(!display_clock_parse(patch, &clock) && clock.analog); cJSON_Delete(patch);
+    patch = cJSON_CreateObject(); CHECK(display_clock_write(patch, &clock));
+    display_clock_t roundtrip; display_clock_defaults(&roundtrip);
+    CHECK(display_clock_parse(cJSON_GetObjectItemCaseSensitive(patch, "clock"), &roundtrip));
+    CHECK(display_clock_equal(&clock, &roundtrip)); cJSON_Delete(patch);
+    patch = cJSON_Parse("{}"); CHECK(display_clock_parse(patch, &clock) && clock.analog); cJSON_Delete(patch);
     struct tm time = {.tm_year=126, .tm_mon=9, .tm_mday=24, .tm_hour=0, .tm_min=5, .tm_sec=7};
     char text[32], date[32]; display_clock_format(&clock, &time, text, sizeof(text), date, sizeof(date));
     CHECK(strcmp(text, "00:05:07") == 0 && strcmp(date, "2026-10-24") == 0);

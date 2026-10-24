@@ -261,6 +261,7 @@ idf_component_register(
         "ui/ui_runtime.c"
         "ui/graph_history_store.c"
         "ui/ui_display_protection.c"
+        "ui/ui_analog_clock.c"
         "ui/ui_boot_splash.c"
         "ui/ui_notification_popup.c"
         "ui/ui_popup.c"

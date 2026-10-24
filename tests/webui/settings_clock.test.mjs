@@ -59,7 +59,19 @@ test("display reset includes hidden clock options and matches firmware defaults"
   run("fillClockSettings({brightness: 19, show_date: false}); resetDisplayDefaults()");
   assert.deepEqual(JSON.parse(run("JSON.stringify(puts.at(-1).hardware.clock)")), {
     start_seconds: 60, brightness: 5, off_enabled: true, off_seconds: 300,
-    format_24h: true, show_seconds: true, show_date: true,
+    format_24h: true, show_seconds: true, show_date: true, analog: false,
   });
   assert.equal(run("puts.at(-1).hardware.saver_mode"), "disabled");
+});
+
+test("analog selection persists through events, reload and disabling the saver", () => {
+  const run = setup();
+  run("el.settingsSaverMode.value='clock'; el.settingsSaverMode.dispatch('change'); el.settingsClockAnalog.checked=true; el.settingsClockAnalog.dispatch('change')");
+  assert.equal(run("puts.at(-1).hardware.clock.analog"), true);
+  run("fillClockSettings(puts.at(-1).hardware.clock)");
+  assert.equal(run("el.settingsClockAnalog.checked"), true);
+  run("el.settingsSaverMode.value='disabled'; el.settingsSaverMode.dispatch('change'); el.settingsSaverMode.value='clock'; el.settingsSaverMode.dispatch('change')");
+  assert.equal(run("puts.at(-1).hardware.clock.analog"), true);
+  run("el.settingsClockAnalog.checked=false; el.settingsClockAnalog.dispatch('change')");
+  assert.equal(run("puts.at(-1).hardware.clock.analog"), false);
 });

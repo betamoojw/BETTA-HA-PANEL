@@ -587,7 +587,8 @@
       "saving": "Guardando...",
       "failed": "No se pudo guardar. Inténtalo de nuevo.",
       "load_failed": "Ajustes no disponibles. Cierra e inténtalo de nuevo.",
-      "preview": "Vista previa (30 s)"
+      "preview": "Vista previa (30 s)",
+      "clock_analog": "Reloj analógico"
     },
     "system": {
       "language": "Idioma",

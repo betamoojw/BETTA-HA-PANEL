@@ -1452,5 +1452,6 @@
   "settings.screen.failed": "儲存失敗，請重試。",
   "settings.screen.load_failed": "暫時無法讀取設定，請關閉後重試。",
   "settings.screen.preview": "預覽（30 秒）",
-  "settings.saver.hint_clock": "顯示移動時鐘，並可在指定時間後關閉螢幕。點按螢幕即可喚醒。"
+  "settings.saver.hint_clock": "顯示移動時鐘，並可在指定時間後關閉螢幕。點按螢幕即可喚醒。",
+  "settings.screen.clock_analog": "指針時鐘"
 }

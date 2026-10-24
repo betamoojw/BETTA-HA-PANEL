@@ -16,6 +16,7 @@ typedef struct {
     bool format_24h;
     bool show_seconds;
     bool show_date;
+    bool analog; /* false preserves the existing digital clock */
 } display_clock_t;
 
 void display_clock_defaults(display_clock_t *clock);

@@ -6,7 +6,7 @@
 
 void display_clock_defaults(display_clock_t *clock)
 {
-    *clock = (display_clock_t){60, 5, true, 300, true, true, true};
+    *clock = (display_clock_t){60, 5, true, 300, true, true, true, false};
 }
 
 static bool number(const cJSON *object, const char *key, int *out, int low, int high)
@@ -39,7 +39,8 @@ bool display_clock_parse(const cJSON *object, display_clock_t *clock)
         !boolean(object, "off_enabled", &next.off_enabled) ||
         !boolean(object, "format_24h", &next.format_24h) ||
         !boolean(object, "show_seconds", &next.show_seconds) ||
-        !boolean(object, "show_date", &next.show_date)) return false;
+        !boolean(object, "show_date", &next.show_date) ||
+        !boolean(object, "analog", &next.analog)) return false;
     *clock = next;
     return true;
 }
@@ -54,14 +55,15 @@ bool display_clock_write(cJSON *hardware, const display_clock_t *clock)
         cJSON_AddBoolToObject(object, "off_enabled", clock->off_enabled) &&
         cJSON_AddBoolToObject(object, "format_24h", clock->format_24h) &&
         cJSON_AddBoolToObject(object, "show_seconds", clock->show_seconds) &&
-        cJSON_AddBoolToObject(object, "show_date", clock->show_date);
+        cJSON_AddBoolToObject(object, "show_date", clock->show_date) &&
+        cJSON_AddBoolToObject(object, "analog", clock->analog);
 }
 
 bool display_clock_equal(const display_clock_t *a, const display_clock_t *b)
 {
     return a->start_seconds == b->start_seconds && a->brightness == b->brightness &&
         a->off_enabled == b->off_enabled && a->off_seconds == b->off_seconds &&
-        a->format_24h == b->format_24h && a->show_seconds == b->show_seconds && a->show_date == b->show_date;
+        a->format_24h == b->format_24h && a->show_seconds == b->show_seconds && a->show_date == b->show_date && a->analog == b->analog;
 }
 
 bool display_clock_is_off(const display_clock_t *clock, uint32_t idle_ms)

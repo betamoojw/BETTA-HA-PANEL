@@ -238,6 +238,7 @@ add_test(NAME screen-settings-events-and-layout
     COMMAND betta-widget-sim --regression screen-settings --fixture "${CMAKE_CURRENT_LIST_DIR}/screen_settings.json")
 set_tests_properties(screen-settings-events-and-layout PROPERTIES ENVIRONMENT "SDL_VIDEODRIVER=dummy")
 add_executable(betta-clock-test clock_protection_regression.c
+    "${REPO_ROOT}/main/ui/ui_analog_clock.c"
     "${REPO_ROOT}/main/settings/display_clock.c"
     "${REPO_ROOT}/main/settings/brightness_model.c"
     "${REPO_ROOT}/main/drivers/display_policy.c")
@@ -245,7 +246,7 @@ target_include_directories(betta-clock-test PRIVATE "${REPO_ROOT}/main" "${CMAKE
 target_compile_definitions(betta-clock-test PRIVATE CONFIG_APP_PANEL_VARIANT_S3_480=1)
 target_compile_options(betta-clock-test PRIVATE -Wall -Wextra -Werror -Wno-unused-parameter -UNDEBUG)
 target_link_libraries(betta-clock-test PRIVATE lvgl SDL2::SDL2 sim_cjson m)
-foreach(geometry "480;480" "720;720" "1280;800" "720;1280")
+foreach(geometry "480;480" "720;720" "1280;800" "720;1280" "800;1280" "1280;720")
     list(GET geometry 0 clock_w)
     list(GET geometry 1 clock_h)
     add_test(NAME "clock-${clock_w}x${clock_h}" COMMAND betta-clock-test ${clock_w} ${clock_h})

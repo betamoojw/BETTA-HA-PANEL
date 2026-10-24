@@ -1456,5 +1456,6 @@ WEB_I18N_BUILTIN["pl"] = {
   "settings.screen.failed": "Nie udało się zapisać. Spróbuj ponownie.",
   "settings.screen.load_failed": "Ustawienia niedostępne. Zamknij i spróbuj ponownie.",
   "settings.screen.preview": "Podgląd (30 s)",
-  "settings.saver.hint_clock": "Pokazuje przesuwający się zegar, a następnie opcjonalnie wyłącza ekran. Dotknij, aby wybudzić."
+  "settings.saver.hint_clock": "Pokazuje przesuwający się zegar, a następnie opcjonalnie wyłącza ekran. Dotknij, aby wybudzić.",
+  "settings.screen.clock_analog": "Zegar analogowy"
 };

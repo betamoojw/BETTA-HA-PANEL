@@ -20,11 +20,11 @@ tool, commit the result.
 
 ## Chinese subset
 
-`cjk_codepoints.txt` contains 757 codepoints: every Chinese character and
+`cjk_codepoints.txt` contains 759 codepoints: every Chinese character and
 punctuation mark in the built-in panel catalogs, plus common room and device
 names from `cjk_extra.txt`. It is not full Unicode CJK coverage. Both languages share Noto Sans SC
 outlines; regional traditional glyph-shape variants are not selected dynamically.
-The subset is 221,876 bytes. Keep it compact: S3 XIP copies it into PSRAM at boot,
+The subset is 222,340 bytes. Keep it compact: S3 XIP copies it into PSRAM at boot,
 so a large font reduces memory available to widgets and Live Display.
 Each requested size has a 32-glyph cache;
 the shared font budget is 96 instances, including text, icons and emoji.

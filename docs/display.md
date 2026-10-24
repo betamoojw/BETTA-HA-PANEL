@@ -42,6 +42,21 @@ board's camera/rotation defaults. Sounds and settings on other pages keep their 
 
 Notification sounds are muted by the same schedule, see [Panel sound](notifications.md#sound).
 
+## Clock screensaver
+
+Choose **Clock** under **Settings → Display → When idle**, then enable
+**Analog clock** for a minimal dial, or leave it off for the digital clock.
+The same choice is available on the panel under **System settings**.
+Existing installations keep their digital clock until changed.
+
+Both styles use the configured local time zone and share the idle delay,
+brightness, optional date, seconds display, automatic screen-off and wake gesture.
+For the analog dial, **Show seconds** controls the coral second hand. The
+12/24-hour preference continues to control the digital clock and header;
+analog hands always use a 12-hour dial. Before time is synchronised the dial
+has no hands. It moves periodically within the screen to reduce static pixels.
+Night mode retains priority. Turning the clock off preserves its saved options.
+
 ## Display protection
 
 Choose what happens after the idle time:

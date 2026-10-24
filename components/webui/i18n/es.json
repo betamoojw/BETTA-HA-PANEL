@@ -1452,5 +1452,6 @@
   "settings.screen.failed": "No se pudo guardar. Inténtalo de nuevo.",
   "settings.screen.load_failed": "Ajustes no disponibles. Cierra e inténtalo de nuevo.",
   "settings.screen.preview": "Vista previa (30 s)",
-  "settings.saver.hint_clock": "Muestra un reloj en movimiento y apaga la pantalla si lo deseas. Toca para activar."
+  "settings.saver.hint_clock": "Muestra un reloj en movimiento y apaga la pantalla si lo deseas. Toca para activar.",
+  "settings.screen.clock_analog": "Reloj analógico"
 }

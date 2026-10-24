@@ -15,7 +15,7 @@ void screen_settings_read(screen_settings_t *out, const runtime_settings_t *sett
     *out = (screen_settings_t){.value = {settings->hardware_active_brightness_percent,
         settings->hardware_dim_brightness_percent, settings->hardware_dim_timeout_seconds, 0,
         settings->hardware_saver_timeout_minutes, clock->start_seconds, clock->brightness,
-        clock->off_enabled, clock->off_seconds, clock->format_24h, clock->show_seconds, clock->show_date}};
+        clock->off_enabled, clock->off_seconds, clock->format_24h, clock->show_seconds, clock->show_date, clock->analog}};
     for (int i = 0; i < 5; i++) if (strcmp(settings->hardware_saver_mode, modes[i]) == 0) out->value[SCREEN_MODE] = i;
     snprintf(out->language, sizeof(out->language), "%s", settings->ui_language);
     snprintf(out->timezone, sizeof(out->timezone), "%s", settings->time_tz);
@@ -32,8 +32,8 @@ void screen_settings_merge(runtime_settings_t *settings, const screen_settings_t
         snprintf(settings->ui_style, sizeof(settings->ui_style), "%s", patch->style);
     screen_settings_t merged;
     screen_settings_read(&merged, settings);
-    static const int low[] = {1, 0, 5, 0, 1, 15, 1, 0, 30, 0, 0, 0};
-    static const int high[] = {100, 100, 3600, 4, 120, 7200, 100, 1, 7200, 1, 1, 1};
+    static const int low[] = {1, 0, 5, 0, 1, 15, 1, 0, 30, 0, 0, 0, 0};
+    static const int high[] = {100, 100, 3600, 4, 120, 7200, 100, 1, 7200, 1, 1, 1, 1};
     for (int i = 0; i < SCREEN_FIELD_COUNT; i++) if (patch->dirty & (1U << i)) {
         int v = patch->value[i];
         merged.value[i] = v < low[i] ? low[i] : (v > high[i] ? high[i] : v);
@@ -45,7 +45,7 @@ void screen_settings_merge(runtime_settings_t *settings, const screen_settings_t
     snprintf(settings->hardware_saver_mode, sizeof(settings->hardware_saver_mode), "%s", screen_settings_mode(v[SCREEN_MODE]));
     settings->hardware_saver_timeout_minutes = v[SCREEN_START_MINUTES];
     settings->display_clock = (display_clock_t){v[SCREEN_CLOCK_START], v[SCREEN_CLOCK_BRIGHTNESS],
-        v[SCREEN_CLOCK_OFF], v[SCREEN_CLOCK_OFF_SECONDS], v[SCREEN_CLOCK_24H], v[SCREEN_CLOCK_SECONDS], v[SCREEN_CLOCK_DATE]};
+        v[SCREEN_CLOCK_OFF], v[SCREEN_CLOCK_OFF_SECONDS], v[SCREEN_CLOCK_24H], v[SCREEN_CLOCK_SECONDS], v[SCREEN_CLOCK_DATE], v[SCREEN_CLOCK_ANALOG]};
     brightness_levels_t levels = {settings->hardware_active_brightness_percent,
         settings->hardware_dim_brightness_percent, settings->hardware_night_brightness_percent};
     brightness_levels_normalize(&levels);

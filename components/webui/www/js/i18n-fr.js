@@ -1456,5 +1456,6 @@ WEB_I18N_BUILTIN["fr"] = {
   "settings.screen.failed": "Échec de l’enregistrement. Réessayez.",
   "settings.screen.load_failed": "Réglages indisponibles. Fermez puis réessayez.",
   "settings.screen.preview": "Aperçu (30 s)",
-  "settings.saver.hint_clock": "Affiche une horloge mobile, puis éteint éventuellement l’écran. Touchez pour réveiller."
+  "settings.saver.hint_clock": "Affiche une horloge mobile, puis éteint éventuellement l’écran. Touchez pour réveiller.",
+  "settings.screen.clock_analog": "Horloge analogique"
 };

@@ -33,10 +33,10 @@ typedef struct {
 static settings_view_t *s_view;
 
 static const char *const keys[] = {"active", "dim", "dim_seconds", "mode", "start_minutes",
-    "clock_start", "clock_brightness", "clock_off", "clock_off_seconds", "clock_24h", "clock_seconds", "clock_date"};
+    "clock_start", "clock_brightness", "clock_off", "clock_off_seconds", "clock_24h", "clock_seconds", "clock_date", "clock_analog"};
 static const char *const names[] = {"Brightness", "Dimmed brightness", "Dim after (seconds)", "After inactivity",
     "Start after (minutes)", "Start clock after (seconds)", "Clock brightness", "Turn off after clock",
-    "Show clock for (seconds)", "24-hour clock", "Show seconds", "Show date"};
+    "Show clock for (seconds)", "24-hour clock", "Show seconds", "Show date", "Analog clock"};
 
 static const char *tr(const char *key, const char *fallback)
 {
@@ -302,8 +302,8 @@ void ui_screen_settings_open(void)
         lv_obj_set_style_max_height(list, lv_pct(60), 0);
         lv_obj_add_event_cb(control, system_changed, LV_EVENT_VALUE_CHANGED, (void *)(uintptr_t)field);
     }
-    static const int low[] = {1, 1, 5, 0, 1, 15, 1, 0, 30, 0, 0, 0};
-    static const int high[] = {100, 100, 3600, 4, 120, 7200, 100, 1, 7200, 1, 1, 1};
+    static const int low[] = {1, 1, 5, 0, 1, 15, 1, 0, 30, 0, 0, 0, 0};
+    static const int high[] = {100, 100, 3600, 4, 120, 7200, 100, 1, 7200, 1, 1, 1, 1};
     for (int i = 0; i < SCREEN_FIELD_COUNT; i++) {
         lv_obj_t *row = view->rows[i] = container(view->body, LV_FLEX_FLOW_COLUMN);
         lv_obj_set_style_bg_color(row, ui_style_control_bg(lv_color_hex(APP_UI_COLOR_TOPBAR_CHIP_BG)), 0);

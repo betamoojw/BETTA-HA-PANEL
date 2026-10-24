@@ -73,6 +73,42 @@ int main(int argc, char **argv)
         lv_area_t rect; lv_obj_get_coords(s_clock_group, &rect);
         assert(rect.x1 >= 0 && rect.y1 >= 0 && rect.x2 < width && rect.y2 < height);
     }
+    saved.display_clock.analog = true; saved.display_clock.show_seconds = true;
+    saved.display_clock.show_date = true; saved.display_clock.off_enabled = true;
+    ui_display_protection_reload(); advance(15000);
+    assert(!lv_obj_is_hidden(s_clock_dial) && lv_obj_is_hidden(s_clock_time));
+    assert(!lv_obj_is_hidden(s_clock_date));
+    if (argc > 3) {
+        struct tm sample = {.tm_year=126, .tm_mon=9, .tm_mday=24, .tm_hour=10, .tm_min=10, .tm_sec=30};
+        ui_analog_clock_update(s_clock_dial, &sample, true);
+        lv_label_set_text(s_clock_date, "2026-10-24");
+        lv_obj_center(s_clock_group); lv_obj_update_layout(s_overlay);
+        lv_draw_buf_t *shot = lv_snapshot_take(s_overlay, LV_COLOR_FORMAT_RGB888);
+        assert(shot);
+        FILE *file = fopen(argv[3], "wb"); assert(file);
+        fprintf(file, "P6\n%d %d\n255\n", width, height);
+        for (int y = 0; y < height; ++y) {
+            const uint8_t *row = lv_draw_buf_goto_xy(shot, 0, y);
+            for (int x = 0; x < width; ++x) {
+                uint8_t rgb[] = {row[x*3+2], row[x*3+1], row[x*3]};
+                assert(fwrite(rgb, 1, 3, file) == 3);
+            }
+        }
+        fclose(file); lv_draw_buf_destroy(shot);
+    }
+    advance(30000); assert(ui_display_protection_is_off() && brightness == 0);
+    lv_obj_send_event(s_overlay, LV_EVENT_PRESSED, NULL);
+    lv_obj_send_event(s_overlay, LV_EVENT_RELEASED, NULL);
+    assert(!ui_display_protection_is_active());
+    saved.display_clock.off_enabled = false;
+    saved.display_clock.show_date = false; saved.display_clock.show_seconds = false;
+    ui_display_protection_reload(); advance(15000);
+    assert(lv_obj_is_hidden(s_clock_date));
+    for (int i = 0; i < 10; ++i) {
+        advance(60000);
+        lv_area_t rect; lv_obj_get_coords(s_clock_group, &rect);
+        assert(rect.x1 >= 0 && rect.y1 >= 0 && rect.x2 < width && rect.y2 < height);
+    }
     night = true; advance(1); assert(ui_display_protection_is_off() && brightness == 0);
     night = false; ui_display_protection_reload();
     assert(ui_display_brightness_test_start(23, 0)); advance(15000);

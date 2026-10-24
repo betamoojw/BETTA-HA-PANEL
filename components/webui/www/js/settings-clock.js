@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LicenseRef-FNCL-1.1 | Copyright (c) 2026 andre68723 */
 const CLOCK_SETTINGS = [
+  ["Analog", "analog", false, null, null, "clock_analog"],
   ["Start", "start_seconds", 60, 15, 7200, "clock_start"],
   ["Brightness", "brightness", 5, 1, 100, "clock_brightness"],
   ["Off", "off_enabled", true, null, null, "clock_off"],

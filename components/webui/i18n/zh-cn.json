@@ -1452,5 +1452,6 @@
   "settings.screen.failed": "保存失败，请重试。",
   "settings.screen.load_failed": "暂时无法读取设置，请关闭后重试。",
   "settings.screen.preview": "预览（30 秒）",
-  "settings.saver.hint_clock": "显示移动时钟，并可在指定时长后息屏。点按屏幕即可唤醒。"
+  "settings.saver.hint_clock": "显示移动时钟，并可在指定时长后息屏。点按屏幕即可唤醒。",
+  "settings.screen.clock_analog": "指针时钟"
 }

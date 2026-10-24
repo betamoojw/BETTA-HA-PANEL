@@ -216,6 +216,31 @@ from its `energy` sensors, the doorbell popup from its `doorbell` notification w
 - The published gallery contains demo-data widgets and special pages from the simulator. Real household pages captured
   with `tools/capture_device_pages.py` remain local test evidence.
 
+## Analog clock protection
+
+The clock CTest cases exercise the production protection state machine with
+both digital and analog styles at 480 x 480, 720 x 720, 1280 x 800,
+720 x 1280, 800 x 1280 and 1280 x 720. They cover saved style switching,
+date/seconds options, movement bounds, night priority, automatic off and wake.
+The native settings regression exercises analog selection through LVGL events
+and the scoped save model; browser tests cover change, reload, disable/re-enable
+and reset through the real handlers. JSON rejects non-boolean analog values and
+preserves digital defaults for old settings.
+The panel10 firmware build, 318 browser tests, font/catalog checks and strict
+documentation build passed before the device trial.
+
+On 2026-10-24, the analog build stamped `87cf016c-dirty` (ELF SHA256 prefix
+`22e870f75`) was tested on the Waveshare ESP32-P4-WIFI6-Touch-LCD-10.1, COM24.
+The supported flasher stub verified the application and unchanged protected
+storage checksums before boot. Native settings toggling, save and reload passed.
+The clock appeared after 60 seconds at the saved 5% brightness and turned off
+after another 300 seconds. Captures showed changing hands and bounded movement;
+the owner confirmed clear time/date, stable display, local wake, restored
+brightness, aligned touch and page switching. Original settings, layout and
+theme were compared after restoring the weather screensaver and English.
+A 603-second monitor recorded 40 samples without reboot or new crash reports.
+This trial does not establish analog-clock stability on other boards.
+
 ## Panel10 CPU rotation regression
 
 `display-cpu-rotation` in the simulator CTest suite checks the LVGL packed

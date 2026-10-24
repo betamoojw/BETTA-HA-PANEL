@@ -135,8 +135,10 @@ sim_inputs="main tests/simulator tools/simulator.sh tools/check_widget_layout.py
 if command -v cmake >/dev/null 2>&1 && command -v sdl2-config >/dev/null 2>&1; then
   for variant in panel4 paneljc tab5; do
     step "simulator regressions $variant" "$sim_inputs" bash -c '
-      for r in controls wallbox bambu history energy fonts notification; do
-        SDL_VIDEODRIVER=dummy tools/simulator.sh "$0" --regression "$r" || exit 1
+      for r in controls wallbox bambu history energy fonts notification screen-settings; do
+        args=()
+        if [ "$r" = screen-settings ]; then args=(--fixture tests/simulator/screen_settings.json); fi
+        SDL_VIDEODRIVER=dummy tools/simulator.sh "$0" --regression "$r" "${args[@]}" || exit 1
       done' "$variant"
   done
   step "remote display capture and input" "$sim_inputs" ctest --test-dir build/simulator/panel4 --output-on-failure

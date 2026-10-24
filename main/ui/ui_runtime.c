@@ -39,6 +39,7 @@
 #include "ui/ui_notification_popup.h"
 #include "ui/ui_pages.h"
 #include "ui/ui_display_protection.h"
+#include "settings/screen_settings_service.h"
 #include "ui/ui_widget_factory.h"
 #include "layout/evcc_slots.h"
 #include "layout/widget_types.h"
@@ -1491,7 +1492,7 @@ static void ui_runtime_handle_event(const app_event_t *event)
         /* The revision poll retries until the saved configuration is applied. */
         break;
     case EV_DISPLAY_PROTECTION_UPDATED:
-        ui_display_protection_reload();
+        s_pending_protection_reload = !ui_display_protection_reload();
         break;
     case EV_UI_NAVIGATE:
         ui_pages_show(event->data.navigate.page_id);
@@ -1518,6 +1519,7 @@ static void ui_runtime_task(void *arg)
     int64_t last_reload_ms = -1000;
     while (true) {
         ui_watchdog_beat_runtime();
+        screen_settings_process(); /* Flash writes must run outside the LVGL lock. */
         app_event_t event = {0};
         while (app_events_receive(&event, 0)) {
             ui_runtime_handle_event(&event);
@@ -1549,9 +1551,8 @@ static void ui_runtime_task(void *arg)
         }
 
         if (s_pending_protection_reload && display_lock(20)) {
-            ui_display_protection_reload();
+            s_pending_protection_reload = !ui_display_protection_reload();
             display_unlock();
-            s_pending_protection_reload = false;
         }
 
         if (s_pending_notification != NULL && display_lock(20)) {
@@ -1597,7 +1598,7 @@ esp_err_t ui_runtime_init(void)
     theme_default_init();
     ui_pages_init();
     ui_watchdog_attach_lvgl();
-    ui_display_protection_init();
+    s_pending_protection_reload = !ui_display_protection_init();
     ui_pages_set_show_callback(ui_runtime_on_page_shown);
     ui_runtime_show_weather_icon_overlay();
     ui_runtime_refresh_topbar();

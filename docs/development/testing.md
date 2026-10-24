@@ -3,6 +3,39 @@
 
 ## Checks without a device
 
+### Native screen settings
+
+Run `tools/simulator.sh <variant> --regression screen-settings --fixture tests/simulator/screen_settings.json`.
+It exercises actual LVGL control events, Save/reopen, disabled-option retention, failed-save retry,
+unrelated-settings preservation and 100 view rebuilds. Header checks include AP, MQTT and crash-marker
+combinations. Use Tab5 for `--rotation 0|90|180|270`; fixed-orientation variants reject that option.
+The dedicated empty fixture avoids unrelated widget orientation projection during these checks.
+`betta-clock-test <width> <height>` exercises the production saver with a controlled clock: idle/off
+deadlines, movement bounds, night priority, complete wake gestures, storage-busy retention and
+the 30-second preview deadline. Both tests are registered with CTest.
+
+Local validation on 2026-10-24 passed the settings regression at default/largest text on 480 × 480,
+720 × 720 and 1280 × 800, plus all four Tab5 directions at largest text (720 × 1280 / 1280 × 720).
+Each run covers all seven languages; clock checks passed at four geometries. English and Chinese
+wide/compact renders and German portrait/landscape renders were inspected. All 317 browser tests,
+built-in translation parsing, font/catalog checks and the strict documentation build passed.
+The ESP-IDF 6.1 `panel10` build succeeded (5,652,416-byte app; 17% app-partition headroom).
+The tested image was built before commit from `cab3c41` plus the screen-settings changes;
+its embedded source stamp is `cab3c412-dirty` (2026-10-24 10:26:01).
+
+Device validation on 2026-10-24 used the Waveshare ESP32-P4-WIFI6-Touch-LCD-10.1
+on COM24, with app SHA256 `c34548d26fa83a0ddedbb5dcba20a35892276929a74948b0543269c72e3c90cc`.
+The supported P4 stub verified the application readback and unchanged protected metadata,
+NVS, coredump and complete LittleFS checksums before boot. The running ELF stamp matched;
+OTA was valid and the boot splash exited. Native 12-hour Save/reopen and restoration to
+24-hour format passed, preserving the latest settings, layout and English language.
+The owner confirmed the rightmost settings gear, matching Wi-Fi/HA frames, saving,
+stable physical display and aligned touch. Two one-minute runtime samples showed no reboot
+or new crash. Rapid remote input encountered transient display-lock contention; paced
+input completed the control tests. Local backups and retained crash reports were preserved.
+
+### Remote display
+
 The `betta-remote-test` simulator target exercises the production remote-display
 module with real LVGL. Run it with width, height, render mode (0 partial, 1
 direct, 2 full) and rotation (0–3), for example `betta-remote-test 480 480 0 0`.

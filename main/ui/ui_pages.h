@@ -37,6 +37,7 @@ uint16_t ui_pages_count(void);
 void ui_pages_set_topbar_status(
     bool wifi_connected, bool wifi_setup_ap_active, bool api_connected, bool api_initial_sync_done);
 void ui_pages_set_topbar_datetime(const struct tm *timeinfo);
+void ui_pages_set_clock_24h(bool format_24h);
 /* Yellow crash marker, set only by the UI task/display-lock holder. */
 void ui_pages_set_crash_warning(bool visible);
 void ui_pages_set_topbar_left_slots(const char *slot_1, const char *slot_2, const char *slot_3);

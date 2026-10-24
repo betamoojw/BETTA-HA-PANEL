@@ -746,7 +746,7 @@ int main(int argc, char **argv)
     extern int sim_energy_regression(void);
     extern int sim_font_budget_regression(void);
     extern int sim_notification_regression(void);
-    bool notification_regression = false;
+    bool notification_regression = false; bool screen_settings_regression = false;
     bool font_budget_regression = false;
     bool energy_regression = false;
     bool bambu_regression = false;
@@ -777,6 +777,7 @@ int main(int argc, char **argv)
         else if (strcmp(argv[i - 1], "--regression") == 0 && strcmp(value, "history") == 0) history_regression = true;
         else if (strcmp(argv[i - 1], "--regression") == 0 && strcmp(value, "energy") == 0) energy_regression = true;
         else if (strcmp(argv[i - 1], "--regression") == 0 && strcmp(value, "controls") == 0) controls_regression = true;
+        else if (strcmp(argv[i - 1], "--regression") == 0 && strcmp(value, "screen-settings") == 0) screen_settings_regression = true;
         else if (strcmp(argv[i - 1], "--regression") == 0 && strcmp(value, "notification") == 0) notification_regression = true;
         else if (strcmp(argv[i - 1], "--regression") == 0 && strcmp(value, "fonts") == 0) font_budget_regression = true;
         else if (strcmp(argv[i - 1], "--fixture") == 0) fixture_path = value;
@@ -922,6 +923,7 @@ int main(int argc, char **argv)
         cJSON_Delete(root);
         return sim_energy_regression();
     }
+    if (screen_settings_regression) { extern int sim_screen_settings_regression(void); cJSON_Delete(root); return sim_screen_settings_regression(); }
     if (notification_regression) {
         cJSON_Delete(root);
         return sim_notification_regression();

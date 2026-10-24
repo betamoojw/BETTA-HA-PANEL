@@ -503,6 +503,7 @@ setTextById("addBambuPrinterBtn", "layout.widgets.add_bambu_printer");
   setTextById("settingsHardwareDimBrightnessLabel", "settings.hardware.dim_brightness");
   setTextById("settingsHardwareDimTimeoutLabel", "settings.hardware.dim_timeout");
   setTextById("settingsSaverHeading", "settings.saver.heading");
+  translateClockSettings();
   setTextById("settingsSaverModeLabel", "settings.saver.mode");
   setSelectOptionText(el.settingsSaverMode, "disabled", "settings.saver.disabled");
   setSelectOptionText(el.settingsSaverMode, "off", "settings.saver.off");

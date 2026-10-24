@@ -561,6 +561,33 @@
       "solar": "Previsión solar",
       "sonos": "Favoritos de Sonos",
       "printer": "Impresora Bambu"
+    },
+    "screen": {
+      "title": "Ajustes de pantalla",
+      "active": "Brillo",
+      "dim": "Brillo atenuado",
+      "dim_seconds": "Atenuar tras (segundos)",
+      "mode": "Tras inactividad",
+      "start_minutes": "Iniciar tras (minutos)",
+      "clock_start": "Mostrar reloj tras (segundos)",
+      "clock_brightness": "Brillo del reloj",
+      "clock_off": "Apagar después del reloj",
+      "clock_off_seconds": "Mostrar reloj durante (segundos)",
+      "clock_24h": "Reloj de 24 horas",
+      "clock_seconds": "Mostrar segundos",
+      "clock_date": "Mostrar fecha",
+      "disabled": "Desactivado",
+      "clock": "Reloj",
+      "off": "Apagar pantalla",
+      "weather": "Tiempo",
+      "pages": "Alternar páginas",
+      "cancel": "Cancelar",
+      "save": "Guardar",
+      "hint": "Los cambios se aplican al guardar.",
+      "saving": "Guardando...",
+      "failed": "No se pudo guardar. Inténtalo de nuevo.",
+      "load_failed": "Ajustes no disponibles. Cierra e inténtalo de nuevo.",
+      "preview": "Vista previa (30 s)"
     }
   }
 }

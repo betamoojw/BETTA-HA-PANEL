@@ -616,8 +616,9 @@ function renderSettings() {
   if (el.settingsHardwareDimTimeout) {
     el.settingsHardwareDimTimeout.value = String(clamp(Number(hardware.dim_timeout_seconds ?? 300), 5, 3600));
   }
-  if (el.settingsSaverMode) el.settingsSaverMode.value = ["disabled", "off", "weather", "pages"].includes(hardware.saver_mode)
+  if (el.settingsSaverMode) el.settingsSaverMode.value = ["disabled", "clock", "off", "weather", "pages"].includes(hardware.saver_mode)
     ? hardware.saver_mode : "disabled";
+  fillClockSettings(hardware.clock);
   if (el.settingsSaverTimeout) el.settingsSaverTimeout.value = String(clamp(Number(hardware.saver_timeout_minutes ?? 10), 1, 120));
   if (el.settingsSaverWeatherMinutes) el.settingsSaverWeatherMinutes.value = String(clamp(Number(hardware.saver_weather_minutes ?? 30), 1, 120));
   if (el.settingsSaverPagesMinutes) el.settingsSaverPagesMinutes.value = String(clamp(Number(hardware.saver_pages_minutes ?? 30), 1, 120));
@@ -1995,8 +1996,9 @@ function renderDeviceId() {
 // Brightness, night mode and the camera features apply on the panel without a
 // reboot: send them on every change (debounced) with "reboot": false.
 function syncSaverFields() {
+  updateClockSettingsVisibility();
   const mode = el.settingsSaverMode?.value || "disabled";
-  if (el.settingsSaverTiming) el.settingsSaverTiming.hidden = mode === "disabled";
+  if (el.settingsSaverTiming) el.settingsSaverTiming.hidden = mode === "disabled" || mode === "clock";
   if (el.settingsSaverWeatherFields) el.settingsSaverWeatherFields.hidden = mode !== "weather";
   if (el.settingsSaverPagesFields) el.settingsSaverPagesFields.hidden = mode !== "pages";
   if (el.settingsSaverPixelRefreshRow) el.settingsSaverPixelRefreshRow.hidden = mode === "disabled";
@@ -2038,6 +2040,7 @@ async function testChime() {
 function readSaverHardware() {
   return {
     saver_mode: el.settingsSaverMode?.value || "disabled",
+    clock: readClockSettings(),
     saver_timeout_minutes: clamp(Number(el.settingsSaverTimeout?.value || 10), 1, 120),
     saver_weather_minutes: clamp(Number(el.settingsSaverWeatherMinutes?.value || 30), 1, 120),
     saver_pages_minutes: clamp(Number(el.settingsSaverPagesMinutes?.value || 30), 1, 120),
@@ -2126,6 +2129,7 @@ function bindHardwareLive() {
   for (const input of inputs) {
     if (input) input.addEventListener("input", pushHardwareLive);
   }
+  bindClockSettings();
   const changes = [
     el.settingsSoundEnabled, el.settingsSoundNightMute,
     el.settingsHardwareDimTimeout,
@@ -2172,6 +2176,7 @@ function bindHardwareLive() {
 // runtime_settings.c) and its APP_DISPLAY_* constants (app_config.h) exactly -- keep them matching if
 // either changes.
 function resetDisplayDefaults() {
+  fillClockSettings();
   if (typeof stopBrightnessTest === "function" && (brightnessTestState.active || brightnessTestBusy)) {
     void stopBrightnessTest();
   }

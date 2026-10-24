@@ -30,10 +30,11 @@
 #include "ui/ui_runtime.h"
 #include "ui/ui_memory.h"
 
-typedef enum { SAVER_ACTIVE, SAVER_WEATHER, SAVER_PAGES, SAVER_OFF, SAVER_TEST } saver_state_t;
+typedef enum { SAVER_ACTIVE, SAVER_WEATHER, SAVER_PAGES, SAVER_OFF, SAVER_TEST, SAVER_CLOCK } saver_state_t;
 
 typedef struct {
     char hardware_saver_mode[12];
+    display_clock_t clock;
     char hardware_saver_weather_entity_id[APP_MAX_ENTITY_ID_LEN];
     int hardware_saver_timeout_minutes;
     int hardware_saver_weather_minutes;
@@ -52,6 +53,8 @@ static lv_obj_t *s_weather_group;
 static lv_obj_t *s_icon;
 static lv_obj_t *s_temperature;
 static lv_obj_t *s_condition;
+static lv_obj_t *s_clock_group, *s_clock_time, *s_clock_date;
+static uint32_t s_last_clock_ms;
 static lv_obj_t *s_snow[4];
 static ha_state_t *s_weather_state; /* large HA attributes prefer PSRAM */
 static uint32_t s_last_activity_ms;
@@ -124,15 +127,15 @@ static bool utf8_from_codepoint(uint32_t cp, char out[5])
     return true;
 }
 
-static void weather_position(void)
+static void saver_position(lv_obj_t *group)
 {
-    if (s_weather_group == NULL) return;
+    if (group == NULL) return;
     lv_display_t *display = lv_display_get_default();
     if (display == NULL) return;
     int32_t width = lv_display_get_horizontal_resolution(display);
     int32_t height = lv_display_get_vertical_resolution(display);
-    int32_t group_w = lv_obj_get_width(s_weather_group);
-    int32_t group_h = lv_obj_get_height(s_weather_group);
+    int32_t group_w = lv_obj_get_width(group);
+    int32_t group_h = lv_obj_get_height(group);
     int32_t margin = 20;
     int32_t max_x = width - group_w - margin;
     int32_t max_y = height - group_h - margin;
@@ -143,7 +146,7 @@ static void weather_position(void)
         {50, 50}, {25, 75}, {75, 25}, {50, 0},
     };
     size_t index = s_motion_step++ % 8U;
-    lv_obj_set_pos(s_weather_group,
+    lv_obj_set_pos(group,
         margin + (max_x - margin) * positions[index][0] / 100,
         margin + (max_y - margin) * positions[index][1] / 100);
 }
@@ -241,11 +244,17 @@ static void enter_state(saver_state_t next)
     lv_obj_set_hidden(s_overlay, false);
     lv_obj_move_foreground(s_overlay);
     lv_obj_set_style_bg_opa(s_overlay, next == SAVER_PAGES || next == SAVER_TEST ? LV_OPA_TRANSP : LV_OPA_COVER, 0);
+    lv_obj_set_hidden(s_clock_group, next != SAVER_CLOCK);
     if (next == SAVER_WEATHER) {
         for (size_t i = 0; i < 4; i++) lv_obj_set_hidden(s_snow[i], true);
         lv_obj_set_hidden(s_weather_group, false);
-        weather_position();
+        saver_position(s_weather_group);
         display_set_brightness_percent(s_settings.hardware_saver_weather_brightness_percent);
+    } else if (next == SAVER_CLOCK) {
+        lv_obj_set_hidden(s_weather_group, true);
+        for (size_t i = 0; i < 4; i++) lv_obj_set_hidden(s_snow[i], true);
+        saver_position(s_clock_group);
+        display_set_brightness_percent(s_settings.clock.brightness);
     } else if (next == SAVER_TEST) {
         lv_obj_set_hidden(s_weather_group, true);
         for (size_t i = 0; i < 4; i++) lv_obj_set_hidden(s_snow[i], true);
@@ -318,19 +327,19 @@ static void snow_update(uint32_t now)
     }
 }
 
-void ui_display_protection_reload(void)
+bool ui_display_protection_reload(void)
 {
     runtime_settings_t *settings = ui_calloc_prefer_psram(1, sizeof(*settings));
     if (settings == NULL) {
-        strlcpy(s_settings.hardware_saver_mode, "disabled", sizeof(s_settings.hardware_saver_mode));
-        if (s_state != SAVER_ACTIVE && s_state != SAVER_TEST) hide_overlay();
-        return;
+        return false;
     }
-    if (runtime_settings_load(settings) != ESP_OK) runtime_settings_set_defaults(settings);
+    if (runtime_settings_load(settings) != ESP_OK) { free(settings); return false; }
     strlcpy(s_settings.hardware_saver_mode, settings->hardware_saver_mode, sizeof(s_settings.hardware_saver_mode));
     strlcpy(s_settings.hardware_saver_weather_entity_id, settings->hardware_saver_weather_entity_id,
         sizeof(s_settings.hardware_saver_weather_entity_id));
     s_settings.hardware_saver_timeout_minutes = settings->hardware_saver_timeout_minutes;
+    s_settings.clock = settings->display_clock;
+    ui_pages_set_clock_24h(settings->display_clock.format_24h);
     s_settings.hardware_saver_weather_minutes = settings->hardware_saver_weather_minutes;
     s_settings.hardware_saver_pages_minutes = settings->hardware_saver_pages_minutes;
     s_settings.hardware_saver_page_interval_minutes = settings->hardware_saver_page_interval_minutes;
@@ -343,6 +352,7 @@ void ui_display_protection_reload(void)
     if (s_state != SAVER_ACTIVE && s_state != SAVER_TEST) hide_overlay();
     __atomic_store_n(&s_last_activity_ms, now_ms(), __ATOMIC_RELAXED);
     s_handled_activity_ms = __atomic_load_n(&s_last_activity_ms, __ATOMIC_RELAXED);
+    return true;
 }
 
 void ui_display_protection_poll(void)
@@ -363,12 +373,16 @@ void ui_display_protection_poll(void)
 
     uint32_t idle_ms = now - activity;
     uint32_t start_ms = (uint32_t)s_settings.hardware_saver_timeout_minutes * 60000U;
+    if (strcmp(s_settings.hardware_saver_mode, "clock") == 0) start_ms = (uint32_t)s_settings.clock.start_seconds * 1000U;
     bool night_off = night_mode_active() && night_mode_brightness_percent() == 0 &&
         display_get_brightness_percent() == 0;
     if (idle_ms < start_ms && !night_off) return;
 
     saver_state_t target = SAVER_OFF;
-    if (!night_mode_active() && strcmp(s_settings.hardware_saver_mode, "weather") == 0 &&
+    if (!night_mode_active() && strcmp(s_settings.hardware_saver_mode, "clock") == 0 &&
+        !display_clock_is_off(&s_settings.clock, idle_ms)) {
+        target = SAVER_CLOCK;
+    } else if (!night_mode_active() && strcmp(s_settings.hardware_saver_mode, "weather") == 0 &&
         idle_ms < start_ms + (uint32_t)s_settings.hardware_saver_weather_minutes * 60000U) {
         if (now - s_last_weather_ms >= 30000U || s_state != SAVER_WEATHER) {
             s_last_weather_ms = now;
@@ -381,8 +395,8 @@ void ui_display_protection_poll(void)
         target = SAVER_PAGES;
     }
     enter_state(target);
-    if (s_state == SAVER_WEATHER && now - s_last_motion_ms >= 60000U) {
-        weather_position();
+    if ((s_state == SAVER_WEATHER || s_state == SAVER_CLOCK) && now - s_last_motion_ms >= 60000U) {
+        saver_position(s_state == SAVER_CLOCK ? s_clock_group : s_weather_group);
         s_last_motion_ms = now;
     } else if (s_state == SAVER_OFF) {
         snow_update(now);
@@ -390,6 +404,15 @@ void ui_display_protection_poll(void)
         now - s_last_page_ms >= (uint32_t)s_settings.hardware_saver_page_interval_minutes * 60000U) {
         s_last_page_ms = now;
         if (ui_pages_count() > 1) (void)ui_pages_next();
+    }
+    if (s_state == SAVER_CLOCK && now - s_last_clock_ms >= 1000U) {
+        s_last_clock_ms = now;
+        time_t timestamp = time(NULL);
+        struct tm local;
+        char text[32], date[32];
+        display_clock_format(&s_settings.clock, localtime_r(&timestamp, &local), text, sizeof(text), date, sizeof(date));
+        lv_label_set_text(s_clock_time, text);
+        lv_label_set_text(s_clock_date, date);
     }
 }
 
@@ -435,6 +458,22 @@ static void create_overlay(void)
     lv_obj_set_width(s_condition, group_width);
     lv_label_set_long_mode(s_condition, LV_LABEL_LONG_DOT);
     lv_obj_set_pos(s_condition, 0, 125);
+    s_clock_group = lv_obj_create(s_overlay);
+    lv_obj_remove_style_all(s_clock_group);
+    lv_obj_set_size(s_clock_group, width - 60, 170);
+    lv_obj_set_clickable(s_clock_group, false);
+    lv_obj_set_scrollable(s_clock_group, false);
+    s_clock_time = lv_label_create(s_clock_group);
+    lv_label_set_text(s_clock_time, "--:--");
+    /* The longest 12-hour form fits compact panels even at the largest text step. */
+    lv_obj_set_style_text_font(s_clock_time, ui_text_fit("12:59:59 PM", ui_font_role(UI_TEXT_HERO), width - 60, 90), 0);
+    lv_obj_set_style_text_color(s_clock_time, lv_color_white(), 0);
+    lv_obj_align(s_clock_time, LV_ALIGN_TOP_MID, 0, 0);
+    s_clock_date = lv_label_create(s_clock_group);
+    ui_text_set(s_clock_date, UI_TEXT_LABEL, false);
+    lv_obj_set_style_text_color(s_clock_date, lv_color_white(), 0);
+    lv_obj_align(s_clock_date, LV_ALIGN_BOTTOM_MID, 0, 0);
+    lv_obj_set_hidden(s_clock_group, true);
     for (size_t i = 0; i < 4; i++) {
         s_snow[i] = lv_obj_create(s_overlay);
         lv_obj_set_size(s_snow[i], 24, 24);
@@ -446,10 +485,10 @@ static void create_overlay(void)
     lv_obj_set_hidden(s_overlay, true);
 }
 
-void ui_display_protection_init(void)
+bool ui_display_protection_init(void)
 {
-    if (s_ready) return;
+    if (s_ready) return true;
     s_ready = true;
     __atomic_store_n(&s_state, SAVER_ACTIVE, __ATOMIC_RELAXED);
-    ui_display_protection_reload();
+    return ui_display_protection_reload();
 }

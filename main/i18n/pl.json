@@ -561,6 +561,33 @@
       "solar": "Prognoza słoneczna",
       "sonos": "Ulubione Sonos",
       "printer": "Drukarka Bambu"
+    },
+    "screen": {
+      "title": "Ustawienia ekranu",
+      "active": "Jasność",
+      "dim": "Jasność po przyciemnieniu",
+      "dim_seconds": "Przyciemnij po (sekundy)",
+      "mode": "Po bezczynności",
+      "start_minutes": "Rozpocznij po (minuty)",
+      "clock_start": "Pokaż zegar po (sekundy)",
+      "clock_brightness": "Jasność zegara",
+      "clock_off": "Wyłącz po zegarze",
+      "clock_off_seconds": "Pokazuj zegar przez (sekundy)",
+      "clock_24h": "Zegar 24-godzinny",
+      "clock_seconds": "Pokaż sekundy",
+      "clock_date": "Pokaż datę",
+      "disabled": "Wyłączone",
+      "clock": "Zegar",
+      "off": "Wyłącz ekran",
+      "weather": "Pogoda",
+      "pages": "Zmieniaj strony",
+      "cancel": "Anuluj",
+      "save": "Zapisz",
+      "hint": "Zmiany zostaną zastosowane po zapisaniu.",
+      "saving": "Zapisywanie...",
+      "failed": "Nie udało się zapisać. Spróbuj ponownie.",
+      "load_failed": "Ustawienia niedostępne. Zamknij i spróbuj ponownie.",
+      "preview": "Podgląd (30 s)"
     }
   }
 }

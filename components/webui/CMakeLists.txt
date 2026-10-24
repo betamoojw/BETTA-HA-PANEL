@@ -22,6 +22,7 @@ set(WEBUI_JS_SOURCES
     js/inspector-hints.js
     js/translations.js
     js/timezones.js
+    js/settings-clock.js
     js/settings.js
     js/brightness-test.js
     js/update-check.js

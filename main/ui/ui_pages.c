@@ -31,6 +31,7 @@
 #include "ui/ui_popup.h"
 #include "ui/fonts/mdi_font_registry.h"
 #include "ui/ui_i18n.h"
+#include "ui/ui_screen_settings.h"
 #include "ui/theme/theme_default.h"
 #include "ui/theme/ui_style.h"
 #include "component_versions.h"
@@ -75,6 +76,10 @@ static char s_stock_symbol[24];
 static char s_stock_value[16];
 static bool s_stock_euro = false;
 static lv_obj_t *s_wifi_icon = NULL;
+static lv_obj_t *s_wifi_chip = NULL;
+static lv_obj_t *s_settings_chip = NULL;
+static lv_coord_t s_clock_shift;
+static bool s_clock_24h = true;
 static lv_obj_t *s_api_chip = NULL;      /* Home Assistant chip */
 static lv_obj_t *s_mqtt_chip = NULL;     /* MQTT chip, visible while MQTT is started */
 static lv_obj_t *s_crash_warning = NULL;
@@ -121,7 +126,7 @@ static uint32_t  s_betta_last_ms = 0;
 /* Right-hand status chips, from the screen edge inwards: Wi-Fi, MQTT (only while MQTT is started) and Home
  * Assistant, one chip per icon so each frame hugs its symbol. Every chip has the same width; the touch area is
  * enlarged beyond the frame (TOPBAR_CHIP_TOUCH_PAD). */
-#define TOPBAR_STATUS_CHIP_W (APP_VIEW_WIDTH < 1000 ? 52 : 60)
+#define TOPBAR_STATUS_CHIP_W (APP_VIEW_WIDTH < 700 ? 40 : (APP_VIEW_WIDTH < 1000 ? 52 : 60))
 #define TOPBAR_WIFI_AP_CHIP_W 96 /* "AP" + symbol while the setup access point is up */
 #if defined(CONFIG_APP_PANEL_VARIANT_TAB5_1280)
 /* The Tab5 has about 294 ppi, twice the 10-inch boards' 149 ppi: a 40 px chip is only 3.5 mm tall there and the popups
@@ -130,8 +135,8 @@ static uint32_t  s_betta_last_ms = 0;
 #define TOPBAR_CHIP_GAP      20
 #define TOPBAR_CHIP_TOUCH_PAD 10
 #else
-#define TOPBAR_CHIP_GAP      8
-#define TOPBAR_CHIP_TOUCH_PAD 6
+#define TOPBAR_CHIP_GAP      (APP_VIEW_WIDTH < 700 ? 4 : 12)
+#define TOPBAR_CHIP_TOUCH_PAD (APP_VIEW_WIDTH < 700 ? 2 : 6)
 #endif
 #define TOPBAR_EDGE_PAD      12
 #define TOPBAR_WEATHER_X     (-(TOPBAR_EDGE_PAD + 3 * (TOPBAR_STATUS_CHIP_W + TOPBAR_CHIP_GAP)))
@@ -498,8 +503,8 @@ static void ui_pages_layout_topbar_left(void)
     /* How many items fit left of the centred clock: one on a narrow screen, two on the 4-inch panel (720 px),
      * three on the 1280 px boards (date 220 + weather 116 + a quote of about 200 px). */
     const uint8_t max_shown = APP_VIEW_WIDTH < 700 ? 1 : (APP_VIEW_WIDTH < 1000 ? 2 : 3);
-    const lv_coord_t clock_w = s_time_label != NULL ? lv_obj_get_width(s_time_label) : 88;
-    const lv_coord_t limit = (APP_VIEW_WIDTH - clock_w) / 2 - 8; /* up to the clock, with a gap of 8 px */
+    const lv_coord_t clock_w = APP_VIEW_WIDTH < 1000 ? 88 : 180;
+    const lv_coord_t limit = (APP_VIEW_WIDTH - clock_w) / 2 + s_clock_shift - 8;
 
     for (size_t i = 0; i < APP_TOPBAR_LEFT_SLOTS; i++) {
         if (shown >= max_shown) {
@@ -716,27 +721,36 @@ static lv_color_t ui_pages_status_glyph_color(bool connected)
  * whenever the Wi-Fi chip changes width (the setup AP's "AP" text) or MQTT starts or stops. */
 static void ui_pages_layout_topbar_right(void)
 {
-    if (s_wifi_icon == NULL || s_api_chip == NULL) {
+    if (s_wifi_chip == NULL || s_api_chip == NULL || s_settings_chip == NULL) {
         return;
     }
     lv_coord_t x = -TOPBAR_EDGE_PAD;
-    lv_obj_align(s_wifi_icon, LV_ALIGN_RIGHT_MID, x, 0);
+    lv_obj_align(s_settings_chip, LV_ALIGN_RIGHT_MID, x, 0);
+    x -= TOPBAR_STATUS_CHIP_W + TOPBAR_CHIP_GAP;
+    lv_obj_align(s_wifi_chip, LV_ALIGN_RIGHT_MID, x, 0);
     x -= s_wifi_chip_w + TOPBAR_CHIP_GAP;
     if (s_mqtt_chip != NULL && !lv_obj_is_hidden(s_mqtt_chip)) {
         lv_obj_align(s_mqtt_chip, LV_ALIGN_RIGHT_MID, x, 0);
         x -= TOPBAR_STATUS_CHIP_W + TOPBAR_CHIP_GAP;
     }
     lv_obj_align(s_api_chip, LV_ALIGN_RIGHT_MID, x, 0);
-    if (s_crash_warning != NULL) {
+    if (s_crash_warning != NULL && !lv_obj_is_hidden(s_crash_warning)) {
         x -= TOPBAR_STATUS_CHIP_W + TOPBAR_CHIP_GAP;
         lv_obj_align(s_crash_warning, LV_ALIGN_RIGHT_MID, x, 0);
     }
+    lv_coord_t right_start = APP_VIEW_WIDTH + x -
+        (s_crash_warning != NULL && !lv_obj_is_hidden(s_crash_warning) ? 32 : TOPBAR_STATUS_CHIP_W);
+    lv_coord_t clock_w = APP_VIEW_WIDTH < 1000 ? 88 : 180;
+    s_clock_shift = LV_MIN(0, right_start - 8 - (APP_VIEW_WIDTH + clock_w) / 2);
+    if (s_time_label != NULL) lv_obj_align(s_time_label, LV_ALIGN_CENTER, s_clock_shift, 0);
+    ui_pages_layout_topbar_left();
 }
 
 void ui_pages_set_crash_warning(bool visible)
 {
     if (s_crash_warning != NULL && lv_obj_is_hidden(s_crash_warning) == visible) {
         lv_obj_set_hidden(s_crash_warning, !visible);
+        ui_pages_layout_topbar_right();
     }
 }
 
@@ -780,6 +794,12 @@ static lv_obj_t *ui_pages_create_status_chip(lv_event_cb_t clicked)
     lv_obj_set_ext_click_area(chip, TOPBAR_CHIP_TOUCH_PAD);
     lv_obj_add_event_cb(chip, clicked, LV_EVENT_CLICKED, NULL);
     return chip;
+}
+
+static void ui_pages_settings_clicked(lv_event_t *event)
+{
+    (void)event;
+    ui_screen_settings_open();
 }
 
 static void ui_pages_create_topbar(lv_obj_t *screen)
@@ -926,14 +946,16 @@ static void ui_pages_create_topbar(lv_obj_t *screen)
         s_mqtt_status_timer = lv_timer_create(ui_pages_mqtt_status_timer_cb, 2000, NULL);
     }
 
-    s_wifi_icon = lv_label_create(s_topbar);
+    s_settings_chip = ui_pages_create_status_chip(ui_pages_settings_clicked);
+    lv_obj_t *settings_glyph = lv_label_create(s_settings_chip);
+    lv_label_set_text(settings_glyph, APP_SYMBOL_SETTINGS);
+    lv_obj_set_style_text_font(settings_glyph, TOPBAR_ICON_FONT, 0);
+    lv_obj_set_style_text_color(settings_glyph, lv_color_hex(APP_UI_COLOR_TOPBAR_TEXT), 0);
+    s_wifi_chip = ui_pages_create_status_chip(ui_pages_wifi_chip_event_cb);
+    s_wifi_icon = lv_label_create(s_wifi_chip);
     s_wifi_chip_w = TOPBAR_STATUS_CHIP_W;
-    lv_obj_set_width(s_wifi_icon, s_wifi_chip_w);
-    ui_pages_style_topbar_chip(s_wifi_icon);
-    lv_obj_set_ext_click_area(s_wifi_icon, TOPBAR_CHIP_TOUCH_PAD);
+    lv_obj_set_style_text_font(s_wifi_icon, TOPBAR_ICON_FONT, 0);
     lv_label_set_text(s_wifi_icon, APP_SYMBOL_WIFI_OFF);
-    lv_obj_set_clickable(s_wifi_icon, true);
-    lv_obj_add_event_cb(s_wifi_icon, ui_pages_wifi_chip_event_cb, LV_EVENT_CLICKED, NULL);
     ui_pages_layout_topbar_right();
 }
 
@@ -1011,6 +1033,9 @@ void ui_pages_init(void)
     s_current_index = -1;
     s_background = NULL;
     s_topbar = NULL;
+    s_wifi_chip = NULL;
+    s_settings_chip = NULL;
+    s_clock_shift = 0;
     s_content_box = NULL;
     s_date_label = NULL;
     s_time_label = NULL;
@@ -1317,7 +1342,7 @@ void ui_pages_set_topbar_status(
         const lv_coord_t wifi_w = wifi_setup_ap_active ? TOPBAR_WIFI_AP_CHIP_W : TOPBAR_STATUS_CHIP_W;
         if (s_wifi_chip_w != wifi_w) {
             s_wifi_chip_w = wifi_w;
-            lv_obj_set_width(s_wifi_icon, wifi_w);
+            lv_obj_set_width(s_wifi_chip, wifi_w);
             ui_pages_layout_topbar_right();
         }
     }
@@ -1346,6 +1371,11 @@ void ui_pages_set_topbar_left_slots(const char *slot_1, const char *slot_2, cons
     ui_pages_layout_topbar_left();
 }
 
+void ui_pages_set_clock_24h(bool format_24h)
+{
+    s_clock_24h = format_24h;
+}
+
 void ui_pages_set_topbar_datetime(const struct tm *timeinfo)
 {
     if (timeinfo == NULL) {
@@ -1356,12 +1386,14 @@ void ui_pages_set_topbar_datetime(const struct tm *timeinfo)
     char time_buf[16] = {0};
     snprintf(
         date_buf, sizeof(date_buf), "%02d.%02d.%04d", timeinfo->tm_mday, timeinfo->tm_mon + 1, timeinfo->tm_year + 1900);
-    snprintf(time_buf, sizeof(time_buf), "%02d:%02d", timeinfo->tm_hour, timeinfo->tm_min);
+    strftime(time_buf, sizeof(time_buf), s_clock_24h ? "%H:%M" : "%I:%M %p", timeinfo);
 
     if (s_date_label != NULL) {
         lv_label_set_text(s_date_label, date_buf);
     }
     if (s_time_label != NULL) {
+        lv_obj_set_style_text_font(s_time_label, ui_text_fit(time_buf, ui_font_role(UI_TEXT_VALUE),
+            APP_VIEW_WIDTH < 1000 ? 88 : 180, APP_CONTENT_BOX_Y - 8), 0);
         lv_label_set_text(s_time_label, time_buf);
     }
     ui_pages_layout_topbar_left();

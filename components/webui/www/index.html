@@ -490,6 +490,7 @@
                 </label>
                 <label class="field-md"><span id="settingsSaverModeLabel">After inactivity</span>
                   <select id="settingsSaverMode">
+                    <option value="clock">Clock</option>
                     <option value="disabled">Brightness settings only</option>
                     <option value="off">Turn display off</option>
                     <option value="weather">Moving weather, then off</option>
@@ -501,6 +502,17 @@
                     <input id="settingsSaverTimeout" type="number" min="1" max="120" step="1" value="10" />
                   </label>
                 </div>
+              </div>
+              <div id="settingsClockFields" class="row display-fields" hidden>
+                <label id="settingsClockStartRow" class="field-sm"><span id="settingsClockStartLabel">Start clock after (seconds)</span><input id="settingsClockStart" type="number" value="60" min="15" max="7200" step="1" /></label>
+                <label id="settingsClockBrightnessRow" class="field-sm"><span id="settingsClockBrightnessLabel">Clock brightness</span><input id="settingsClockBrightness" type="number" value="5" min="1" max="100" step="1" /></label>
+                <label id="settingsClockOffRow" class="clock-toggle"><input id="settingsClockOff" type="checkbox" checked /><span id="settingsClockOffLabel">Turn off after clock</span></label>
+                <label id="settingsClockOffSecondsRow" class="field-sm"><span id="settingsClockOffSecondsLabel">Show clock for (seconds)</span><input id="settingsClockOffSeconds" type="number" value="300" min="30" max="7200" step="1" /></label>
+                <label id="settingsClockSecondsRow" class="clock-toggle"><input id="settingsClockSeconds" type="checkbox" checked /><span id="settingsClockSecondsLabel">Show seconds</span></label>
+                <label id="settingsClockDateRow" class="clock-toggle"><input id="settingsClockDate" type="checkbox" checked /><span id="settingsClockDateLabel">Show date</span></label>
+              </div>
+              <div class="row display-fields">
+                <label id="settingsClock24hRow" class="clock-toggle"><input id="settingsClock24h" type="checkbox" checked /><span id="settingsClock24hLabel">24-hour clock</span></label>
               </div>
               <div id="settingsSaverWeatherFields" class="row display-fields">
                 <label><span id="settingsSaverWeatherEntityLabel">Weather entity</span>
@@ -1839,6 +1851,7 @@
   <script src="/js/inspector-hints.js"></script>
   <script src="/js/translations.js"></script>
   <script src="/js/timezones.js"></script>
+  <script src="/js/settings-clock.js"></script>
   <script src="/js/settings.js"></script>
   <script src="/js/brightness-test.js"></script>
   <script src="/js/update-check.js"></script>

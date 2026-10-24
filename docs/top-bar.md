@@ -31,13 +31,28 @@ disappear while their entity has no usable value. New panels show only the date.
 
 ## Clock and time
 
-The clock always shows `HH:MM`. Set the **time zone** and the **time server** under
+The clock shows hours and minutes, with a 12/24-hour choice in the panel's screen settings. Set the **time zone** and the **time server** under
 **Settings → Language & time → Time**. The time zone applies at once; save a changed time server.
 
 ## Status chips
 
 Tap a chip on the right for details. On the Tab5, whose pixels are small, each chip's touch area is as tall as the bar. **Blue** means connected, **grey** disconnected. The MQTT chip sits between the
 clock and the Home Assistant chip and only appears while MQTT runs.
+
+Wi-Fi uses the same framed height and normal width as Home Assistant. Its frame widens for **AP** during setup. The rightmost gear opens **Screen settings**. On compact panels the clock and left items make room for these controls; optional left items disappear when space runs out.
+
+## Screen settings
+
+Tap the gear to adjust the display without opening the web editor. This page is shared by all panel variants, including 480 × 480; scroll the controls while the title and Save/Cancel buttons stay visible.
+
+- Set active and dimmed brightness and the delay before dimming. **Preview** temporarily shows a brightness level for 30 seconds; touch the screen to end it early.
+- Choose disabled, clock, screen off, weather or cycling pages after inactivity. Existing weather and page options remain configurable in the editor.
+- For the clock, set its start delay, brightness, optional duration before turning off, seconds and date. The 12/24-hour choice also controls the top bar. The clock moves periodically; night mode retains priority. A wake touch dismisses the saver without activating the dashboard below it.
+- **Save** applies the changes and stores only the fields edited on this page. **Cancel** discards them. A failed save keeps the form open for retry. Language, credentials, layouts and unrelated settings are preserved.
+
+The editor's **Settings → Display** has the same clock options. Disabling the clock or its automatic screen-off retains its configured values. All labels are included in the seven offline language catalogs. Existing installations retain their current display-protection mode; the new clock is opt-in.
+
+## Connection details
 
 [![Top bar with the MQTT, Home Assistant and Wi-Fi chips on the right](img/examples/topbar-10-inch-mqtt.png)](img/examples/topbar-10-inch-mqtt.png)
 

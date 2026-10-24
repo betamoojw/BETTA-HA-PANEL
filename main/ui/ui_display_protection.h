@@ -14,8 +14,9 @@ bool ui_display_protection_is_active(void);
 int ui_display_brightness_test_percent(void);
 
 /* These functions run with the display lock held. */
-void ui_display_protection_init(void);
-void ui_display_protection_reload(void);
+bool ui_display_protection_init(void);
+/* False means storage was busy/unavailable; keep the current policy and retry later. */
+bool ui_display_protection_reload(void);
 void ui_display_protection_poll(void);
 bool ui_display_protection_is_off(void);
 bool ui_display_protection_is_pages(void);

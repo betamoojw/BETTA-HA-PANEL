@@ -384,6 +384,7 @@ esp_err_t api_settings_get_handler(httpd_req_t *req)
     cJSON_AddNumberToObject(hardware, "dim_brightness", settings->hardware_dim_brightness_percent);
     cJSON_AddNumberToObject(hardware, "dim_timeout_seconds", settings->hardware_dim_timeout_seconds);
     cJSON_AddStringToObject(hardware, "saver_mode", settings->hardware_saver_mode);
+    display_clock_write(hardware, &settings->display_clock);
     cJSON_AddNumberToObject(hardware, "saver_timeout_minutes", settings->hardware_saver_timeout_minutes);
     cJSON_AddNumberToObject(hardware, "saver_weather_minutes", settings->hardware_saver_weather_minutes);
     cJSON_AddNumberToObject(hardware, "saver_pages_minutes", settings->hardware_saver_pages_minutes);
@@ -596,6 +597,7 @@ esp_err_t api_settings_put_handler(httpd_req_t *req)
     char ui_sig_before[512];
     ui_settings_signature(settings, ui_sig_before, sizeof(ui_sig_before));
     char old_saver_mode[sizeof(settings->hardware_saver_mode)];
+    const display_clock_t old_clock = settings->display_clock;
     char old_saver_weather_entity_id[sizeof(settings->hardware_saver_weather_entity_id)];
     strlcpy(old_saver_mode, settings->hardware_saver_mode, sizeof(old_saver_mode));
     strlcpy(old_saver_weather_entity_id, settings->hardware_saver_weather_entity_id,
@@ -798,6 +800,8 @@ esp_err_t api_settings_put_handler(httpd_req_t *req)
             &out_of_range);
         (void)update_string_setting(hardware, "saver_mode", settings->hardware_saver_mode,
             sizeof(settings->hardware_saver_mode), &invalid_type, &too_long);
+        if (!display_clock_parse(cJSON_GetObjectItemCaseSensitive(hardware, "clock"), &settings->display_clock))
+            invalid_type = true;
         (void)update_int_setting(hardware, "saver_timeout_minutes", &settings->hardware_saver_timeout_minutes,
             1, 120, &invalid_type, &out_of_range);
         (void)update_int_setting(hardware, "saver_weather_minutes", &settings->hardware_saver_weather_minutes,
@@ -896,9 +900,9 @@ esp_err_t api_settings_put_handler(httpd_req_t *req)
     if (strcmp(settings->hardware_saver_mode, "disabled") != 0 &&
         strcmp(settings->hardware_saver_mode, "off") != 0 &&
         strcmp(settings->hardware_saver_mode, "weather") != 0 &&
-        strcmp(settings->hardware_saver_mode, "pages") != 0) {
+        strcmp(settings->hardware_saver_mode, "pages") != 0 && strcmp(settings->hardware_saver_mode, "clock") != 0) {
         free(settings);
-        return send_json_error(req, "400 Bad Request", "hardware.saver_mode must be disabled, off, weather or pages");
+        return send_json_error(req, "400 Bad Request", "hardware.saver_mode must be disabled, clock, off, weather or pages");
     }
     if (settings->hardware_saver_weather_entity_id[0] != '\0' &&
         strncmp(settings->hardware_saver_weather_entity_id, "weather.", 8) != 0) {
@@ -1004,7 +1008,7 @@ esp_err_t api_settings_put_handler(httpd_req_t *req)
         auto_update_task_configure(settings->ota_auto_install);
         bool saver_source_changed = strcmp(old_saver_mode, settings->hardware_saver_mode) != 0 ||
             strcmp(old_saver_weather_entity_id, settings->hardware_saver_weather_entity_id) != 0;
-        bool saver_changed = saver_source_changed ||
+        bool saver_changed = saver_source_changed || !display_clock_equal(&old_clock, &settings->display_clock) ||
             old_saver_timeout != settings->hardware_saver_timeout_minutes ||
             old_saver_weather_minutes != settings->hardware_saver_weather_minutes ||
             old_saver_pages_minutes != settings->hardware_saver_pages_minutes ||

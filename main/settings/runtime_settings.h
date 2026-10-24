@@ -3,6 +3,7 @@
  * Modified 2026 by andre68723 in the andre68723/BETTA-HA-PANEL fork, see docs/release-notes.md
  */
 #pragma once
+#include "settings/display_clock.h"
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -46,6 +47,7 @@ typedef struct {
     int hardware_dim_timeout_seconds;
     /* Inactivity protection: disabled, off, weather or page cycling followed by off. */
     char hardware_saver_mode[12];
+    display_clock_t display_clock;
     int hardware_saver_timeout_minutes;
     int hardware_saver_weather_minutes;
     int hardware_saver_pages_minutes;
@@ -78,6 +80,9 @@ void runtime_settings_format_hhmm(int minutes, char *out, size_t out_size);
 esp_err_t runtime_settings_init(void);
 esp_err_t runtime_settings_load(runtime_settings_t *out);
 esp_err_t runtime_settings_save(const runtime_settings_t *settings);
+/* Merge into the latest settings under one storage lock. Never call under the display lock. */
+esp_err_t runtime_settings_update(void (*edit)(runtime_settings_t *, void *), void *context,
+    runtime_settings_t *result);
 bool runtime_settings_has_wifi(const runtime_settings_t *settings);
 bool runtime_settings_has_ha(const runtime_settings_t *settings);
 bool runtime_settings_has_mqtt(const runtime_settings_t *settings);

@@ -561,6 +561,33 @@
       "solar": "太阳能预测",
       "sonos": "Sonos 收藏",
       "printer": "Bambu 打印机"
+    },
+    "screen": {
+      "title": "屏幕设置",
+      "active": "屏幕亮度",
+      "dim": "闲置亮度",
+      "dim_seconds": "调暗等待时间（秒）",
+      "mode": "闲置后的显示方式",
+      "start_minutes": "启动等待时间（分钟）",
+      "clock_start": "时钟屏保等待时间（秒）",
+      "clock_brightness": "时钟屏保亮度",
+      "clock_off": "时钟屏保后息屏",
+      "clock_off_seconds": "时钟屏保显示时长（秒）",
+      "clock_24h": "24 小时制",
+      "clock_seconds": "显示秒数",
+      "clock_date": "显示日期",
+      "disabled": "关闭屏保",
+      "clock": "时钟屏保",
+      "off": "息屏",
+      "weather": "天气屏保",
+      "pages": "轮播页面",
+      "cancel": "取消",
+      "save": "保存",
+      "hint": "保存后生效。",
+      "saving": "正在保存…",
+      "failed": "保存失败，请重试。",
+      "load_failed": "暂时无法读取设置，请关闭后重试。",
+      "preview": "预览（30 秒）"
     }
   }
 }

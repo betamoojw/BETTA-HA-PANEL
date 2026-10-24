@@ -53,3 +53,4 @@
 #define APP_SYMBOL_LOCATE       "\xF3\xB0\x86\xA4" /* U+F01A4 crosshairs-gps */
 #define APP_SYMBOL_CLOSE        "\xF3\xB0\x85\x96" /* U+F0156 close */
 #define APP_SYMBOL_ALERT        "\xF3\xB0\x80\xA6" /* U+F0026 alert */
+#define APP_SYMBOL_SETTINGS     "\xF3\xB0\x92\x93" /* U+F0493 cog */

@@ -156,6 +156,14 @@
 .display-settings .brightness-test-status { grid-column: 1 / -1; }
 .brightness-test-status[hidden] { display: none; }
 .display-settings .display-fields > label:has(.brightness-test-btn) { grid-column: 1 / -1; }
+.display-settings .display-fields > .clock-toggle {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  grid-column: 1 / -1;
+}
+.clock-toggle input[type="checkbox"] { width: auto; flex: 0 0 auto; }
 .display-settings #settingsSaverWeatherFields > label:first-child { grid-column: 1 / -1; }
 .display-settings .time-range { flex-wrap: wrap; }
 .display-settings .time-range input { width: 110px; }

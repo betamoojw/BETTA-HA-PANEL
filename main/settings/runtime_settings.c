@@ -260,6 +260,7 @@ static esp_err_t serialize_public_settings(const runtime_settings_t *settings, u
     if (cJSON_AddNumberToObject(hardware, "dim_brightness", settings->hardware_dim_brightness_percent) == NULL) goto oom;
     if (cJSON_AddNumberToObject(hardware, "dim_timeout_seconds", settings->hardware_dim_timeout_seconds) == NULL) goto oom;
     if (cJSON_AddStringToObject(hardware, "saver_mode", settings->hardware_saver_mode) == NULL) goto oom;
+    if (!display_clock_write(hardware, &settings->display_clock)) goto oom;
     if (cJSON_AddNumberToObject(hardware, "saver_timeout_minutes", settings->hardware_saver_timeout_minutes) == NULL) goto oom;
     if (cJSON_AddNumberToObject(hardware, "saver_weather_minutes", settings->hardware_saver_weather_minutes) == NULL) goto oom;
     if (cJSON_AddNumberToObject(hardware, "saver_pages_minutes", settings->hardware_saver_pages_minutes) == NULL) goto oom;
@@ -405,6 +406,10 @@ static esp_err_t parse_settings_json(const char *json, runtime_settings_t *out, 
         json_copy_int(hardware, "dim_brightness", &out->hardware_dim_brightness_percent);
         json_copy_int(hardware, "dim_timeout_seconds", &out->hardware_dim_timeout_seconds);
         json_copy_string(hardware, "saver_mode", out->hardware_saver_mode, sizeof(out->hardware_saver_mode));
+        if (!display_clock_parse(cJSON_GetObjectItemCaseSensitive(hardware, "clock"), &out->display_clock)) {
+            cJSON_Delete(root);
+            return ESP_ERR_INVALID_ARG;
+        }
         json_copy_int(hardware, "saver_timeout_minutes", &out->hardware_saver_timeout_minutes);
         json_copy_int(hardware, "saver_weather_minutes", &out->hardware_saver_weather_minutes);
         json_copy_int(hardware, "saver_pages_minutes", &out->hardware_saver_pages_minutes);
@@ -472,7 +477,7 @@ static esp_err_t parse_settings_json(const char *json, runtime_settings_t *out, 
     out->hardware_dim_timeout_seconds = clamp_dim_timeout_seconds(out->hardware_dim_timeout_seconds);
     if (out->mqtt_broker_port < 1 || out->mqtt_broker_port > 65535) out->mqtt_broker_port = 1883;
     if (strcmp(out->hardware_saver_mode, "off") != 0 && strcmp(out->hardware_saver_mode, "weather") != 0 &&
-        strcmp(out->hardware_saver_mode, "pages") != 0)
+        strcmp(out->hardware_saver_mode, "pages") != 0 && strcmp(out->hardware_saver_mode, "clock") != 0)
         strlcpy(out->hardware_saver_mode, "disabled", sizeof(out->hardware_saver_mode));
     if (out->hardware_saver_timeout_minutes < 1 || out->hardware_saver_timeout_minutes > 120)
         out->hardware_saver_timeout_minutes = 10;
@@ -530,6 +535,7 @@ void runtime_settings_set_defaults(runtime_settings_t *out)
     out->hardware_dim_brightness_percent = APP_DISPLAY_DIM_BRIGHTNESS_PERCENT;
     out->hardware_dim_timeout_seconds = APP_DISPLAY_DIM_TIMEOUT_MS / 1000;
     strlcpy(out->hardware_saver_mode, "disabled", sizeof(out->hardware_saver_mode));
+    display_clock_defaults(&out->display_clock);
     out->hardware_saver_timeout_minutes = 10;
     out->hardware_saver_weather_minutes = 30;
     out->hardware_saver_pages_minutes = 30;
@@ -698,6 +704,21 @@ esp_err_t runtime_settings_init(void)
     esp_err_t save_err = runtime_settings_save(settings);
     free(settings);
     return save_err;
+}
+
+esp_err_t runtime_settings_update(void (*edit)(runtime_settings_t *, void *), void *context,
+    runtime_settings_t *result)
+{
+    if (edit == NULL || result == NULL) return ESP_ERR_INVALID_ARG;
+    esp_err_t err = settings_lock(true);
+    if (err != ESP_OK) return err;
+    err = runtime_settings_load_unlocked(result);
+    if (err == ESP_OK) {
+        edit(result, context);
+        err = runtime_settings_save_unlocked(result);
+    }
+    xSemaphoreGive(s_settings_lock);
+    return err;
 }
 
 bool runtime_settings_has_wifi(const runtime_settings_t *settings)

@@ -216,6 +216,31 @@ from its `energy` sensors, the doorbell popup from its `doorbell` notification w
 - The published gallery contains demo-data widgets and special pages from the simulator. Real household pages captured
   with `tools/capture_device_pages.py` remain local test evidence.
 
+## Panel10 CPU rotation regression
+
+`display-cpu-rotation` in the simulator CTest suite checks the LVGL packed
+RGB565 rotation used by the shared display port: 49 cases cover retained COM24
+crash rectangles, odd and single-pixel regions, large strips, all nonzero
+rotations, byte swapping and output guards. Pixel positions are compared with
+the native rectangle mapping. This is a host check, not a PPA hardware emulator.
+
+On 2026-10-24, the CPU-rotation mitigation stamped `54829bdd-dirty` passed this test,
+the standalone display-rotation host test, strict documentation build and the
+panel10 ESP-IDF 6.1 build. COM24 then booted ELF `f04dd6be7` with `rotation=CPU`
+and valid OTA status after an app-only stub flash; metadata/NVS, coredump and
+complete LittleFS checksums matched before boot. Three unchanged layout saves,
+native settings save/reopen, three page switches and moving clock screenshots
+passed. A 606-second observation (41 samples) had increasing uptime, HA connected and no new
+crash IDs. The owner confirmed stable physical output, aligned touch, normal page
+switching and no reboot. English, Matte, Dark, brightness and clock settings
+matched the preflash snapshot. Extended observation reached uptime 997 s without
+a new crash: the device reported automatic screen-off at 0% and returned to the
+dashboard at 85% after a remote wake tap. An intervening owner touch restarted
+the idle timer, so the off check waited for the next natural cycle. These are
+software brightness/state readings, not optical measurements. This bounded trial does not establish all-day
+stability. Original and new preflash crash evidence remains backed up locally;
+see [Learnings](learnings.md).
+
 ## Memory and stability stress test
 
 `tools/stress_test.py <panel-ip>` combines rapid page navigation, repeated entity discovery (Room/House import) and

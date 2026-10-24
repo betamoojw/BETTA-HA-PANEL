@@ -21,7 +21,8 @@ config APP_DISPLAY_PPA
     default y
     help
         Shared adapter bitmap rotation uses a bounded PPA transaction. Disable
-        for boards using CPU rotation, including the original JC panel.
+        for boards using CPU rotation, including the original JC panel and
+        Waveshare LCD-X panel10 (intermittent SRM completion timeouts).
 
 menu "OTA test hook"
 

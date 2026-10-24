@@ -228,6 +228,12 @@ target_compile_definitions(betta-remote-test PRIVATE CONFIG_APP_REMOTE_DISPLAY=1
 target_compile_options(betta-remote-test PRIVATE -Wall -Wextra -Werror -Wno-unused-parameter -UNDEBUG)
 target_link_libraries(betta-remote-test PRIVATE lvgl SDL2::SDL2 m)
 enable_testing()
+add_executable(betta-rotation-test display_rotation_regression.c
+    "${REPO_ROOT}/main/drivers/display_rotation.c")
+target_include_directories(betta-rotation-test PRIVATE "${REPO_ROOT}/main")
+target_compile_options(betta-rotation-test PRIVATE -Wall -Wextra -Werror -UNDEBUG)
+target_link_libraries(betta-rotation-test PRIVATE lvgl SDL2::SDL2 m)
+add_test(NAME display-cpu-rotation COMMAND betta-rotation-test)
 add_test(NAME screen-settings-events-and-layout
     COMMAND betta-widget-sim --regression screen-settings --fixture "${CMAKE_CURRENT_LIST_DIR}/screen_settings.json")
 set_tests_properties(screen-settings-events-and-layout PROPERTIES ENVIRONMENT "SDL_VIDEODRIVER=dummy")

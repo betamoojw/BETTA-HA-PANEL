@@ -27,3 +27,7 @@ CONFIG_BSP_LCD_TYPE_800_1280_10_1_INCH=y
 # The LCD-X BSP supplies the panel's 1500 Mbps lane bitrate.
 CONFIG_ESP_LCD_TOUCH_MAX_POINTS=10
 CONFIG_LV_USE_LODEPNG=y
+
+# PPA SRM completion can stall during rotated partial refreshes on LCD-X.
+# Use the shared packed RGB565 CPU rotation path; keep the UI watchdog active.
+# CONFIG_APP_DISPLAY_PPA is not set

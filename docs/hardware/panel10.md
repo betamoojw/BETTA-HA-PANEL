@@ -87,6 +87,14 @@ This trial kept Xiaozhi disabled and did not test cloud pairing or audio.
 
 ## Technical notes
 
+The default profile rotates partial RGB565 buffers on the CPU. Retained COM24
+crash reports show PPA SRM completion timeouts during 270-degree partial updates;
+CPU rotation avoids that accelerator path while retaining the display watchdog.
+COM24 passed the bounded [CPU-rotation trial](../development/testing.md#panel10-cpu-rotation-regression),
+including owner-confirmed output and touch; all-day validation remains pending. Existing build
+directories must also unset `CONFIG_APP_DISPLAY_PPA` in their saved sdkconfig;
+changing defaults alone does not override a previously saved value.
+
 Pin assignments, schematic checks, BSP versions and open points are in the [device technical notes](device-notes.md#panel10).
 
 ## Manufacturer references

@@ -117,6 +117,24 @@ Internal RAM is scarce (Wi-Fi/SDIO buffers, TLS, task stacks); keep large buffer
   device). The `paneljc` configuration therefore rotates on the CPU (`CONFIG_APP_DISPLAY_PPA` unset in
   `config/sdkconfig.defaults.paneljc`); `paneljc-v2` keeps the PPA.
   The shared adapter callback in `drivers/display_port.c` retains the same bounded transaction and crash hook.
+- **Waveshare panel10 PPA timeouts (2026-10-24):** retained COM24 reports
+  `218edc0b4680` and `8d65ab7a88a1` match ELF `36a86083c` (System Settings
+  build based on `4a308a63`). The decoded stack reaches `rotate_ppa()` and
+  `lvgl_port_ppa_timeout_hook()` after accepted 270-degree RGB565 rotations
+  of 179 x 66 at (561,610) and 178 x 66 at (561,20), with aligned PSRAM
+  buffers and 409600-byte output capacity. These are deliberate timeout
+  aborts, not evidence of an invalid instruction pointer or HA failure.
+  Read-only observation of clean `54829bdd` also captured `6c491788d054` and
+  `c25e2cc9e402`, ELF `1083f8d8a`, with 188 x 66 and 192 x 66 rotations at
+  (556,610) and (555,610). Both have the same PPA timeout marker.
+  The dump does not establish whether hardware stalled or the driver lost
+  completion. The local IDF still has separate queue/idle-semaphore updates;
+  upstream [PPA race report](https://github.com/espressif/esp-idf/pull/19047)
+  is a candidate, not a confirmed diagnosis for these dumps. The panel10
+  default now selects the existing packed CPU rotation path, avoiding PPA
+  submissions altogether without weakening watchdogs or reusing in-flight
+  DMA buffers. COM24 subsequently passed the bounded CPU-rotation trial in
+  [Testing](testing.md#panel10-cpu-rotation-regression); all-day acceptance remains pending.
 - **Reading a core dump:** a heartbeat timeout aborts in `ui_watchdog`; read the other tasks' stacks
   (`lvgl`/`taskLVGL`, `ui_runtime`, `httpd`, `ha_client`, history and cover tasks). A PPA timeout aborts in `lvgl` (`taskLVGL` in older images);
   an illegal instruction at `panic_abort` can be deliberate. Save the report metadata from `/api/version` and

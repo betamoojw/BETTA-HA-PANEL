@@ -39,16 +39,23 @@ The clock shows hours and minutes, with a 12/24-hour choice in the panel's scree
 Tap a chip on the right for details. On the Tab5, whose pixels are small, each chip's touch area is as tall as the bar. **Blue** means connected, **grey** disconnected. The MQTT chip sits between the
 clock and the Home Assistant chip and only appears while MQTT runs.
 
-Wi-Fi uses the same framed height and normal width as Home Assistant. Its frame widens for **AP** during setup. The rightmost gear opens **Screen settings**. On compact panels the clock and left items make room for these controls; optional left items disappear when space runs out.
+Wi-Fi uses the same framed height and normal width as Home Assistant. Its frame widens for **AP** during setup. The rightmost gear opens **System settings**. On compact panels the clock and left items make room for these controls; optional left items disappear when space runs out.
 
-## Screen settings
+## System settings
+
+The rightmost gear opens language, time zone, appearance, colour theme and display controls.
+Choose a language by its native name, a Region/City time zone, one of the four appearances,
+or a built-in or imported colour theme. The saved custom language and legacy POSIX zone
+remain available as the first option. Only changed fields are saved; Cancel keeps existing settings.
+Language, appearance and colour changes rebuild the dashboard after saving.
+
 
 Tap the gear to adjust the display without opening the web editor. This page is shared by all panel variants, including 480 × 480; scroll the controls while the title and Save/Cancel buttons stay visible.
 
 - Set active and dimmed brightness and the delay before dimming. **Preview** temporarily shows a brightness level for 30 seconds; touch the screen to end it early.
 - Choose disabled, clock, screen off, weather or cycling pages after inactivity. Existing weather and page options remain configurable in the editor.
 - For the clock, set its start delay, brightness, optional duration before turning off, seconds and date. The 12/24-hour choice also controls the top bar. The clock moves periodically; night mode retains priority. A wake touch dismisses the saver without activating the dashboard below it.
-- **Save** applies the changes and stores only the fields edited on this page. **Cancel** discards them. A failed save keeps the form open for retry. Language, credentials, layouts and unrelated settings are preserved.
+- **Save** applies the changes and stores only the fields edited on this page. **Cancel** discards unsaved changes. A failed save keeps the form open for retry; reopen the page to check values if storage failed partway through saving. Credentials, layouts and unrelated settings are preserved.
 
 The editor's **Settings → Display** has the same clock options. Disabling the clock or its automatic screen-off retains its configured values. All labels are included in the seven offline language catalogs. Existing installations retain their current display-protection mode; the new clock is opt-in.
 

@@ -2,6 +2,7 @@
 # Appearance
 
 Choose **Flat, Glow, Glass or Matte** under **Settings → Design**.
+The panel header gear also offers these choices under **System settings**.
 Appearance changes apply live to the dashboard and editor preview. The colour
 theme is a separate choice, so each style can use Dark, Light or another palette.
 

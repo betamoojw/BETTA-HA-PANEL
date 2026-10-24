@@ -34,6 +34,29 @@ stable physical display and aligned touch. Two one-minute runtime samples showed
 or new crash. Rapid remote input encountered transient display-lock contention; paced
 input completed the control tests. Local backups and retained crash reports were preserved.
 
+The System settings extension on top of `4a308a6` adds language, time zone, appearance
+and built-in/imported theme selection. On 2026-10-24, native events passed at default
+and largest text on 480 × 480 and 1280 × 800, plus Tab5 and all four rotations.
+Runs cover seven languages (1,063 checks on the compact panel, 1,070 on wide/rotated
+layouts), Save/reopen, Cancel, failed-save retry, concurrent unrelated settings,
+imported theme names and expanded dropdown bounds. CJK/font, web-source and strict
+documentation checks passed; English and Chinese renders were inspected.
+The ESP-IDF 6.1 `panel10` build passed (5,662,944-byte app). On 2026-10-24, COM24
+ran app SHA256 `1f54dedba317d52abbb952d463433f79966890e3d773155ff0236cb98b5d7890`
+with matching ELF and valid OTA state. Stub checks confirmed unchanged protected storage
+before boot. Native simplified/traditional Chinese, time-zone, Flat appearance and Light
+theme selections passed Save/reopen, with each tested value subsequently restored.
+The owner confirmed normal settings/saving, stable display, aligned touch and no unexpected
+restart. Seven final samples over 61 seconds showed no reboot or new crash. Restoration
+API requests initially used the default settings restart; the local helper now explicitly
+disables that restart. Two pre-existing PPA timeout reports from `4a308a6` were retained;
+this short acceptance test does not resolve that earlier intermittent display-driver issue.
+User edits during testing were backed up separately; English and local backups were retained.
+At the owner's request, the final configuration was restored to English,
+`America/Argentina/Buenos_Aires` and `dark_v2`, then read back successfully;
+all other settings were unchanged. The tested image was built before this commit
+with source stamp `4a308a63-dirty`; the binary hash above identifies the device-tested artifact.
+
 ### Remote display
 
 The `betta-remote-test` simulator target exercises the production remote-display

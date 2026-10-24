@@ -8,7 +8,7 @@ Changes of **this fork**, compared with upstream v0.8.2. The release notes of th
 
 `panel10` now uses LCD-X BSP 2.0.3, GPIO26 backlight/GPIO27 reset, Rev3.x configuration and a separate dependency lock. COM24 v3.2 display/touch and LAN passed on 2026-10-21; owner confirmed working Live Display. The 32 MiB P4 checksum helper requires a supported flasher stub and rejects ROM fallback; an app-only reflash of `0a551a2` preserved metadata/NVS, coredump and complete LittleFS checksums before boot (see the device guide).
 Xiaozhi AI adds an off-by-default cloud pairing and push-to-talk path for Waveshare LCD-X `panel10`, with Opus audio, guarded editor controls and a local panel overlay. Its overlay timer is cleaned up during dashboard rebuilds, preventing boot loops after Home Assistant setup even while disabled. Voice hardware/cloud validation remains pending; see [Xiaozhi AI](xiaozhi-ai.md).
-Native **Screen settings** (Guition reference `db764156`) adds a rightmost header gear, matching Wi-Fi/HA frames, scoped deferred saves, brightness previews and an optional moving clock with timed screen-off. All variants and seven offline languages share the feature; existing display modes remain unchanged. See [Top bar](top-bar.md#screen-settings).
+Native **System settings** (Guition reference `db764156`) adds a rightmost header gear, matching Wi-Fi/HA frames, language, time zone, appearance and colour theme choices, scoped deferred saves, brightness previews and an optional moving clock with timed screen-off. All variants and seven offline languages share the feature; existing display modes remain unchanged. See [Top bar](top-bar.md#system-settings).
 
 ### Readable time zones
 
@@ -36,7 +36,7 @@ The catalogs cover widgets, settings, Live Display, OTA states, theme controls a
 generate separate browser modules and portable firmware strings. Shared runtime
 TrueType fallback replaces the reference's fixed-size bitmap fonts, preserving
 Poppins metrics and supporting Chinese titles and notifications at every text size.
-The compact Noto subset covers 737 codepoints, not the complete CJK Unicode repertoire.
+The compact Noto subset covers 757 codepoints, not the complete CJK Unicode repertoire.
 It includes every built-in panel translation and common room/device names without
 consuming the S3's PSRAM headroom with a full CJK font.
 See [Language](appearance.md#language) and the font source guide in `main/ui/fonts/README.md`.

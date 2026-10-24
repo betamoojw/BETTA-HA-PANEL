@@ -563,7 +563,7 @@
       "printer": "Impresora Bambu"
     },
     "screen": {
-      "title": "Ajustes de pantalla",
+      "title": "Ajustes del sistema",
       "active": "Brillo",
       "dim": "Brillo atenuado",
       "dim_seconds": "Atenuar tras (segundos)",
@@ -588,6 +588,22 @@
       "failed": "No se pudo guardar. Inténtalo de nuevo.",
       "load_failed": "Ajustes no disponibles. Cierra e inténtalo de nuevo.",
       "preview": "Vista previa (30 s)"
+    },
+    "system": {
+      "language": "Idioma",
+      "timezone": "Zona horaria",
+      "appearance": "Apariencia",
+      "theme": "Tema de color",
+      "flat": "Plano",
+      "glow": "Brillo",
+      "glass": "Cristal",
+      "matte": "Mate",
+      "dark_v2": "Oscuro",
+      "classic_v1": "Clásico",
+      "light": "Claro",
+      "ocean": "Océano",
+      "contrast": "Alto contraste",
+      "black": "Negro puro"
     }
   }
 }

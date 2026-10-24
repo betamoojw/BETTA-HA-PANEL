@@ -563,7 +563,7 @@
       "printer": "Bambu 打印机"
     },
     "screen": {
-      "title": "屏幕设置",
+      "title": "系统设置",
       "active": "屏幕亮度",
       "dim": "闲置亮度",
       "dim_seconds": "调暗等待时间（秒）",
@@ -588,6 +588,22 @@
       "failed": "保存失败，请重试。",
       "load_failed": "暂时无法读取设置，请关闭后重试。",
       "preview": "预览（30 秒）"
+    },
+    "system": {
+      "language": "语言",
+      "timezone": "时区",
+      "appearance": "显示外观",
+      "theme": "配色主题",
+      "flat": "扁平",
+      "glow": "光晕",
+      "glass": "玻璃",
+      "matte": "哑光",
+      "dark_v2": "深色",
+      "classic_v1": "经典",
+      "light": "浅色",
+      "ocean": "海洋",
+      "contrast": "高对比度",
+      "black": "纯黑"
     }
   }
 }

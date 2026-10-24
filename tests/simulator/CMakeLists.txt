@@ -141,6 +141,7 @@ add_executable(betta-widget-sim
     "${REPO_ROOT}/main/ui/ui_screen_settings.c"
     "${REPO_ROOT}/main/settings/display_clock.c"
     "${REPO_ROOT}/main/settings/screen_settings_model.c"
+    "${REPO_ROOT}/main/net/timezone_catalog.c"
     "${REPO_ROOT}/main/ui/ui_conn_popup.c"
     "${REPO_ROOT}/main/ui/nav_layout.c"
     "${REPO_ROOT}/main/ui/ui_house_page.c"

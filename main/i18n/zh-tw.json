@@ -563,7 +563,7 @@
       "printer": "Bambu 印表機"
     },
     "screen": {
-      "title": "螢幕設定",
+      "title": "系統設定",
       "active": "螢幕亮度",
       "dim": "閒置亮度",
       "dim_seconds": "調暗等待時間（秒）",
@@ -588,6 +588,22 @@
       "failed": "儲存失敗，請重試。",
       "load_failed": "暫時無法讀取設定，請關閉後重試。",
       "preview": "預覽（30 秒）"
+    },
+    "system": {
+      "language": "語言",
+      "timezone": "時區",
+      "appearance": "顯示外觀",
+      "theme": "配色主題",
+      "flat": "平面",
+      "glow": "光暈",
+      "glass": "玻璃",
+      "matte": "霧面",
+      "dark_v2": "深色",
+      "classic_v1": "經典",
+      "light": "淺色",
+      "ocean": "海洋",
+      "contrast": "高對比",
+      "black": "純黑"
     }
   }
 }

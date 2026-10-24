@@ -13,11 +13,13 @@
 #include "ui/ui_pages.h"
 #include "ui/fonts/app_symbols.h"
 #include "ui/ui_i18n.h"
+#include "ui/theme/theme_palette.h"
 
 static runtime_settings_t settings;
 static screen_settings_t pending;
 static int status;
 static bool fail_save;
+static char saved_theme[32] = "dark_v2";
 static unsigned checks;
 #define CHECK(c) do { checks++; if (!(c)) { fprintf(stderr, "Screen settings line %d: %s\n", __LINE__, #c); exit(1); } } while (0)
 
@@ -30,8 +32,15 @@ esp_err_t screen_settings_load(screen_settings_t *out)
         settings.hardware_saver_timeout_minutes = 10;
         strcpy(settings.hardware_saver_mode, "disabled");
         display_clock_defaults(&settings.display_clock);
+        strcpy(settings.ui_language, "en");
+        strcpy(settings.ui_style, "glow");
+        strcpy(settings.time_tz, "Asia/Shanghai");
     }
     screen_settings_read(out, &settings);
+    snprintf(out->theme, sizeof(out->theme), "%s", saved_theme);
+    out->custom_theme_count = 1;
+    strcpy(out->custom_theme_ids[0], "imported_test");
+    strcpy(out->custom_theme_names[0], "Imported\npalette");
     return ESP_OK;
 }
 bool screen_settings_submit(const screen_settings_t *patch) { pending = *patch; status = 1; return true; }
@@ -41,6 +50,7 @@ void screen_settings_process(void)
     if (status != 1) return;
     if (fail_save) { status = -1; return; }
     screen_settings_merge(&settings, &pending);
+    if (pending.dirty & SYSTEM_DIRTY(SYSTEM_THEME)) snprintf(saved_theme, sizeof(saved_theme), "%s", pending.theme);
     cJSON *json = cJSON_CreateObject();
     CHECK(display_clock_write(json, &settings.display_clock));
     char *wire = cJSON_PrintUnformatted(json);
@@ -69,7 +79,7 @@ static lv_obj_t *find_text(lv_obj_t *root, const char *text)
 static lv_obj_t *control(int field)
 {
     lv_obj_t *body = lv_obj_get_child(ui_screen_settings_root(), 1);
-    lv_obj_t *row = lv_obj_get_child(body, field);
+    lv_obj_t *row = lv_obj_get_child(body, field + SYSTEM_FIELD_COUNT);
     for (uint32_t i = 0; i < lv_obj_get_child_count(row); i++) {
         lv_obj_t *child = lv_obj_get_child(row, i);
         if (lv_obj_check_type(child, &lv_slider_class) || lv_obj_check_type(child, &lv_dropdown_class) ||
@@ -92,6 +102,56 @@ static void click_save(void)
     lv_obj_send_event(lv_obj_get_parent(caption), LV_EVENT_CLICKED, NULL);
     screen_settings_process();
     SDL_Delay(110); lv_timer_handler();
+}
+
+static void select_system(int field, unsigned index)
+{
+    lv_obj_t *body = lv_obj_get_child(ui_screen_settings_root(), 1);
+    lv_obj_t *row = lv_obj_get_child(body, field);
+    lv_obj_t *object = lv_obj_get_child(row, 1);
+    CHECK(lv_obj_check_type(object, &lv_dropdown_class));
+    lv_dropdown_set_selected(object, index);
+    lv_obj_send_event(object, LV_EVENT_VALUE_CHANGED, NULL);
+}
+
+static void check_system_settings(void)
+{
+    ui_screen_settings_open();
+    for (int field = 0; field < SYSTEM_FIELD_COUNT; field++) {
+        lv_obj_t *row = lv_obj_get_child(lv_obj_get_child(ui_screen_settings_root(), 1), field);
+        lv_obj_t *object = lv_obj_get_child(row, 1);
+        lv_obj_scroll_to_view(row, LV_ANIM_OFF);
+        lv_dropdown_open(object); lv_obj_update_layout(ui_screen_settings_root());
+        lv_area_t bounds; lv_obj_get_coords(lv_dropdown_get_list(object), &bounds);
+        CHECK(bounds.x1 >= 0 && bounds.y1 >= 0);
+        CHECK(bounds.x2 < lv_display_get_horizontal_resolution(lv_display_get_default()));
+        CHECK(bounds.y2 < lv_display_get_vertical_resolution(lv_display_get_default()));
+        lv_dropdown_close(object);
+    }
+    select_system(SYSTEM_LANGUAGE, 6); /* Simplified Chinese */
+    select_system(SYSTEM_TIMEZONE, 1); /* First shared catalog entry */
+    select_system(SYSTEM_STYLE, 4); /* Matte */
+    select_system(SYSTEM_THEME, 3); /* Light */
+    strcpy(settings.ha_ws_url, "ws://example.invalid/concurrent");
+    fail_save = true; click_save();
+    CHECK(ui_screen_settings_root() != NULL && !strcmp(settings.ui_language, "en"));
+    fail_save = false; click_save();
+    CHECK(ui_screen_settings_root() == NULL);
+    CHECK(!strcmp(settings.ui_language, "zh-cn") && !strcmp(settings.ui_style, "matte"));
+    CHECK(strcmp(settings.time_tz, "Asia/Shanghai") != 0);
+    CHECK(!strcmp(settings.ha_ws_url, "ws://example.invalid/concurrent"));
+    CHECK(strcmp(saved_theme, "dark_v2") != 0);
+    ui_screen_settings_open();
+    select_system(SYSTEM_THEME, 7); /* Imported palette after six built-ins */
+    select_system(SYSTEM_LANGUAGE, 1);
+    select_system(SYSTEM_LANGUAGE, 0); /* Return to preserved saved value */
+    click_save(); CHECK(!strcmp(settings.ui_language, "zh-cn"));
+    CHECK(!strcmp(saved_theme, "imported_test"));
+    ui_screen_settings_open(); select_system(SYSTEM_LANGUAGE, 1);
+    lv_obj_t *caption = find_text(ui_screen_settings_root(), ui_i18n_get("screen.cancel", "Cancel"));
+    lv_obj_send_event(lv_obj_get_parent(caption), LV_EVENT_CLICKED, NULL);
+    CHECK(!strcmp(settings.ui_language, "zh-cn"));
+    strcpy(settings.ui_language, "en");
 }
 
 static void check_bounds(lv_obj_t *object, lv_obj_t *viewport)
@@ -129,6 +189,7 @@ int sim_screen_settings_regression(void)
         }
     }
     g_sim_mqtt = false;
+    check_system_settings();
     const char *languages[] = {"en", "de", "es", "fr", "pl", "zh-cn", "zh-tw"};
     for (unsigned lang = 0; lang < sizeof(languages) / sizeof(languages[0]); lang++) {
         CHECK(ui_i18n_init(languages[lang]) == ESP_OK);

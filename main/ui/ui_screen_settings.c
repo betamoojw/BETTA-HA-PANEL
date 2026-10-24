@@ -6,6 +6,9 @@
 #include "ui/ui_screen_settings.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include "net/timezone_catalog.h"
+#include "ui/theme/theme_palette.h"
 #include "app_config.h"
 #include "settings/screen_settings_service.h"
 #include "ui/fonts/app_symbols.h"
@@ -18,11 +21,13 @@
 
 typedef struct {
     screen_settings_t draft;
+    screen_settings_t original;
     lv_obj_t *root, *body, *message, *save, *cancel;
     lv_obj_t *rows[SCREEN_FIELD_COUNT], *controls[SCREEN_FIELD_COUNT], *values[SCREEN_FIELD_COUNT];
     lv_timer_t *timer;
     bool saving;
     bool preview;
+    lv_obj_t *system_controls[SYSTEM_FIELD_COUNT];
     int choices[SCREEN_FIELD_COUNT][10];
 } settings_view_t;
 static settings_view_t *s_view;
@@ -38,6 +43,67 @@ static const char *tr(const char *key, const char *fallback)
     char path[64];
     snprintf(path, sizeof(path), "screen.%s", key);
     return ui_i18n_get(path, fallback);
+}
+
+/* First option always preserves the saved value, including custom translations,
+ * imported palettes and legacy POSIX zones. Other options share web registries. */
+static const char *system_id(settings_view_t *view, int field, unsigned index)
+{
+    static const char *languages[] = {"en", "de", "es", "fr", "pl", "zh-cn", "zh-tw"};
+    if (index == 0) {
+        return field == SYSTEM_LANGUAGE ? view->original.language : field == SYSTEM_TIMEZONE ? view->original.timezone :
+            field == SYSTEM_STYLE ? view->original.style : view->original.theme;
+    }
+    index--;
+    if (field == SYSTEM_LANGUAGE) return index < 7 ? languages[index] : NULL;
+    if (field == SYSTEM_TIMEZONE) return timezone_catalog_name(index);
+    if (field == SYSTEM_STYLE) {
+        ui_style_kind_t kind;
+        return ui_style_at(index, &kind) ? ui_style_name(kind) : NULL;
+    }
+    const theme_entry_t *themes[16];
+    size_t count = theme_palette_builtin_list(themes);
+    if (index < count) return themes[index]->id;
+    return index - count < view->draft.custom_theme_count ? view->draft.custom_theme_ids[index - count] : NULL;
+}
+
+static const char *system_name(settings_view_t *view, int field, const char *id)
+{
+    static const char *codes[] = {"en", "de", "es", "fr", "pl", "zh-cn", "zh-tw"};
+    static const char *names[] = {"English", "Deutsch", "Español", "Français", "Polski", "简体中文", "繁體中文"};
+    if (field == SYSTEM_LANGUAGE) for (int i = 0; i < 7; i++) if (!strcmp(id, codes[i])) return names[i];
+    if (field == SYSTEM_THEME) for (unsigned i = 0; i < view->draft.custom_theme_count; i++)
+        if (!strcmp(id, view->draft.custom_theme_ids[i])) return view->draft.custom_theme_names[i];
+    if (field == SYSTEM_STYLE || field == SYSTEM_THEME) {
+        char key[64]; snprintf(key, sizeof(key), "system.%s", id);
+        const theme_entry_t *theme = field == SYSTEM_THEME ? theme_palette_find_builtin(id) : NULL;
+        return ui_i18n_get(key, theme != NULL ? theme->name : id);
+    }
+    return id;
+}
+
+static void system_changed(lv_event_t *event)
+{
+    if (s_view == NULL || s_view->saving) return;
+    int field = (int)(uintptr_t)lv_event_get_user_data(event);
+    unsigned index = lv_dropdown_get_selected(lv_event_get_target_obj(event));
+    /* Keep index zero's label and value immutable until the view closes. */
+    const char *id = system_id(s_view, field, index);
+    if (id == NULL) return;
+    s_view->draft.dirty |= SYSTEM_DIRTY(field);
+}
+
+static void system_collect(settings_view_t *view)
+{
+    for (int field = 0; field < SYSTEM_FIELD_COUNT; field++) {
+        if (!(view->draft.dirty & SYSTEM_DIRTY(field))) continue;
+        unsigned selected = lv_dropdown_get_selected(view->system_controls[field]);
+        const char *id = system_id(view, field, selected);
+        if (field == SYSTEM_LANGUAGE) snprintf(view->draft.language, sizeof(view->draft.language), "%s", id);
+        if (field == SYSTEM_TIMEZONE) snprintf(view->draft.timezone, sizeof(view->draft.timezone), "%s", id);
+        if (field == SYSTEM_STYLE) snprintf(view->draft.style, sizeof(view->draft.style), "%s", id);
+        if (field == SYSTEM_THEME) snprintf(view->draft.theme, sizeof(view->draft.theme), "%s", id);
+    }
 }
 
 static lv_obj_t *container(lv_obj_t *parent, lv_flex_flow_t flow)
@@ -120,6 +186,7 @@ static void save_clicked(lv_event_t *event)
 {
     settings_view_t *view = lv_event_get_user_data(event);
     if (view->saving) return;
+    system_collect(view);
     if (view->draft.dirty == 0) { lv_obj_delete(view->root); return; }
     (void)screen_settings_status(true);
     if (!screen_settings_submit(&view->draft)) {
@@ -130,6 +197,7 @@ static void save_clicked(lv_event_t *event)
     lv_obj_add_state(view->save, LV_STATE_DISABLED);
     lv_obj_add_state(view->cancel, LV_STATE_DISABLED);
     for (int i = 0; i < SCREEN_FIELD_COUNT; i++) lv_obj_add_state(view->controls[i], LV_STATE_DISABLED);
+    for (int i = 0; i < SYSTEM_FIELD_COUNT; i++) lv_obj_add_state(view->system_controls[i], LV_STATE_DISABLED);
     lv_label_set_text(view->message, tr("saving", "Saving..."));
 }
 
@@ -145,6 +213,7 @@ static void result_tick(lv_timer_t *timer)
     lv_obj_remove_state(view->save, LV_STATE_DISABLED);
     lv_obj_remove_state(view->cancel, LV_STATE_DISABLED);
     for (int i = 0; i < SCREEN_FIELD_COUNT; i++) lv_obj_remove_state(view->controls[i], LV_STATE_DISABLED);
+    for (int i = 0; i < SYSTEM_FIELD_COUNT; i++) lv_obj_remove_state(view->system_controls[i], LV_STATE_DISABLED);
     lv_label_set_text(view->message, tr("failed", "Could not save. Try again."));
 }
 
@@ -174,6 +243,7 @@ void ui_screen_settings_open(void)
     settings_view_t *view = ui_calloc_prefer_psram(1, sizeof(*view));
     if (view == NULL) return;
     esp_err_t loaded = screen_settings_load(&view->draft);
+    view->original = view->draft;
     s_view = view;
     view->root = lv_obj_create(lv_screen_active());
     lv_obj_remove_style_all(view->root);
@@ -187,7 +257,7 @@ void ui_screen_settings_open(void)
     lv_obj_add_event_cb(view->root, deleted, LV_EVENT_DELETE, view);
     lv_obj_t *header = container(view->root, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(header, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-    lv_obj_t *title = label(header, tr("title", "Screen settings"), UI_TEXT_LABEL);
+    lv_obj_t *title = label(header, tr("title", "System settings"), UI_TEXT_LABEL);
     lv_obj_set_flex_grow(title, 1);
     view->cancel = button(header, tr("cancel", "Cancel"), close_clicked, view);
     view->body = container(view->root, LV_FLEX_FLOW_COLUMN);
@@ -196,6 +266,42 @@ void ui_screen_settings_open(void)
     lv_obj_set_scrollable(view->body, true);
     lv_obj_set_scroll_dir(view->body, LV_DIR_VER);
     lv_obj_set_style_pad_all(view->body, 8, 0);
+    static const char *system_keys[] = {"system.language", "system.timezone", "system.appearance", "system.theme"};
+    static const char *system_names[] = {"Language", "Time zone", "Appearance", "Color theme"};
+    for (int field = 0; field < SYSTEM_FIELD_COUNT; field++) {
+        lv_obj_t *row = container(view->body, LV_FLEX_FLOW_COLUMN);
+        lv_obj_t *caption = label(row, ui_i18n_get(system_keys[field], system_names[field]), UI_TEXT_LABEL);
+        lv_obj_set_width(caption, lv_pct(100));
+        lv_obj_t *control = view->system_controls[field] = lv_dropdown_create(row);
+        size_t bytes = 1;
+        for (unsigned i = 0; ; i++) {
+            const char *id = system_id(view, field, i);
+            if (id == NULL) break;
+            bytes += strlen(system_name(view, field, id)) + 1;
+        }
+        char *options = ui_calloc_prefer_psram(bytes, 1);
+        if (options != NULL) {
+            char *cursor = options;
+            for (unsigned i = 0; ; i++) {
+                const char *id = system_id(view, field, i);
+                if (id == NULL) break;
+                if (i) *cursor++ = '\n';
+                for (const char *name = system_name(view, field, id); *name; name++)
+                    *cursor++ = *name == '\n' || *name == '\r' ? ' ' : *name;
+            }
+            lv_dropdown_set_options(control, options);
+            free(options);
+        } else { loaded = ESP_ERR_NO_MEM; lv_dropdown_set_options(control, ""); }
+        lv_dropdown_set_selected(control, 0);
+        lv_dropdown_set_symbol(control, NULL);
+        lv_obj_set_width(control, lv_pct(100));
+        ui_text_set(control, UI_TEXT_LABEL, false);
+        lv_obj_t *list = lv_dropdown_get_list(control);
+        ui_text_set(list, field == SYSTEM_TIMEZONE ? UI_TEXT_META : UI_TEXT_LABEL, false);
+        lv_obj_set_style_max_width(list, lv_display_get_horizontal_resolution(lv_display_get_default()) - 40, 0);
+        lv_obj_set_style_max_height(list, lv_pct(60), 0);
+        lv_obj_add_event_cb(control, system_changed, LV_EVENT_VALUE_CHANGED, (void *)(uintptr_t)field);
+    }
     static const int low[] = {1, 1, 5, 0, 1, 15, 1, 0, 30, 0, 0, 0};
     static const int high[] = {100, 100, 3600, 4, 120, 7200, 100, 1, 7200, 1, 1, 1};
     for (int i = 0; i < SCREEN_FIELD_COUNT; i++) {

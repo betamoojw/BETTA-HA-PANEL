@@ -32,24 +32,9 @@ static lv_obj_t *new_label(lv_obj_t *parent, const char *text, const lv_font_t *
     return label;
 }
 
-/* The first two characters (not bytes) of a weekday name: "Mo", "Tu". */
 void ui_days_weekday_short(int wday, char *out, size_t out_len)
 {
-    char key[24];
-    static const char *const names[7] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
-    if (wday < 0 || wday > 6) wday = 0;
-    snprintf(key, sizeof(key), "weather.day_full_%d", wday);
-    const char *name = ui_i18n_get(key, names[wday]);
-    size_t n = 0;
-    int chars = 0;
-    while (name[n] != '\0' && chars < 2) {
-        n++;
-        while ((name[n] & 0xC0) == 0x80) n++; /* the rest of a multi-byte character */
-        chars++;
-    }
-    if (n >= out_len) n = out_len - 1;
-    memcpy(out, name, n);
-    out[n] = '\0';
+    ui_i18n_weekday_short(wday, out, out_len);
 }
 
 

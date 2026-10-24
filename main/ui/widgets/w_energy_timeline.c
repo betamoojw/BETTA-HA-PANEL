@@ -790,7 +790,7 @@ esp_err_t w_energy_timeline_create(const ui_widget_def_t *def, lv_obj_t *parent,
     ctx->snap = snap;
     ctx->info.palette = def->energy_palette.initialized ? def->energy_palette : etl_palette_defaults();
     strlcpy(ctx->widget_id, def->id, sizeof(ctx->widget_id));
-    strlcpy(ctx->info.title, def->title[0] ? def->title : "Energy", sizeof(ctx->info.title));
+    strlcpy(ctx->info.title, def->title[0] ? def->title : ui_i18n_get("energy.title", "Energy"), sizeof(ctx->info.title));
     strlcpy(ctx->info.stat_id[ET_CH_GRID_IMPORT], def->entity_id, sizeof(ctx->info.stat_id[0]));
     strlcpy(ctx->info.stat_id[ET_CH_GRID_EXPORT], def->secondary_entity_id, sizeof(ctx->info.stat_id[0]));
     strlcpy(ctx->info.stat_id[ET_CH_SOLAR], def->tertiary_entity_id, sizeof(ctx->info.stat_id[0]));

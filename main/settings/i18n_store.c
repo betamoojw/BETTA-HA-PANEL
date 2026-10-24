@@ -21,6 +21,9 @@
 
 static const char *I18N_BUILTIN_DE =
     "{\"lvgl\":{"
+    "\"ota\":{\"title\":\"Firmware-Update\",\"preparing\":\"Update wird vorbereitet\",\"downloading\":\"Firmware wird heruntergeladen...\",\"receiving\":\"Firmware wird empfangen...\",\"writing\":\"Firmware wird geschrieben\",\"success\":\"Update geschrieben. Neustart...\",\"failed\":\"Update fehlgeschlagen. Details im Editor.\"},"
+    "\"titles\":{\"car\":\"Auto\",\"solar\":\"Solarprognose\",\"sonos\":\"Sonos-Favoriten\",\"printer\":\"Bambu-Drucker\"},"
+    "\"xiaozhi\":{\"title\":\"Xiaozhi AI\",\"talk\":\"Zum Sprechen halten\",\"state\":{\"disabled\":\"Deaktiviert\",\"ready\":\"Bereit\",\"connecting\":\"Verbindung wird aufgebaut\",\"listening\":\"Hört zu\",\"waiting\":\"Warten auf Antwort\",\"speaking\":\"Spricht\",\"pairing\":\"Code auf xiaozhi.me eingeben\",\"pairing_retry\":\"Kopplungsdienst nicht erreichbar; neuer Versuch\",\"pairing_error\":\"Kopplung fehlgeschlagen\",\"pairing_expired\":\"Kopplung abgelaufen\",\"pair_first\":\"Gerät zuerst koppeln\",\"connection_error\":\"Verbindung unterbrochen\",\"audio_or_connection_error\":\"Audio oder Verbindung nicht verfügbar\",\"storage_error\":\"Einstellungen konnten nicht gespeichert werden\",\"memory_error\":\"Nicht genügend Speicher\",\"unsupported\":\"Sprachaudio auf diesem Board nicht unterstützt\"}},"
     "\"common\":{\"on\":\"AN\",\"off\":\"AUS\",\"unavailable\":\"nicht verfügbar\",\"paused\":\"pausiert\",\"playing\":\"spielt\",\"start\":\"Start\",\"pause\":\"Pause\",\"unknown\":\"Unbekannt\"},"
     "\"cover\":{\"open\":\"Offen\",\"closed\":\"Geschlossen\",\"opening\":\"Öffnet\",\"closing\":\"Schließt\",\"moving\":\"Fährt\"},"
     "\"datetime\":{\"date\":\"Datum\",\"time\":\"Uhrzeit\",\"save\":\"Speichern\",\"cancel\":\"Abbrechen\",\"invalid\":\"Ungültiges Datum oder Uhrzeit\",\"failed\":\"Speichern fehlgeschlagen\"},"
@@ -51,6 +54,9 @@ static const char *I18N_BUILTIN_DE =
 
 static const char *I18N_BUILTIN_EN =
     "{\"lvgl\":{"
+    "\"ota\":{\"title\":\"Firmware Update\",\"preparing\":\"Preparing update\",\"downloading\":\"Downloading firmware...\",\"receiving\":\"Receiving firmware...\",\"writing\":\"Writing firmware\",\"success\":\"Update written. Restarting...\",\"failed\":\"Update failed. See the editor for details.\"},"
+    "\"titles\":{\"car\":\"Car\",\"solar\":\"Solar Forecast\",\"sonos\":\"Sonos Favorites\",\"printer\":\"Bambu printer\"},"
+    "\"xiaozhi\":{\"title\":\"Xiaozhi AI\",\"talk\":\"Hold to talk\",\"state\":{\"disabled\":\"Disabled\",\"ready\":\"Ready\",\"connecting\":\"Connecting\",\"listening\":\"Listening\",\"waiting\":\"Waiting for reply\",\"speaking\":\"Speaking\",\"pairing\":\"Pair at xiaozhi.me using the code\",\"pairing_retry\":\"Pairing service unavailable; retrying\",\"pairing_error\":\"Pairing failed\",\"pairing_expired\":\"Pairing expired; try again\",\"pair_first\":\"Pair the device first\",\"connection_error\":\"Connection interrupted; try again\",\"audio_or_connection_error\":\"Audio or connection unavailable\",\"storage_error\":\"Could not save settings\",\"memory_error\":\"Not enough memory\",\"unsupported\":\"Voice audio is not supported on this board\"}},"
     "\"common\":{\"on\":\"ON\",\"off\":\"OFF\",\"unavailable\":\"unavailable\",\"paused\":\"paused\",\"playing\":\"playing\",\"start\":\"Start\",\"pause\":\"Pause\",\"unknown\":\"Unknown\"},"
     "\"cover\":{\"open\":\"Open\",\"closed\":\"Closed\",\"opening\":\"Opening\",\"closing\":\"Closing\",\"moving\":\"Moving\"},"
     "\"datetime\":{\"date\":\"Date\",\"time\":\"Time\",\"save\":\"Save\",\"cancel\":\"Cancel\",\"invalid\":\"Invalid date or time\",\"failed\":\"Could not save\"},"

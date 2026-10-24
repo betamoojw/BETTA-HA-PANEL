@@ -52,3 +52,34 @@ for (const code of ['es', 'fr', 'pl', 'zh-cn', 'zh-tw']) {
     }
   });
 }
+
+
+for (const lang of ['zh-cn', 'zh-tw']) {
+  test(`${lang}: local Xiaozhi translations survive unavailable translation APIs`, async () => {
+    const requests = [];
+    const sandbox = vm.createContext({
+      WEB_I18N_BUILTIN: catalogs, DEFAULT_UI_LANGUAGE: 'en',
+      editor: {}, el: {}, document: {documentElement: {}},
+      normalizeUiLanguage: value => value.toLowerCase(),
+      flattenTranslationObject: value => value,
+      apiGet: async path => {requests.push(path); throw new Error('offline');},
+      fetch: async path => {requests.push(path); throw new Error('offline');},
+    });
+    vm.runInContext(read('components/webui/www/js/translations.js'), sandbox);
+    // Layout rendering is covered separately; exercise the real local catalog loader.
+    vm.runInContext('applyWebTranslations = () => {};', sandbox);
+    await vm.runInContext(`loadI18nLanguage("${lang}", true)`, sandbox);
+    assert.deepEqual(requests, ['/api/i18n/languages', `/api/i18n/effective?lang=${lang}`]);
+    assert.equal(sandbox.document.documentElement.lang, lang);
+    for (const key of Object.keys(catalogs.en).filter(key => key.startsWith('xiaozhi.'))) {
+      assert.equal(sandbox.editor.i18nMap[key], catalogs[lang][key], key);
+      assert.match(sandbox.editor.i18nMap[key], /\p{Script=Han}/u, key);
+    }
+    const panel = JSON.parse(read(`main/i18n/${lang}.json`)).lvgl.xiaozhi;
+    assert.equal(panel.title, catalogs[lang]['xiaozhi.title']);
+    assert.equal(panel.talk, catalogs[lang]['xiaozhi.talk']);
+    for (const [state, value] of Object.entries(panel.state)) {
+      assert.equal(value, catalogs[lang][`xiaozhi.state.${state}`], state);
+    }
+  });
+}

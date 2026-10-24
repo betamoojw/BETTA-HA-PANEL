@@ -3,6 +3,7 @@
  * Modified 2026 by andre68723 in the andre68723/BETTA-HA-PANEL fork, see docs/release-notes.md
  */
 #include "api/api_routes.h"
+#include "xiaozhi/xiaozhi.h"
 #include "api/http_guard.h"
 
 #include "esp_check.h"
@@ -220,6 +221,7 @@ esp_err_t api_routes_register(httpd_handle_t server)
         return ESP_ERR_INVALID_ARG;
     }
 
+    ESP_RETURN_ON_ERROR(xiaozhi_api_register(server), "api_routes", "Xiaozhi routes");
     httpd_uri_t get_layout = {
         .uri = "/api/layout",
         .method = HTTP_GET,

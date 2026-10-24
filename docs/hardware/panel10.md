@@ -69,6 +69,22 @@ The earlier ROM-only storage digests are not valid full-filesystem evidence:
 ROM cannot address beyond 16 MiB. Use the [stub preservation procedure](../development/build.md#32-mib-p4-preservation-checks).
 This verifies bytes before boot; normal boot diagnostics may subsequently write NVS.
 
+[Xiaozhi AI](../xiaozhi-ai.md) adds optional cloud-paired voice conversation using
+the onboard audio codecs. It defaults to off; audio and cloud acceptance tests
+are pending on this board.
+
+On 2026-10-24, the localization and overlay-lifetime build based on `af827c0`
+(with local changes; embedded ELF `329ee66bfab2f60a24f8f066def30d82eb3132e71a5ffe89d41de4d99982dfc1`)
+passed an app-only COM24 flash with the P4 stub. Metadata/NVS, crash storage and
+the complete LittleFS region matched before and after writing, before boot.
+The original HA credentials authenticated successfully. Three unchanged layout
+saves and simplified/traditional Chinese language switches passed; seven status
+samples over 61 seconds showed increasing uptime and no new crash reports.
+The owner confirmed no further reboots, clear Chinese text, stable display and
+normal touch. English was saved and read back afterward. Layout and settings
+were retained; only live clock/RSSI fields changed during final comparison.
+This trial kept Xiaozhi disabled and did not test cloud pairing or audio.
+
 ## Technical notes
 
 Pin assignments, schematic checks, BSP versions and open points are in the [device technical notes](device-notes.md#panel10).

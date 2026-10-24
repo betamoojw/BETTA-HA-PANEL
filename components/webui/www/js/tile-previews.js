@@ -118,7 +118,7 @@ function carPreviewMarkup(widget) {
 }
 
 function sonosFavoritesPreviewMarkup(widget) {
-  const title = widget.title || "Sonos Favorites";
+  const title = widget.title || t("titles.sonos");
   const player = widget.entity_id || "media_player.*";
   const sensor = widget.secondary_entity_id || DEFAULT_SONOS_FAVORITES_SENSOR;
   const sampleRows = ["Absolut TOP", "SWR3", "Yoga"];
@@ -323,7 +323,7 @@ function tilePreviewMarkup(widget) {
       const extras = w >= 280;
       const showArtist = showCover || h >= 234;
       return `<div class="tp tp-media${showCover ? "" : " tp-media-nocover"}">${name('div', 'class="tp-name"')}
-        ${showCover ? '<div class="tp-cover"></div>' : ""}<div class="tp-track"><b>Song title</b>${showArtist ? "<small>Artist</small>" : ""}</div>
+        ${showCover ? '<div class="tp-cover"></div>' : ""}<div class="tp-track"><b>${escapeHtml(t("layout.preview.song_title"))}</b>${showArtist ? `<small>${escapeHtml(t("layout.preview.artist"))}</small>` : ""}</div>
         <div class="tp-bar"><i style="width:35%"></i></div>
         <div class="tp-btns">${extras ? "<span>\u21C4</span>" : ""}<span>\u23EE</span><span class="tp-primary">\u23F5</span><span>\u23ED</span>${extras ? "<span>\u21BB</span>" : ""}</div>
         <div class="tp-vol"><span>\u2212</span><div class="tp-bar"><i style="width:55%"></i></div><span>+</span></div></div>${handle}`;

@@ -170,8 +170,7 @@ static bool ota_begin_status(api_ota_state_t state, const char *source, size_t t
     xSemaphoreGive(s_ota_mutex);
     if (started) {
         ui_remote_display_suspend(true);
-        const char *status_text = (state == API_OTA_STATE_URL) ? "Downloading firmware..." : "Receiving firmware...";
-        ui_ota_progress_begin(status_text, total);
+        ui_ota_progress_begin(state == API_OTA_STATE_URL, total);
     }
     return started;
 }
@@ -208,13 +207,7 @@ static void ota_set_image_info(const char *version, const char *project_name)
     s_ota_status.updated_ms = ota_now_ms();
     xSemaphoreGive(s_ota_mutex);
 
-    char status_text[64] = {0};
-    if (version != NULL && version[0] != '\0') {
-        snprintf(status_text, sizeof(status_text), "Writing firmware %s", version);
-    } else {
-        strlcpy(status_text, "Writing firmware", sizeof(status_text));
-    }
-    ui_ota_progress_set_status(status_text);
+    ui_ota_progress_set_status(version);
 }
 
 static void ota_finish_status_error(const char *message)
@@ -229,7 +222,7 @@ static void ota_finish_status_error(const char *message)
     s_ota_status.updated_ms = ota_now_ms();
     strlcpy(s_ota_status.error, message != NULL ? message : "OTA failed", sizeof(s_ota_status.error));
     xSemaphoreGive(s_ota_mutex);
-    ui_ota_progress_error(message);
+    ui_ota_progress_error();
     ui_remote_display_suspend(false);
 }
 
@@ -254,7 +247,7 @@ static void ota_finish_status_success(void)
     s_ota_status.rebooting = true;
     s_ota_status.updated_ms = ota_now_ms();
     xSemaphoreGive(s_ota_mutex);
-    ui_ota_progress_success("Update written. Restarting...");
+    ui_ota_progress_success();
 }
 
 static void ota_restart_timer_cb(void *arg)

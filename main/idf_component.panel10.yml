@@ -7,6 +7,8 @@
 # SDKCONFIG_DEFAULTS overlay. Do NOT edit main/idf_component.yml directly --
 # it is regenerated from this file on every configure.
 dependencies:
+  78/esp-opus:
+    version: "1.0.5"
   # lvgl, esp_lcd_touch, littlefs, esp_websocket_client, mqtt and cjson are pinned to an exact
   # version (not a range or "*") across every variant's manifest. They used to resolve independently
   # per variant, and an unconstrained package can resolve to a different version purely because of

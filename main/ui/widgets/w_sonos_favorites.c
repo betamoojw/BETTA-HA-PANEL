@@ -291,7 +291,7 @@ esp_err_t w_sonos_favorites_create(const ui_widget_def_t *def, lv_obj_t *parent,
     lv_obj_add_event_cb(card, w_sonos_card_event_cb, LV_EVENT_DELETE, ctx);
 
     ctx->title_label = ui_widget_name_create(card, !def->hide_name);
-    lv_label_set_text(ctx->title_label, def->title[0] != '\0' ? def->title : "Sonos Favorites");
+    lv_label_set_text(ctx->title_label, def->title[0] != '\0' ? def->title : ui_i18n_get("titles.sonos", "Sonos Favorites"));
     lv_obj_set_style_text_font(ctx->title_label, ui_font_role(UI_TEXT_META), LV_PART_MAIN);
     lv_obj_set_style_text_color(ctx->title_label, lv_color_hex(APP_UI_COLOR_TEXT_PRIMARY), LV_PART_MAIN);
     lv_label_set_long_mode(ctx->title_label, LV_LABEL_LONG_DOT);

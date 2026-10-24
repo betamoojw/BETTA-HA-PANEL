@@ -2,6 +2,8 @@
  * Copyright (c) 2026 Cpt_Kirk
  * Modified 2026 by andre68723 in the andre68723/BETTA-HA-PANEL fork, see docs/release-notes.md
  */
+
+#include "xiaozhi/xiaozhi.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -353,6 +355,7 @@ void app_main(void)
     }
 
     /* Everything is up: a freshly installed image may now cancel the rollback once it proves healthy. */
+    xiaozhi_init();
     ota_validate_start();
     net_watchdog_start(has_wifi_credentials, runtime_settings_has_ha(&s_runtime_settings));
     ui_watchdog_start();

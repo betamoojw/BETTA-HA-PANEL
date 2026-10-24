@@ -4,8 +4,12 @@
 #pragma once
 
 #include "esp_err.h"
+#include <stddef.h>
 
 esp_err_t ui_i18n_init(const char *language_code);
 void ui_i18n_reset(void);
 const char *ui_i18n_get(const char *key, const char *fallback);
 const char *ui_i18n_get_language(void);
+
+/* Compact weekday labels, truncated only at UTF-8 character boundaries. */
+void ui_i18n_weekday_short(int wday, char *out, size_t out_len);

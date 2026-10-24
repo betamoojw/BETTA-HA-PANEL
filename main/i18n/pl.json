@@ -524,6 +524,43 @@
       "setup_ap_prefix": "AP konfiguracji",
       "setup_ap_password": "Hasło",
       "offline_mode": "Tryb offline"
+    },
+    "xiaozhi": {
+      "title": "Xiaozhi AI",
+      "talk": "Przytrzymaj, aby mówić",
+      "state": {
+        "disabled": "Wyłączono",
+        "ready": "Gotowe",
+        "connecting": "Łączenie",
+        "listening": "Słuchanie",
+        "waiting": "Oczekiwanie na odpowiedź",
+        "speaking": "Odtwarzanie",
+        "pairing": "Sparuj na xiaozhi.me za pomocą kodu",
+        "pairing_retry": "Usługa niedostępna; ponawianie",
+        "pairing_error": "Parowanie nie powiodło się",
+        "pairing_expired": "Parowanie wygasło; spróbuj ponownie",
+        "pair_first": "Najpierw sparuj urządzenie",
+        "connection_error": "Połączenie przerwane; spróbuj ponownie",
+        "audio_or_connection_error": "Dźwięk lub połączenie niedostępne",
+        "storage_error": "Nie można zapisać ustawień",
+        "memory_error": "Za mało pamięci",
+        "unsupported": "Ta płytka nie obsługuje funkcji głosowych"
+      }
+    },
+    "ota": {
+      "title": "Aktualizacja oprogramowania",
+      "preparing": "Przygotowanie aktualizacji",
+      "downloading": "Pobieranie oprogramowania...",
+      "receiving": "Odbieranie oprogramowania...",
+      "writing": "Zapisywanie oprogramowania",
+      "success": "Aktualizacja zapisana. Ponowne uruchamianie...",
+      "failed": "Aktualizacja nie powiodła się. Szczegóły w edytorze."
+    },
+    "titles": {
+      "car": "Samochód",
+      "solar": "Prognoza słoneczna",
+      "sonos": "Ulubione Sonos",
+      "printer": "Drukarka Bambu"
     }
   }
 }

@@ -655,7 +655,7 @@ if (el.addBambuPrinterBtn) {
         }
       } catch (err) {
         if (el.settingsTranslationInfo) {
-          el.settingsTranslationInfo.textContent = t("settings.translation.upload_fail", { error: err.message });
+          el.settingsTranslationInfo.textContent = t("settings.translation.upload_fail", { error: localizedRequestError(err) });
           el.settingsTranslationInfo.classList.add("error");
         }
       }
@@ -687,7 +687,7 @@ if (el.addBambuPrinterBtn) {
         renderSettings();
       } catch (err) {
         if (el.settingsTranslationInfo) {
-          el.settingsTranslationInfo.textContent = t("settings.translation.upload_fail", { error: err.message });
+          el.settingsTranslationInfo.textContent = t("settings.translation.upload_fail", { error: localizedRequestError(err) });
           el.settingsTranslationInfo.classList.add("error");
         }
       }
@@ -736,7 +736,7 @@ if (el.addBambuPrinterBtn) {
       try {
         await saveWifiProvisioning();
       } catch (err) {
-        setProvisioningInfo("wifi", t("provision.save_failed", { error: err.message }), true);
+        setProvisioningInfo("wifi", t("provision.save_failed", { error: localizedRequestError(err) }), true);
       }
     };
   }
@@ -745,7 +745,7 @@ if (el.addBambuPrinterBtn) {
       try {
         await saveHaProvisioning();
       } catch (err) {
-        setProvisioningInfo("ha", t("provision.save_failed", { error: err.message }), true);
+        setProvisioningInfo("ha", t("provision.save_failed", { error: localizedRequestError(err) }), true);
       }
     };
   }
@@ -753,14 +753,14 @@ if (el.addBambuPrinterBtn) {
     try {
       await saveSettings();
     } catch (err) {
-      setStatus(t("status.settings_save_failed", { error: err.message }), true);
+      setStatus(t("status.settings_save_failed", { error: localizedRequestError(err) }), true);
     }
   };
   el.saveBtn.onclick = async () => {
     try {
       await saveLayout();
     } catch (err) {
-      setStatus(t("layout.status.save_failed", { error: err.message }), true);
+      setStatus(t("layout.status.save_failed", { error: localizedRequestError(err) }), true);
     }
   };
   // Settings keep a Save shortcut in the sticky header below 1100 px; Layout always has its own header button.
@@ -781,7 +781,7 @@ if (el.addBambuPrinterBtn) {
       importLayoutFromText(text);
       closeAllDropdowns();
     } catch (err) {
-      setStatus(t("layout.status.import_failed", { error: err.message }), true);
+      setStatus(t("layout.status.import_failed", { error: localizedRequestError(err) }), true);
     }
   };
   el.importFile.onchange = async (event) => {
@@ -792,7 +792,7 @@ if (el.addBambuPrinterBtn) {
       importLayoutFromText(text);
       closeAllDropdowns();
     } catch (err) {
-      setStatus(t("layout.status.file_import_failed", { error: err.message }), true);
+      setStatus(t("layout.status.file_import_failed", { error: localizedRequestError(err) }), true);
     }
   };
 }

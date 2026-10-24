@@ -524,6 +524,43 @@
       "setup_ap_prefix": "配網熱點",
       "setup_ap_password": "密碼",
       "offline_mode": "離線模式"
+    },
+    "xiaozhi": {
+      "title": "小智 AI",
+      "talk": "按住說話",
+      "state": {
+        "disabled": "已停用",
+        "ready": "就緒",
+        "connecting": "正在連線",
+        "listening": "正在聆聽",
+        "waiting": "等待回覆",
+        "speaking": "正在播放",
+        "pairing": "請在 xiaozhi.me 輸入配對碼",
+        "pairing_retry": "配對服務無法使用，正在重試",
+        "pairing_error": "配對失敗",
+        "pairing_expired": "配對已逾時，請重試",
+        "pair_first": "請先配對裝置",
+        "connection_error": "連線已中斷，請重試",
+        "audio_or_connection_error": "音訊或連線無法使用",
+        "storage_error": "無法儲存設定",
+        "memory_error": "記憶體不足",
+        "unsupported": "此板型不支援語音音訊"
+      }
+    },
+    "ota": {
+      "title": "韌體更新",
+      "preparing": "正在準備更新",
+      "downloading": "正在下載韌體…",
+      "receiving": "正在接收韌體…",
+      "writing": "正在寫入韌體",
+      "success": "更新已寫入，正在重新啟動…",
+      "failed": "更新失敗，請在編輯器中查看詳情。"
+    },
+    "titles": {
+      "car": "車輛",
+      "solar": "太陽能預測",
+      "sonos": "Sonos 收藏",
+      "printer": "Bambu 印表機"
     }
   }
 }

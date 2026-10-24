@@ -2077,7 +2077,7 @@ function addWidget(type, options = {}) {
     widget.graph_time_window_min = DEFAULT_GRAPH_TIME_WINDOW_MIN;
   }
   if (type === "solar_forecast") {
-    widget.title = "Solar Forecast";
+    widget.title = typeof options.title === "string" && options.title.trim() ? options.title.trim() : t("titles.solar");
     widget.forecast_today_entity_id = DEFAULT_SOLCAST_ENTITIES.today;
     widget.forecast_tomorrow_entity_id = DEFAULT_SOLCAST_ENTITIES.tomorrow;
     widget.forecast_day_3_entity_id = DEFAULT_SOLCAST_ENTITIES.day3;
@@ -2086,12 +2086,12 @@ function addWidget(type, options = {}) {
     widget.solar_forecast_bar_orientation = DEFAULT_SOLAR_FORECAST_BAR_ORIENTATION;
   }
   if (type === "car_widget") {
-    widget.title = typeof options.title === "string" && options.title.trim() ? options.title.trim() : "Car";
+    widget.title = typeof options.title === "string" && options.title.trim() ? options.title.trim() : t("titles.car");
     widget.secondary_entity_id = "";
     widget.tertiary_entity_id = "";
   }
   if (type === "bambu_printer") {
-    widget.title = typeof options.title === "string" && options.title.trim() ? options.title.trim() : "Bambu printer";
+    widget.title = typeof options.title === "string" && options.title.trim() ? options.title.trim() : t("titles.printer");
   }
   if (type === "room_tile") {
     widget.secondary_entity_id = undefined;
@@ -2103,7 +2103,7 @@ function addWidget(type, options = {}) {
     if (battery) widget.battery_entity_id = battery;
   }
   if (type === "sonos_favorites") {
-    widget.title = typeof options.title === "string" && options.title.trim() ? options.title.trim() : "Sonos Favorites";
+    widget.title = typeof options.title === "string" && options.title.trim() ? options.title.trim() : t("titles.sonos");
     widget.secondary_entity_id = DEFAULT_SONOS_FAVORITES_SENSOR;
   }
 

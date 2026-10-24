@@ -7,13 +7,13 @@ Changes of **this fork**, compared with upstream v0.8.2. The release notes of th
 ## v0.9.0 (fork)
 
 `panel10` now uses LCD-X BSP 2.0.3, GPIO26 backlight/GPIO27 reset, Rev3.x configuration and a separate dependency lock. COM24 v3.2 display/touch and LAN passed on 2026-10-21; owner confirmed working Live Display. The 32 MiB P4 checksum helper requires a supported flasher stub and rejects ROM fallback; an app-only reflash of `0a551a2` preserved metadata/NVS, coredump and complete LittleFS checksums before boot (see the device guide).
+Xiaozhi AI adds an off-by-default cloud pairing and push-to-talk path for Waveshare LCD-X `panel10`, with Opus audio, guarded editor controls and a local panel overlay. Its overlay timer is cleaned up during dashboard rebuilds, preventing boot loops after Home Assistant setup even while disabled. Voice hardware/cloud validation remains pending; see [Xiaozhi AI](xiaozhi-ai.md).
 ### Readable time zones
 
 Adapted from `betamoojw` commit `4c8e40e`: searchable Region/City identifiers,
 a device-local clock and a bundled recurring-rules catalog shared by all boards.
 Changes apply immediately; existing POSIX settings and backups stay supported.
 The picker and clock status have translations in all seven built-in languages.
-
 ### European languages
 
 German retains this fork's complete catalogs. Spanish, French and Polish now
@@ -32,11 +32,11 @@ confirmed clear accented characters, stable output and working local touch.
 
 Simplified and traditional Chinese are available in the editor and on the panel,
 adapted from [`betamoojw` commit `4e117ca`](https://github.com/betamoojw/BETTA-HA-PANEL-4-Guiton-ESP32S3/commit/4e117ca03c05e7f6ef96de2e435cb24da7c785e7).
-The catalogs cover the current widgets, settings and Live Display. JSON sources
+The catalogs cover widgets, settings, Live Display, OTA states, theme controls and default titles. Weekday charts use distinct localized abbreviations. JSON sources
 generate separate browser modules and portable firmware strings. Shared runtime
 TrueType fallback replaces the reference's fixed-size bitmap fonts, preserving
 Poppins metrics and supporting Chinese titles and notifications at every text size.
-The compact Noto subset covers 699 codepoints, not the complete CJK Unicode repertoire.
+The compact Noto subset covers 726 codepoints, not the complete CJK Unicode repertoire.
 It includes every built-in panel translation and common room/device names without
 consuming the S3's PSRAM headroom with a full CJK font.
 See [Language](appearance.md#language) and the font source guide in `main/ui/fonts/README.md`.

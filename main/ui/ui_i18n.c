@@ -3,6 +3,7 @@
  */
 #include "ui/ui_i18n.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -140,4 +141,28 @@ const char *ui_i18n_get(const char *key, const char *fallback)
 const char *ui_i18n_get_language(void)
 {
     return s_language;
+}
+
+/* Use localized abbreviations: full Chinese names share the prefix "星期". */
+void ui_i18n_weekday_short(int wday, char *out, size_t out_len)
+{
+    if (out == NULL || out_len == 0) return;
+    char key[24];
+    static const char *const names[7] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
+    if (wday < 0 || wday > 6) wday = 0;
+    snprintf(key, sizeof(key), "weather.weekday_%d", wday);
+    const char *name = ui_i18n_get(key, names[wday]);
+    size_t n = 0;
+    int chars = 0;
+    while (name[n] != '\0' && chars < 2) {
+        n++;
+        while ((name[n] & 0xC0) == 0x80) n++; /* the rest of a multi-byte character */
+        chars++;
+    }
+    if (n >= out_len) {
+        n = out_len - 1;
+        while (n > 0 && (name[n] & 0xC0) == 0x80) n--;
+    }
+    memcpy(out, name, n);
+    out[n] = '\0';
 }

@@ -590,7 +590,7 @@ esp_err_t w_solar_forecast_create(const ui_widget_def_t *def, lv_obj_t *parent, 
     ui_text_record(ctx->summary, UI_TEXT_LABEL, true);
     lv_obj_set_style_text_color(ctx->summary, theme_default_color_text_primary(), LV_PART_MAIN);
     ctx->title_label = ui_widget_name_create(card, !def->hide_name);
-    lv_label_set_text(ctx->title_label, def->title[0] != '\0' ? def->title : "Solar Forecast");
+    lv_label_set_text(ctx->title_label, def->title[0] != '\0' ? def->title : ui_i18n_get("titles.solar", "Solar Forecast"));
     ui_text_set(ctx->title_label, UI_TEXT_LABEL, false);
     lv_obj_set_height(ctx->title_label, SOLAR_TITLE_FONT->line_height);
     lv_obj_set_style_text_color(ctx->title_label, lv_color_hex(APP_UI_COLOR_TEXT_PRIMARY), LV_PART_MAIN);

@@ -496,7 +496,7 @@ esp_err_t w_car_widget_create(const ui_widget_def_t *def, lv_obj_t *parent, ui_w
     lv_label_set_long_mode(ctx->precond_label, LV_LABEL_LONG_DOT);
     lv_obj_center(ctx->precond_label);
     lv_label_set_text(ctx->soc_unit_label, "%");
-    lv_label_set_text(ctx->title_label, def->title[0] ? def->title : "Car");
+    lv_label_set_text(ctx->title_label, def->title[0] ? def->title : ui_i18n_get("titles.car", "Car"));
     lv_label_set_long_mode(ctx->title_label, LV_LABEL_LONG_DOT);
     lv_label_set_long_mode(ctx->range_label, LV_LABEL_LONG_CLIP);
     lv_label_set_long_mode(ctx->power_label, LV_LABEL_LONG_CLIP);

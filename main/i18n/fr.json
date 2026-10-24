@@ -524,6 +524,43 @@
       "setup_ap_prefix": "AP de configuration",
       "setup_ap_password": "Mot de passe",
       "offline_mode": "Mode hors ligne"
+    },
+    "xiaozhi": {
+      "title": "Xiaozhi AI",
+      "talk": "Maintenir pour parler",
+      "state": {
+        "disabled": "Désactivé",
+        "ready": "Prêt",
+        "connecting": "Connexion",
+        "listening": "Écoute en cours",
+        "waiting": "En attente de réponse",
+        "speaking": "Lecture en cours",
+        "pairing": "Associez sur xiaozhi.me avec le code",
+        "pairing_retry": "Service indisponible ; nouvel essai",
+        "pairing_error": "Échec de l’association",
+        "pairing_expired": "Association expirée ; réessayez",
+        "pair_first": "Associez d’abord l’appareil",
+        "connection_error": "Connexion interrompue ; réessayez",
+        "audio_or_connection_error": "Audio ou connexion indisponible",
+        "storage_error": "Impossible d’enregistrer les réglages",
+        "memory_error": "Mémoire insuffisante",
+        "unsupported": "Cette carte ne prend pas en charge la voix"
+      }
+    },
+    "ota": {
+      "title": "Mise à jour du micrologiciel",
+      "preparing": "Préparation de la mise à jour",
+      "downloading": "Téléchargement du micrologiciel...",
+      "receiving": "Réception du micrologiciel...",
+      "writing": "Écriture du micrologiciel",
+      "success": "Mise à jour écrite. Redémarrage...",
+      "failed": "Échec de la mise à jour. Consultez l’éditeur."
+    },
+    "titles": {
+      "car": "Voiture",
+      "solar": "Prévisions solaires",
+      "sonos": "Favoris Sonos",
+      "printer": "Imprimante Bambu"
     }
   }
 }

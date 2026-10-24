@@ -899,7 +899,7 @@ async function loadSettings(silent = false) {
   } catch (err) {
     editor.settingsLoadError = String(err.message || err);
     if (!silent) {
-      setStatus(t("status.settings_load_failed", { error: err.message }), true);
+      setStatus(t("status.settings_load_failed", { error: t("common.request_failed") }), true);
     }
     return null;
   }
@@ -988,6 +988,20 @@ function setOtaControlsDisabled(disabled) {
   }
 }
 
+/* Classify existing API diagnostics at the presentation boundary. Keep the API's
+ * original error in editor.ota.status for diagnostics and older clients. */
+function otaLocalizedError(error) {
+  const text = String(error?.message || error || "");
+  let reason = "network";
+  if (/sha.?256|digest|verif/i.test(text)) reason = "integrity";
+  else if (/allocate|memory|start OTA task/i.test(text)) reason = "memory";
+  else if (/larger|partition|too large/i.test(text)) reason = "space";
+  else if (/image|project name|chip|revision|header|incomplete/i.test(text)) reason = "image";
+  else if (/write|boot partition/i.test(text)) reason = "write";
+  else if (/already|busy|progress/i.test(text)) reason = "busy";
+  return t(`settings.ota.failure.${reason}`);
+}
+
 function renderOtaStatus(status) {
   if (!el.settingsOtaInfo) return;
 
@@ -1008,7 +1022,7 @@ function renderOtaStatus(status) {
   let text = "";
   let isError = false;
   if (state === "error") {
-    text = t("settings.ota.error", { error: status.error || t("common.unknown_error") });
+    text = t("settings.ota.error", { error: otaLocalizedError(status.error) });
     isError = true;
   } else if (rebooting) {
     text = t("settings.ota.rebooting");
@@ -1062,7 +1076,7 @@ async function loadOtaStatus(silent = false) {
   } catch (err) {
     const wasRebooting = Boolean(editor.ota.status?.rebooting);
     setOtaInfo(
-      wasRebooting ? t("settings.ota.rebooting") : t("settings.ota.request_failed", { error: err.message }),
+      wasRebooting ? t("settings.ota.rebooting") : t("settings.ota.request_failed", { error: otaLocalizedError(err) }),
       !wasRebooting
     );
     if (!wasRebooting) {
@@ -1101,7 +1115,7 @@ async function startOtaFromUrl() {
       scheduleOtaStatusPoll();
     }
   } catch (err) {
-    setOtaInfo(t("settings.ota.request_failed", { error: err.message }), true);
+    setOtaInfo(t("settings.ota.request_failed", { error: otaLocalizedError(err) }), true);
     setOtaControlsDisabled(false);
   }
 }
@@ -1160,7 +1174,7 @@ async function uploadOtaFile() {
       scheduleOtaStatusPoll();
     }
   } catch (err) {
-    setOtaInfo(t("settings.ota.request_failed", { error: err.message }), true);
+    setOtaInfo(t("settings.ota.request_failed", { error: otaLocalizedError(err) }), true);
     setOtaProgress(0);
   } finally {
     editor.ota.uploadInProgress = false;
@@ -1339,7 +1353,7 @@ async function loadDeviceLog() {
     view.scrollTop = view.scrollHeight;
     return text;
   } catch (err) {
-    view.textContent = String(err.message || err);
+    view.textContent = localizedRequestError(err);
     return "";
   }
 }
@@ -1515,7 +1529,7 @@ function bindAlerts() {
         renderAlertList();
         if (msg) msg.textContent = t("settings.alerts.saved");
       } catch (err) {
-        if (msg) msg.textContent = t("settings.alerts.failed") + String(err.message || err);
+        if (msg) msg.textContent = t("settings.alerts.failed") + localizedRequestError(err);
       }
     });
   }
@@ -1590,7 +1604,7 @@ async function downloadBackup() {
     setTimeout(() => URL.revokeObjectURL(link.href), 2000);
     if (msg) msg.textContent = t("settings.backup.created");
   } catch (err) {
-    if (msg) msg.textContent = t("settings.backup.failed") + String(err.message || err);
+    if (msg) msg.textContent = t("settings.backup.failed") + localizedRequestError(err);
   }
 }
 
@@ -1636,7 +1650,7 @@ async function restoreBackup() {
     storageSet(RESTORE_NOTICE_KEY, "1");
     if (msg) msg.textContent = t("settings.backup.restored");
   } catch (err) {
-    if (msg) msg.textContent = t("settings.backup.failed") + String(err.message || err);
+    if (msg) msg.textContent = t("settings.backup.failed") + localizedRequestError(err);
   }
 }
 
@@ -1666,7 +1680,7 @@ function bindFactoryReset() {
       if (msg) msg.textContent = t("settings.factory.done");
     } catch (err) {
       btn.disabled = false;
-      if (msg) msg.textContent = t("settings.factory.failed") + String(err.message || err);
+      if (msg) msg.textContent = t("settings.factory.failed") + localizedRequestError(err);
     }
   });
 }
@@ -1684,7 +1698,7 @@ function bindRestartPanel() {
       if (!response.ok) throw new Error(await response.text());
     } catch (err) {
       btn.disabled = false;
-      if (msg) msg.textContent = t("settings.restart.failed") + String(err.message || err);
+      if (msg) msg.textContent = t("settings.restart.failed") + localizedRequestError(err);
       return;
     }
     const startedAt = Date.now();
@@ -1749,7 +1763,7 @@ async function saveAdminPassword(password) {
     renderSecurityStatus();
     if (msg) msg.textContent = t(password ? "settings.security.saved" : "settings.security.removed");
   } catch (err) {
-    if (msg) msg.textContent = String(err.message || err);
+    if (msg) msg.textContent = localizedRequestError(err);
   }
 }
 
@@ -2058,7 +2072,7 @@ function pushHardwareLive() {
     try {
       await putSettings({ hardware, reboot: false });
     } catch (error) {
-      setStatus(String(error.message || error), true);
+      setStatus(t("status.settings_save_failed", { error: t("common.request_failed") }), true);
     }
   }, 300);
 }
@@ -2086,7 +2100,7 @@ function pushUiLive() {
     try {
       await putSettings(payload);
     } catch (error) {
-      setStatus(String(error.message || error), true);
+      setStatus(t("status.settings_save_failed", { error: t("common.request_failed") }), true);
     }
   }, 400);
 }

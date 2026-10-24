@@ -48,6 +48,7 @@ www/js/room-import.js room import: area pick, role assignment dialog with previe
 www/js/bind.js        event binding, editor start, bootstrap
 www/js/theme.js       theme editor
 www/js/menus.js       dropdown menus
+www/js/xiaozhi.js     optional panel-microphone assistant controls and bounded status polling
 www/js/main.js        calls `bootstrap()` once everything has loaded
 ```
 

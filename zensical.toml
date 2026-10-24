@@ -75,6 +75,7 @@ nav = [
     ] },
     { "Home Assistant" = [
       { "Home Assistant setup" = "home-assistant.md" },
+      { "Xiaozhi AI" = "xiaozhi-ai.md" },
       { "Notifications" = "notifications.md" },
       { "HTTP notifications" = "http-notifications.md" },
       { "History popups" = "history.md" },
@@ -98,6 +99,7 @@ nav = [
       { "Appearance implementation" = "appearance-implementation.md" },
       { "Text size and readability" = "text-size-readability.md" },
       { "Notification implementation" = "notifications-implementation.md" },
+      { "Xiaozhi AI" = "development/xiaozhi-ai.md" },
       { "Camera streaming" = "development/camera-streaming.md" },
       { "UI performance" = "development/ui-performance.md" },
       { "Security implementation" = "security-implementation.md" },

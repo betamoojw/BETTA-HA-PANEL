@@ -41,6 +41,7 @@ set(WEBUI_JS_SOURCES
     js/theme.js
     js/menus.js
     js/remote-display.js
+    js/xiaozhi.js
     js/main.js)
 
 # Base editor styles first, then one file per appearance style (docs/appearance.md).

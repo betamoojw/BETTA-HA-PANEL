@@ -503,6 +503,7 @@ const SETTINGS_NAV_ITEMS = [
   { group: "settings.nav.group_panel", sectionId: "settingsDeviceSection", headingId: "settingsDeviceHeading", labelKey: "settings.nav.device" },
   { group: "settings.nav.group_panel", sectionId: "settingsWifiSection", headingId: "settingsWifiHeading", labelKey: "settings.nav.network" },
   { group: "settings.nav.group_panel", sectionId: "settingsHaSection", headingId: "settingsHaHeading", labelKey: "settings.nav.ha" },
+  { group: "settings.nav.group_panel", sectionId: "settingsXiaozhiSection", headingId: "settingsXiaozhiHeading", labelKey: "xiaozhi.title" },
   { group: "settings.nav.group_look", sectionId: "settingsHardwareSection", headingId: "settingsHardwareHeading", labelKey: "settings.nav.display" },
   { group: "settings.nav.group_look", sectionId: "settingsThemeSection", headingId: "settingsAppearanceHeading", labelKey: "settings.nav.design" },
   { group: "settings.nav.group_look", sectionId: "settingsTopbarSection", headingId: "settingsTopbarHeading", labelKey: "settings.nav.topbar" },

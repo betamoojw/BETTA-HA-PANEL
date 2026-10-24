@@ -82,7 +82,7 @@ the editor and panel. Custom translation uploads still override built-in texts.
 Chinese works in widget titles, entity names and notifications on every board
 profile. The embedded font covers the built-in catalogs and common simplified
 and traditional characters; rare characters outside its subset show a placeholder.
-The browser uses its installed CJK font fallback. Saved page titles are not translated.
+The browser uses its installed CJK font fallback. OTA messages, theme controls, default widget titles and weekday labels use local catalogs. User-saved names are kept as entered; changing language also preserves pending theme edits.
 
 ## Related guides
 

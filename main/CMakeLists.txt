@@ -160,6 +160,9 @@ idf_component_register(
         "app_events.c"
         "api/http_server.c"
         "api/http_guard.c"
+        "xiaozhi/xiaozhi.c"
+        "xiaozhi/xiaozhi_api.c"
+        "xiaozhi/xiaozhi_ui.c"
         "api/api_routes.c"
         "ui/theme/ui_style.c"
         "ui/theme/ui_style_registry.c"
@@ -427,6 +430,11 @@ if(CONFIG_APP_PANEL_VARIANT_S3_480)
         "-Wl,--wrap=gdma_reset"
         "-Wl,--wrap=esp_intr_alloc_intrstatus")
     target_include_directories(${COMPONENT_LIB} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/drivers/panels3_bsp_shim")
+endif()
+
+if(CONFIG_APP_PANEL_VARIANT_10INCH_1280)
+    target_sources(${COMPONENT_LIB} PRIVATE "xiaozhi/xiaozhi_audio.c")
+    idf_component_optional_requires(PRIVATE 78__esp-opus espressif__esp_codec_dev)
 endif()
 
 # P4 uses ESP-Hosted; S3 has native Wi-Fi.

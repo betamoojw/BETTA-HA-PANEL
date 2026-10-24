@@ -300,3 +300,9 @@
 .timezone-empty { padding: 12px; color: var(--muted); font-size: 13px; }
 .timezone-clock { margin-top: 10px; color: var(--muted); font-size: 12px; }
 .timezone-clock output { color: var(--text); font-size: 20px; font-variant-numeric: tabular-nums; }
+
+/* Assistant controls share the immediate-save display settings layout. */
+#xiaozhiFields[hidden] { display: none; }
+#xiaozhiFields { gap: 12px; }
+#xiaozhiText, #xiaozhiCode { overflow-wrap: anywhere; white-space: pre-wrap; }
+#xiaozhiTalk { touch-action: none; user-select: none; }

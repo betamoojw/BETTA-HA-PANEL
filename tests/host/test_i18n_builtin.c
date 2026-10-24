@@ -115,10 +115,45 @@ static void test_lookup(void)
     ui_i18n_reset();
 }
 
+static void test_chinese_weekdays(void)
+{
+    const char *langs[] = {"zh-cn", "zh-tw"};
+    for (size_t lang = 0; lang < 2; lang++) {
+        CHECK(ui_i18n_init(langs[lang]) == ESP_OK, "weekday init");
+        char labels[7][16];
+        for (int day = 0; day < 7; day++) {
+            char key[32];
+            snprintf(key, sizeof(key), "weather.weekday_%d", day);
+            ui_i18n_weekday_short(day, labels[day], sizeof(labels[day]));
+            CHECK(strcmp(labels[day], ui_i18n_get(key, "")) == 0, "weekday %d", day);
+            for (int prev = 0; prev < day; prev++)
+                CHECK(strcmp(labels[day], labels[prev]) != 0, "distinct weekday %d", day);
+            for (size_t capacity = 1; capacity <= 7; capacity++) {
+                char tiny[8];
+                memset(tiny, 0x7f, sizeof(tiny));
+                ui_i18n_weekday_short(day, tiny, capacity);
+                CHECK(strlen(tiny) == ((capacity - 1) / 3) * 3, "UTF-8 boundary %zu", capacity);
+                CHECK(tiny[capacity] == 0x7f, "no overwrite %zu", capacity);
+            }
+        }
+        char invalid[16];
+        ui_i18n_weekday_short(99, invalid, sizeof(invalid));
+        CHECK(strcmp(invalid, labels[0]) == 0, "invalid weekday defaults to Sunday");
+        char sentinel = 'x';
+        ui_i18n_weekday_short(0, &sentinel, 0);
+        CHECK(sentinel == 'x', "zero capacity");
+        ui_i18n_weekday_short(0, NULL, 4);
+        CHECK(strcmp(ui_i18n_get("ota.title", ""), lang ? "韌體更新" : "固件更新") == 0, "OTA title");
+        CHECK(strcmp(ui_i18n_get("titles.car", ""), lang ? "車輛" : "车辆") == 0, "car title");
+    }
+    ui_i18n_reset();
+}
+
 int main(void)
 {
     test_documents();
     test_lookup();
+    test_chinese_weekdays();
     if (failures != 0) {
         printf("test_i18n_builtin: %d failure(s)\n", failures);
         return 1;

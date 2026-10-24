@@ -15,13 +15,16 @@ const themeState = {
   activeId: "",
   editing: null,
   baseId: "",
+  feedback: null,
 };
 
 function themeEl(id) {
   return document.getElementById(id);
 }
 
-function themeSetInfo(msg, isError) {
+function themeSetInfo(key, isError, params = {}) {
+  themeState.feedback = key ? {key, isError, params} : null;
+  const msg = key ? t(key, params) : "";
   const info = themeEl("settingsThemeInfo");
   if (info) {
     info.textContent = msg || "";
@@ -95,7 +98,7 @@ function themePopulateSelect() {
   for (const entry of themeState.list) {
     const opt = document.createElement("option");
     opt.value = entry.id;
-    opt.textContent = (entry.builtin ? "[built-in] " : "[custom] ") + (entry.name || entry.id);
+    opt.textContent = ("[" + t(entry.builtin ? "settings.theme.builtin" : "settings.theme.custom") + "] ") + (entry.name || entry.id);
     sel.appendChild(opt);
   }
   if (themeState.activeId) {
@@ -215,13 +218,9 @@ const THEME_COLOR_GROUPS = [
 
 function themeHumanizeKey(key) {
   if (!key) return "";
-  return key
-    .replace(/_/g, " ")
-    .replace(/\bbg\b/gi, "background")
-    .replace(/\bind\b/gi, "indicator")
-    .replace(/\bbtn\b/gi, "button")
-    .replace(/\btxt\b/gi, "text")
-    .replace(/\b\w/g, (c) => c.toUpperCase());
+  const id = `settings.theme.color.${key}`;
+  const label = t(id);
+  return label === id ? key : label;
 }
 
 function themeRenderColorGrid(palette) {
@@ -276,7 +275,7 @@ function themeRenderColorGrid(palette) {
   };
 
   for (const g of THEME_COLOR_GROUPS) {
-    appendGroup(g.label, g.keys, { open: true });
+    appendGroup(t(`settings.theme.group.${g.id}`), g.keys, { open: true });
   }
 
   // Any keys not covered by a known group — render as "Other" collapsed.
@@ -284,7 +283,7 @@ function themeRenderColorGrid(palette) {
     .filter((k) => !seen.has(k))
     .sort();
   if (leftover.length > 0) {
-    appendGroup("Other", leftover, { open: false });
+    appendGroup(t("settings.theme.group.other"), leftover, { open: false });
   }
 }
 
@@ -310,24 +309,24 @@ function themeRenderPreview() {
   themeRoundRect(ctx, 10, 10, 100, 90, 12, true);
   ctx.fillStyle = text;
   ctx.font = "11px sans-serif";
-  ctx.fillText("Sensor", 18, 28);
+  ctx.fillText(t("settings.theme.preview.sensor"), 18, 28);
   ctx.font = "bold 20px sans-serif";
   ctx.fillText("21.5°", 18, 60);
   ctx.font = "10px sans-serif";
   ctx.fillStyle = soft;
-  ctx.fillText("off", 18, 88);
+  ctx.fillText(t("evcc.off"), 18, 88);
 
   // Tile 2 (on)
   ctx.fillStyle = cardOn;
   themeRoundRect(ctx, 120, 10, 100, 90, 12, true);
   ctx.fillStyle = text;
   ctx.font = "11px sans-serif";
-  ctx.fillText("Light", 128, 28);
+  ctx.fillText(t("room_import.role.light"), 128, 28);
   ctx.fillStyle = accent;
   ctx.fillRect(128, 40, 80, 8);
   ctx.fillStyle = text;
   ctx.font = "10px sans-serif";
-  ctx.fillText("on", 128, 88);
+  ctx.fillText(t("layout.preview.on"), 128, 88);
 
   // Tile 3 (heating arc)
   ctx.fillStyle = cardOn;
@@ -346,7 +345,7 @@ function themeRenderPreview() {
   ctx.fillText("22.5°", 272, 115);
   ctx.fillStyle = soft;
   ctx.font = "10px sans-serif";
-  ctx.fillText("Target 22.5", 270, 170);
+  ctx.fillText(t("layout.preview.heating_target", { temp: "22.5" }), 270, 170);
 
   // Bottom nav area
   ctx.fillStyle = c.topbar_bg || "#1a1a1a";
@@ -355,7 +354,7 @@ function themeRenderPreview() {
   ctx.fillRect(10, canvas.height - 26, 40, 22);
   ctx.fillStyle = themeReadableOn(accent, text);
   ctx.font = "11px sans-serif";
-  ctx.fillText("Home", 14, canvas.height - 12);
+  ctx.fillText(t("layout.preview.home"), 14, canvas.height - 12);
 }
 
 // The text colour that stays readable on a fill: a dark one on a light fill, else the given one.
@@ -394,7 +393,7 @@ async function themeLoadAndRender() {
     themeSyncEditFields();
     themeSetInfo("");
   } catch (e) {
-    themeSetInfo("Load failed: " + (e && e.message ? e.message : e), true);
+    themeSetInfo("settings.theme.load_failed", true);
   }
 }
 
@@ -416,11 +415,9 @@ function themeSyncEditFields() {
     idInput.value = editing.id || "";
     nameInput.value = editing.name || entry.name || "";
     idInput.readOnly = true;
-    idInput.title = "Editing existing custom theme. Clear to save as a new one.";
+    idInput.title = t("settings.theme.edit_hint");
     if (baseMeta) {
-      baseMeta.textContent =
-        "Editing custom theme \"" + (editing.name || editing.id) +
-        "\". Changes are saved back to id \"" + editing.id + "\".";
+      baseMeta.textContent = t("settings.theme.editing", { name: editing.name || editing.id, id: editing.id });
     }
   } else {
     idInput.value = "";
@@ -428,15 +425,13 @@ function themeSyncEditFields() {
     idInput.readOnly = false;
     idInput.title = "";
     if (baseMeta) {
-      baseMeta.textContent =
-        "Base palette: " + (editing.name || editing.id || "active theme") +
-        ". Edit colors below, then \"Save as custom\".";
+      baseMeta.textContent = t("settings.theme.base", { name: editing.name || editing.id || t("settings.theme.active") });
     }
   }
 
   const saveBtn = themeEl("settingsThemeSaveCustomBtn");
   if (saveBtn) {
-    saveBtn.textContent = isCustom ? "Save changes" : "Save as custom";
+    saveBtn.textContent = t(isCustom ? "settings.theme.save_changes" : "settings.theme.save_custom");
   }
 }
 
@@ -450,10 +445,10 @@ async function themeApplyActive() {
       body: JSON.stringify({ id: sel.value }),
     });
     if (!resp.ok) throw new Error(await resp.text());
-    themeSetInfo("Active theme set to " + sel.value);
     await themeLoadAndRender();
+    themeSetInfo("settings.theme.applied", false, { id: sel.value });
   } catch (e) {
-    themeSetInfo("Apply failed: " + e.message, true);
+    themeSetInfo("settings.theme.apply_failed", true);
   }
 }
 
@@ -471,14 +466,14 @@ async function themeExportActive() {
     a.click();
     URL.revokeObjectURL(url);
   } catch (e) {
-    themeSetInfo("Export failed: " + e.message, true);
+    themeSetInfo("settings.theme.export_failed", true);
   }
 }
 
 async function themeImportFile() {
   const input = themeEl("settingsThemeImportFile");
   if (!input || !input.files || !input.files[0]) {
-    themeSetInfo("Choose a JSON file first", true);
+    themeSetInfo("settings.theme.choose_file", true);
     return;
   }
   try {
@@ -491,10 +486,10 @@ async function themeImportFile() {
       body: JSON.stringify(theme),
     });
     if (!resp.ok) throw new Error(await resp.text());
-    themeSetInfo("Imported theme " + theme.id);
     await themeLoadAndRender();
+    themeSetInfo("settings.theme.imported", false, { id: theme.id });
   } catch (e) {
-    themeSetInfo("Import failed: " + e.message, true);
+    themeSetInfo("settings.theme.import_failed", true);
   }
 }
 
@@ -512,11 +507,11 @@ async function themeSaveCustom() {
     if (!name) name = editing.name || editing.id || "";
   }
   if (!id || !/^[A-Za-z0-9_-]+$/.test(id)) {
-    themeSetInfo("Custom theme ID must be alphanumeric (_-) only", true);
+    themeSetInfo("settings.theme.invalid_id", true);
     return;
   }
   if (!themeState.editing || !themeState.editing.colors) {
-    themeSetInfo("No palette to save", true);
+    themeSetInfo("settings.theme.no_palette", true);
     return;
   }
   const payload = {
@@ -532,8 +527,8 @@ async function themeSaveCustom() {
       body: JSON.stringify(payload),
     });
     if (!resp.ok) throw new Error(await resp.text());
-    themeSetInfo("Saved custom theme " + id);
     await themeLoadAndRender();
+    themeSetInfo("settings.theme.saved", false, { id: id });
     // Re-select the just-saved theme so editing continues on it.
     const selAfter = themeEl("settingsThemeSelect");
     if (selAfter) {
@@ -543,7 +538,7 @@ async function themeSaveCustom() {
       }
     }
   } catch (e) {
-    themeSetInfo("Save failed: " + e.message, true);
+    themeSetInfo("settings.theme.save_failed", true);
   }
 }
 
@@ -553,17 +548,17 @@ async function themeDeleteCustom() {
   const entry = themeState.list.find((e) => e.id === sel.value);
   if (!entry) return;
   if (entry.builtin) {
-    themeSetInfo("Cannot delete built-in themes", true);
+    themeSetInfo("settings.theme.cannot_delete", true);
     return;
   }
-  if (!window.confirm("Delete theme " + entry.id + "?")) return;
+  if (!window.confirm(t("settings.theme.confirm_delete", { id: entry.id }))) return;
   try {
     const resp = await fetch("/api/themes/custom?id=" + encodeURIComponent(entry.id), { method: "DELETE" });
     if (!resp.ok) throw new Error(await resp.text());
-    themeSetInfo("Deleted " + entry.id);
     await themeLoadAndRender();
+    themeSetInfo("settings.theme.deleted", false, { id: entry.id });
   } catch (e) {
-    themeSetInfo("Delete failed: " + e.message, true);
+    themeSetInfo("settings.theme.delete_failed", true);
   }
 }
 
@@ -595,9 +590,28 @@ function initThemeSection() {
         themeRenderPreview();
         themeSyncEditFields();
       } catch (e) {
-        themeSetInfo("Load failed: " + e.message, true);
+        themeSetInfo("settings.theme.load_failed", true);
       }
     };
   }
   void themeLoadAndRender();
+}
+
+function themeRefreshTranslations() {
+  const feedback = themeState.feedback;
+  if (feedback) themeSetInfo(feedback.key, feedback.isError, feedback.params);
+  const select = themeEl("settingsThemeSelect");
+  const selected = select && select.value;
+  themePopulateSelect();
+  if (select) select.value = selected;
+  if (!themeState.editing) return;
+  const idInput = themeEl("settingsThemeNewId");
+  const nameInput = themeEl("settingsThemeNewName");
+  const id = idInput && idInput.value;
+  const name = nameInput && nameInput.value;
+  themeSyncEditFields();
+  if (idInput) idInput.value = id;
+  if (nameInput) nameInput.value = name;
+  themeRenderColorGrid(themeState.editing);
+  themeRenderPreview();
 }

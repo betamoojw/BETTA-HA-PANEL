@@ -7,6 +7,14 @@
  * Part of the web editor: classic scripts loaded in the order of index.html, sharing one global scope
  * (see docs/editor-source.md).
  */
+/* Keep our localized validation messages; do not present browser/network/server
+ * diagnostics as if they were translated UI copy. */
+function localizedRequestError(error) {
+  const message = String(error?.message || error || "");
+  return message && Object.values(editor.i18nMap || {}).includes(message)
+    ? message : t("common.request_failed");
+}
+
 function setSelectOptionText(select, value, key, vars) {
   if (!select || !select.options) return;
   for (const option of select.options) {
@@ -421,6 +429,14 @@ setTextById("addBambuPrinterBtn", "layout.widgets.add_bambu_printer");
   setTextById("settingsDeviceIdLabel", "settings.device.id");
   setTextById("settingsDeviceNameLabel", "settings.device.name");
   setTextById("settingsBrightnessHeading", "settings.display.in_use");
+  setTextById("settingsXiaozhiHeading", "xiaozhi.title");
+  setTextById("xiaozhiPrivacy", "xiaozhi.privacy");
+  setTextById("xiaozhiEnableLabel", "xiaozhi.enable");
+  setTextById("xiaozhiVolumeLabel", "xiaozhi.volume");
+  setTextById("xiaozhiPair", "xiaozhi.pair");
+  setTextById("xiaozhiTalk", "xiaozhi.talk");
+  setTextById("xiaozhiStop", "xiaozhi.stop");
+  setTextById("xiaozhiReset", "xiaozhi.reset");
   setTextById("settingsSoundHeading", "settings.sound.heading");
   setTextById("settingsSoundEnabledLabel", "settings.sound.enabled");
   setTextById("settingsSoundVolumeLabel", "settings.sound.volume");
@@ -671,6 +687,7 @@ setTextById("addBambuPrinterBtn", "layout.widgets.add_bambu_printer");
   // clicked, so it would sit in the bootstrap-time fallback language until first use otherwise.
   applySectionCollapseState();
   refreshInspectorLayout();
+  if (typeof themeRefreshTranslations === "function") themeRefreshTranslations();
 }
 
 function downloadLanguageJson() {

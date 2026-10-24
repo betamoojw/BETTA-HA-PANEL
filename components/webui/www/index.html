@@ -191,6 +191,24 @@
       </div>
 
       <div id="settingsPane" class="pane hidden">
+        <section class="display-settings">
+          <h2 id="settingsXiaozhiHeading" data-i18n-key="xiaozhi.title">Xiaozhi AI</h2>
+          <div class="form">
+          <p class="meta" id="xiaozhiPrivacy" data-i18n-key="xiaozhi.privacy">Off by default. Cloud pairing shares the device identity; holding Talk sends microphone audio to Xiaozhi. No wake-word listening.</p>
+          <label class="row"><input type="checkbox" id="xiaozhiEnabled" /> <span id="xiaozhiEnableLabel" data-i18n-key="xiaozhi.enable">Enable Xiaozhi AI</span></label>
+          <div id="xiaozhiFields" class="form" hidden>
+            <button class="btn small" id="xiaozhiPair" type="button" data-i18n-key="xiaozhi.pair">Pair / check pairing</button>
+            <a href="https://xiaozhi.me" target="_blank" rel="noopener noreferrer">xiaozhi.me</a>
+            <output id="xiaozhiCode" aria-live="polite"></output>
+            <label class="field-narrow"><span id="xiaozhiVolumeLabel" data-i18n-key="xiaozhi.volume">Speaker volume</span><input id="xiaozhiVolume" type="number" min="0" max="80" value="50" /></label>
+            <button class="btn small" id="xiaozhiTalk" type="button" data-i18n-key="xiaozhi.talk">Hold to talk</button>
+            <button class="btn small" id="xiaozhiStop" type="button" data-i18n-key="xiaozhi.stop">Disconnect</button>
+          </div>
+          <p id="xiaozhiStatus" role="status"></p>
+          <p id="xiaozhiText"></p>
+          <button class="btn small" id="xiaozhiReset" type="button" data-i18n-key="xiaozhi.reset">Reset to defaults</button>
+          </div>
+        </section>
         <section>
           <h2 id="settingsDeviceHeading">Device</h2>
           <div class="form">
@@ -1840,6 +1858,7 @@
   <script src="/js/theme.js"></script>
   <script src="/js/menus.js"></script>
   <script src="/js/remote-display.js"></script>
+  <script src="/js/xiaozhi.js"></script>
   <script src="/js/main.js"></script>
 </body>
 </html>

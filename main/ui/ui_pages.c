@@ -2,6 +2,10 @@
  * Copyright (c) 2026 Cpt_Kirk
  * Modified 2026 by andre68723 in the andre68723/BETTA-HA-PANEL fork, see docs/release-notes.md
  */
+
+#ifdef ESP_PLATFORM
+#include "xiaozhi/xiaozhi.h"
+#endif
 #include "ui/display_geometry.h"
 #include "ui/ui_pages.h"
 
@@ -1095,6 +1099,9 @@ void ui_pages_init(void)
     ui_style_glass_background(s_content_box, lv_color_hex(APP_UI_COLOR_CONTENT_BG), lv_color_hex(APP_UI_COLOR_NAV_TAB_ACTIVE));
 
     ui_pages_create_topbar(screen);
+#ifdef ESP_PLATFORM
+    xiaozhi_ui_create(screen);
+#endif
     ui_pages_create_nav(screen);
 
     time_t now = time(NULL);

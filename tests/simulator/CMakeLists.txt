@@ -228,6 +228,18 @@ target_compile_definitions(betta-remote-test PRIVATE CONFIG_APP_REMOTE_DISPLAY=1
 target_compile_options(betta-remote-test PRIVATE -Wall -Wextra -Werror -Wno-unused-parameter -UNDEBUG)
 target_link_libraries(betta-remote-test PRIVATE lvgl SDL2::SDL2 m)
 enable_testing()
+foreach(board 4INCH_720 10INCH_1280 10INCH_JC TAB5_1280 S3_480)
+    set(target "betta-geometry-${board}")
+    add_executable(${target} orientation_geometry_regression.c
+        "${REPO_ROOT}/main/ui/display_geometry.c"
+        "${REPO_ROOT}/main/layout/layout_orientation.c"
+        "${REPO_ROOT}/main/layout/widget_types.c")
+    target_include_directories(${target} PRIVATE "${REPO_ROOT}/main" "${CMAKE_CURRENT_LIST_DIR}/stubs")
+    target_compile_definitions(${target} PRIVATE CONFIG_APP_PANEL_VARIANT_${board}=1)
+    target_compile_options(${target} PRIVATE -Wall -Wextra -Werror -UNDEBUG)
+    target_link_libraries(${target} PRIVATE sim_cjson m)
+    add_test(NAME geometry-${board} COMMAND ${target})
+endforeach()
 add_executable(betta-rotation-test display_rotation_regression.c
     "${REPO_ROOT}/main/drivers/display_rotation.c")
 target_include_directories(betta-rotation-test PRIVATE "${REPO_ROOT}/main")

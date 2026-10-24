@@ -61,7 +61,8 @@ typedef struct {
     bool sound_night_mute;
     bool hardware_night_enabled;   /* backlight off between start and end */
     bool hardware_auto_brightness;   /* ambient light (camera) limits the backlight */
-    bool hardware_auto_rotation;     /* Tab5 BMI270; other panels keep fixed orientation */
+    int hardware_rotation;          /* 0/90/180/270 relative to the board default */
+    bool hardware_auto_rotation;     /* Tab5 BMI270; other panels use the manual angle */
     int hardware_presence_sensitivity; /* 1 (low) .. 10 (high) */
     bool hardware_night_presence_wake; /* movement may also wake the display at night */
     bool hardware_presence_wake;     /* movement in front of the panel wakes a dimmed display */

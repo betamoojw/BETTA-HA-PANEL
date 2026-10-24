@@ -641,8 +641,10 @@ function renderSettings() {
   if (el.settingsSoundStatus) el.settingsSoundStatus.textContent = soundSupported ? "" : t("settings.sound.unsupported");
   if (el.settingsHardwareNightEnabled) el.settingsHardwareNightEnabled.checked = hardware.night_enabled !== false;
   if (el.settingsRotationGroup) el.settingsRotationGroup.hidden = hardware.rotation_supported !== true;
-  if (el.settingsRotationRow) el.settingsRotationRow.hidden = hardware.rotation_supported !== true;
+  if (el.settingsRotationRow) el.settingsRotationRow.hidden = hardware.auto_rotation_supported !== true;
   if (el.settingsHardwareAutoRotation) el.settingsHardwareAutoRotation.checked = hardware.auto_rotation === true;
+  if (el.settingsHardwareRotation) el.settingsHardwareRotation.value = String(hardware.rotation || 0);
+  updateRotationFields();
   if (el.settingsHardwareAutoBrightness) el.settingsHardwareAutoBrightness.checked = hardware.auto_brightness === true;
   if (el.settingsHardwarePresenceWake) el.settingsHardwarePresenceWake.checked = hardware.presence_wake === true;
   if (el.settingsHardwareNightPresenceWake) {
@@ -2062,6 +2064,7 @@ function pushHardwareLive() {
       dim_timeout_seconds: clamp(Number(el.settingsHardwareDimTimeout?.value || 300), 5, 3600),
       night_enabled: el.settingsHardwareNightEnabled ? el.settingsHardwareNightEnabled.checked : false,
       night_brightness_percent: clamp(Number(el.settingsHardwareNightBrightness?.value ?? 1), 0, 100),
+      rotation: Number(el.settingsHardwareRotation?.value || 0),
       auto_rotation: el.settingsHardwareAutoRotation ? el.settingsHardwareAutoRotation.checked : false,
       auto_brightness: el.settingsHardwareAutoBrightness ? el.settingsHardwareAutoBrightness.checked : false,
       presence_wake: el.settingsHardwarePresenceWake ? el.settingsHardwarePresenceWake.checked : false,
@@ -2108,7 +2111,12 @@ function pushUiLive() {
   }, 400);
 }
 
+function updateRotationFields() {
+  if (el.settingsManualRotationRow) el.settingsManualRotationRow.hidden = el.settingsHardwareAutoRotation?.checked === true;
+}
+
 function bindHardwareLive() {
+  el.settingsHardwareAutoRotation?.addEventListener("change", updateRotationFields);
   if (el.settingsTimezone) el.settingsTimezone.addEventListener("change", pushTimezoneLive);
   for (const input of [el.settingsUiStyle, el.settingsUiTextStep, el.settingsLanguage, el.settingsTopbarSlot1,
     el.settingsTopbarSlot2, el.settingsTopbarSlot3, el.settingsTopbarWeatherEntity, el.settingsTopbarStockEntity]) {
@@ -2133,7 +2141,7 @@ function bindHardwareLive() {
   const changes = [
     el.settingsSoundEnabled, el.settingsSoundNightMute,
     el.settingsHardwareDimTimeout,
-    el.settingsHardwareAutoRotation,
+    el.settingsHardwareAutoRotation, el.settingsHardwareRotation,
     el.settingsHardwareAutoBrightness,
     el.settingsHardwarePresenceWake,
     el.settingsHardwareNightPresenceWake,
@@ -2200,6 +2208,8 @@ function resetDisplayDefaults() {
   if (el.settingsHardwareNightStart) el.settingsHardwareNightStart.value = "22:00";
   if (el.settingsHardwareNightEnd) el.settingsHardwareNightEnd.value = "06:00";
   if (el.settingsHardwareAutoRotation) el.settingsHardwareAutoRotation.checked = editor.appProject === "betta-ha-panel-tab5";
+  if (el.settingsHardwareRotation) el.settingsHardwareRotation.value = "0";
+  updateRotationFields();
   if (el.settingsHardwareAutoBrightness) el.settingsHardwareAutoBrightness.checked = cameraOnByDefault;
   if (el.settingsHardwarePresenceWake) el.settingsHardwarePresenceWake.checked = cameraOnByDefault;
   if (el.settingsHardwareNightPresenceWake) el.settingsHardwareNightPresenceWake.checked = false;
@@ -2378,6 +2388,7 @@ async function saveSettings() {
       dim_timeout_seconds: hardwareDimTimeout,
       night_enabled: el.settingsHardwareNightEnabled ? el.settingsHardwareNightEnabled.checked : false,
       night_brightness_percent: hardwareNightBrightness,
+      rotation: Number(el.settingsHardwareRotation?.value || 0),
       auto_rotation: el.settingsHardwareAutoRotation ? el.settingsHardwareAutoRotation.checked : false,
       auto_brightness: el.settingsHardwareAutoBrightness ? el.settingsHardwareAutoBrightness.checked : false,
       presence_wake: el.settingsHardwarePresenceWake ? el.settingsHardwarePresenceWake.checked : false,

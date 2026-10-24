@@ -275,6 +275,7 @@ static esp_err_t serialize_public_settings(const runtime_settings_t *settings, u
     if (cJSON_AddBoolToObject(hardware, "night_enabled", settings->hardware_night_enabled) == NULL) goto oom;
     if (cJSON_AddNumberToObject(hardware, "night_brightness_percent", settings->hardware_night_brightness_percent) == NULL) goto oom;
     if (cJSON_AddBoolToObject(hardware, "auto_brightness", settings->hardware_auto_brightness) == NULL) goto oom;
+    if (cJSON_AddNumberToObject(hardware, "rotation", settings->hardware_rotation) == NULL) goto oom;
     if (cJSON_AddBoolToObject(hardware, "auto_rotation", settings->hardware_auto_rotation) == NULL) goto oom;
     if (cJSON_AddBoolToObject(hardware, "presence_wake", settings->hardware_presence_wake) == NULL) goto oom;
     if (cJSON_AddNumberToObject(hardware, "presence_sensitivity", settings->hardware_presence_sensitivity) == NULL) goto oom;
@@ -429,6 +430,9 @@ static esp_err_t parse_settings_json(const char *json, runtime_settings_t *out, 
         if (out->sound_volume < 0) out->sound_volume = 0;
         if (out->sound_volume > 100) out->sound_volume = 100;
         json_copy_int(hardware, "night_brightness_percent", &out->hardware_night_brightness_percent);
+        cJSON *rotation = cJSON_GetObjectItemCaseSensitive(hardware, "rotation");
+        if (cJSON_IsNumber(rotation) && (rotation->valuedouble == 0 || rotation->valuedouble == 90 ||
+            rotation->valuedouble == 180 || rotation->valuedouble == 270)) out->hardware_rotation = rotation->valueint;
         cJSON *auto_rotation = cJSON_GetObjectItemCaseSensitive(hardware, "auto_rotation");
 #if defined(CONFIG_APP_PANEL_VARIANT_TAB5_1280)
         if (cJSON_IsBool(auto_rotation)) out->hardware_auto_rotation = cJSON_IsTrue(auto_rotation);

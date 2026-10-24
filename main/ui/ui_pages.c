@@ -78,6 +78,7 @@ static bool s_stock_euro = false;
 static lv_obj_t *s_wifi_icon = NULL;
 static lv_obj_t *s_wifi_chip = NULL;
 static lv_obj_t *s_settings_chip = NULL;
+static lv_obj_t *s_auxiliary_chip = NULL;
 static lv_coord_t s_clock_shift;
 static bool s_clock_24h = true;
 static lv_obj_t *s_api_chip = NULL;      /* Home Assistant chip */
@@ -740,10 +741,21 @@ static void ui_pages_layout_topbar_right(void)
     }
     lv_coord_t right_start = APP_VIEW_WIDTH + x -
         (s_crash_warning != NULL && !lv_obj_is_hidden(s_crash_warning) ? 32 : TOPBAR_STATUS_CHIP_W);
+    if (s_auxiliary_chip != NULL && !lv_obj_is_hidden(s_auxiliary_chip)) {
+        lv_obj_update_layout(s_auxiliary_chip);
+        right_start -= TOPBAR_CHIP_GAP + lv_obj_get_width(s_auxiliary_chip);
+        lv_obj_set_pos(s_auxiliary_chip, right_start, (60 - lv_obj_get_height(s_auxiliary_chip)) / 2);
+    }
     lv_coord_t clock_w = APP_VIEW_WIDTH < 1000 ? 88 : 180;
     s_clock_shift = LV_MIN(0, right_start - 8 - (APP_VIEW_WIDTH + clock_w) / 2);
     if (s_time_label != NULL) lv_obj_align(s_time_label, LV_ALIGN_CENTER, s_clock_shift, 0);
     ui_pages_layout_topbar_left();
+}
+
+void ui_pages_set_topbar_auxiliary(lv_obj_t *button)
+{
+    s_auxiliary_chip = button;
+    ui_pages_layout_topbar_right();
 }
 
 void ui_pages_set_crash_warning(bool visible)
@@ -1057,6 +1069,7 @@ void ui_pages_init(void)
     s_api_chip = NULL;
     s_mqtt_chip = NULL;
     s_crash_warning = NULL;
+    s_auxiliary_chip = NULL;
     s_api_ha_glyph = NULL;
     s_api_mqtt_glyph = NULL;
     if (s_mqtt_status_timer != NULL) {

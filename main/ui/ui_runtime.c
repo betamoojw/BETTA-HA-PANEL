@@ -6,6 +6,7 @@
 #include "ui/display_geometry.h"
 #include "layout/layout_orientation.h"
 #include "drivers/display_orientation.h"
+#include "ui/ui_screen_settings.h"
 #include "ui/ui_runtime.h"
 
 #include <stdio.h>
@@ -1072,12 +1073,11 @@ static esp_err_t ui_runtime_apply_layout(const char *layout_json, const runtime_
     if (root == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
-#if defined(CONFIG_APP_PANEL_VARIANT_TAB5_1280)
     if (!layout_orientation_project(root, display_geometry_portrait())) {
         cJSON_Delete(root);
         return ESP_ERR_INVALID_ARG;
     }
-#endif
+
     cJSON *pages = cJSON_GetObjectItemCaseSensitive(root, "pages");
     if (!cJSON_IsArray(pages)) {
         cJSON_Delete(root);
@@ -1412,7 +1412,10 @@ static void ui_runtime_rotate(int degrees)
 {
     if (!display_orientation_supported() || degrees == display_geometry_rotation()) return;
     if (!display_lock(20)) return; /* sensor retries until applied */
-    if (lv_obj_get_child_count(lv_layer_top()) || ui_display_protection_is_active()) {
+    bool popup = false;
+    for (uint32_t i = 0; i < lv_obj_get_child_count(lv_layer_top()); i++)
+        if (!lv_obj_has_flag(lv_obj_get_child(lv_layer_top(), i), LV_OBJ_FLAG_HIDDEN)) popup = true;
+    if (popup || ui_screen_settings_root() || ui_display_protection_is_active()) {
         display_unlock();
         return; /* Keep open controls and saver timers alive until dismissed. */
     }
@@ -1486,7 +1489,7 @@ static void ui_runtime_handle_event(const app_event_t *event)
         ui_runtime_refresh_topbar();
         break;
     case EV_DISPLAY_ROTATION:
-        ui_runtime_rotate(event->data.rotation_degrees);
+        if (display_orientation_manual_target() < 0) ui_runtime_rotate(event->data.rotation_degrees);
         break;
     case EV_LAYOUT_UPDATED:
         /* The revision poll retries until the saved configuration is applied. */
@@ -1526,6 +1529,12 @@ static void ui_runtime_task(void *arg)
         }
 
         int64_t now_ms = esp_timer_get_time() / 1000;
+        static int64_t last_rotation_ms;
+        if (now_ms - last_rotation_ms >= 1000) {
+            last_rotation_ms = now_ms;
+            int target = display_orientation_manual_target();
+            if (target >= 0) ui_runtime_rotate(target);
+        }
         if (app_events_layout_revision() != s_applied_layout_revision && now_ms - last_reload_ms >= 1000) {
             last_reload_ms = now_ms;
             esp_err_t reload_err = ui_runtime_reload_layout();

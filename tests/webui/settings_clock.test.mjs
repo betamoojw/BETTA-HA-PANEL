@@ -24,6 +24,23 @@ function setup() {
   return run;
 }
 
+test("manual rotation saves all quarter turns and survives auto mode and reset", () => {
+  const run = setup();
+  for (const degrees of [0,90,180,270]) {
+    run(`el.settingsHardwareRotation.value='${degrees}'; el.settingsHardwareRotation.dispatch('change')`);
+    assert.equal(run("puts.at(-1).hardware.rotation"), degrees);
+    assert.equal(run("puts.at(-1).reboot"), false);
+  }
+  run("el.settingsHardwareAutoRotation.checked=true; el.settingsHardwareAutoRotation.dispatch('change')");
+  assert.equal(run("el.settingsManualRotationRow.hidden"), true);
+  assert.equal(run("puts.at(-1).hardware.rotation"), 270);
+  run("el.settingsHardwareAutoRotation.checked=false; el.settingsHardwareAutoRotation.dispatch('change')");
+  assert.equal(run("el.settingsManualRotationRow.hidden"), false);
+  assert.equal(run("puts.at(-1).hardware.rotation"), 270);
+  run("resetDisplayDefaults()");
+  assert.equal(run("puts.at(-1).hardware.rotation"), 0);
+});
+
 test("clock controls persist through their real event handlers without rebooting", () => {
   const run = setup();
   run(`el.settingsSaverMode.value = 'clock'; el.settingsSaverMode.dispatch('change');`);

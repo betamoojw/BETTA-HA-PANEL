@@ -10,7 +10,10 @@ typedef struct {
     int boot_degrees, saved_degrees;
 } display_orientation_status_t;
 bool display_orientation_supported(void);
-void display_orientation_configure(bool enabled);
+bool display_orientation_auto_supported(void);
+void display_orientation_configure(bool enabled, int relative_degrees);
+/* Absolute manual target, or -1 while the IMU owns rotation. */
+int display_orientation_manual_target(void);
 /* After BSP/I2C initialization, before creating the first splash; bounded sensor read with saved fallback. */
 int display_orientation_prepare_boot(void);
 esp_err_t display_orientation_start(void);

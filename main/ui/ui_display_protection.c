@@ -449,9 +449,8 @@ static void create_overlay(void)
     lv_display_t *display = lv_display_get_default();
     if (display == NULL) return;
     int32_t width = lv_display_get_horizontal_resolution(display);
-    int32_t height = lv_display_get_vertical_resolution(display);
     s_overlay = lv_obj_create(lv_layer_top());
-    lv_obj_set_size(s_overlay, width, height);
+    lv_obj_set_size(s_overlay, lv_pct(100), lv_pct(100));
     lv_obj_set_pos(s_overlay, 0, 0);
     lv_obj_set_style_bg_color(s_overlay, lv_color_black(), 0);
     lv_obj_set_style_bg_opa(s_overlay, LV_OPA_COVER, 0);

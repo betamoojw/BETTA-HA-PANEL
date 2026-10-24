@@ -4,6 +4,7 @@
  */
 #include "drivers/display_backlight.h"
 #include "drivers/display_init.h"
+#include "drivers/display_orientation.h"
 
 #include <stdbool.h>
 
@@ -70,13 +71,16 @@ esp_err_t display_init(void)
     }
 
     s_lv_display = display_port_add_dsi(lcd.panel, lcd.io, APP_SCREEN_WIDTH, APP_SCREEN_HEIGHT,
-                                        false, BSP_LCD_BIGENDIAN);
+                                        true, BSP_LCD_BIGENDIAN);
 
     if (s_lv_display == NULL) {
         ESP_LOGE(TAG_DISPLAY, "display_port_add_dsi failed");
         return ESP_FAIL;
     }
 
+    if (!display_lock(2000)) return ESP_ERR_TIMEOUT;
+    lv_display_set_rotation(s_lv_display, (lv_display_rotation_t)(display_orientation_prepare_boot() / 90));
+    display_unlock();
     lv_display_set_antialiasing(s_lv_display, APP_LVGL_ANTIALIASING != 0);
     ESP_LOGI(TAG_DISPLAY, "LVGL antialiasing: %s", (APP_LVGL_ANTIALIASING != 0) ? "on" : "off");
 

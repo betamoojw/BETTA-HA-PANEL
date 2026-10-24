@@ -522,6 +522,8 @@ setTextById("addBambuPrinterBtn", "layout.widgets.add_bambu_printer");
   setTextById("settingsSaverPixelRefreshLabel", "settings.saver.pixel_refresh");
   syncSaverFields();
   setTextById("settingsHardwareAutoRotationLabel", "settings.hardware.auto_rotation");
+  setTextById("settingsHardwareRotationLabel", "settings.hardware.rotation");
+  setTextById("settingsRotationHint", "settings.rotation.hint");
   setTextById("settingsHardwareAutoBrightnessLabel", "settings.hardware.auto_brightness");
   setTextById("settingsBrightnessRuleHint", "settings.hardware.brightness_rule");
   setTextById("settingsHardwarePresenceWakeLabel", "settings.hardware.presence_wake");

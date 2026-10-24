@@ -588,7 +588,9 @@
       "failed": "Échec de l’enregistrement. Réessayez.",
       "load_failed": "Réglages indisponibles. Fermez puis réessayez.",
       "preview": "Aperçu (30 s)",
-      "clock_analog": "Horloge analogique"
+      "clock_analog": "Horloge analogique",
+      "rotation": "Rotation de l’écran",
+      "auto_rotation": "Rotation automatique"
     },
     "system": {
       "language": "Langue",

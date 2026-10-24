@@ -40,6 +40,8 @@ void ui_pages_set_topbar_datetime(const struct tm *timeinfo);
 void ui_pages_set_clock_24h(bool format_24h);
 /* Yellow crash marker, set only by the UI task/display-lock holder. */
 void ui_pages_set_crash_warning(bool visible);
+/* Optional topbar action; call again after changing its visibility. */
+void ui_pages_set_topbar_auxiliary(lv_obj_t *button);
 void ui_pages_set_topbar_left_slots(const char *slot_1, const char *slot_2, const char *slot_3);
 void ui_pages_set_topbar_weather(bool visible, float temperature, const char *unit, uint32_t icon_codepoint);
 void ui_pages_set_topbar_stocks(const ui_pages_stock_item_t *items, size_t count);

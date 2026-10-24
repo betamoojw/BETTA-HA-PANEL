@@ -191,7 +191,7 @@ void app_main(void)
     ui_style_set(ui_style_from_name(s_runtime_settings.ui_style));
     ui_fonts_set_user_step(s_runtime_settings.ui_text_step);
     (void)time_sync_set_timezone(s_runtime_settings.time_tz);
-    display_orientation_configure(s_runtime_settings.hardware_auto_rotation);
+    display_orientation_configure(s_runtime_settings.hardware_auto_rotation, s_runtime_settings.hardware_rotation);
     ESP_ERROR_CHECK(display_init());
     display_configure_brightness(
         s_runtime_settings.hardware_active_brightness_percent,

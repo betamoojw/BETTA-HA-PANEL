@@ -505,7 +505,7 @@ static bool load_display_precisions(const cJSON *states)
 
 static void print_usage(const char *program)
 {
-    fprintf(stderr, "Usage: %s [--fixture path] [--page id] [--rotation 0|90|180|270 (Tab5)] [--text-step 0|1|2] [--text-cap -1..3] [--theme id] [--style ", program);
+    fprintf(stderr, "Usage: %s [--fixture path] [--page id] [--rotation 0|90|180|270 (native panel degrees)] [--text-step 0|1|2] [--text-cap -1..3] [--theme id] [--style ", program);
     ui_style_kind_t kind;
     for (size_t i = 0; ui_style_at(i, &kind); i++) {
         fprintf(stderr, "%s%s", i > 0 ? "|" : "", ui_style_name(kind));
@@ -842,9 +842,8 @@ int main(int argc, char **argv)
         return 1;
     }
     sim_host_set_online(cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(root, "ha_online")));
-#if defined(CONFIG_APP_PANEL_VARIANT_TAB5_1280)
     if (!layout_orientation_project(root, display_geometry_portrait())) { cJSON_Delete(root); return 1; }
-#endif
+
     const cJSON *energy_json = cJSON_GetObjectItemCaseSensitive(root, "energy_snapshot");
     ha_energy_snapshot_t snapshot = {0};
 #define ENERGY_BOOL(key) snapshot.key = json_bool(energy_json, #key, false)

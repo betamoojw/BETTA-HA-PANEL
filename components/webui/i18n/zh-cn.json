@@ -800,7 +800,7 @@
   "settings.hardware.now_dimmed": "已调暗",
   "settings.hardware.now_active": "使用中",
   "settings.hardware.now_room": "室内光线 {percent} %",
-  "settings.hardware.auto_rotation": "自动旋转（关闭为横屏）",
+  "settings.hardware.auto_rotation": "自动旋转",
   "settings.hardware.auto_brightness": "按室内光线调节亮度",
   "settings.hardware.presence_wake": "靠近时唤醒",
   "settings.hardware.presence_sensitivity": "存在检测灵敏度（1 低，10 高）",
@@ -1453,5 +1453,7 @@
   "settings.screen.load_failed": "暂时无法读取设置，请关闭后重试。",
   "settings.screen.preview": "预览（30 秒）",
   "settings.saver.hint_clock": "显示移动时钟，并可在指定时长后息屏。点按屏幕即可唤醒。",
-  "settings.screen.clock_analog": "指针时钟"
+  "settings.screen.clock_analog": "指针时钟",
+  "settings.hardware.rotation": "屏幕旋转",
+  "settings.rotation.hint": "0°保持面板默认方向。关闭当前弹窗或退出屏保后生效；旋转后请重新加载布局，再编辑新方向的布局。"
 }

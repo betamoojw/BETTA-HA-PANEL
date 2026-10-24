@@ -35,8 +35,11 @@ SDL_VIDEODRIVER=dummy tools/simulator.sh panel4 --fixture <file> --page <id> --s
   720 × 1280 portrait).
 - `--theme` takes a built-in id (`dark_v2`, `classic_v1`, `light`, `ocean`, `contrast`, `black`; no custom themes),
   `--style` one of `flat`, `glow`, `glass`, `matte`, `--page` a page id (default the first).
-- `--rotation` is Tab5 only: 0 or 180 portrait, 90 (default) or 270 landscape, with the firmware's projection but no
-  touch rotation.
+- `--rotation` accepts native panel degrees on every profile. For rectangular
+  panels, 0/180 are portrait and 90/270 landscape; defaults are 270 on panel10
+  and 90 on JC/Tab5. Square profiles default to 0. These native degrees differ
+  from the user setting's relative angle. The simulator projects layout geometry;
+  it does not validate the physical display or touch driver.
 - `--text-step N` and `--text-cap N` set the text size step and tile cap
   ([conventions](development/conventions.md#text-and-fonts)).
 - `--screenshot f.bmp` writes a BMP and exits after 250 ms, or after `--exit-after-ms`.

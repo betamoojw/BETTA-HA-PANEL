@@ -8,7 +8,7 @@
 Run `tools/simulator.sh <variant> --regression screen-settings --fixture tests/simulator/screen_settings.json`.
 It exercises actual LVGL control events, Save/reopen, disabled-option retention, failed-save retry,
 unrelated-settings preservation and 100 view rebuilds. Header checks include AP, MQTT and crash-marker
-combinations. Use Tab5 for `--rotation 0|90|180|270`; fixed-orientation variants reject that option.
+combinations. Every variant accepts native `--rotation 0|90|180|270`; see [Display rotation](display-rotation.md).
 The dedicated empty fixture avoids unrelated widget orientation projection during these checks.
 `betta-clock-test <width> <height>` exercises the production saver with a controlled clock: idle/off
 deadlines, movement bounds, night priority, complete wake gestures, storage-busy retention and

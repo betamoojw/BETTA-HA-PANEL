@@ -98,11 +98,31 @@ The camera of the Guition JC8012P4A1 and the M5Stack Tab5 senses light and movem
 Both options are off by default. On one Tab5 (2026-10-05) covering the camera dropped the measured light factor from
 89 % to 27–28 %. More in [Cameras and chimes](hardware/peripherals.md#ambient-camera-paneljc-and-tab5).
 
+## Display rotation
+
+Choose **Settings → Display → Orientation → Display rotation** in the editor,
+or **Display rotation** on the panel's **System settings** screen. All panel
+profiles offer **0°, 90°, 180° and 270°**. **0°** retains the board's normal
+orientation; existing settings keep that default. The panel's Save button
+stores the choice; the editor saves automatically. No reboot is required.
+
+Close open controls or wake the screensaver to apply a pending rotation.
+The current page stays selected. On rectangular screens, portrait keeps
+independent widget positions and scrolls long pages vertically. Landscape
+positions are preserved. After rotating, use **Reload** in the editor's Layout
+view to load the new canvas; save or export any unsaved work first. A save from
+the wrong orientation is refused. Square screens keep the same canvas size.
+
+Live Display ends its old session when orientation changes; reconnect it to
+use the new dimensions and touch coordinates. Physical rotation and touch
+still need validation on each board; see [Display rotation validation](development/display-rotation.md).
+
 ## Tab5: automatic rotation
 
-On the M5Stack Tab5 **Rotate automatically** is on by default: hold it upright in a new orientation for about a second
+On the M5Stack Tab5 **Automatic rotation** is on by default: hold it upright in a new orientation for about a second
 to switch between portrait and landscape, upside down included. Lying flat or shaking keeps the current orientation;
-turn the option off for fixed landscape. Other panels do not show it.
+turn the option off to use the saved manual angle (0° gives normal landscape).
+Other panels do not show the automatic option. Re-enabling it retains the manual choice.
 
 The startup screen uses the mounting orientation too. If the panel is lying flat or the sensor is unavailable,
 it starts in the last stable orientation; without a saved orientation it uses normal landscape.

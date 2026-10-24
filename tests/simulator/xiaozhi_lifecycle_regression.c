@@ -10,6 +10,7 @@
 
 static bool enabled;
 static unsigned disconnects;
+void ui_pages_set_topbar_auxiliary(lv_obj_t *button) { assert(button != NULL); }
 const lv_font_t *ui_font_role(ui_text_role_t role) { (void)role; return LV_FONT_DEFAULT; }
 const char *ui_i18n_get(const char *key, const char *fallback) { (void)key; return fallback; }
 void xiaozhi_status(xiaozhi_status_t *s)

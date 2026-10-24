@@ -800,7 +800,7 @@
   "settings.hardware.now_dimmed": "atténué",
   "settings.hardware.now_active": "actif",
   "settings.hardware.now_room": "lumière ambiante {percent} %",
-  "settings.hardware.auto_rotation": "Rotation automatique (désactivée = paysage)",
+  "settings.hardware.auto_rotation": "Rotation automatique",
   "settings.hardware.auto_brightness": "Adapter la luminosité à la lumière ambiante",
   "settings.hardware.presence_wake": "Réveiller à l'approche",
   "settings.hardware.presence_sensitivity": "Sensibilité de présence (1 faible, 10 forte)",
@@ -1453,5 +1453,7 @@
   "settings.screen.load_failed": "Réglages indisponibles. Fermez puis réessayez.",
   "settings.screen.preview": "Aperçu (30 s)",
   "settings.saver.hint_clock": "Affiche une horloge mobile, puis éteint éventuellement l’écran. Touchez pour réveiller.",
-  "settings.screen.clock_analog": "Horloge analogique"
+  "settings.screen.clock_analog": "Horloge analogique",
+  "settings.hardware.rotation": "Rotation de l’écran",
+  "settings.rotation.hint": "0° conserve l’orientation par défaut. Fermez les commandes et l’économiseur pour tourner, puis rechargez la disposition."
 }

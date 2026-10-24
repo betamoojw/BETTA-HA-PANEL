@@ -4,6 +4,7 @@
  */
 #include "drivers/display_backlight.h"
 #include "drivers/display_init.h"
+#include "drivers/display_orientation.h"
 
 #include <stdbool.h>
 
@@ -76,7 +77,7 @@ esp_err_t display_init(void)
 
     if (display_port_lock(2000)) {
         lv_display_set_antialiasing(s_lv_display, APP_LVGL_ANTIALIASING != 0);
-        lv_display_set_rotation(s_lv_display, LV_DISPLAY_ROTATION_270);
+        lv_display_set_rotation(s_lv_display, (lv_display_rotation_t)(display_orientation_prepare_boot() / 90));
         display_port_unlock();
     } else {
         ESP_LOGW(TAG_DISPLAY, "Could not lock LVGL for rotation setup");

@@ -124,7 +124,7 @@ static bool portrait_positions(cJSON *page)
             } while (overlap);
             if (y + h > LAYOUT_PORTRAIT_MAX_Y) return false;
         }
-        cJSON *r = background ? rect(0, 0, 720, 1160) : rect(x, y, w, h);
+        cJSON *r = background ? rect(0, 0, LAYOUT_PORTRAIT_WIDTH, LAYOUT_PORTRAIT_HEIGHT) : rect(x, y, w, h);
         if (!r || !cJSON_AddItemToObject(widget, "portrait_rect", r)) { cJSON_Delete(r); return false; }
         if (!background) { x += w + 10; if (h > row_h) row_h = h; }
     }

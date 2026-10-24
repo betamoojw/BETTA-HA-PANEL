@@ -199,9 +199,9 @@ uv run --locked --group screenshots python tools/compare_editor_previews.py [--s
 Look for missing, extra, clipped or overlapping elements, German text in the English editor and sizes where the panel
 hides something.
 
-## Tab5 orientation and layout storage
+## Orientation and layout storage
 
-Tab5 layout responses carry `orientation`, `canvas_w` and `canvas_h`. Portrait projects each widget's `portrait_rect`
+All panel layout responses carry `orientation`, `canvas_w` and `canvas_h`. Portrait projects each widget's `portrait_rect`
 into `rect` and adds the canonical `landscape_rect`; PUT restores landscape `rect` and stores edited portrait positions
-separately. Stored JSON keeps the 32 KiB limit; Tab5 accepts up to 64 KiB on the wire for these aliases. A mismatched
+separately. Stored JSON keeps the 32 KiB limit; the API accepts up to 64 KiB on the wire for these aliases. A mismatched
 orientation is rejected with HTTP 409. Version refreshes do not resize a loaded layout: reload after rotating.

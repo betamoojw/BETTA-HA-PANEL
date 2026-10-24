@@ -588,7 +588,9 @@
       "failed": "儲存失敗，請重試。",
       "load_failed": "暫時無法讀取設定，請關閉後重試。",
       "preview": "預覽（30 秒）",
-      "clock_analog": "指針時鐘"
+      "clock_analog": "指針時鐘",
+      "rotation": "螢幕旋轉",
+      "auto_rotation": "自動旋轉"
     },
     "system": {
       "language": "語言",

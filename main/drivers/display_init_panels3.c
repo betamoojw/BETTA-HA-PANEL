@@ -6,6 +6,8 @@
  * docs/hardware/panels3.md for sources and validation limits.
  */
 #include "drivers/display_init.h"
+#include "drivers/display_orientation.h"
+#include "drivers/display_rotation.h"
 #include "drivers/display_backlight.h"
 #include "drivers/display_port.h"
 #include "drivers/display_panels3_dma.h"
@@ -13,6 +15,7 @@
 #include "driver/gpio.h"
 #include "driver/ledc.h"
 #include "esp_check.h"
+#include "esp_heap_caps.h"
 #include "esp_idf_version.h"
 #include "esp_lcd_panel_io_additions.h"
 #include "esp_lcd_panel_ops.h"
@@ -286,6 +289,27 @@ static esp_err_t panel_create_on_draw_core(void)
 }
 
 
+/* The RGB adapter profile stays at native rotation. Rotate packed dirty
+ * regions once, then copy synchronously into the existing scanout framebuffer. */
+static uint16_t *s_rotation_pixels;
+static esp_err_t draw_rotated(lv_display_t *display, esp_lcd_panel_handle_t panel,
+    int x1, int y1, int x2, int y2, const void *pixels, void *context)
+{
+    (void)context;
+    unsigned rotation = lv_display_get_rotation(display);
+    display_rect_t physical;
+    if (!display_rotation_rect((display_rect_t){x1,y1,x2,y2}, APP_SCREEN_WIDTH,
+        APP_SCREEN_HEIGHT, rotation, &physical)) return ESP_ERR_INVALID_ARG;
+    if (rotation) {
+        int w = x2-x1, h = y2-y1;
+        if ((size_t)w*h > APP_SCREEN_WIDTH * PANELS3_DRAW_LINES) return ESP_ERR_INVALID_SIZE;
+        lv_draw_sw_rotate(pixels, s_rotation_pixels, w, h, w*2,
+            (physical.x2-physical.x1)*2, (lv_display_rotation_t)rotation, LV_COLOR_FORMAT_RGB565);
+        pixels = s_rotation_pixels;
+    }
+    return esp_lcd_panel_draw_bitmap(panel, physical.x1, physical.y1, physical.x2, physical.y2, pixels);
+}
+
 esp_err_t display_init(void)
 {
     if (s_display_ready) return ESP_OK;
@@ -303,9 +327,16 @@ esp_err_t display_init(void)
     config.profile.enable_ppa_accel = false;
     s_lv_display = esp_lv_adapter_register_display(&config);
     if (!s_lv_display) return ESP_ERR_NO_MEM;
+    s_rotation_pixels = heap_caps_malloc(APP_SCREEN_WIDTH * PANELS3_DRAW_LINES * sizeof(uint16_t),
+        MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    if (!s_rotation_pixels) return ESP_ERR_NO_MEM;
+    const esp_lv_adapter_draw_bitmap_callbacks_t callbacks = {.custom_draw_bitmap = draw_rotated};
+    ESP_RETURN_ON_ERROR(esp_lv_adapter_set_draw_bitmap_callbacks(s_lv_display, &callbacks, NULL),
+        TAG_DISPLAY, "Rotation callback");
     lv_display_set_default(s_lv_display);
     lv_display_set_antialiasing(s_lv_display, APP_LVGL_ANTIALIASING != 0);
     if (!display_lock(1000)) return ESP_ERR_TIMEOUT;
+    lv_display_set_rotation(s_lv_display, (lv_display_rotation_t)(display_orientation_prepare_boot() / 90));
     lv_timer_t *recovery = lv_timer_create(resync_after_flash, 200, NULL);
     display_unlock();
     if (!recovery) return ESP_ERR_NO_MEM;

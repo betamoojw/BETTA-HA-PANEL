@@ -4,6 +4,18 @@
 #include "drivers/display_orientation.h"
 #include "ui/display_geometry.h"
 #include "sdkconfig.h"
+#include "lvgl.h"
+#include <stdatomic.h>
+
+static atomic_int s_manual;
+bool display_orientation_supported(void) { return true; }
+bool display_orientation_apply(int degrees)
+{
+    if (degrees < 0 || degrees > 270 || degrees % 90) return false;
+    lv_display_set_rotation(lv_display_get_default(), (lv_display_rotation_t)(degrees / 90));
+    display_geometry_set_rotation(degrees);
+    return true;
+}
 #if defined(CONFIG_APP_PANEL_VARIANT_TAB5_1280)
 #include "app_events.h"
 #include "drivers/orientation_policy.h"
@@ -15,9 +27,7 @@
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "lvgl.h"
 #include "nvs.h"
-#include <stdatomic.h>
 
 static const char *TAG = "orientation";
 static atomic_bool s_enabled = true;
@@ -27,8 +37,11 @@ static TaskHandle_t s_task;
 /* Boot owns the sensor until start(); afterwards only the orientation task uses it. */
 static bmi270_handle_t *s_imu;
 static int s_saved_rotation = -1;
-bool display_orientation_supported(void) { return true; }
-void display_orientation_configure(bool enabled) { atomic_store(&s_enabled, enabled); }
+bool display_orientation_auto_supported(void) { return true; }
+void display_orientation_configure(bool enabled, int degrees)
+{ atomic_store(&s_manual, degrees); atomic_store(&s_enabled, enabled); }
+int display_orientation_manual_target(void)
+{ return atomic_load(&s_enabled) ? -1 : (display_geometry_default_rotation() + atomic_load(&s_manual)) % 360; }
 void display_orientation_get_status(display_orientation_status_t *out)
 {
     if (!out) return;
@@ -36,14 +49,6 @@ void display_orientation_get_status(display_orientation_status_t *out)
     *out = s_status;
     portEXIT_CRITICAL(&s_mux);
     out->enabled = atomic_load(&s_enabled);
-}
-bool display_orientation_apply(int degrees)
-{
-    if (!orientation_rotation_valid(degrees)) return false;
-    lv_display_set_rotation(lv_display_get_default(), (lv_display_rotation_t)(degrees / 90));
-    display_geometry_set_rotation(degrees);
-    ESP_LOGI(TAG, "Display rotated to %d degrees (%dx%d)", degrees, APP_VIEW_WIDTH, APP_VIEW_HEIGHT);
-    return true;
 }
 static esp_err_t sensor_init(void)
 {
@@ -85,7 +90,7 @@ int display_orientation_prepare_boot(void)
 {
     restore_rotation();
     const bool enabled = atomic_load(&s_enabled);
-    int rotation = orientation_boot_fallback(enabled, s_saved_rotation);
+    int rotation = enabled ? orientation_boot_fallback(true, s_saved_rotation) : display_orientation_manual_target();
     if (enabled) {
         esp_err_t err = sensor_init();
         if (err == ESP_OK) {
@@ -140,7 +145,7 @@ static void sensor_task(void *arg)
         uint64_t now = esp_timer_get_time() / 1000;
         bool enabled = atomic_load(&s_enabled);
         int requested = 90;
-        bool change = !enabled && display_geometry_rotation() != 90;
+        bool change = false; /* Manual targets are retried by the UI task. */
         if (enabled && !s_imu && now >= next_init) {
             esp_err_t err = sensor_init();
             if (err != ESP_OK) {
@@ -178,11 +183,20 @@ esp_err_t display_orientation_start(void)
     return xTaskCreate(sensor_task, "orientation", 6144, NULL, 3, &s_task) == pdPASS ? ESP_OK : ESP_ERR_NO_MEM;
 }
 #else
-bool display_orientation_supported(void) { return false; }
-void display_orientation_configure(bool enabled) { (void)enabled; }
-int display_orientation_prepare_boot(void) { return 0; }
+static int s_boot_degrees;
+bool display_orientation_auto_supported(void) { return false; }
+void display_orientation_configure(bool enabled, int degrees)
+{ (void)enabled; atomic_store(&s_manual, degrees); }
+int display_orientation_manual_target(void)
+{ return (display_geometry_default_rotation() + atomic_load(&s_manual)) % 360; }
+int display_orientation_prepare_boot(void)
+{
+    int degrees = display_orientation_manual_target();
+    s_boot_degrees = degrees;
+    display_geometry_set_rotation(degrees);
+    return degrees;
+}
 esp_err_t display_orientation_start(void) { return ESP_OK; }
 void display_orientation_get_status(display_orientation_status_t *out)
-{ if (out) *out = (display_orientation_status_t){0}; }
-bool display_orientation_apply(int degrees) { (void)degrees; return false; }
+{ if (out) *out = (display_orientation_status_t){.boot_degrees = s_boot_degrees, .saved_degrees = -1}; }
 #endif

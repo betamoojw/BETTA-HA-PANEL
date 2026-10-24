@@ -804,7 +804,7 @@ WEB_I18N_BUILTIN["pl"] = {
   "settings.hardware.now_dimmed": "przyciemnione",
   "settings.hardware.now_active": "aktywne",
   "settings.hardware.now_room": "światło otoczenia {percent} %",
-  "settings.hardware.auto_rotation": "Obracaj automatycznie (wył. = poziomo)",
+  "settings.hardware.auto_rotation": "Obrót automatyczny",
   "settings.hardware.auto_brightness": "Dostosuj jasność do światła otoczenia",
   "settings.hardware.presence_wake": "Wybudzaj przy zbliżeniu",
   "settings.hardware.presence_sensitivity": "Czułość obecności (1 niska, 10 wysoka)",
@@ -1457,5 +1457,7 @@ WEB_I18N_BUILTIN["pl"] = {
   "settings.screen.load_failed": "Ustawienia niedostępne. Zamknij i spróbuj ponownie.",
   "settings.screen.preview": "Podgląd (30 s)",
   "settings.saver.hint_clock": "Pokazuje przesuwający się zegar, a następnie opcjonalnie wyłącza ekran. Dotknij, aby wybudzić.",
-  "settings.screen.clock_analog": "Zegar analogowy"
+  "settings.screen.clock_analog": "Zegar analogowy",
+  "settings.hardware.rotation": "Obrót ekranu",
+  "settings.rotation.hint": "0° zachowuje domyślną orientację. Zamknij otwarte okna i wygaszacz, aby obrócić ekran, a następnie wczytaj układ ponownie."
 };

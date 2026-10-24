@@ -4,6 +4,7 @@
 #pragma once
 #include <stdbool.h>
 
+int display_geometry_default_rotation(void);
 int display_geometry_width(void);
 int display_geometry_height(void);
 int display_geometry_rotation(void);

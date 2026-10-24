@@ -804,7 +804,7 @@ WEB_I18N_BUILTIN["zh-tw"] = {
   "settings.hardware.now_dimmed": "已調暗",
   "settings.hardware.now_active": "使用中",
   "settings.hardware.now_room": "室內光線 {percent} %",
-  "settings.hardware.auto_rotation": "自動旋轉（關閉為橫屏）",
+  "settings.hardware.auto_rotation": "自動旋轉",
   "settings.hardware.auto_brightness": "按室內光線調節亮度",
   "settings.hardware.presence_wake": "靠近時喚醒",
   "settings.hardware.presence_sensitivity": "存在檢測靈敏度（1 低，10 高）",
@@ -1457,5 +1457,7 @@ WEB_I18N_BUILTIN["zh-tw"] = {
   "settings.screen.load_failed": "暫時無法讀取設定，請關閉後重試。",
   "settings.screen.preview": "預覽（30 秒）",
   "settings.saver.hint_clock": "顯示移動時鐘，並可在指定時間後關閉螢幕。點按螢幕即可喚醒。",
-  "settings.screen.clock_analog": "指針時鐘"
+  "settings.screen.clock_analog": "指針時鐘",
+  "settings.hardware.rotation": "螢幕旋轉",
+  "settings.rotation.hint": "0°保留面板預設方向。關閉目前彈窗或離開螢幕保護後生效；旋轉後請重新載入佈局，再編輯新方向的佈局。"
 };

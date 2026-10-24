@@ -591,6 +591,10 @@
             </div>
             <div id="settingsRotationGroup" class="display-settings-group form" hidden>
               <h3 id="settingsRotationHeading" class="settings-subheading">Orientation</h3>
+              <label id="settingsManualRotationRow"><span id="settingsHardwareRotationLabel">Display rotation</span>
+                <select id="settingsHardwareRotation" aria-labelledby="settingsHardwareRotationLabel"><option value="0">0°</option><option value="90">90°</option><option value="180">180°</option><option value="270">270°</option></select>
+              </label>
+              <p id="settingsRotationHint" class="hint">0° keeps the board default. After rotating, reload the layout to edit its new orientation.</p>
               <label class="row" id="settingsRotationRow" hidden>
                 <input id="settingsHardwareAutoRotation" type="checkbox" />
                 <span id="settingsHardwareAutoRotationLabel">Rotate automatically (Tab5)</span>

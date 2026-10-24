@@ -185,7 +185,7 @@ static void ui_settings_signature(const runtime_settings_t *s, char *out, size_t
 
 static void apply_hardware_settings_live(const runtime_settings_t *settings)
 {
-    display_orientation_configure(settings->hardware_auto_rotation);
+    display_orientation_configure(settings->hardware_auto_rotation, settings->hardware_rotation);
     chime_configure(settings->sound_enabled, settings->sound_volume, settings->sound_night_mute);
     /* The time zone is a single call. */
     (void)time_sync_set_timezone(settings->time_tz);
@@ -401,6 +401,8 @@ esp_err_t api_settings_get_handler(httpd_req_t *req)
     cJSON_AddNumberToObject(hardware, "night_brightness_percent", settings->hardware_night_brightness_percent);
     cJSON_AddBoolToObject(hardware, "auto_brightness", settings->hardware_auto_brightness);
     cJSON_AddBoolToObject(hardware, "rotation_supported", display_orientation_supported());
+    cJSON_AddBoolToObject(hardware, "auto_rotation_supported", display_orientation_auto_supported());
+    cJSON_AddNumberToObject(hardware, "rotation", settings->hardware_rotation);
     cJSON_AddBoolToObject(hardware, "auto_rotation", settings->hardware_auto_rotation);
     cJSON_AddBoolToObject(hardware, "presence_wake", settings->hardware_presence_wake);
     cJSON_AddNumberToObject(hardware, "presence_sensitivity", settings->hardware_presence_sensitivity);
@@ -824,7 +826,14 @@ esp_err_t api_settings_put_handler(httpd_req_t *req)
         (void)update_int_setting(hardware, "sound_volume", &settings->sound_volume, 0, 100, &invalid_type, &out_of_range);
         (void)update_bool_setting(hardware, "night_enabled", &settings->hardware_night_enabled, &invalid_type);
         (void)update_bool_setting(hardware, "auto_brightness", &settings->hardware_auto_brightness, &invalid_type);
-        if (display_orientation_supported())
+        cJSON *rotation = cJSON_GetObjectItemCaseSensitive(hardware, "rotation");
+        if (rotation) {
+            if (!cJSON_IsNumber(rotation)) invalid_type = true;
+            else if (rotation->valuedouble != 0 && rotation->valuedouble != 90 &&
+                     rotation->valuedouble != 180 && rotation->valuedouble != 270) out_of_range = true;
+            else settings->hardware_rotation = rotation->valueint;
+        }
+        if (display_orientation_auto_supported())
             (void)update_bool_setting(hardware, "auto_rotation", &settings->hardware_auto_rotation, &invalid_type);
         (void)update_bool_setting(hardware, "presence_wake", &settings->hardware_presence_wake, &invalid_type);
         (void)update_bool_setting(

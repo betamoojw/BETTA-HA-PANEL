@@ -800,7 +800,7 @@
   "settings.hardware.now_dimmed": "atenuado",
   "settings.hardware.now_active": "activo",
   "settings.hardware.now_room": "luz ambiental {percent} %",
-  "settings.hardware.auto_rotation": "Rotar automáticamente (no = horizontal)",
+  "settings.hardware.auto_rotation": "Rotación automática",
   "settings.hardware.auto_brightness": "Adaptar brillo a la luz ambiental",
   "settings.hardware.presence_wake": "Activar al acercarse",
   "settings.hardware.presence_sensitivity": "Sensibilidad de presencia (1 baja, 10 alta)",
@@ -1453,5 +1453,7 @@
   "settings.screen.load_failed": "Ajustes no disponibles. Cierra e inténtalo de nuevo.",
   "settings.screen.preview": "Vista previa (30 s)",
   "settings.saver.hint_clock": "Muestra un reloj en movimiento y apaga la pantalla si lo deseas. Toca para activar.",
-  "settings.screen.clock_analog": "Reloj analógico"
+  "settings.screen.clock_analog": "Reloj analógico",
+  "settings.hardware.rotation": "Rotación de pantalla",
+  "settings.rotation.hint": "0° conserva la orientación predeterminada. Cierra los controles y el salvapantallas para girar; después recarga el diseño."
 }

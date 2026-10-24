@@ -5,6 +5,7 @@
 #include "xiaozhi.h"
 #include "ui/text_font.h"
 #include "ui/ui_i18n.h"
+#include "ui/ui_pages.h"
 #include "ui/theme/ui_typography.h"
 #include <stdio.h>
 #include <string.h>
@@ -16,8 +17,11 @@ static void refresh(lv_timer_t *timer)
 {
     view_t *v = lv_timer_get_user_data(timer);
     xiaozhi_status_t s; xiaozhi_status(&s);
-    if (s.enabled) lv_obj_set_hidden(v->button, false);
-    else { lv_obj_set_hidden(v->button, true); lv_obj_set_hidden(v->panel, true); }
+    if (lv_obj_is_hidden(v->button) == s.enabled) {
+        lv_obj_set_hidden(v->button, !s.enabled);
+        ui_pages_set_topbar_auxiliary(v->button);
+    }
+    if (!s.enabled) lv_obj_set_hidden(v->panel, true);
     if (lv_obj_is_hidden(v->panel)) return;
     char key[80]; snprintf(key, sizeof(key), "xiaozhi.state.%s", s.state);
     char text[768]; snprintf(text, sizeof(text), "%s\n%s\n%s", ui_i18n_get(key, s.state), s.code, s.text);
@@ -52,8 +56,8 @@ void xiaozhi_ui_create(lv_obj_t *screen)
     lv_obj_set_clickable(root, false);
     lv_obj_set_scrollable(root, false);
     v->button = lv_button_create(root); lv_obj_set_size(v->button, 120, 42);
-    lv_obj_align(v->button, LV_ALIGN_TOP_MID, 170, 2);
     lv_obj_set_hidden(v->button, true);
+    ui_pages_set_topbar_auxiliary(v->button);
     lv_obj_t *label = lv_label_create(v->button); lv_label_set_text(label, ui_i18n_get("xiaozhi.title", "Xiaozhi AI")); lv_obj_center(label);
     lv_obj_set_style_text_font(v->button, ui_font_role(UI_TEXT_LABEL), 0);
     lv_obj_add_event_cb(v->button, toggle, LV_EVENT_CLICKED, v);

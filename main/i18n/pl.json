@@ -588,7 +588,9 @@
       "failed": "Nie udało się zapisać. Spróbuj ponownie.",
       "load_failed": "Ustawienia niedostępne. Zamknij i spróbuj ponownie.",
       "preview": "Podgląd (30 s)",
-      "clock_analog": "Zegar analogowy"
+      "clock_analog": "Zegar analogowy",
+      "rotation": "Obrót ekranu",
+      "auto_rotation": "Obrót automatyczny"
     },
     "system": {
       "language": "Język",

@@ -588,7 +588,9 @@
       "failed": "保存失败，请重试。",
       "load_failed": "暂时无法读取设置，请关闭后重试。",
       "preview": "预览（30 秒）",
-      "clock_analog": "指针时钟"
+      "clock_analog": "指针时钟",
+      "rotation": "屏幕旋转",
+      "auto_rotation": "自动旋转"
     },
     "system": {
       "language": "语言",

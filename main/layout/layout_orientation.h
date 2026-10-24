@@ -6,8 +6,9 @@
 #include "cJSON.h"
 #include "layout/widget_types.h"
 
-#define LAYOUT_PORTRAIT_WIDTH 720
-#define LAYOUT_PORTRAIT_HEIGHT 1160
+#include "app_config.h"
+#define LAYOUT_PORTRAIT_WIDTH APP_SCREEN_HEIGHT
+#define LAYOUT_PORTRAIT_HEIGHT (APP_SCREEN_WIDTH - 120)
 #define LAYOUT_PORTRAIT_MAX_Y 30000
 
 /* Project a canonical landscape layout for viewing/editing, retaining each

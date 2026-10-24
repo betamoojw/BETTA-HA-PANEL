@@ -588,7 +588,9 @@
       "failed": "No se pudo guardar. Inténtalo de nuevo.",
       "load_failed": "Ajustes no disponibles. Cierra e inténtalo de nuevo.",
       "preview": "Vista previa (30 s)",
-      "clock_analog": "Reloj analógico"
+      "clock_analog": "Reloj analógico",
+      "rotation": "Rotación de pantalla",
+      "auto_rotation": "Rotación automática"
     },
     "system": {
       "language": "Idioma",

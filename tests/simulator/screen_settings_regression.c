@@ -173,6 +173,12 @@ int sim_screen_settings_regression(void)
         lv_obj_update_layout(lv_screen_active());
         lv_obj_t *gear = find_text(lv_screen_active(), APP_SYMBOL_SETTINGS);
         lv_obj_t *bar = lv_obj_get_parent(lv_obj_get_parent(gear));
+        if (lv_display_get_horizontal_resolution(lv_display_get_default()) >= 800) {
+            lv_obj_t *assistant = lv_button_create(bar);
+            lv_obj_set_size(assistant, 120, 42);
+            ui_pages_set_topbar_auxiliary(assistant);
+            lv_obj_update_layout(lv_screen_active());
+        }
         for (uint32_t i = 0; i < lv_obj_get_child_count(bar); i++) {
             lv_obj_t *a = lv_obj_get_child(bar, i);
             if (lv_obj_is_hidden(a)) continue;
@@ -228,6 +234,18 @@ int sim_screen_settings_regression(void)
         ui_screen_settings_open(); set_mode(2); fail_save = true; click_save();
         CHECK(ui_screen_settings_root() != NULL && strcmp(settings.hardware_saver_mode, "clock") == 0);
         fail_save = false; click_save(); CHECK(ui_screen_settings_root() == NULL);
+    }
+    for (int angle = 0; angle < 4; angle++) {
+        ui_screen_settings_open();
+        lv_obj_t *rotation = control(SCREEN_ROTATION);
+        CHECK(lv_obj_check_type(rotation, &lv_dropdown_class));
+        lv_dropdown_set_selected(rotation, angle);
+        lv_obj_send_event(rotation, LV_EVENT_VALUE_CHANGED, NULL);
+        click_save();
+        CHECK(settings.hardware_rotation == angle * 90);
+        ui_screen_settings_open();
+        CHECK(lv_dropdown_get_selected(control(SCREEN_ROTATION)) == (unsigned)angle);
+        click_save();
     }
     for (int i = 0; i < 100; i++) {
         ui_screen_settings_open(); CHECK(ui_screen_settings_root() != NULL);

@@ -89,6 +89,7 @@ nav = [
     ] },
     { "Quality" = [
       { "Checks and device tests" = "development/testing.md" },
+      { "Display rotation" = "development/display-rotation.md" },
       { "Code conventions" = "development/conventions.md" },
       { "Working practices" = "development/learnings.md" },
       { "Scripts in tools/" = "development/tools.md" },

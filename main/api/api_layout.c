@@ -37,7 +37,6 @@ esp_err_t api_layout_get_handler(httpd_req_t *req)
         }
     }
 
-#if defined(CONFIG_APP_PANEL_VARIANT_TAB5_1280)
     cJSON *root = cJSON_Parse(json);
     free(json);
     if (!root || !layout_orientation_project(root, display_geometry_portrait())) {
@@ -47,7 +46,6 @@ esp_err_t api_layout_get_handler(httpd_req_t *req)
     json = cJSON_PrintUnformatted(root);
     cJSON_Delete(root);
     if (!json) return httpd_resp_send_500(req);
-#endif
     set_json_headers(req);
     esp_err_t send_err = httpd_resp_sendstr(req, json);
     free(json);
@@ -84,9 +82,7 @@ static esp_err_t api_layout_send_validation_error(httpd_req_t *req, const layout
 esp_err_t api_layout_put_handler(httpd_req_t *req)
 {
     const int wire_limit = APP_LAYOUT_MAX_JSON_LEN
-#if defined(CONFIG_APP_PANEL_VARIANT_TAB5_1280)
         * 2 /* transient landscape aliases; stored JSON still has the same limit */
-#endif
         ;
     if (req->content_len <= 0 || req->content_len > wire_limit) {
         return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid payload size");
@@ -107,7 +103,6 @@ esp_err_t api_layout_put_handler(httpd_req_t *req)
         received += r;
     }
 
-#if defined(CONFIG_APP_PANEL_VARIANT_TAB5_1280)
     cJSON *edited = cJSON_Parse(buf);
     const cJSON *orientation = cJSON_GetObjectItemCaseSensitive(edited, "orientation");
     const char *current = display_geometry_portrait() ? "portrait" : "landscape";
@@ -130,7 +125,6 @@ esp_err_t api_layout_put_handler(httpd_req_t *req)
         free(buf);
         return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Stored layout exceeds 32 KB");
     }
-#endif
     layout_validation_result_t validation;
     bool valid = layout_validate_json(buf, &validation);
     if (!valid) {

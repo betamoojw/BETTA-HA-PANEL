@@ -216,7 +216,7 @@ def main():
     parser.add_argument("--text-cap", type=int, choices=(-1, 0, 1, 2, 3),
                         help="force the tile growth cap of every tile (calibration; default: the calibrated cap per tile)")
     parser.add_argument("--rotation", type=int, choices=(0, 90, 180, 270),
-                        help="display rotation (90/270 require the tab5 variant)")
+                        help="native display rotation on the selected variant")
     args = parser.parse_args()
     extra_args = ["--text-step", str(args.text_step)] + (["--text-cap", str(args.text_cap)] if args.text_cap is not None else [])
     if args.rotation is not None:

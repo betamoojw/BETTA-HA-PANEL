@@ -53,8 +53,8 @@ One ST7121 unit (ESP32-P4 v1.3, 16 MB flash) was tried on 2026-10-05.
 | Presence wake | Not checked; both camera options stay off by default |
 | ILI9881C and ST7123 units, ESP32-P4 v3.x silicon | Not tested |
 
-Check the chip revision reported by the installer on a new unit. For rotation checks disable **Rotate automatically**
-to retain landscape; see [display settings](../display.md#tab5-automatic-rotation).
+Check the chip revision reported by the installer on a new unit. For rotation checks disable **Automatic rotation**
+and choose the manual angle; 0° retains normal landscape. See [display settings](../display.md#display-rotation).
 
 ## Technical notes
 

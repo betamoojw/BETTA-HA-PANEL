@@ -9,6 +9,7 @@
 #include "net/time_sync.h"
 #include "app_events.h"
 #include "drivers/display_init.h"
+#include "drivers/display_orientation.h"
 #include "settings/night_mode.h"
 #include "ha/ha_client.h"
 #include "ui/ui_memory.h"
@@ -88,6 +89,7 @@ void screen_settings_process(void)
     if (err == ESP_OK) {
         if (s_patch.dirty & SYSTEM_DIRTY(SYSTEM_TIMEZONE))
             (void)time_sync_set_timezone(settings->time_tz);
+        display_orientation_configure(settings->hardware_auto_rotation, settings->hardware_rotation);
         display_configure_brightness(settings->hardware_active_brightness_percent,
             settings->hardware_dim_brightness_percent, settings->hardware_dim_timeout_seconds);
         night_mode_configure(settings->hardware_night_enabled, settings->hardware_night_start_min,

@@ -437,6 +437,15 @@ setTextById("addBambuPrinterBtn", "layout.widgets.add_bambu_printer");
   setTextById("xiaozhiTalk", "xiaozhi.talk");
   setTextById("xiaozhiStop", "xiaozhi.stop");
   setTextById("xiaozhiReset", "xiaozhi.reset");
+  setTextById("xiaozhiWakeLabel", "xiaozhi.wake");
+  setTextById("xiaozhiWakeHint", "xiaozhi.wake_hint");
+  setTextById("xiaozhiTimeoutLabel", "xiaozhi.timeout");
+  setTextById("xiaozhiEmojiLabel", "xiaozhi.emoji_style");
+  setTextById("xiaozhiEmojiOtto", "xiaozhi.emoji_otto");
+  setTextById("xiaozhiEmojiClassic", "xiaozhi.emoji_classic");
+  setTextById("xiaozhiRecognizedLabel", "xiaozhi.recognized");
+  setTextById("xiaozhiReplyLabel", "xiaozhi.reply");
+
   setTextById("settingsSoundHeading", "settings.sound.heading");
   setTextById("settingsSoundEnabledLabel", "settings.sound.enabled");
   setTextById("settingsSoundVolumeLabel", "settings.sound.volume");

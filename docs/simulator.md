@@ -95,3 +95,8 @@ header appearance checks. This is a synthetic action without a voice session.
 
 Use `"alert_demo": true` and `"open_popup": "alerts"` for synthetic alert details.
 `--regression alerts` checks policies, visibility, expiry, recovery and popup lifecycle.
+
+`xiaozhi_demo` accepts synthetic `emotion`, `recognized` and `reply` strings.
+It defaults to animated Otto Robot; `style: "classic"` selects the original emoji.
+It opens the production dialogue with a mocked status source, without audio or
+a cloud connection. Label screenshots as local simulations.

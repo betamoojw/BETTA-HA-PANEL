@@ -201,11 +201,18 @@
             <a href="https://xiaozhi.me" target="_blank" rel="noopener noreferrer">xiaozhi.me</a>
             <output id="xiaozhiCode" aria-live="polite"></output>
             <label class="field-narrow"><span id="xiaozhiVolumeLabel" data-i18n-key="xiaozhi.volume">Speaker volume</span><input id="xiaozhiVolume" type="number" min="0" max="80" value="50" /></label>
+            <label class="row"><input type="checkbox" id="xiaozhiWake" /><span id="xiaozhiWakeLabel" data-i18n-key="xiaozhi.wake">Voice wake-up</span></label>
+            <p id="xiaozhiWakeHint" class="meta" data-i18n-key="xiaozhi.wake_hint">Say “Ni hao Xiao Zhi” to start. Wake-word recognition runs locally.</p>
+            <label class="field-narrow"><span id="xiaozhiTimeoutLabel" data-i18n-key="xiaozhi.timeout">Dialogue idle timeout (seconds)</span><input id="xiaozhiTimeout" type="number" min="10" max="300" value="30" /></label>
+            <label class="field-narrow"><span id="xiaozhiEmojiLabel" data-i18n-key="xiaozhi.emoji_style">AI emotion style</span><select id="xiaozhiEmoji"><option value="0" id="xiaozhiEmojiOtto" data-i18n-key="xiaozhi.emoji_otto">Otto Robot</option><option value="1" id="xiaozhiEmojiClassic" data-i18n-key="xiaozhi.emoji_classic">Classic Emoji</option></select></label>
             <button class="btn small" id="xiaozhiTalk" type="button" data-i18n-key="xiaozhi.talk">Hold to talk</button>
             <button class="btn small" id="xiaozhiStop" type="button" data-i18n-key="xiaozhi.stop">Disconnect</button>
           </div>
           <p id="xiaozhiStatus" role="status"></p>
-          <p id="xiaozhiText"></p>
+          <div id="xiaozhiEmotion" class="xiaozhi-emotion" aria-hidden="true"></div>
+          <img id="xiaozhiOtto" class="xiaozhi-otto" alt="" width="128" height="128" hidden />
+          <p><span id="xiaozhiRecognizedLabel" data-i18n-key="xiaozhi.recognized">Recognized speech</span><br /><span id="xiaozhiRecognized"></span></p>
+          <p><span id="xiaozhiReplyLabel" data-i18n-key="xiaozhi.reply">AI reply</span><br /><span id="xiaozhiText"></span></p>
           <button class="btn small" id="xiaozhiReset" type="button" data-i18n-key="xiaozhi.reset">Reset to defaults</button>
           </div>
         </section>

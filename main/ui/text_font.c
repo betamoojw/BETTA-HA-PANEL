@@ -153,6 +153,22 @@ const lv_font_t *ui_font_emoji_for_text(int text_px)
     return font;
 }
 
+const lv_font_t *ui_font_emotion(int max_height)
+{
+    int px = LV_MIN(ui_fonts_role_px(UI_TEXT_HERO) * 2, LV_MIN(128, max_height * 10 / 11));
+    px = LV_MAX(16, (px / 8) * 8);
+    font_instance_t *inst = find_instance(FAMILY_EMOJI, px);
+    if (inst) return inst->font;
+    lv_font_t *font = make_font(ttf_emoji_data, ttf_emoji_size, px, LV_FONT_KERNING_NONE, 24);
+    if (!font) return ui_font_emoji_for_text(32);
+    apply_metrics(font, px * 11 / 10, (px * 2 + 5) / 10);
+    if (!add_instance(FAMILY_EMOJI, px, font)) {
+        s_stats.budget_hits++; lv_tiny_ttf_destroy(font);
+        return ui_font_emoji_for_text(32);
+    }
+    return font;
+}
+
 /* Shared by regular, emphasis and measurement fonts. Keep the Latin line metrics;
  * only glyphs missing from Poppins reach this cache. Outlines use embedded rodata. */
 static const lv_font_t *cjk_for_text(int px)

@@ -63,6 +63,7 @@ config APP_PANEL_VARIANT_4INCH_720
 config APP_PANEL_VARIANT_10INCH_1280
     bool "10.1\" 1280x800 (betta large)"
     depends on IDF_TARGET_ESP32P4
+    select LV_USE_GIF
     help
         10.1-inch 1280x800 panel variant.
 

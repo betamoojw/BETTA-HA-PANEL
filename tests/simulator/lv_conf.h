@@ -15,6 +15,7 @@
 #define LV_USE_LODEPNG 1
 #define LV_USE_IMGFONT 1 /* the notification popup draws a few color emoji (ui/notification_emoji.c) */
 #define LV_USE_SNAPSHOT 1
+#define LV_USE_GIF 1
 
 #define LV_FONT_MONTSERRAT_14 0
 /* Every text, symbol, icon and emoji is an lv_tiny_ttf font made by ui/text_font.c; LVGL's own default is the tiny built-in font. */

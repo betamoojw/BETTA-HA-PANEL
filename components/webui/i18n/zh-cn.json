@@ -1303,7 +1303,7 @@
   "settings.time.list_unavailable": "时区列表不可用，请重新加载设置。",
   "xiaozhi.title": "小智 AI",
   "xiaozhi.enable": "启用小智 AI",
-  "xiaozhi.privacy": "默认关闭。配对会向小智发送设备标识；按住讲话时会把麦克风音频发送到云端。不监听唤醒词。",
+  "xiaozhi.privacy": "默认关闭。可选的唤醒词识别在面板本地进行。唤醒或按住说话后，对话音频会发送至小智。配对会共享设备标识。",
   "xiaozhi.pair": "配对 / 检查配对",
   "xiaozhi.volume": "扬声器音量",
   "xiaozhi.talk": "按住讲话",
@@ -1455,5 +1455,14 @@
   "settings.saver.hint_clock": "显示移动时钟，并可在指定时长后息屏。点按屏幕即可唤醒。",
   "settings.screen.clock_analog": "指针时钟",
   "settings.hardware.rotation": "屏幕旋转",
-  "settings.rotation.hint": "0°保持面板默认方向。关闭当前弹窗或退出屏保后生效；旋转后请重新加载布局，再编辑新方向的布局。"
+  "settings.rotation.hint": "0°保持面板默认方向。关闭当前弹窗或退出屏保后生效；旋转后请重新加载布局，再编辑新方向的布局。",
+  "xiaozhi.wake": "语音唤醒",
+  "xiaozhi.wake_hint": "说“你好小智”开始对话。唤醒词在面板本地识别。",
+  "xiaozhi.timeout": "对话空闲超时（秒）",
+  "xiaozhi.recognized": "识别到的语音",
+  "xiaozhi.reply": "AI 回复",
+  "xiaozhi.state.wake_error": "语音唤醒不可用，请按住说话",
+  "xiaozhi.emoji_style": "AI 表情样式",
+  "xiaozhi.emoji_otto": "Otto 机器人",
+  "xiaozhi.emoji_classic": "经典表情"
 }

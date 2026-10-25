@@ -544,8 +544,18 @@
         "audio_or_connection_error": "Audio o conexión no disponibles",
         "storage_error": "No se pudo guardar la configuración",
         "memory_error": "Memoria insuficiente",
-        "unsupported": "Esta placa no admite audio de voz"
-      }
+        "unsupported": "Esta placa no admite audio de voz",
+        "wake_error": "Activación por voz no disponible; usa el botón de hablar"
+      },
+      "wake": "Activación por voz",
+      "wake_hint": "Di «Ni hao Xiao Zhi» para empezar. La palabra de activación se reconoce localmente.",
+      "timeout": "Cerrar diálogo por inactividad (segundos)",
+      "recognized": "Voz reconocida",
+      "reply": "Respuesta de IA",
+      "privacy": "Desactivado por defecto. La detección opcional de activación es local. Tras activarlo por voz o pulsar Hablar, el audio se envía a Xiaozhi. La vinculación comparte la identidad del dispositivo.",
+      "emoji_style": "Estilo de emociones de IA",
+      "emoji_otto": "Robot Otto",
+      "emoji_classic": "Emojis clásicos"
     },
     "ota": {
       "title": "Actualización de firmware",
@@ -590,7 +600,8 @@
       "preview": "Vista previa (30 s)",
       "clock_analog": "Reloj analógico",
       "rotation": "Rotación de pantalla",
-      "auto_rotation": "Rotación automática"
+      "auto_rotation": "Rotación automática",
+      "xiaozhi_emoji": "Estilo de emociones de IA"
     },
     "system": {
       "language": "Idioma",

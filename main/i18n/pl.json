@@ -544,8 +544,18 @@
         "audio_or_connection_error": "Dźwięk lub połączenie niedostępne",
         "storage_error": "Nie można zapisać ustawień",
         "memory_error": "Za mało pamięci",
-        "unsupported": "Ta płytka nie obsługuje funkcji głosowych"
-      }
+        "unsupported": "Ta płytka nie obsługuje funkcji głosowych",
+        "wake_error": "Wybudzanie niedostępne; użyj przycisku mówienia"
+      },
+      "wake": "Wybudzanie głosem",
+      "wake_hint": "Powiedz «Ni hao Xiao Zhi», aby rozpocząć. Hasło wybudzające jest rozpoznawane lokalnie.",
+      "timeout": "Zamknij rozmowę po bezczynności (sekundy)",
+      "recognized": "Rozpoznana mowa",
+      "reply": "Odpowiedź AI",
+      "privacy": "Domyślnie wyłączone. Opcjonalne rozpoznawanie hasła wybudzającego działa lokalnie. Po wybudzeniu lub naciśnięciu przycisku dźwięk rozmowy trafia do Xiaozhi. Parowanie udostępnia identyfikator urządzenia.",
+      "emoji_style": "Styl emocji AI",
+      "emoji_otto": "Robot Otto",
+      "emoji_classic": "Klasyczne emoji"
     },
     "ota": {
       "title": "Aktualizacja oprogramowania",
@@ -590,7 +600,8 @@
       "preview": "Podgląd (30 s)",
       "clock_analog": "Zegar analogowy",
       "rotation": "Obrót ekranu",
-      "auto_rotation": "Obrót automatyczny"
+      "auto_rotation": "Obrót automatyczny",
+      "xiaozhi_emoji": "Styl emocji AI"
     },
     "system": {
       "language": "Język",

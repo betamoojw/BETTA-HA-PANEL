@@ -1,0 +1,113 @@
+{
+  "component": "txp666/otto-emoji-gif-component",
+  "version": "1.4.0",
+  "revision": "4279001383c2b1a39ed0457b14759e7c87537941",
+  "size": 96,
+  "assets": {
+    "angry": {
+      "source_sha256": "173d69dd988d49bf5959f1ecafdbb13dfca9c553e59eca3fe6bd30855f003ee2",
+      "sha256": "f88e5b18cbff2e93188a52357cf08279e816527182ffb4bce5f68fca28d1af4a",
+      "duration_ms": 3200
+    },
+    "confident": {
+      "source_sha256": "51b835e96e6118099143af6212693451dd665cdb77d50541ce2c3b8c8b7c064b",
+      "sha256": "de79a3c22649cdf39d96baaf03fdc88ac6318418b6b2e7001e7e84dfd4b1979e",
+      "duration_ms": 3520
+    },
+    "confused": {
+      "source_sha256": "1c3808e0df599baaafc4e7678fb9ff03f8c40c02f55c5c1d91aa9bfe2995ccc3",
+      "sha256": "eb1d22e8227eaea2d8584e341c1e15f18a1d6dfe514aecb7a61bd80ec3f1d7c5",
+      "duration_ms": 3200
+    },
+    "cool": {
+      "source_sha256": "0b9056085b401f3c9c3a136b23126102cd6962eea219e8d43a3715f1d0f7c1ed",
+      "sha256": "9507e8ec58159c44f09a0e0bccde3565ddd4c00fed8601dc1b15df694a400047",
+      "duration_ms": 3520
+    },
+    "crying": {
+      "source_sha256": "81ce9da908e706b20191f7c47e27cc0db5df6731384aa41e18f0c9d1662e8add",
+      "sha256": "16898bc0ee05b6dba1b60544c8edd73de46884c8346e49e92ef5d745ebbadab8",
+      "duration_ms": 3200
+    },
+    "delicious": {
+      "source_sha256": "9875abf979f02b8f556220c219189e3a6753a69b32b82221090739859c36ab98",
+      "sha256": "5f358752d58dee8c2cfd397d13f13bc2ee5c0a9bb6aa54961de322b5c7d2a67b",
+      "duration_ms": 3200
+    },
+    "embarrassed": {
+      "source_sha256": "83ba8088a01a17dce6ca5a51d7b0f8aa2fb704cbb84f19595269454d393ab801",
+      "sha256": "e32bc94d0e12bdf715c2647006bee67dfd4b0ddf7419fa5e9b81be2ea2c50f61",
+      "duration_ms": 3520
+    },
+    "funny": {
+      "source_sha256": "68df73ad5974a824d8f6f924b8754def0b4ba0aea8d886fda4126043cbb4f838",
+      "sha256": "d5eb40145dd5db9b295beb030b1327470d1cf7096cceba339d224aa739521da7",
+      "duration_ms": 3200
+    },
+    "happy": {
+      "source_sha256": "e378131e2a251f1972df2bbbcf0bba5fc8a6f18262e1b3077cd53c9525001b13",
+      "sha256": "5fe377be70c822e25cb79ce0f7e50c473362ec63488b46a8b3e47390a6fe8e79",
+      "duration_ms": 3200
+    },
+    "kissy": {
+      "source_sha256": "b0e6be1e5e45f974883f13399c9c67a1a2bfef6f66afb814f0fb254aa13f375c",
+      "sha256": "06a34e50df7d0eb4ac4470c700ae9a375a657ae06bfd4d3f400acf5d2248f763",
+      "duration_ms": 3200
+    },
+    "laughing": {
+      "source_sha256": "d3320783de87a3ca824cd52986524fb53cad15262bf5756d643c4075cc8c761c",
+      "sha256": "9c9f5748b2e881c1c82c21b8fa8a0b976e91a2132bace040d3077b70cfe12bdd",
+      "duration_ms": 3200
+    },
+    "loving": {
+      "source_sha256": "f2132a316c242eeac110f6563d80e053302555e1c8d91d71b4f2a17e4a6c323c",
+      "sha256": "ce8015a4377a1d96a1acbcced1802fa48101cce55747a4ffd6319f8474c8c2d9",
+      "duration_ms": 3200
+    },
+    "neutral": {
+      "source_sha256": "fabc1b064e8a9e63b831db3ebd8cff21e2af9562d859aed464e01630476176c1",
+      "sha256": "c4bbe99b6fc632fdcd35e1b8b28b6652be923dfce6ac5e6a954f3790d07f7eff",
+      "duration_ms": 4000
+    },
+    "relaxed": {
+      "source_sha256": "e4b96c52a6bb83ee81681deeff0b84e01eee479dbdc69285e5dc34f8b748a71c",
+      "sha256": "256680df8bce7ce5cb8b91508ce970622a83f14d235ffe3e951ccea47045485b",
+      "duration_ms": 3520
+    },
+    "sad": {
+      "source_sha256": "fc61b048fdbdb631e42bd91a06c156fcf1c02ade5f38b831fcc5c77b36ac0671",
+      "sha256": "8d09b3b9b51ab1eb215b9441ab47eeafec21d6549e54c033e963d840a5f4abb5",
+      "duration_ms": 3520
+    },
+    "shocked": {
+      "source_sha256": "8cf5b9fa9a8a87839f88c9e01a15804f95468cd719847709f872aa58e520da12",
+      "sha256": "d4ef6210d580d5b69095b1e8942af82b74a1f829f960a6c2ffa821da263b2142",
+      "duration_ms": 3200
+    },
+    "silly": {
+      "source_sha256": "26f9ba19171895da00bbbff705aa56b1f8588ce1cc96c75ee93b5d30e516d8fe",
+      "sha256": "f48979a7402f1b427f806cde5ad73d7b997997b42d9f240d568224eb7e8d64f5",
+      "duration_ms": 3200
+    },
+    "sleepy": {
+      "source_sha256": "ed7440f33092e50569b1089915ba198cdbfbd69e8411b4f873119d616bbeca7f",
+      "sha256": "928a619081041eba5ec5f6d830ddd1bc5cd0c82799d6b4c3b8630b1c28088d2f",
+      "duration_ms": 4000
+    },
+    "surprised": {
+      "source_sha256": "00d4a4dd61f1a15cbb9f50610c4649ce8b3346bdcb657319d09b822e05e41b0b",
+      "sha256": "aab3a7050187644de83103ef4acb193e2937dc957ee73b98dd2148befe7db77b",
+      "duration_ms": 3200
+    },
+    "thinking": {
+      "source_sha256": "1af19874fb921515fbc35d9cac631f52397aada7bfb3bdb3af9e2d2f04be4883",
+      "sha256": "d640f957681dce0f772a03329c3c0373219405933efe203c81e5422eecb2bc8e",
+      "duration_ms": 3520
+    },
+    "winking": {
+      "source_sha256": "ff0b425da46c2560aa0b7e80901e856cb83b7a9b653172230f2015a6f17f2163",
+      "sha256": "b715b5d3f252389f92a7b681465430903dd59b915519cb808ec5b5142d38deae",
+      "duration_ms": 3200
+    }
+  }
+}

@@ -18,6 +18,9 @@
 
 #if CONFIG_APP_PANEL_VARIANT_10INCH_1280
 #include "xiaozhi_audio.h"
+#include "xiaozhi_wake.h"
+#include "xiaozhi_pcm.h"
+#include "xiaozhi_dialog.h"
 #include "esp_crt_bundle.h"
 #include "esp_http_client.h"
 #include "esp_websocket_client.h"
@@ -38,7 +41,7 @@ typedef struct { int opcode, len; uint8_t *data; } packet_t;
 static SemaphoreHandle_t lock;
 static QueueHandle_t commands, packets;
 static TaskHandle_t worker_task;
-static xiaozhi_status_t status = {.supported = true, .volume = 50};
+static xiaozhi_status_t status = {.supported = true, .volume = 50, .dialog_timeout = 30};
 static char endpoint[256], token[1024], device[18], uuid[37], session[128];
 static esp_websocket_client_handle_t ws;
 static volatile bool connected, failed;
@@ -51,7 +54,24 @@ static int16_t *pcm;
 static uint8_t *encoded;
 static bool hello_sent, ready, want_listen;
 static int64_t deadline, listen_deadline, pair_deadline, next_pair;
-static bool pairing, identity_ready;
+static bool pairing, identity_ready, auto_listen, idle_capture;
+static int64_t last_activity, wake_retry;
+static int16_t *wake_pcm;
+
+static void activity(void)
+{
+    last_activity = esp_timer_get_time();
+    xSemaphoreTake(lock, portMAX_DELAY); ++status.activity_seq; xSemaphoreGive(lock);
+}
+static void show_dialog(void)
+{
+    activity();
+    xSemaphoreTake(lock, portMAX_DELAY); ++status.dialog_seq; xSemaphoreGive(lock);
+}
+static void conversation(bool active)
+{
+    xSemaphoreTake(lock, portMAX_DELAY); status.conversation = active; xSemaphoreGive(lock);
+}
 
 static void set_state(const char *value)
 {
@@ -78,6 +98,24 @@ static bool save_enabled(bool enabled)
     return err == ESP_OK;
 }
 
+esp_err_t xiaozhi_set_emoji_style(int value)
+{
+    if (value < 0 || value > 1 || !lock) return ESP_ERR_INVALID_ARG;
+    if (!flash_gate_enter(1000)) return ESP_ERR_TIMEOUT;
+    nvs_handle_t h;
+    esp_err_t err = nvs_open(NS, NVS_READWRITE, &h);
+    if (err == ESP_OK) {
+        err = nvs_set_u8(h, "emoji", value);
+        if (err == ESP_OK) err = nvs_commit(h);
+        nvs_close(h);
+    }
+    flash_gate_leave();
+    if (err == ESP_OK) {
+        xSemaphoreTake(lock, portMAX_DELAY); status.emoji_style = value; xSemaphoreGive(lock);
+    }
+    return err;
+}
+
 static void drain_packets(void)
 {
     packet_t p;
@@ -86,7 +124,10 @@ static void drain_packets(void)
 
 static void disconnect_session(void)
 {
-    want_listen = false;
+    want_listen = auto_listen = idle_capture = false;
+    conversation(false);
+    wake_retry = esp_timer_get_time() + 1500000;
+    xiaozhi_wake_reset();
     xiaozhi_audio_close();
     if (ws) { esp_websocket_client_stop(ws); esp_websocket_client_destroy(ws); ws = NULL; }
     drain_packets();
@@ -97,7 +138,9 @@ static void disconnect_session(void)
     free(encoded); encoded = NULL;
     connected = ready = hello_sent = false;
     session[0] = 0;
-    xSemaphoreTake(lock, portMAX_DELAY); status.listening = false; xSemaphoreGive(lock);
+    xSemaphoreTake(lock, portMAX_DELAY);
+    status.listening = status.wake_ready = status.wake_running = false;
+    xSemaphoreGive(lock);
 }
 
 /* Event task only assembles bounded messages. The worker owns audio and JSON. */
@@ -137,13 +180,17 @@ static bool control(const char *type, const char *state)
     if (!j) return false;
     cJSON_AddStringToObject(j, "session_id", session);
     cJSON_AddStringToObject(j, "type", type);
-    if (state) { cJSON_AddStringToObject(j, "state", state); cJSON_AddStringToObject(j, "mode", "manual"); }
+    if (state) { cJSON_AddStringToObject(j, "state", state); cJSON_AddStringToObject(j, "mode", auto_listen ? "auto" : "manual"); }
     char *s = cJSON_PrintUnformatted(j); cJSON_Delete(j);
     bool ok = s && send_text(s); free(s); return ok;
 }
 
 static bool connect_session(void)
 {
+    /* Discard the idle capture stream before the cloud handshake. Resume only
+     * on listen/start, so buffered wake audio is not treated as the question. */
+    if (idle_capture && xiaozhi_audio_mic(false) != ESP_OK) goto error;
+    idle_capture = false;
     if (!identity_ready || strncmp(endpoint, "wss://", 6) || !token[0]) return false;
     rx = heap_caps_malloc(MAX_FRAME, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     pcm = heap_caps_malloc(3840 * sizeof(int16_t), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
@@ -268,8 +315,30 @@ static void receive_packet(packet_t *p)
             else { strlcpy(session, id, sizeof(session)); ready = true; set_state("ready"); }
         } else if (!strcmp(type, "stt") || !strcmp(type, "tts")) {
             const char *text = str(j, "text");
-            if (text[0]) { xSemaphoreTake(lock, portMAX_DELAY); strlcpy(status.text, text, sizeof(status.text)); xSemaphoreGive(lock); }
-            if (!strcmp(type, "tts")) set_state(!strcmp(str(j, "state"), "stop") ? "ready" : "speaking");
+            if (text[0]) {
+                activity();
+                xSemaphoreTake(lock, portMAX_DELAY);
+                strlcpy(status.text, text, sizeof(status.text));
+                strlcpy(!strcmp(type, "stt") ? status.recognized : status.reply, text, sizeof(status.text));
+                xSemaphoreGive(lock);
+            }
+            if (!strcmp(type, "tts")) {
+                activity();
+                if (!strcmp(str(j, "state"), "start")) {
+                    want_listen = false;
+                    xiaozhi_audio_mic(false);
+                    xSemaphoreTake(lock, portMAX_DELAY); status.listening = false; xSemaphoreGive(lock);
+                    set_state("speaking");
+                } else if (!strcmp(str(j, "state"), "stop")) {
+                    set_state("ready");
+                    if (auto_listen) { want_listen = true; listen_deadline = esp_timer_get_time() + 60000000; }
+                }
+            }
+        } else if (!strcmp(type, "llm")) {
+            const char *emotion = str(j, "emotion");
+            if (emotion[0]) {
+                xSemaphoreTake(lock, portMAX_DELAY); strlcpy(status.emotion, emotion, sizeof(status.emotion)); xSemaphoreGive(lock);
+            }
         }
         cJSON_Delete(j);
     } else if (ready && !status.listening && p->len >= 4) {
@@ -278,6 +347,7 @@ static void receive_packet(packet_t *p)
         /* Opus can decode the server's 24/48 kHz stream directly at 16 kHz. */
         int n = opus_decode(decoder, p->data + 4, len, pcm, 1920, 0);
         if (n < 0 || xiaozhi_audio_write(pcm, n) != ESP_OK) failed = true;
+        else activity();
     }
 }
 
@@ -290,14 +360,18 @@ static void handle_command(command_t *c)
         if (err == ESP_OK) {
             err = nvs_set_u8(h, "enabled", 0);
             if (err == ESP_OK) err = nvs_set_u8(h, "volume", 50);
+            if (err == ESP_OK) err = nvs_set_u8(h, "wake", 0);
+            if (err == ESP_OK) err = nvs_set_u16(h, "dialog_timeout", 30);
+            if (err == ESP_OK) err = nvs_set_u8(h, "emoji", 0);
             if (err == ESP_OK) err = nvs_commit(h);
             nvs_close(h);
         }
         flash_gate_leave();
         if (err != ESP_OK) { set_state("storage_error"); return; }
         pairing = false; disconnect_session();
-        xSemaphoreTake(lock, portMAX_DELAY); status.enabled = false; status.volume = 50;
-        status.code[0] = status.text[0] = 0; xSemaphoreGive(lock);
+        xSemaphoreTake(lock, portMAX_DELAY); status.enabled = false; status.volume = 50; status.wake_enabled = false; status.dialog_timeout = 30;
+        status.emoji_style = 0;
+        status.code[0] = status.text[0] = status.recognized[0] = status.reply[0] = status.emotion[0] = 0; xSemaphoreGive(lock);
         set_state("disabled"); return;
     }
     if (!strcmp(c->action, "enable") || !strcmp(c->action, "disable")) {
@@ -307,14 +381,37 @@ static void handle_command(command_t *c)
         if (!enable) { pairing = false; disconnect_session(); }
         set_state(enable ? "ready" : "disabled"); return;
     }
+    if (!strcmp(c->action, "wake") || !strcmp(c->action, "timeout")) {
+        nvs_handle_t h;
+        if (!flash_gate_enter(1000)) { set_state("storage_error"); return; }
+        esp_err_t err = nvs_open(NS, NVS_READWRITE, &h);
+        if (err == ESP_OK) {
+            err = !strcmp(c->action, "wake") ? nvs_set_u8(h, "wake", c->value) : nvs_set_u16(h, "dialog_timeout", c->value);
+            if (err == ESP_OK) err = nvs_commit(h);
+            nvs_close(h);
+        }
+        flash_gate_leave();
+        if (err != ESP_OK) { set_state("storage_error"); return; }
+        if (!strcmp(c->action, "wake")) {
+            disconnect_session();
+            xSemaphoreTake(lock, portMAX_DELAY); status.wake_enabled = c->value != 0; xSemaphoreGive(lock);
+            wake_retry = 0;
+        } else {
+            xSemaphoreTake(lock, portMAX_DELAY); status.dialog_timeout = c->value; xSemaphoreGive(lock);
+        }
+        set_state(status.enabled ? "ready" : "disabled"); return;
+    }
     if (!status.enabled) return;
     if (!strcmp(c->action, "pair")) {
         if (!identity_ready) { set_state("storage_error"); return; }
         disconnect_session(); pairing = true;
         pair_deadline = esp_timer_get_time() + 180000000; next_pair = 0; set_state("pairing");
-    } else if (!strcmp(c->action, "start")) {
+    } else if (!strcmp(c->action, "start") || !strcmp(c->action, "open")) {
+        if (!strcmp(c->action, "open") && (!status.wake_enabled || !status.wake_ready)) return;
         if (!status.paired || pairing) { set_state("pair_first"); return; }
         if (!ws && !connect_session()) return;
+        auto_listen = !strcmp(c->action, "open");
+        conversation(true); activity();
         want_listen = true;
         listen_deadline = esp_timer_get_time() + 60000000;
     } else if (!strcmp(c->action, "stop")) {
@@ -337,6 +434,56 @@ static void handle_command(command_t *c)
     }
 }
 
+static void poll_wake(void)
+{
+    bool enabled = status.enabled && status.paired && status.wake_enabled && !pairing;
+    if (!enabled) {
+        if (idle_capture) { xiaozhi_audio_close(); idle_capture = false; }
+        if (wake_pcm) { free(wake_pcm); wake_pcm = NULL; xiaozhi_wake_free(); }
+        xSemaphoreTake(lock, portMAX_DELAY); status.wake_ready = status.wake_running = false; xSemaphoreGive(lock);
+        return;
+    }
+    if (ws || esp_timer_get_time() < wake_retry) {
+        xSemaphoreTake(lock, portMAX_DELAY); status.wake_running = false; xSemaphoreGive(lock); return;
+    }
+    if (!wake_pcm) {
+        wake_pcm = heap_caps_malloc(3840 * sizeof(int16_t), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+        if (!wake_pcm) goto error;
+    }
+    /* Disconnect releases the detector independently of this PCM allocation. */
+    if (!xiaozhi_wake_init()) goto error;
+    if (!idle_capture) {
+        if (xiaozhi_audio_open(0) != ESP_OK || xiaozhi_audio_mic(true) != ESP_OK) goto error;
+        idle_capture = true; set_state("ready");
+    }
+    xSemaphoreTake(lock, portMAX_DELAY); status.wake_ready = status.wake_running = true; xSemaphoreGive(lock);
+    int n = xiaozhi_wake_chunk();
+    if (xiaozhi_audio_read(wake_pcm, n) != ESP_OK) goto error;
+    int mic_peak, ref_peak;
+    xiaozhi_pcm_mono(wake_pcm, n, &mic_peak, &ref_peak);
+    int64_t started = esp_timer_get_time();
+    bool detected = xiaozhi_wake_detect(wake_pcm);
+    int detect_us = (int)(esp_timer_get_time() - started);
+    xSemaphoreTake(lock, portMAX_DELAY);
+    ++status.wake_frames;
+    status.wake_mic_peak = mic_peak; status.wake_ref_peak = ref_peak;
+    status.wake_detect_us = detect_us;
+    if (detected) ++status.wake_hits;
+    xSemaphoreGive(lock);
+    if (detected) {
+        show_dialog();
+        if (connect_session()) {
+            auto_listen = want_listen = true; conversation(true);
+            listen_deadline = esp_timer_get_time() + 60000000;
+        }
+    }
+    return;
+error:
+    idle_capture = false; xiaozhi_audio_close(); xiaozhi_wake_free(); free(wake_pcm); wake_pcm = NULL;
+    xSemaphoreTake(lock, portMAX_DELAY); status.wake_ready = status.wake_running = false; xSemaphoreGive(lock);
+    set_state("wake_error"); wake_retry = esp_timer_get_time() + 30000000;
+}
+
 static void worker(void *unused)
 {
     (void)unused;
@@ -356,6 +503,9 @@ static void worker(void *unused)
         packet_t p;
         bool received = ws && xQueueReceive(packets, &p, 0) == pdTRUE;
         if (received) { receive_packet(&p); free(p.data); }
+        if (ws && xiaozhi_dialog_expired(esp_timer_get_time()/1000, last_activity/1000, status.dialog_timeout)) {
+            disconnect_session(); set_state("ready");
+        }
         if (want_listen && now >= listen_deadline) want_listen = false;
         if (ready && want_listen != status.listening) {
             if (want_listen) { control("abort", NULL); drain_packets(); }
@@ -367,7 +517,8 @@ static void worker(void *unused)
         if (ready && status.listening && !failed) {
             if (xiaozhi_audio_read(pcm, FRAME_SAMPLES) != ESP_OK) failed = true;
             else {
-                for (int i = 0; i < FRAME_SAMPLES; i++) pcm[i] = ((int)pcm[2*i] + pcm[2*i+1]) / 2;
+                xiaozhi_pcm_mono(pcm, FRAME_SAMPLES, NULL, NULL);
+                if (!auto_listen || xiaozhi_voice_active(pcm, FRAME_SAMPLES)) activity();
                 int n = opus_encode(encoder, pcm, FRAME_SAMPLES, encoded + 4, 1500);
                 if (n <= 0) failed = true;
                 else {
@@ -376,6 +527,7 @@ static void worker(void *unused)
                 }
             }
         } else if (!received) vTaskDelay(pdMS_TO_TICKS(10));
+        poll_wake();
     }
 }
 
@@ -383,11 +535,13 @@ esp_err_t xiaozhi_command(const char *action, int value)
 {
     if (!action || !commands || strlen(action) >= sizeof(((command_t *)0)->action)) return ESP_ERR_INVALID_STATE;
     if (strcmp(action, "reset") && strcmp(action, "enable") && strcmp(action, "disable") && strcmp(action, "pair") &&
-        strcmp(action, "start") && strcmp(action, "stop") && strcmp(action, "disconnect") && strcmp(action, "volume")) return ESP_ERR_INVALID_ARG;
+        strcmp(action, "wake") && strcmp(action, "timeout") && strcmp(action, "open") && strcmp(action, "start") && strcmp(action, "stop") && strcmp(action, "disconnect") && strcmp(action, "volume")) return ESP_ERR_INVALID_ARG;
     if (!strcmp(action, "volume") && (value < 0 || value > 80)) return ESP_ERR_INVALID_ARG;
+    if (!strcmp(action, "wake") && value != 0 && value != 1) return ESP_ERR_INVALID_ARG;
+    if (!strcmp(action, "timeout") && (value < 10 || value > 300)) return ESP_ERR_INVALID_ARG;
     xSemaphoreTake(lock, portMAX_DELAY);
     /* Screen teardown must not allocate an audio worker while disabled. */
-    if (!worker_task && !status.enabled && strcmp(action, "enable") && strcmp(action, "reset")) {
+    if (!worker_task && !status.enabled && strcmp(action, "enable") && strcmp(action, "reset") && strcmp(action, "wake") && strcmp(action, "timeout")) {
         xSemaphoreGive(lock); return ESP_OK;
     }
     if (!worker_task && xTaskCreate(worker, "xiaozhi", 32768, NULL, 4, &worker_task) != pdPASS) {
@@ -408,9 +562,12 @@ void xiaozhi_init(void)
     nvs_handle_t h;
     bool init_gate = flash_gate_enter(1000);
     if (init_gate && nvs_open(NS, NVS_READWRITE, &h) == ESP_OK) {
-        uint8_t enabled = 0, volume = 50;
+        uint8_t enabled = 0, volume = 50, wake = 0; uint16_t timeout = 30;
         nvs_get_u8(h, "enabled", &enabled); status.enabled = enabled == 1;
         nvs_get_u8(h, "volume", &volume); status.volume = volume <= 80 ? volume : 50;
+        nvs_get_u8(h, "wake", &wake); status.wake_enabled = wake == 1;
+        nvs_get_u16(h, "dialog_timeout", &timeout); status.dialog_timeout = timeout >= 10 && timeout <= 300 ? timeout : 30;
+        uint8_t emoji = 0; nvs_get_u8(h, "emoji", &emoji); status.emoji_style = emoji == 1 ? 1 : 0;
         size_t len = sizeof(uuid);
         esp_err_t identity_err = nvs_get_str(h, "uuid", uuid, &len);
         if (identity_err != ESP_OK || strlen(uuid) != 36) {
@@ -437,6 +594,7 @@ void xiaozhi_init(void)
     }
 }
 #else
+esp_err_t xiaozhi_set_emoji_style(int value) { (void)value; return ESP_ERR_NOT_SUPPORTED; }
 void xiaozhi_init(void) {}
 void xiaozhi_status(xiaozhi_status_t *out) { memset(out, 0, sizeof(*out)); strcpy(out->state, "unsupported"); }
 esp_err_t xiaozhi_command(const char *action, int value) { (void)action; (void)value; return ESP_ERR_NOT_SUPPORTED; }

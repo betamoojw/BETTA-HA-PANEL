@@ -1307,7 +1307,7 @@ WEB_I18N_BUILTIN["zh-tw"] = {
   "settings.time.list_unavailable": "時區清單無法取得，請重新載入設定。",
   "xiaozhi.title": "小智 AI",
   "xiaozhi.enable": "啟用小智 AI",
-  "xiaozhi.privacy": "預設關閉。配對會向小智傳送裝置識別碼；按住說話時會將麥克風音訊傳送到雲端。不監聽喚醒詞。",
+  "xiaozhi.privacy": "預設關閉。選用的喚醒詞辨識在面板本機進行。喚醒或按住說話後，對話音訊會傳送至小智。配對會分享裝置識別資訊。",
   "xiaozhi.pair": "配對 / 檢查配對",
   "xiaozhi.volume": "喇叭音量",
   "xiaozhi.talk": "按住說話",
@@ -1459,5 +1459,14 @@ WEB_I18N_BUILTIN["zh-tw"] = {
   "settings.saver.hint_clock": "顯示移動時鐘，並可在指定時間後關閉螢幕。點按螢幕即可喚醒。",
   "settings.screen.clock_analog": "指針時鐘",
   "settings.hardware.rotation": "螢幕旋轉",
-  "settings.rotation.hint": "0°保留面板預設方向。關閉目前彈窗或離開螢幕保護後生效；旋轉後請重新載入佈局，再編輯新方向的佈局。"
+  "settings.rotation.hint": "0°保留面板預設方向。關閉目前彈窗或離開螢幕保護後生效；旋轉後請重新載入佈局，再編輯新方向的佈局。",
+  "xiaozhi.wake": "語音喚醒",
+  "xiaozhi.wake_hint": "說「你好小智」開始對話。喚醒詞在面板本機辨識。",
+  "xiaozhi.timeout": "對話閒置逾時（秒）",
+  "xiaozhi.recognized": "辨識到的語音",
+  "xiaozhi.reply": "AI 回覆",
+  "xiaozhi.state.wake_error": "語音喚醒無法使用，請按住說話",
+  "xiaozhi.emoji_style": "AI 表情樣式",
+  "xiaozhi.emoji_otto": "Otto 機器人",
+  "xiaozhi.emoji_classic": "經典表情"
 };

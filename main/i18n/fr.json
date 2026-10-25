@@ -544,8 +544,18 @@
         "audio_or_connection_error": "Audio ou connexion indisponible",
         "storage_error": "Impossible d’enregistrer les réglages",
         "memory_error": "Mémoire insuffisante",
-        "unsupported": "Cette carte ne prend pas en charge la voix"
-      }
+        "unsupported": "Cette carte ne prend pas en charge la voix",
+        "wake_error": "Réveil vocal indisponible ; utilisez le bouton de parole"
+      },
+      "wake": "Réveil vocal",
+      "wake_hint": "Dites « Ni hao Xiao Zhi » pour commencer. Le mot de réveil est reconnu localement.",
+      "timeout": "Fermer le dialogue après inactivité (secondes)",
+      "recognized": "Parole reconnue",
+      "reply": "Réponse de l’IA",
+      "privacy": "Désactivé par défaut. La détection facultative du mot de réveil reste locale. Après le réveil ou la touche de parole, le son est envoyé à Xiaozhi. L’association partage l’identité de l’appareil.",
+      "emoji_style": "Style des émotions de l’IA",
+      "emoji_otto": "Robot Otto",
+      "emoji_classic": "Emojis classiques"
     },
     "ota": {
       "title": "Mise à jour du micrologiciel",
@@ -590,7 +600,8 @@
       "preview": "Aperçu (30 s)",
       "clock_analog": "Horloge analogique",
       "rotation": "Rotation de l’écran",
-      "auto_rotation": "Rotation automatique"
+      "auto_rotation": "Rotation automatique",
+      "xiaozhi_emoji": "Style des émotions de l’IA"
     },
     "system": {
       "language": "Langue",

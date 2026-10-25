@@ -13,6 +13,7 @@
 #include "settings/night_mode.h"
 #include "ha/ha_client.h"
 #include "ui/ui_memory.h"
+#include "xiaozhi/xiaozhi.h"
 
 static atomic_int s_status;
 static screen_settings_t s_patch;
@@ -26,6 +27,12 @@ esp_err_t screen_settings_load(screen_settings_t *out)
     esp_err_t err = runtime_settings_load(settings);
     if (err == ESP_OK) {
         screen_settings_read(out, settings);
+        xiaozhi_status_t *ai = ui_calloc_prefer_psram(1, sizeof(*ai));
+        if (ai != NULL) {
+            xiaozhi_status(ai); out->xiaozhi_supported = ai->supported;
+            out->value[SCREEN_XIAOZHI_EMOJI] = ai->emoji_style;
+            free(ai);
+        }
         theme_entry_t *theme = ui_calloc_prefer_psram(1, sizeof(*theme));
         err = theme != NULL ? theme_store_load_active(theme) : ESP_ERR_NO_MEM;
         if (err == ESP_OK) snprintf(out->theme, sizeof(out->theme), "%s", theme->id);
@@ -76,6 +83,13 @@ void screen_settings_process(void)
         if (app_events_publish(&event, 0)) s_reload = false;
     }
     if (atomic_load(&s_status) != 1) return;
+    const uint32_t emoji_bit = 1U << SCREEN_XIAOZHI_EMOJI;
+    if (s_patch.dirty & emoji_bit) {
+        esp_err_t saved = xiaozhi_set_emoji_style(s_patch.value[SCREEN_XIAOZHI_EMOJI]);
+        if (saved != ESP_OK || s_patch.dirty == emoji_bit) {
+            atomic_store(&s_status, saved == ESP_OK ? 2 : -1); return;
+        }
+    }
     runtime_settings_t *settings = ui_calloc_prefer_psram(1, sizeof(*settings));
     esp_err_t err = settings != NULL ? ESP_OK : ESP_ERR_NO_MEM;
     if (err == ESP_OK && (s_patch.dirty & SYSTEM_DIRTY(SYSTEM_THEME))) {

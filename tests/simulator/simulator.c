@@ -38,6 +38,10 @@
 #include "layout/widget_types.h"
 #include "host_adapters.h"
 #include "simulator_frame.h"
+#include "xiaozhi/xiaozhi.h"
+static xiaozhi_status_t demo_assistant;
+void xiaozhi_status(xiaozhi_status_t *s) { *s = demo_assistant; }
+esp_err_t xiaozhi_command(const char *action, int value) { (void)action; (void)value; return ESP_OK; }
 #include "ui/ui_conn_popup.h"
 #include "ui/ui_pages.h"
 #include "ui/ui_alert_center.h"
@@ -1112,6 +1116,18 @@ int main(int argc, char **argv)
     if (cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(root, "topbar_ai"))) {
         lv_obj_t *assistant = ui_pages_create_topbar_action(screen, APP_SYMBOL_AI_AGENT, NULL, NULL);
         ui_pages_set_topbar_auxiliary(assistant);
+    }
+    const cJSON *ai_demo = cJSON_GetObjectItemCaseSensitive(root, "xiaozhi_demo");
+    if (cJSON_IsObject(ai_demo)) {
+        demo_assistant.enabled = true; demo_assistant.supported = true;
+        demo_assistant.wake_enabled = demo_assistant.wake_ready = true;
+        demo_assistant.dialog_timeout = 300;
+        demo_assistant.emoji_style = !strcmp(json_string(ai_demo,"style"),"classic") ? 1 : 0;
+        snprintf(demo_assistant.state,sizeof(demo_assistant.state),"speaking");
+        snprintf(demo_assistant.emotion,sizeof(demo_assistant.emotion),"%s",json_string(ai_demo,"emotion"));
+        snprintf(demo_assistant.recognized,sizeof(demo_assistant.recognized),"%s",json_string(ai_demo,"recognized"));
+        snprintf(demo_assistant.reply,sizeof(demo_assistant.reply),"%s",json_string(ai_demo,"reply"));
+        xiaozhi_ui_create(screen); ++demo_assistant.dialog_seq;
     }
     if (cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(root, "alert_demo"))) {
         coredump_record_t report = {0};

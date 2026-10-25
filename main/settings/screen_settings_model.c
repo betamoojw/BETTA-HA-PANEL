@@ -32,8 +32,8 @@ void screen_settings_merge(runtime_settings_t *settings, const screen_settings_t
         snprintf(settings->ui_style, sizeof(settings->ui_style), "%s", patch->style);
     screen_settings_t merged;
     screen_settings_read(&merged, settings);
-    static const int low[] = {1, 0, 5, 0, 1, 15, 1, 0, 30, 0, 0, 0, 0, 0, 0};
-    static const int high[] = {100, 100, 3600, 4, 120, 7200, 100, 1, 7200, 1, 1, 1, 1, 3, 1};
+    static const int low[] = {1, 0, 5, 0, 1, 15, 1, 0, 30, 0, 0, 0, 0, 0, 0, 0};
+    static const int high[] = {100, 100, 3600, 4, 120, 7200, 100, 1, 7200, 1, 1, 1, 1, 3, 1, 1};
     for (int i = 0; i < SCREEN_FIELD_COUNT; i++) if (patch->dirty & (1U << i)) {
         int v = patch->value[i];
         merged.value[i] = v < low[i] ? low[i] : (v > high[i] ? high[i] : v);

@@ -544,8 +544,18 @@
         "audio_or_connection_error": "音訊或連線無法使用",
         "storage_error": "無法儲存設定",
         "memory_error": "記憶體不足",
-        "unsupported": "此板型不支援語音音訊"
-      }
+        "unsupported": "此板型不支援語音音訊",
+        "wake_error": "語音喚醒無法使用，請按住說話"
+      },
+      "wake": "語音喚醒",
+      "wake_hint": "說「你好小智」開始對話。喚醒詞在面板本機辨識。",
+      "timeout": "對話閒置逾時（秒）",
+      "recognized": "辨識到的語音",
+      "reply": "AI 回覆",
+      "privacy": "預設關閉。選用的喚醒詞辨識在面板本機進行。喚醒或按住說話後，對話音訊會傳送至小智。配對會分享裝置識別資訊。",
+      "emoji_style": "AI 表情樣式",
+      "emoji_otto": "Otto 機器人",
+      "emoji_classic": "經典表情"
     },
     "ota": {
       "title": "韌體更新",
@@ -590,7 +600,8 @@
       "preview": "預覽（30 秒）",
       "clock_analog": "指針時鐘",
       "rotation": "螢幕旋轉",
-      "auto_rotation": "自動旋轉"
+      "auto_rotation": "自動旋轉",
+      "xiaozhi_emoji": "AI 表情樣式"
     },
     "system": {
       "language": "語言",

@@ -1303,7 +1303,7 @@
   "settings.time.list_unavailable": "Lista stref czasowych jest niedostępna. Wczytaj ustawienia ponownie.",
   "xiaozhi.title": "Xiaozhi AI",
   "xiaozhi.enable": "Włącz Xiaozhi AI",
-  "xiaozhi.privacy": "Domyślnie wyłączone. Parowanie udostępnia identyfikator urządzenia; przytrzymanie przycisku wysyła dźwięk do chmury. Bez słowa wybudzającego.",
+  "xiaozhi.privacy": "Domyślnie wyłączone. Opcjonalne rozpoznawanie hasła wybudzającego działa lokalnie. Po wybudzeniu lub naciśnięciu przycisku dźwięk rozmowy trafia do Xiaozhi. Parowanie udostępnia identyfikator urządzenia.",
   "xiaozhi.pair": "Paruj / sprawdź",
   "xiaozhi.volume": "Głośność głośnika",
   "xiaozhi.talk": "Przytrzymaj, aby mówić",
@@ -1455,5 +1455,14 @@
   "settings.saver.hint_clock": "Pokazuje przesuwający się zegar, a następnie opcjonalnie wyłącza ekran. Dotknij, aby wybudzić.",
   "settings.screen.clock_analog": "Zegar analogowy",
   "settings.hardware.rotation": "Obrót ekranu",
-  "settings.rotation.hint": "0° zachowuje domyślną orientację. Zamknij otwarte okna i wygaszacz, aby obrócić ekran, a następnie wczytaj układ ponownie."
+  "settings.rotation.hint": "0° zachowuje domyślną orientację. Zamknij otwarte okna i wygaszacz, aby obrócić ekran, a następnie wczytaj układ ponownie.",
+  "xiaozhi.wake": "Wybudzanie głosem",
+  "xiaozhi.wake_hint": "Powiedz «Ni hao Xiao Zhi», aby rozpocząć. Hasło wybudzające jest rozpoznawane lokalnie.",
+  "xiaozhi.timeout": "Zamknij rozmowę po bezczynności (sekundy)",
+  "xiaozhi.recognized": "Rozpoznana mowa",
+  "xiaozhi.reply": "Odpowiedź AI",
+  "xiaozhi.state.wake_error": "Wybudzanie niedostępne; użyj przycisku mówienia",
+  "xiaozhi.emoji_style": "Styl emocji AI",
+  "xiaozhi.emoji_otto": "Robot Otto",
+  "xiaozhi.emoji_classic": "Klasyczne emoji"
 }

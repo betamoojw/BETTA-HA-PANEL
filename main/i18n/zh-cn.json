@@ -544,8 +544,18 @@
         "audio_or_connection_error": "音频或连接不可用",
         "storage_error": "无法保存设置",
         "memory_error": "内存不足",
-        "unsupported": "此板型不支持语音音频"
-      }
+        "unsupported": "此板型不支持语音音频",
+        "wake_error": "语音唤醒不可用，请按住说话"
+      },
+      "wake": "语音唤醒",
+      "wake_hint": "说“你好小智”开始对话。唤醒词在面板本地识别。",
+      "timeout": "对话空闲超时（秒）",
+      "recognized": "识别到的语音",
+      "reply": "AI 回复",
+      "privacy": "默认关闭。可选的唤醒词识别在面板本地进行。唤醒或按住说话后，对话音频会发送至小智。配对会共享设备标识。",
+      "emoji_style": "AI 表情样式",
+      "emoji_otto": "Otto 机器人",
+      "emoji_classic": "经典表情"
     },
     "ota": {
       "title": "固件更新",
@@ -590,7 +600,8 @@
       "preview": "预览（30 秒）",
       "clock_analog": "指针时钟",
       "rotation": "屏幕旋转",
-      "auto_rotation": "自动旋转"
+      "auto_rotation": "自动旋转",
+      "xiaozhi_emoji": "AI 表情样式"
     },
     "system": {
       "language": "语言",

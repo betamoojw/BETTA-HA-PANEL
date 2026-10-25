@@ -19,6 +19,7 @@ static runtime_settings_t settings;
 static screen_settings_t pending;
 static int status;
 static bool fail_save;
+static int saved_emoji;
 static char saved_theme[32] = "dark_v2";
 static unsigned checks;
 #define CHECK(c) do { checks++; if (!(c)) { fprintf(stderr, "Screen settings line %d: %s\n", __LINE__, #c); exit(1); } } while (0)
@@ -37,6 +38,7 @@ esp_err_t screen_settings_load(screen_settings_t *out)
         strcpy(settings.time_tz, "Asia/Shanghai");
     }
     screen_settings_read(out, &settings);
+    out->xiaozhi_supported = true; out->value[SCREEN_XIAOZHI_EMOJI] = saved_emoji;
     snprintf(out->theme, sizeof(out->theme), "%s", saved_theme);
     out->custom_theme_count = 1;
     strcpy(out->custom_theme_ids[0], "imported_test");
@@ -50,6 +52,7 @@ void screen_settings_process(void)
     if (status != 1) return;
     if (fail_save) { status = -1; return; }
     screen_settings_merge(&settings, &pending);
+    if (pending.dirty & (1U << SCREEN_XIAOZHI_EMOJI)) saved_emoji = pending.value[SCREEN_XIAOZHI_EMOJI];
     if (pending.dirty & SYSTEM_DIRTY(SYSTEM_THEME)) snprintf(saved_theme, sizeof(saved_theme), "%s", pending.theme);
     cJSON *json = cJSON_CreateObject();
     CHECK(display_clock_write(json, &settings.display_clock));
@@ -116,6 +119,23 @@ static void select_system(int field, unsigned index)
 
 static void check_system_settings(void)
 {
+    ui_screen_settings_open();
+    lv_obj_t *cancel_emoji = control(SCREEN_XIAOZHI_EMOJI);
+    lv_dropdown_set_selected(cancel_emoji, 1);
+    lv_obj_send_event(cancel_emoji, LV_EVENT_VALUE_CHANGED, NULL);
+    lv_obj_t *cancel = find_text(ui_screen_settings_root(), ui_i18n_get("screen.cancel", "Cancel"));
+    lv_obj_send_event(lv_obj_get_parent(cancel), LV_EVENT_CLICKED, NULL);
+    CHECK(saved_emoji == 0 && ui_screen_settings_root() == NULL);
+    for (int style = 1; style >= 0; style--) {
+        ui_screen_settings_open();
+        lv_obj_t *emoji = control(SCREEN_XIAOZHI_EMOJI);
+        CHECK(lv_obj_check_type(emoji, &lv_dropdown_class));
+        lv_dropdown_set_selected(emoji, style); lv_obj_send_event(emoji, LV_EVENT_VALUE_CHANGED, NULL);
+        fail_save = true; click_save(); CHECK(ui_screen_settings_root() != NULL && saved_emoji != style);
+        fail_save = false; click_save(); CHECK(saved_emoji == style);
+        ui_screen_settings_open(); CHECK(lv_dropdown_get_selected(control(SCREEN_XIAOZHI_EMOJI)) == (unsigned)style);
+        click_save();
+    }
     ui_screen_settings_open();
     for (int field = 0; field < SYSTEM_FIELD_COUNT; field++) {
         lv_obj_t *row = lv_obj_get_child(lv_obj_get_child(ui_screen_settings_root(), 1), field);

@@ -1303,7 +1303,7 @@
   "settings.time.list_unavailable": "Liste des fuseaux horaires indisponible. Rechargez les paramètres.",
   "xiaozhi.title": "Xiaozhi AI",
   "xiaozhi.enable": "Activer Xiaozhi AI",
-  "xiaozhi.privacy": "Désactivé par défaut. L’association partage l’identité de l’appareil ; maintenir Parler envoie le son au cloud. Aucun mot de réveil.",
+  "xiaozhi.privacy": "Désactivé par défaut. La détection facultative du mot de réveil reste locale. Après le réveil ou la touche de parole, le son est envoyé à Xiaozhi. L’association partage l’identité de l’appareil.",
   "xiaozhi.pair": "Associer / vérifier",
   "xiaozhi.volume": "Volume du haut-parleur",
   "xiaozhi.talk": "Maintenir pour parler",
@@ -1455,5 +1455,14 @@
   "settings.saver.hint_clock": "Affiche une horloge mobile, puis éteint éventuellement l’écran. Touchez pour réveiller.",
   "settings.screen.clock_analog": "Horloge analogique",
   "settings.hardware.rotation": "Rotation de l’écran",
-  "settings.rotation.hint": "0° conserve l’orientation par défaut. Fermez les commandes et l’économiseur pour tourner, puis rechargez la disposition."
+  "settings.rotation.hint": "0° conserve l’orientation par défaut. Fermez les commandes et l’économiseur pour tourner, puis rechargez la disposition.",
+  "xiaozhi.wake": "Réveil vocal",
+  "xiaozhi.wake_hint": "Dites « Ni hao Xiao Zhi » pour commencer. Le mot de réveil est reconnu localement.",
+  "xiaozhi.timeout": "Fermer le dialogue après inactivité (secondes)",
+  "xiaozhi.recognized": "Parole reconnue",
+  "xiaozhi.reply": "Réponse de l’IA",
+  "xiaozhi.state.wake_error": "Réveil vocal indisponible ; utilisez le bouton de parole",
+  "xiaozhi.emoji_style": "Style des émotions de l’IA",
+  "xiaozhi.emoji_otto": "Robot Otto",
+  "xiaozhi.emoji_classic": "Emojis classiques"
 }

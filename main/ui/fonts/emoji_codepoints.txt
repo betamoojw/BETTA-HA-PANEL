@@ -193,3 +193,8 @@ U+1F9FC  # bar of soap
 U+1FA9F  # window
 U+1FAAB  # low battery
 U+1FAB4  # potted plant
+U+1F60C  # Xiaozhi emotion
+U+1F614  # Xiaozhi emotion
+U+1F615  # Xiaozhi emotion
+U+1F61C  # Xiaozhi emotion
+U+1F62E  # Xiaozhi emotion

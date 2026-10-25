@@ -163,6 +163,7 @@ idf_component_register(
         "xiaozhi/xiaozhi.c"
         "xiaozhi/xiaozhi_api.c"
         "xiaozhi/xiaozhi_ui.c"
+        "xiaozhi/xiaozhi_dialog.c"
         "api/api_routes.c"
         "ui/theme/ui_style.c"
         "ui/theme/ui_style_registry.c"
@@ -440,8 +441,23 @@ if(CONFIG_APP_PANEL_VARIANT_S3_480)
 endif()
 
 if(CONFIG_APP_PANEL_VARIANT_10INCH_1280)
-    target_sources(${COMPONENT_LIB} PRIVATE "xiaozhi/xiaozhi_audio.c")
-    idf_component_optional_requires(PRIVATE 78__esp-opus espressif__esp_codec_dev)
+    set(otto_source "${CMAKE_CURRENT_BINARY_DIR}/otto_assets.c")
+    file(GLOB otto_inputs "${PROJECT_DIR}/main/ui/assets/otto/*")
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${otto_inputs} "${PROJECT_DIR}/tools/generate_otto_assets.py")
+    execute_process(COMMAND ${PYTHON} "${PROJECT_DIR}/tools/generate_otto_assets.py" --embed "${otto_source}" COMMAND_ERROR_IS_FATAL ANY)
+    target_sources(${COMPONENT_LIB} PRIVATE "${otto_source}")
+    target_sources(${COMPONENT_LIB} PRIVATE "xiaozhi/xiaozhi_audio.c" "xiaozhi/xiaozhi_wake.c")
+    idf_component_optional_requires(PRIVATE 78__esp-opus espressif__esp_codec_dev espressif__esp-sr)
+    idf_component_get_property(sr_dir espressif__esp-sr COMPONENT_DIR)
+    set(wake_model "${CMAKE_CURRENT_BINARY_DIR}/xiaozhi_wake_model.bin")
+    set(wake_source "${sr_dir}/model/wakenet_model/wn9_nihaoxiaozhi")
+    add_custom_command(OUTPUT "${wake_model}"
+        COMMAND ${PYTHON} "${PROJECT_DIR}/tools/pack_xiaozhi_model.py" "${wake_source}" "${wake_model}"
+        DEPENDS "${PROJECT_DIR}/tools/pack_xiaozhi_model.py" "${wake_source}/wn9_data"
+            "${wake_source}/wn9_index" "${wake_source}/_MODEL_INFO_" VERBATIM)
+    add_custom_target(xiaozhi_wake_model DEPENDS "${wake_model}")
+    add_dependencies(${COMPONENT_LIB} xiaozhi_wake_model)
+    target_add_binary_data(${COMPONENT_LIB} "${wake_model}" BINARY)
 endif()
 
 # P4 uses ESP-Hosted; S3 has native Wi-Fi.

@@ -1303,7 +1303,7 @@
   "settings.time.list_unavailable": "La lista de zonas horarias no está disponible. Vuelve a cargar los ajustes.",
   "xiaozhi.title": "Xiaozhi AI",
   "xiaozhi.enable": "Activar Xiaozhi AI",
-  "xiaozhi.privacy": "Desactivado por defecto. El emparejamiento comparte la identidad del dispositivo; al mantener pulsado Hablar, se envía audio a la nube. Sin palabra de activación.",
+  "xiaozhi.privacy": "Desactivado por defecto. La detección opcional de activación es local. Tras activarlo por voz o pulsar Hablar, el audio se envía a Xiaozhi. La vinculación comparte la identidad del dispositivo.",
   "xiaozhi.pair": "Emparejar / comprobar",
   "xiaozhi.volume": "Volumen del altavoz",
   "xiaozhi.talk": "Mantener para hablar",
@@ -1455,5 +1455,14 @@
   "settings.saver.hint_clock": "Muestra un reloj en movimiento y apaga la pantalla si lo deseas. Toca para activar.",
   "settings.screen.clock_analog": "Reloj analógico",
   "settings.hardware.rotation": "Rotación de pantalla",
-  "settings.rotation.hint": "0° conserva la orientación predeterminada. Cierra los controles y el salvapantallas para girar; después recarga el diseño."
+  "settings.rotation.hint": "0° conserva la orientación predeterminada. Cierra los controles y el salvapantallas para girar; después recarga el diseño.",
+  "xiaozhi.wake": "Activación por voz",
+  "xiaozhi.wake_hint": "Di «Ni hao Xiao Zhi» para empezar. La palabra de activación se reconoce localmente.",
+  "xiaozhi.timeout": "Cerrar diálogo por inactividad (segundos)",
+  "xiaozhi.recognized": "Voz reconocida",
+  "xiaozhi.reply": "Respuesta de IA",
+  "xiaozhi.state.wake_error": "Activación por voz no disponible; usa el botón de hablar",
+  "xiaozhi.emoji_style": "Estilo de emociones de IA",
+  "xiaozhi.emoji_otto": "Robot Otto",
+  "xiaozhi.emoji_classic": "Emojis clásicos"
 }

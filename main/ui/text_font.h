@@ -59,6 +59,8 @@ bool ui_font_at_floor(const lv_font_t *font);
 /* Symbol, icon and weather glyph fonts (Material Design Icons) and the emoji font that follows a text size. */
 const lv_font_t *ui_font_icon(ui_icon_font_t kind);
 const lv_font_t *ui_font_emoji_for_text(int text_px);
+/* Hero-role emotion glyph, bounded by its available display area. */
+const lv_font_t *ui_font_emotion(int max_height);
 
 /* A shared measuring font for the fitting: no glyph cache, resized per call, valid until the next probe call. Never draw with it. */
 const lv_font_t *ui_font_probe(int px);

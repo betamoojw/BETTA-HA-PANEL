@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: LicenseRef-FNCL-1.1 | Copyright (c) 2026 Cpt_Kirk | Modified 2026 by andre68723 in the andre68723/BETTA-HA-PANEL fork, see docs/release-notes.md -->
 # Fonts of the panel
 
-Every text, symbol, icon and emoji of the firmware is drawn by LVGL's `lv_tiny_ttf` from **five TrueType subsets** that are
+Text, font symbols and monochrome emoji are drawn by LVGL's `lv_tiny_ttf` from **five TrueType subsets** that are
 embedded in the image as const arrays (`lv_tiny_ttf` reads them in place; S3 XIP also copies read-only data to PSRAM). No bitmap font is generated per size and
 `lv_font_conv` is not used: a size is an integer given at run time, so the text size can follow the board, the role and the user's setting
 (`docs/appearance.md`, "Text size") without regenerating anything.
@@ -20,11 +20,11 @@ tool, commit the result.
 
 ## Chinese subset
 
-`cjk_codepoints.txt` contains 780 codepoints: every Chinese character and
+`cjk_codepoints.txt` contains 800 codepoints: every Chinese character and
 punctuation mark in the built-in panel catalogs, plus common room and device
 names from `cjk_extra.txt`. It is not full Unicode CJK coverage. Both languages share Noto Sans SC
 outlines; regional traditional glyph-shape variants are not selected dynamically.
-The subset is 228,216 bytes. Keep it compact: S3 XIP copies it into PSRAM at boot,
+The subset is 233,684 bytes. Keep it compact: S3 XIP copies it into PSRAM at boot,
 so a large font reduces memory available to widgets and Live Display.
 Each requested size has a 32-glyph cache;
 the shared font budget is 96 instances, including text, icons and emoji.
@@ -119,3 +119,8 @@ python3 -m pip install pillow
 python3 tools/generate_notification_emoji.py --cache /private/tmp/betta-noto128   # after editing notification_emoji.txt
 python3 tools/generate_notification_emoji.py --check
 ```
+
+The Xiaozhi dialogue's Classic Emoji style uses the bundled monochrome emoji for protocol emotions.
+Its default Otto Robot style uses separate animated assets in `ui/assets/otto/`.
+`ui_font_emotion()` derives its size from the hero role and available height,
+capped at 128 pixels; instances share the existing font budget.

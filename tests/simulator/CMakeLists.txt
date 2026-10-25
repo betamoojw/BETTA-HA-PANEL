@@ -7,6 +7,11 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(REPO_ROOT "${CMAKE_CURRENT_LIST_DIR}/../..")
 get_filename_component(REPO_ROOT "${REPO_ROOT}" ABSOLUTE)
+find_package(Python3 COMPONENTS Interpreter REQUIRED)
+set(OTTO_SOURCE "${CMAKE_CURRENT_BINARY_DIR}/otto_assets.c")
+file(GLOB OTTO_INPUTS "${REPO_ROOT}/main/ui/assets/otto/*")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${OTTO_INPUTS} "${REPO_ROOT}/tools/generate_otto_assets.py")
+execute_process(COMMAND ${Python3_EXECUTABLE} "${REPO_ROOT}/tools/generate_otto_assets.py" --embed "${OTTO_SOURCE}" COMMAND_ERROR_IS_FATAL ANY)
 
 set(SIM_VARIANT "panel4" CACHE STRING "Panel geometry: panel4, panel10, paneljc, paneljc-v2, tab5, panels3")
 set_property(CACHE SIM_VARIANT PROPERTY STRINGS panel4 panel10 paneljc paneljc-v2 tab5 panels3)
@@ -145,6 +150,9 @@ add_executable(betta-widget-sim
     "${REPO_ROOT}/main/net/timezone_catalog.c"
     "${REPO_ROOT}/main/ui/ui_conn_popup.c"
     "${REPO_ROOT}/main/ui/ui_alert_center.c"
+    "${REPO_ROOT}/main/xiaozhi/xiaozhi_ui.c"
+    "${REPO_ROOT}/main/xiaozhi/xiaozhi_dialog.c"
+    "${OTTO_SOURCE}"
     "${REPO_ROOT}/main/ui/alert_policy.c"
     "${REPO_ROOT}/main/ui/nav_layout.c"
     "${REPO_ROOT}/main/ui/ui_house_page.c"
@@ -266,7 +274,8 @@ foreach(geometry "480;480" "720;720" "1280;800" "720;1280" "800;1280" "1280;720"
     list(GET geometry 1 clock_h)
     add_test(NAME "clock-${clock_w}x${clock_h}" COMMAND betta-clock-test ${clock_w} ${clock_h})
 endforeach()
-add_executable(betta-xiaozhi-test xiaozhi_lifecycle_regression.c "${REPO_ROOT}/main/xiaozhi/xiaozhi_ui.c")
+add_executable(betta-xiaozhi-test xiaozhi_lifecycle_regression.c "${REPO_ROOT}/main/xiaozhi/xiaozhi_ui.c" "${REPO_ROOT}/main/xiaozhi/xiaozhi_dialog.c")
+target_sources(betta-xiaozhi-test PRIVATE "${OTTO_SOURCE}")
 target_include_directories(betta-xiaozhi-test PRIVATE "${REPO_ROOT}/main" "${CMAKE_CURRENT_LIST_DIR}/stubs")
 target_compile_definitions(betta-xiaozhi-test PRIVATE CONFIG_APP_PANEL_VARIANT_10INCH_1280=1)
 target_compile_options(betta-xiaozhi-test PRIVATE -Wall -Wextra -Werror -UNDEBUG)

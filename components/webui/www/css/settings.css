@@ -314,3 +314,8 @@
 #xiaozhiFields { gap: 12px; }
 #xiaozhiText, #xiaozhiCode { overflow-wrap: anywhere; white-space: pre-wrap; }
 #xiaozhiTalk { touch-action: none; user-select: none; }
+
+/* Conversation preview follows the current settings palette. */
+.xiaozhi-emotion { text-align: center; font-size: 4rem; line-height: 1.3; }
+.xiaozhi-otto { display: block; margin: 16px auto; object-fit: contain; border-radius: 12px; }
+.xiaozhi-otto[hidden] { display: none; }

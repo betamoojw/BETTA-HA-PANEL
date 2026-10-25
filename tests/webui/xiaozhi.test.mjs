@@ -10,7 +10,7 @@ function setup(saved = {}, overrides = {}) {
   const model = {supported:true, enabled:false, paired:false, volume:50, state:'disabled', code:'', text:'', ...saved};
   const nodes = new Map(), events = {}, requests = [];
   function node(id) {
-    if (!nodes.has(id)) nodes.set(id, {listeners:{}, classList:{contains:()=>false}, addEventListener(type, cb){this.listeners[type]=cb;}});
+    if (!nodes.has(id)) nodes.set(id, {listeners:{}, attrs:{}, getAttribute(k){return this.attrs[k];}, setAttribute(k,v){this.attrs[k]=v;}, removeAttribute(k){delete this.attrs[k];}, classList:{contains:()=>false}, addEventListener(type, cb){this.listeners[type]=cb;}});
     return nodes.get(id);
   }
   let poll;
@@ -23,7 +23,10 @@ function setup(saved = {}, overrides = {}) {
       if (body.action==='enable') model.enabled=true;
       if (body.action==='disable') model.enabled=false;
       if (body.action==='volume') model.volume=body.value;
-      if (body.action==='reset') {model.enabled=false;model.volume=50;}
+      if (body.action==='wake') model.wake_enabled=!!body.value;
+      if (body.action==='timeout') model.dialog_timeout=body.value;
+      if (body.action==='emoji') model.emoji_style=body.value;
+      if (body.action==='reset') {model.enabled=false;model.volume=50;model.wake_enabled=false;model.dialog_timeout=30;model.emoji_style=0;}
       return {ok:true};
     }};
   Object.assign(context, overrides);
@@ -72,8 +75,23 @@ test('all Xiaozhi HTML labels are wired into the existing translation refresh',(
   const html=fs.readFileSync(new URL('../../components/webui/www/index.html',import.meta.url),'utf8');
   const translations=fs.readFileSync(new URL('../../components/webui/www/js/translations.js',import.meta.url),'utf8');
   const labels=[...html.matchAll(/<[^>]+id="([^"]+)"[^>]+data-i18n-key="(xiaozhi\.[^"]+)"/g)];
-  assert.equal(labels.length,8);
+  assert.equal(labels.length,16);
   for (const [,id,key] of labels) assert.ok(translations.includes(`setTextById("${id}", "${key}")`),`${id} must refresh when language changes`);
+});
+
+test('Otto is default, classic selection persists and reset restores Otto without changing pairing',async()=>{
+  const s=setup({enabled:true,paired:true,emotion:'happy'});await s.poll();
+  assert.equal(s.node('xiaozhiOtto').hidden,false);
+  assert.equal(s.node('xiaozhiOtto').getAttribute('src'),'/api/xiaozhi/emoji?emotion=happy');
+  s.node('xiaozhiEmoji').value='1';await s.fire('xiaozhiEmoji','change');await s.poll();
+  assert.equal(s.node('xiaozhiEmotion').hidden,false);assert.equal(s.node('xiaozhiOtto').getAttribute('src'),undefined);
+  const reload=setup(s.model);await reload.poll();assert.equal(reload.node('xiaozhiEmoji').value,1);
+  reload.node('xiaozhiEnabled').checked=false;await reload.fire('xiaozhiEnabled','change');await reload.poll();
+  assert.equal(reload.model.emoji_style,1);
+  await reload.fire('xiaozhiReset','click');assert.equal(reload.model.emoji_style,0);assert.equal(reload.model.paired,true);
+  const invalid=setup({enabled:true,emotion:'../credentials'});await invalid.poll();
+  assert.equal(invalid.node('xiaozhiOtto').getAttribute('src'),'/api/xiaozhi/emoji?emotion=neutral');
+  invalid.node('xiaozhiEmoji').value='2';await invalid.fire('xiaozhiEmoji','change');assert.equal(invalid.requests.length,0);
 });
 
 
@@ -97,3 +115,24 @@ for (const lang of ['zh-cn','zh-tw']) {
     assert.equal(s.node('xiaozhiStatus').textContent,catalog['xiaozhi.failed']);
   });
 }
+
+test('wake and timeout edits survive disable and reload, reset remains scoped',async()=>{
+  const s=setup({enabled:true,paired:true});await s.poll();
+  s.node('xiaozhiWake').checked=true;await s.fire('xiaozhiWake','change');
+  s.node('xiaozhiTimeout').value='45';await s.fire('xiaozhiTimeout','change');
+  s.node('xiaozhiEnabled').checked=false;await s.fire('xiaozhiEnabled','change');
+  const r=setup(s.model);await r.poll();assert.equal(r.node('xiaozhiWake').checked,true);
+  assert.equal(r.node('xiaozhiTimeout').value,45);
+  await r.fire('xiaozhiReset','click');assert.equal(r.model.wake_enabled,false);assert.equal(r.model.dialog_timeout,30);
+  assert.equal(r.model.paired,true);
+});
+test('talk hides only when local wake engine is ready, with manual fallback on failure',async()=>{
+  const s=setup({enabled:true,paired:true,wake_enabled:true,wake_ready:true,recognized:'hello',reply:'hi',emotion:'happy'});await s.poll();
+  assert.equal(s.node('xiaozhiTalk').hidden,true);
+  await s.fire('xiaozhiTalk','pointerdown');assert.equal(s.requests.length,0);
+  assert.equal(s.node('xiaozhiRecognized').textContent,'hello');assert.equal(s.node('xiaozhiText').textContent,'hi');
+  assert.equal(s.node('xiaozhiEmotion').textContent,'🙂');
+  s.model.wake_ready=false;await s.poll();assert.equal(s.node('xiaozhiTalk').hidden,false);
+  for(const value of ['0','301','1.2','bad']) {s.node('xiaozhiTimeout').value=value;await s.fire('xiaozhiTimeout','change');}
+  assert.equal(s.requests.length,0);
+});

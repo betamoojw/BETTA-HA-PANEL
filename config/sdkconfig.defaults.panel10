@@ -31,3 +31,5 @@ CONFIG_LV_USE_LODEPNG=y
 # PPA SRM completion can stall during rotated partial refreshes on LCD-X.
 # Use the shared packed RGB565 CPU rotation path; keep the UI watchdog active.
 # CONFIG_APP_DISPLAY_PPA is not set
+# Otto animations are decoded only while the assistant dialogue is visible.
+CONFIG_LV_USE_GIF=y

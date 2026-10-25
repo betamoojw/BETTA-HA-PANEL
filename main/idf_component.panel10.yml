@@ -7,6 +7,8 @@
 # SDKCONFIG_DEFAULTS overlay. Do NOT edit main/idf_component.yml directly --
 # it is regenerated from this file on every configure.
 dependencies:
+  espressif/esp-sr:
+    version: "2.4.7"
   78/esp-opus:
     version: "1.0.5"
   # lvgl, esp_lcd_touch, littlefs, esp_websocket_client, mqtt and cjson are pinned to an exact

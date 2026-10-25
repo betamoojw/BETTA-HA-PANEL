@@ -17,6 +17,7 @@ sdkconfig.old
 .local/
 managed_components/
 tools/*
+!tools/generate_otto_assets.py
 !tools/generate_component_versions.py
 !tools/ota_flash.sh
 !tools/package_release.sh
@@ -81,3 +82,5 @@ main/idf_component.yml
 !/tools/generate_i18n.py
 
 !/tools/generate_timezones.py
+
+!tools/pack_xiaozhi_model.py

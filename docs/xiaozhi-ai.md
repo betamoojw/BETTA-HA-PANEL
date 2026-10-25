@@ -14,26 +14,51 @@ Other board variants report voice audio as unsupported.
 4. Wait for **Ready**. If pairing expired, start it again.
 
 Pairing sends the device identifier and firmware information to the Xiaozhi
-service. Audio goes to that service only during a requested conversation.
-This feature does not use a wake word or continuously listen for one.
+service. Audio goes to that service only during a conversation started with Talk, the AI
+icon in voice wake-up mode, or a detected wake word. Optional wake-word
+recognition runs locally; idle microphone samples are not uploaded.
 It requires internet access and an account with the cloud service.
 
 ## Conversation
 
 Tap the **AI agent (robot) icon** on the panel's top bar. Its frame, size and
 colour follow the settings icon and the selected theme. Hold **Talk**, speak toward the
-microphone, then release to request a reply. The browser's Talk button also
+microphone, then release to request a reply. With **Voice wake-up** enabled, say
+**Ni hao Xiao Zhi** (你好小智), wait for **Listening**, then speak. The dialogue
+opens automatically; the AI icon can also open it and start listening. The
+Talk button is hidden while the local wake engine is ready. If it cannot start,
+manual Talk remains available. The browser's Talk button also
 uses the **panel microphone**, not the computer microphone. Capture ends after
 at most 60 seconds even if the browser disappears.
 
-The reply plays through the panel speaker and its latest text appears on screen.
+The reply plays through the panel speaker. A centered emotion follows the
+assistant response, with separate recognized-speech and AI-reply text below it.
+The existing status and pairing code remain at the top. The popup follows the
+system palette and appearance; long transcripts scroll inside it.
+
+**Otto Robot** is the default emotion style, with 21 animated expressions.
+The original **Classic Emoji** remains available. Select **Emotion style** in
+the editor's **Settings → Xiaozhi AI** page, or **AI emotion style** in the
+panel's **System settings**. Web changes save immediately; panel changes apply
+when you select **Save**, and **Cancel** keeps the previous choice. Both controls
+use the same saved preference. Changing the style does not enable the assistant
+or microphone. The Otto face keeps its black background inside the themed popup.
+
+**Dialogue idle timeout** is 30 seconds by default (10–300 seconds). Recognized
+voice, received speech text and reply audio renew it. Silence closes the popup
+and ends the cloud conversation, then returns to local wake detection. Cloud
+replies use automatic end-of-speech detection; after playback the panel listens
+for a follow-up until the idle timeout. This is half-duplex: wake detection is
+paused during a cloud conversation and speaker playback. Use the icon/close
+button or Disconnect to cancel. Voice wake-up is independently off by default.
 Press the top-bar button again or use **Disconnect** in the editor to end the
 session. Disable the assistant to stop pairing, capture and the cloud connection.
 Volume is limited to 80%; start low when first testing a connected speaker.
 
 Controls on this settings page save immediately. **Reset to defaults** disables
-the assistant and restores 50% volume while retaining cloud pairing. Disabling
-and re-enabling also preserves pairing and volume. Pairing credentials remain
+the assistant and voice wake-up, and restores 50% volume and a 30-second idle
+timeout and Otto Robot style while retaining cloud pairing. Disabling
+and re-enabling also preserves pairing, volume and emotion style. Pairing credentials remain
 on this physical device; they are not included in ordinary layout/settings
 exports and are never returned by the editor API.
 
@@ -54,11 +79,13 @@ The browser uses its installed fonts.
 
 ## Validation limits
 
-The integration has local build and automated checks. Microphone capture,
-speaker playback, cloud pairing and display stability during speech still need
-validation on the actual Waveshare hardware. A successful build is not a voice
-hardware test. Home Assistant tool execution and wake-word detection are not
-implemented.
+The Waveshare COM24 trial exercised saved cloud pairing, manual speech,
+hands-free wake/reply, both emotion choices and idle auto-close. The owner
+confirmed Otto animation and stable physical output during speech. These are
+bounded device checks: far-field sensitivity, false-activation rates, speaker
+feedback in other rooms and all-day operation have not been measured.
+Home Assistant tool execution is not implemented. A successful build alone
+does not establish voice hardware support on another board.
 
 [Implementation](development/xiaozhi-ai.md) · [Waveshare panel](hardware/panel10.md)
 

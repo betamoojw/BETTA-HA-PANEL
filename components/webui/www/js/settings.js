@@ -267,6 +267,9 @@ function setActiveSettingsSection(sectionId) {
     return;
   }
   editor.activeSettingsSection = item.sectionId;
+  // KNX owns a separate save action; the generic shortcut would save unrelated settings.
+  if (el.stackedSaveBtn) el.stackedSaveBtn.classList.toggle("hidden",
+    editor.activePane !== "settings" || item.sectionId === "settingsKnxSection");
   if (item.sectionId === "settingsAlertsSection") {
     renderAlertList(); // the draft survives leaving and returning; a reloaded layout replaces it
   }
@@ -1597,6 +1600,7 @@ async function downloadBackup() {
       settings: settingsForBackup(settings),
       themes: { active_id: themeList.active_id || "", custom: customThemes },
       languages: { custom: customLanguages },
+      knx: { configuration: await backupGet("/api/knx/config"), enabled: !!(await backupGet("/api/knx")).enabled },
     };
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
     const link = document.createElement("a");
@@ -1648,6 +1652,13 @@ async function restoreBackup() {
       await backupSend("/api/themes/active", "PUT", { id: backup.themes.active_id });
     }
     normalizeLayoutWidgets(backup.layout);
+    // Optional in older backups. Configuration is validated and committed before
+    // changing enable state; a malformed registry must not replace working data.
+    if (backup.knx) {
+      if (!backup.knx.configuration || typeof backup.knx.enabled !== "boolean") throw new Error("Invalid KNX backup");
+      await backupSend("/api/knx/config", "PUT", backup.knx.configuration);
+      await backupSend("/api/knx", "PUT", {enabled: backup.knx.enabled});
+    }
     await backupSend("/api/layout", "PUT", backup.layout);
     await backupSend("/api/settings", "PUT", { ...backup.settings, reboot: true });
     storageSet(RESTORE_NOTICE_KEY, "1");

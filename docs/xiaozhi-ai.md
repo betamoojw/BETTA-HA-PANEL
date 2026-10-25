@@ -5,6 +5,10 @@ Xiaozhi is an optional cloud voice assistant for the Waveshare
 ESP32-P4-WIFI6-Touch-LCD-10.1 (LCD-X, `panel10`). It is off by default.
 Other board variants report voice audio as unsupported.
 
+Configured [KNX communication objects](knx.md) are available to the assistant
+through MCP when KNXnet/IP is enabled. Object permissions apply to voice commands;
+the assistant cannot change KNX configuration or enable the interface.
+
 ## Pairing
 
 1. Open **Settings → Xiaozhi AI** in the web editor.

@@ -161,6 +161,14 @@ idf_component_register(
         "api/http_server.c"
         "api/http_guard.c"
         "xiaozhi/xiaozhi.c"
+        "knx/knx_api.c"
+        "knx/knx_service.cc"
+        "knx/knx_storage.cc"
+        "knx/knx_config.cc"
+        "knx/knx_object.cc"
+        "knx/knx_validation.cc"
+        "knx/knx_json.cc"
+        "knx/knx_mcp.c"
         "xiaozhi/xiaozhi_api.c"
         "xiaozhi/xiaozhi_ui.c"
         "xiaozhi/xiaozhi_dialog.c"
@@ -402,6 +410,7 @@ idf_component_register(
         "ui/theme"
         "util"
     REQUIRES
+        esp_knx_ip
         nvs_flash
         bootloader_support
         esp_netif

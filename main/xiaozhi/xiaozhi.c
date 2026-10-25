@@ -5,6 +5,8 @@
  * ForgeUI-derived implementation). Reimplemented with a single session owner.
  */
 #include "xiaozhi.h"
+#include "knx/knx_mcp.h"
+#include "esp_log.h"
 #include "sdkconfig.h"
 #include <string.h>
 #include <stdlib.h>
@@ -116,10 +118,21 @@ esp_err_t xiaozhi_set_emoji_style(int value)
     return err;
 }
 
-static void drain_packets(void)
+static void receive_mcp(const cJSON *message);
+
+static void drain_packets(bool preserve_mcp)
 {
     packet_t p;
-    while (xQueueReceive(packets, &p, 0) == pdTRUE) free(p.data);
+    /* Bound the purge to queued frames. A cloud handshake can arrive next to
+     * hello or TTS/stop; dropping initialize/tools/list loses tool discovery. */
+    UBaseType_t pending = uxQueueMessagesWaiting(packets);
+    while (pending-- && xQueueReceive(packets, &p, 0) == pdTRUE) {
+        if (preserve_mcp && p.opcode == 1) {
+            cJSON *message = cJSON_ParseWithLength((char *)p.data, p.len);
+            if (message) { receive_mcp(message); cJSON_Delete(message); }
+        }
+        free(p.data);
+    }
 }
 
 static void disconnect_session(void)
@@ -130,7 +143,7 @@ static void disconnect_session(void)
     xiaozhi_wake_reset();
     xiaozhi_audio_close();
     if (ws) { esp_websocket_client_stop(ws); esp_websocket_client_destroy(ws); ws = NULL; }
-    drain_packets();
+    drain_packets(false);
     free(rx); rx = NULL;
     free(encoder); encoder = NULL;
     free(decoder); decoder = NULL;
@@ -302,6 +315,23 @@ static void pair_step(void)
     cJSON_Delete(j);
 }
 
+static void receive_mcp(const cJSON *message)
+{
+    cJSON *response = knx_mcp_message(message, session);
+    if (!response) return;
+    activity();
+    const char *method = str(cJSON_GetObjectItemCaseSensitive(message, "payload"), "method");
+    char *text = cJSON_PrintUnformatted(response);
+    bool sent = text && send_text(text);
+    if (!sent) failed = true;
+    /* Log method names only, never arguments, credentials or session IDs. */
+    const char *kind = !strcmp(method, "initialize") ? "initialize" :
+        !strcmp(method, "tools/list") ? "tools/list" :
+        !strcmp(method, "tools/call") ? "tools/call" : "other";
+    ESP_LOGI("xiaozhi", "MCP %s response %s", kind, sent ? "sent" : "failed");
+    free(text); cJSON_Delete(response);
+}
+
 static void receive_packet(packet_t *p)
 {
     if (p->opcode == 1) {
@@ -313,6 +343,8 @@ static void receive_packet(packet_t *p)
             cJSON *audio = cJSON_GetObjectItemCaseSensitive(j, "audio_params");
             if (strcmp(str(audio, "format"), "opus") || !id[0] || strlen(id) >= sizeof(session) || strcmp(str(j, "transport"), "websocket")) failed = true;
             else { strlcpy(session, id, sizeof(session)); ready = true; set_state("ready"); }
+        } else if (!strcmp(type, "mcp")) {
+            receive_mcp(j);
         } else if (!strcmp(type, "stt") || !strcmp(type, "tts")) {
             const char *text = str(j, "text");
             if (text[0]) {
@@ -497,7 +529,7 @@ static void worker(void *unused)
             disconnect_session(); set_state("connection_error");
         }
         if (ws && connected && !hello_sent) {
-            hello_sent = send_text("{\"type\":\"hello\",\"version\":3,\"transport\":\"websocket\",\"features\":{\"mcp\":false},\"audio_params\":{\"format\":\"opus\",\"sample_rate\":16000,\"channels\":1,\"frame_duration\":60}}");
+            hello_sent = send_text("{\"type\":\"hello\",\"version\":3,\"transport\":\"websocket\",\"features\":{\"mcp\":true},\"audio_params\":{\"format\":\"opus\",\"sample_rate\":16000,\"channels\":1,\"frame_duration\":60}}");
             if (!hello_sent) failed = true;
         }
         packet_t p;
@@ -508,7 +540,7 @@ static void worker(void *unused)
         }
         if (want_listen && now >= listen_deadline) want_listen = false;
         if (ready && want_listen != status.listening) {
-            if (want_listen) { control("abort", NULL); drain_packets(); }
+            if (want_listen) { control("abort", NULL); drain_packets(true); }
             if (!control("listen", want_listen ? "start" : "stop") ||
                 xiaozhi_audio_mic(want_listen) != ESP_OK) failed = true;
             xSemaphoreTake(lock, portMAX_DELAY); status.listening = want_listen; xSemaphoreGive(lock);

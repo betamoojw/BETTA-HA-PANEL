@@ -12,7 +12,10 @@ the Guition audio pins or its direct network-task LVGL calls.
 - `main/xiaozhi/xiaozhi.c`: one worker owns pairing, connection lifetime, Opus
   and audio I/O. HTTP and touch callbacks enqueue commands. The WebSocket event
   task only assembles bounded frames into a finite queue; overflow ends the
-  session. No MCP tools are advertised.
+  session. The shared [KNX MCP bridge](knx.md) advertises the configured objects.
+  Starting microphone capture discards stale speech frames but services queued
+  MCP requests, preserving tool discovery even when initialize/tools/list arrive
+  beside hello or TTS/stop. Disconnect still discards the whole old session.
 - `xiaozhi_audio.c`: LCD-X BSP pin definitions, ES8311 output and ES7210 input;
   MIC1 is selected at 16 kHz, excluding the playback-reference slot. Opus decodes server audio directly
   to 16 kHz. Audio opens lazily on conversation start or enabled local detection.

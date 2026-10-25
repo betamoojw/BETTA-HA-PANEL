@@ -7,6 +7,10 @@
 # SDKCONFIG_DEFAULTS overlay. Do NOT edit main/idf_component.yml directly --
 # it is regenerated from this file on every configure.
 dependencies:
+  esp_knx_ip:
+    git: https://github.com/betamoojw/esp32_knx_ip.git
+    path: components/esp_knx_ip
+    version: 19059496b9c8230cf7473f6b729d2176350d1eb6
   # lvgl, esp_lcd_touch, littlefs, esp_websocket_client, mqtt and cjson are pinned to an exact
   # version (not a range or "*") across every variant's manifest. They used to resolve independently
   # per variant, and an unconstrained package can resolve to a different version purely because of

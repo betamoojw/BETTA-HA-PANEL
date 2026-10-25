@@ -7,6 +7,10 @@
 # SDKCONFIG_DEFAULTS overlay. Do NOT edit main/idf_component.yml directly --
 # it is regenerated from this file on every configure.
 dependencies:
+  esp_knx_ip:
+    git: https://github.com/betamoojw/esp32_knx_ip.git
+    path: components/esp_knx_ip
+    version: 19059496b9c8230cf7473f6b729d2176350d1eb6
   # Same pins as the other manifests (see idf_component.panel4.yml for why they are exact).
   idf: ">=5.5"
   espressif/esp_wifi_remote:

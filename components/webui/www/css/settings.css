@@ -3,6 +3,11 @@
  * Compact settings controls and offline alert example.
  */
 
+#settingsKnxSection .row { flex-wrap: wrap; }
+#settingsKnxSection select { width: 100%; min-width: 0; }
+#settingsKnxSection p { font: inherit; overflow-wrap: anywhere; }
+#settingsKnxSection pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+
 /* Explicit hiding must beat the form's author-level display:grid rule. */
 .form[hidden] {
   display: none;

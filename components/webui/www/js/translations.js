@@ -430,6 +430,9 @@ setTextById("addBambuPrinterBtn", "layout.widgets.add_bambu_printer");
   setTextById("settingsDeviceNameLabel", "settings.device.name");
   setTextById("settingsBrightnessHeading", "settings.display.in_use");
   setTextById("settingsXiaozhiHeading", "xiaozhi.title");
+  document.getElementById("settingsKnxHeading")?.closest?.("section")?.querySelectorAll("[data-i18n-key]").forEach((item) => {
+    item.textContent = t(item.dataset.i18nKey);
+  });
   setTextById("xiaozhiPrivacy", "xiaozhi.privacy");
   setTextById("xiaozhiEnableLabel", "xiaozhi.enable");
   setTextById("xiaozhiVolumeLabel", "xiaozhi.volume");

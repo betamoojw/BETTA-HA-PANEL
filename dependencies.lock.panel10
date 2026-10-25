@@ -9,6 +9,16 @@ dependencies:
       registry_url: https://components.espressif.com/
       type: service
     version: 1.0.5
+  esp_knx_ip:
+    component_hash: 606cc36d8a86e0ad19534ec9c011ec97d3d9d7d33e37cb9aa9428c55114b5d9b
+    dependencies:
+    - name: idf
+      version: '>=5.0'
+    source:
+      git: https://github.com/betamoojw/esp32_knx_ip.git
+      path: components/esp_knx_ip
+      type: git
+    version: 19059496b9c8230cf7473f6b729d2176350d1eb6
   espressif/button:
     component_hash: 7cb7e2944b5828f409af0c92f7fcc0e2d405de09c3325b7ee4a0eba5fb28dfdc
     dependencies:
@@ -535,6 +545,7 @@ dependencies:
     version: 2.0.0
 direct_dependencies:
 - 78/esp-opus
+- esp_knx_ip
 - espressif/cjson
 - espressif/cmake_utilities
 - espressif/esp-sr
@@ -550,6 +561,6 @@ direct_dependencies:
 - joltwallet/littlefs
 - lvgl/lvgl
 - waveshare/esp32_p4_wifi6_touch_lcd_x
-manifest_hash: 4492b35d069fec703af13328e66af5cade76645a159d1934acb5b7b2a4118252
+manifest_hash: f573f3630f13a8cccfd9aa1997aa4f9d386aedbd4c46331e70d6fdf3c6134f05
 target: esp32p4
 version: 3.0.0

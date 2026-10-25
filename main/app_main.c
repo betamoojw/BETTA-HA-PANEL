@@ -4,6 +4,7 @@
  */
 
 #include "xiaozhi/xiaozhi.h"
+#include "knx/knx.h"
 #include "xiaozhi/xiaozhi_font_store.h"
 #include <stdio.h>
 #include <string.h>
@@ -359,6 +360,7 @@ void app_main(void)
     }
 
     /* Everything is up: a freshly installed image may now cancel the rollback once it proves healthy. */
+    knx_init();
     xiaozhi_init();
     ota_validate_start();
     net_watchdog_start(has_wifi_credentials, runtime_settings_has_ha(&s_runtime_settings));

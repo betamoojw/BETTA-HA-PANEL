@@ -4,6 +4,7 @@
  */
 #include "api/api_routes.h"
 #include "xiaozhi/xiaozhi.h"
+#include "knx/knx.h"
 #include "api/http_guard.h"
 
 #include "esp_check.h"
@@ -222,6 +223,7 @@ esp_err_t api_routes_register(httpd_handle_t server)
     }
 
     ESP_RETURN_ON_ERROR(xiaozhi_api_register(server), "api_routes", "Xiaozhi routes");
+    ESP_RETURN_ON_ERROR(knx_api_register(server), "api_routes", "KNX routes");
     httpd_uri_t get_layout = {
         .uri = "/api/layout",
         .method = HTTP_GET,

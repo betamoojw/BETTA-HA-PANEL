@@ -3,6 +3,10 @@
 # Modified 2026 by andre68723 -- see docs/release-notes.md
 # Native ESP32-S3 Wi-Fi; no P4 BSP, ESP-Hosted, camera or codec dependency.
 dependencies:
+  esp_knx_ip:
+    git: https://github.com/betamoojw/esp32_knx_ip.git
+    path: components/esp_knx_ip
+    version: 19059496b9c8230cf7473f6b729d2176350d1eb6
   idf: ">=5.5.5"
   espressif/esp_lvgl_adapter: "0.7.3"
   lvgl/lvgl: "9.6.0~1"

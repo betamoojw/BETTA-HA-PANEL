@@ -11,6 +11,7 @@
 set(WEBUI_JS_SOURCES
     js/config.js
     js/i18n.js
+    js/i18n-knx.js
     js/i18n-es.js
     js/i18n-fr.js
     js/i18n-pl.js
@@ -43,6 +44,7 @@ set(WEBUI_JS_SOURCES
     js/menus.js
     js/remote-display.js
     js/xiaozhi.js
+    js/knx.js
     js/main.js)
 
 # Base editor styles first, then one file per appearance style (docs/appearance.md).

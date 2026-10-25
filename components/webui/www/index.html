@@ -192,6 +192,38 @@
 
       <div id="settingsPane" class="pane hidden">
         <section class="display-settings">
+          <h2 id="settingsKnxHeading" data-i18n-key="knx.title">KNXnet/IP</h2>
+          <p class="meta" data-i18n-key="knx.about">Routing on your existing Wi-Fi network. Requires a multicast-capable KNX/IP router; tunneling and KNX Secure are not supported.</p>
+          <label class="row"><input id="knxEnabled" type="checkbox" disabled /><span data-i18n-key="knx.enable">Enable KNXnet/IP</span></label>
+          <p id="knxStatus" role="status"></p>
+          <p class="meta" data-i18n-key="knx.permissions">Xiaozhi can use only configured objects and their read/write permissions. Sent commands are not confirmation of actuator state.</p>
+          <label><span data-i18n-key="knx.configuration">Configuration (knxConfig.json)</span>
+            <textarea id="knxConfig" rows="18" spellcheck="false" autocomplete="off" style="width:100%;min-width:0;box-sizing:border-box;font-family:monospace"></textarea>
+          </label>
+          <p class="meta" data-i18n-key="knx.edit_hint">Import or edit JSON, then Save to apply. Disabling preserves the configuration. Maximum 128 objects and 65,535 UTF-8 bytes.</p>
+          <div class="row">
+            <button class="btn small" id="knxImport" type="button" data-i18n-key="knx.import">Import JSON</button>
+            <button class="btn small" id="knxExport" type="button" data-i18n-key="knx.export">Export draft</button>
+            <button class="btn small" id="knxFormat" type="button" data-i18n-key="knx.format">Format JSON</button>
+            <button class="btn small" id="knxReload" type="button" data-i18n-key="knx.reload">Reload saved</button>
+            <button class="btn primary" id="knxSave" type="button" data-i18n-key="knx.save">Save configuration</button>
+          </div>
+          <input id="knxFile" type="file" accept=".json,application/json" hidden />
+          <p id="knxMessage" role="status" aria-live="polite"></p>
+          <div id="knxOperations" hidden>
+            <h3 data-i18n-key="knx.objects">Communication objects</h3>
+            <label><span data-i18n-key="knx.object">Object</span><select id="knxObject"></select></label>
+            <p id="knxObjectInfo" class="meta"></p>
+            <label><span data-i18n-key="knx.value">Value (DPT format)</span><input id="knxValue" type="text" maxlength="255" /></label>
+            <div class="row">
+              <button class="btn small" id="knxRead" type="button" data-i18n-key="knx.read">Request read</button>
+              <button class="btn small" id="knxWrite" type="button" data-i18n-key="knx.write">Send value</button>
+              <button class="btn small" id="knxRefresh" type="button" data-i18n-key="knx.refresh">Refresh cached values</button>
+            </div>
+            <pre id="knxCache" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre>
+          </div>
+        </section>
+        <section class="display-settings">
           <h2 id="settingsXiaozhiHeading" data-i18n-key="xiaozhi.title">Xiaozhi AI</h2>
           <div class="form">
           <p class="meta" id="xiaozhiPrivacy" data-i18n-key="xiaozhi.privacy">Off by default. Cloud pairing shares the device identity; holding Talk sends microphone audio to Xiaozhi. No wake-word listening.</p>
@@ -1852,6 +1884,7 @@
   <datalist id="energyEntityOptions"></datalist>
   <script src="/js/config.js"></script>
   <script src="/js/i18n.js"></script>
+  <script src="/js/i18n-knx.js"></script>
   <script src="/js/i18n-es.js"></script>
   <script src="/js/i18n-fr.js"></script>
   <script src="/js/i18n-pl.js"></script>
@@ -1884,6 +1917,7 @@
   <script src="/js/menus.js"></script>
   <script src="/js/remote-display.js"></script>
   <script src="/js/xiaozhi.js"></script>
+  <script src="/js/knx.js"></script>
   <script src="/js/main.js"></script>
 </body>
 </html>

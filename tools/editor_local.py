@@ -101,6 +101,12 @@ def demo_responses(variant, fixture_path=None, all_widgets=False):
                            sizes=[[sizes[index + offset + step] for index in (1, 2, 3, 5, 6)] for step in range(3)])
     responses['/api/settings']['ui'].update(language='de', text_step=0)
     responses['/api/settings']['device'] = {'id': 'local-editor', 'room': 'Lokaler Editor'}
+    responses['/api/knx'] = {'enabled': False, 'state': 'disabled', 'object_count': 0, 'local_only': True}
+    responses['/api/knx/config'] = {
+        'media_type': 'knx_ip', 'physical_address': '15.15.199',
+        'media_parameters': {'multicast_address': '224.0.23.12', 'udp_port': 3671,
+                             'transport_mode': 'routing', 'interface_identifier': 'Local simulation', 'nat': False},
+        'comObjects': []}
     return responses, templates
 
 
@@ -111,7 +117,7 @@ class Store:
         self.display_test = {"kind": "active", "percent": 0, "until": 0.0}
         if self.path.exists() and not reset:
             saved = json.loads(self.path.read_text(encoding='utf-8'))
-            for key in ('/api/layout', '/api/settings'):
+            for key in ('/api/layout', '/api/settings', '/api/knx', '/api/knx/config'):
                 if key in saved: responses[key] = saved[key]
         if reset: self.persist()
 
@@ -122,7 +128,7 @@ class Store:
 
     def persist(self):
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        saved = {key: self.responses[key] for key in ('/api/layout', '/api/settings')}
+        saved = {key: self.responses[key] for key in ('/api/layout', '/api/settings', '/api/knx', '/api/knx/config')}
         temporary = self.path.with_suffix('.tmp')
         temporary.write_text(json.dumps(saved, ensure_ascii=False, indent=2), encoding='utf-8')
         temporary.replace(self.path)
@@ -227,6 +233,12 @@ def build_server(port=8766, variant='paneljc', fixture_path=None, state_path=Non
                     value['time']['timezones'] = sorted(json.loads(
                         (ROOT / 'main/net/tzdb/zones.json').read_text(encoding='utf8')))
                     return self.reply(value)
+                if url.path == '/api/knx/objects':
+                    objects = responses['/api/knx/config']['comObjects']
+                    offset = max(0, int(query.get('offset', ['0'])[0]))
+                    return self.reply({'objects': [dict(o, valid=False) for o in objects[offset:offset+20]],
+                                       'has_more': offset+20 < len(objects), 'next_offset': min(len(objects), offset+20),
+                                       'local_only': True})
                 value = responses.get(url.path, {'items': []})
                 if url.path == '/api/state' and 'entity_id' in query:
                     value = {'items': [s for s in value['items'] if s['entity_id'] == query['entity_id'][0]]}
@@ -244,6 +256,22 @@ def build_server(port=8766, variant='paneljc', fixture_path=None, state_path=Non
             if not isinstance(body, dict): return self.reply({'error': 'Expected a JSON object'}, 400)
             path = urlsplit(self.path).path
             with store.lock:
+                if path == '/api/knx' and self.command == 'PUT':
+                    if set(body) != {'enabled'} or type(body['enabled']) is not bool:
+                        return self.reply({'error': 'Expected boolean enabled'}, 400)
+                    responses[path].update(enabled=body['enabled'], state='running' if body['enabled'] else 'disabled')
+                    store.persist()
+                    return self.reply(responses[path])
+                if path == '/api/knx/config' and self.command == 'PUT':
+                    if body.get('media_type') != 'knx_ip' or not isinstance(body.get('comObjects'), list):
+                        return self.reply({'error': 'Invalid local KNX configuration'}, 400)
+                    responses[path] = body
+                    responses['/api/knx']['object_count'] = len(body['comObjects'])
+                    store.persist()
+                    return self.reply(responses['/api/knx'])
+                if path == '/api/knx/command' and self.command == 'POST':
+                    return self.reply({'queued': False, 'bus_confirmed': False, 'local_only': True,
+                                       'message': 'Local simulation: no KNX telegram was sent'})
                 if path == '/api/display/test' and self.command == 'POST':
                     action, percent, kind = body.get('action'), body.get('percent'), body.get('kind')
                     valid_percent = type(percent) is int and 0 <= percent <= 100

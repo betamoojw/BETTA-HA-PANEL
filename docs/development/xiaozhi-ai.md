@@ -223,4 +223,5 @@ The capture exposed a pre-existing font limitation: arbitrary Chinese cloud
 responses can contain characters outside the compact built-in CJK subset and
 show missing-glyph boxes on the LCD. The web transcript uses browser fonts and
 shows the full response. The UI catalog font checks do not establish coverage
-of unrestricted AI-generated text.
+of unrestricted AI-generated text. The subsequent local transcript resource and
+HTTP connection-budget correction are described in [Xiaozhi resources](xiaozhi-resources.md).

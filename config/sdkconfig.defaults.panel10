@@ -33,3 +33,5 @@ CONFIG_LV_USE_LODEPNG=y
 # CONFIG_APP_DISPLAY_PPA is not set
 # Otto animations are decoded only while the assistant dialogue is visible.
 CONFIG_LV_USE_GIF=y
+# Read the pinned optional transcript font from LittleFS, with small glyph caches.
+CONFIG_LV_TINY_TTF_FILE_SUPPORT=y

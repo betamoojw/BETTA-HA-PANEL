@@ -4,6 +4,7 @@
  */
 
 #include "xiaozhi/xiaozhi.h"
+#include "xiaozhi/xiaozhi_font_store.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -173,6 +174,9 @@ void app_main(void)
     reboot_log_init(); /* why the previous run ended: needs NVS, before anything else can restart */
     ESP_ERROR_CHECK(init_littlefs());
     coredump_archive_init(); /* preserve the previous panic before network/UI can fail again */
+#if CONFIG_APP_PANEL_VARIANT_10INCH_1280
+    xiaozhi_font_store_init(); /* Hash the optional immutable font before UI/HTTP can use it. */
+#endif
     ESP_ERROR_CHECK(init_net_stack());
     ESP_ERROR_CHECK(app_events_init());
     ESP_ERROR_CHECK(ha_model_init());

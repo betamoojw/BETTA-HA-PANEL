@@ -7,6 +7,7 @@
 #include <string.h>
 
 #include "ui/fonts/ttf_data.h"
+#include "ui/reply_font_file.h"
 
 /* lv_tiny_ttf puts the base line one pixel lower than the converter did: re-applied after every create (see text_scale.h) */
 #define TTF_BASELINE_ADJUST (-1)
@@ -14,7 +15,7 @@
 /* LVGL's own default font (the built-in unscii 8, see the root CMakeLists.txt): always there, the last resort when a font cannot be made. */
 #define FALLBACK_FONT ((const lv_font_t *)LV_FONT_DEFAULT)
 
-typedef enum { FAMILY_TEXT, FAMILY_BOLD, FAMILY_ICON, FAMILY_EMOJI, FAMILY_CJK } font_family_t;
+typedef enum { FAMILY_TEXT, FAMILY_BOLD, FAMILY_ICON, FAMILY_EMOJI, FAMILY_CJK, FAMILY_REPLY_CJK, FAMILY_REPLY } font_family_t;
 
 typedef struct {
     font_family_t family;
@@ -189,6 +190,26 @@ static const lv_font_t *cjk_for_text(int px)
         return emoji;
     }
     return font;
+}
+
+const lv_font_t *ui_font_reply(const lv_font_t *base)
+{
+    int px = ui_font_text_px_of(base);
+    if (!px || !ui_reply_font_available()) return base;
+    font_instance_t *cached = find_instance(FAMILY_REPLY, px);
+    if (cached) return cached->font;
+    if (s_count > UI_FONT_MAX_INSTANCES - 2) { s_stats.budget_hits++; return base; }
+    lv_font_t *full = ui_reply_font_create(px);
+    if (!full) { s_stats.create_failures++; return base; }
+    lv_font_t *wrapper = lv_malloc(sizeof(*wrapper));
+    if (!wrapper) { lv_tiny_ttf_destroy(full); s_stats.create_failures++; return base; }
+    /* The base stays immutable for widgets. Only transcript labels get this
+     * wrapper; the full font uses a bounded cache, never a 10 MiB RAM copy. */
+    *wrapper = *base; wrapper->fallback = full;
+    full->line_height = base->line_height; full->base_line = base->base_line;
+    full->fallback = base->fallback;
+    add_instance(FAMILY_REPLY_CJK, px, full); add_instance(FAMILY_REPLY, px, wrapper);
+    return wrapper;
 }
 
 const lv_font_t *ui_font_text_px(int px)

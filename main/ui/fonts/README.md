@@ -39,6 +39,15 @@ resulting app within each board's OTA slot. The browser uses installed CJK fonts
 
 ## How the firmware uses them
 
+Waveshare P4 can install the pinned `noto_cjk_reply.ttf.gz` resource for free-form
+Xiaozhi speech and replies. `cjk_reply_manifest.json` records its source and hashes;
+`tools/prepare_reply_font.py --check` validates it. The OFL license above also
+covers this resource. Its 29,417 codepoints are read from a verified local file
+with small caches; it is not embedded in the OTA image or loaded wholesale into
+PSRAM. The compact UI subset stays unchanged. See
+[Xiaozhi resources](../../../docs/development/xiaozhi-resources.md) for installation
+and coverage limits.
+
 `ui/text_font.c` (the font manager) makes `lv_tiny_ttf` fonts on demand and keeps them for the session (at most `UI_FONT_MAX_INSTANCES`): the text font at a
 pixel size (`ui_font_role()`, `ui_font_text_px()`), the symbol and icon fonts (`ui_font_icon()`, wrapped by `APP_FONT_SYMBOL_*` in `app_symbols.h` and by
 `mdi_font_registry.c`) and the emoji font that follows a text size. Notification emphasis requests `ui_font_emphasis(base)` for Poppins Bold with the same size/metrics and fallback as its Medium base.

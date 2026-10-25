@@ -5,6 +5,7 @@
 #include "api/http_server.h"
 #include "api/api_remote_display.h"
 #include "api/http_guard.h"
+#include "api/http_socket_budget.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -94,7 +95,8 @@ esp_err_t http_server_start(void)
     }
     cfg.task_priority = http_task_prio;
     cfg.max_uri_handlers = 64;
-    cfg.max_open_sockets = 12;
+    cfg.max_open_sockets = http_socket_client_budget(CONFIG_LWIP_MAX_SOCKETS);
+    if (cfg.max_open_sockets < 4) return ESP_ERR_INVALID_STATE;
     cfg.lru_purge_enable = true;
     cfg.recv_wait_timeout = 10;
     cfg.send_wait_timeout = 10;
@@ -134,7 +136,8 @@ esp_err_t http_server_start(void)
 
     ESP_RETURN_ON_ERROR(api_remote_display_register(s_server), TAG_HTTP, "register live display");
 
-    ESP_LOGI(TAG_HTTP, "HTTP server listening on port %d", APP_HTTP_PORT);
+    ESP_LOGI(TAG_HTTP, "HTTP server listening on port %d (clients=%u, global sockets=%d)",
+             APP_HTTP_PORT, (unsigned)cfg.max_open_sockets, CONFIG_LWIP_MAX_SOCKETS);
     return ESP_OK;
 }
 

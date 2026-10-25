@@ -87,6 +87,11 @@ static void refresh(lv_timer_t *timer)
     } else stop_animation(v);
 #endif
     lv_obj_set_hidden(v->emoji, animated);
+    const lv_font_t *reply_font = ui_font_reply(ui_font_role(UI_TEXT_LABEL));
+    if (lv_obj_get_style_text_font(v->reply, 0) != reply_font) {
+        lv_obj_set_style_text_font(v->recognized, reply_font, 0);
+        lv_obj_set_style_text_font(v->reply, reply_font, 0);
+    }
     label(v->recognized, s->recognized);
     label(v->reply, s->reply);
     bool hands_free = s->wake_enabled && s->wake_ready;

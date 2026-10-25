@@ -102,6 +102,7 @@ nav = [
       { "Text size and readability" = "text-size-readability.md" },
       { "Notification implementation" = "notifications-implementation.md" },
       { "Xiaozhi AI" = "development/xiaozhi-ai.md" },
+      { "Xiaozhi resources" = "development/xiaozhi-resources.md" },
       { "Camera streaming" = "development/camera-streaming.md" },
       { "UI performance" = "development/ui-performance.md" },
       { "Security implementation" = "security-implementation.md" },

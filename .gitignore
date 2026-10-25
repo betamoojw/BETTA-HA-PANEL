@@ -45,6 +45,8 @@ tools/*
 !tools/generate_simulator_gallery.py
 !tools/generate_notification_emoji.py
 !tools/generate_widget_fonts.py
+!tools/prepare_reply_font.py
+!tools/install_reply_font.py
 !tools/generate_chinese_i18n.py
 !tools/check_widget_layout.py
 !tools/compare_editor_previews.py

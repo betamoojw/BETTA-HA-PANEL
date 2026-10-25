@@ -34,6 +34,11 @@ else
 fi
 out="$(mktemp -d)"
 trap 'rm -rf "$out"' EXIT
+cc -std=gnu11 -Wall -Wextra -Werror -I main tests/host/test_http_socket_budget.c -o "$out/test_http_socket_budget"
+"$out/test_http_socket_budget"
+cc -std=gnu11 -Wall -Wextra -Werror -DXIAOZHI_FONT_TEST -I main tests/host/test_xiaozhi_font_store.c \
+  main/xiaozhi/xiaozhi_font_store.c main/util/sha256_soft.c -o "$out/test_xiaozhi_font_store"
+"$out/test_xiaozhi_font_store" "$out/font-resource.ttf"
 # The wake wrapper uses ESP-SR's public types with mocked inference/audio.
 # Run when the panel10 dependency has been fetched; no firmware or device needed.
 sr="managed_components/espressif__esp-sr"

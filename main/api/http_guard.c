@@ -305,7 +305,8 @@ static bool request_content_type_ok(httpd_req_t *req)
     if (httpd_req_get_hdr_value_str(req, "Content-Type", type, sizeof(type)) != ESP_OK) {
         return false;
     }
-    const char *want = strcmp(req->uri, "/api/ota/upload") == 0 ? "application/octet-stream" : "application/json";
+    const char *want = (strcmp(req->uri, "/api/ota/upload") == 0 || strcmp(req->uri, "/api/xiaozhi/font") == 0)
+        ? "application/octet-stream" : "application/json";
     size_t want_len = strlen(want);
     return strncasecmp(type, want, want_len) == 0 && (type[want_len] == '\0' || type[want_len] == ';');
 }

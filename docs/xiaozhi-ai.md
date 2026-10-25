@@ -73,7 +73,11 @@ Local custom translations may override the built-in wording.
 This does not make speech recognition or answers offline. Those remain cloud
 services; reply text is displayed as received, without automatic conversion
 between simplified and traditional Chinese. The embedded font covers built-in
-interface text, not arbitrary Chinese transcripts. Both variants currently use
+interface text. On Waveshare P4, the optional local transcript font expands
+recognized speech and replies to 29,417 Chinese/punctuation/source characters.
+Install it once with the [resource installer](development/xiaozhi-resources.md#local-transcript-font);
+later app updates retain it. Without this resource, characters outside the compact
+subset still show placeholders. Both variants currently use
 Noto Sans SC outlines, not separate regional Traditional Chinese glyph shapes.
 The browser uses its installed fonts.
 

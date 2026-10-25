@@ -21,7 +21,7 @@
 /* Every text, symbol, icon and emoji is an lv_tiny_ttf font made by ui/text_font.c; LVGL's own default is the tiny built-in font. */
 #define LV_USE_TINY_TTF 1
 #define LV_USE_FONT_PLACEHOLDER 1 /* a character no font has is a box, as on the panel (config/sdkconfig.defaults) */
-#define LV_TINY_TTF_FILE_SUPPORT 0
+#define LV_TINY_TTF_FILE_SUPPORT 1
 #define LV_FONT_UNSCII_8 1
 #define LV_FONT_CUSTOM_DECLARE LV_FONT_DECLARE(lv_font_unscii_8)
 #define LV_FONT_DEFAULT (&lv_font_unscii_8)

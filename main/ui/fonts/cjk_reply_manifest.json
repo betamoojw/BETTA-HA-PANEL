@@ -1,0 +1,10 @@
+{
+  "source": "Noto Sans SC variable TrueType 2.004",
+  "source_sha256": "d68bafcb48a2707749396aa12bbbd833cb70401f3a9a689fd2902c7e0d295964",
+  "weight": 400,
+  "codepoints": 29417,
+  "bytes": 10178080,
+  "sha256": "262d7226685dbe47fa5fceb3ffa3902baecacec92b6f6d86582765d52f3c90a2",
+  "gzip_sha256": "888046f0a7608514c9442279cc98775c6e94a05c52005a22f4be1d87c48af93d",
+  "path": "/littlefs/xiaozhi-cjk-262d7226685d.ttf"
+}

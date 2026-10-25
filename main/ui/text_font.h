@@ -61,6 +61,8 @@ const lv_font_t *ui_font_icon(ui_icon_font_t kind);
 const lv_font_t *ui_font_emoji_for_text(int text_px);
 /* Hero-role emotion glyph, bounded by its available display area. */
 const lv_font_t *ui_font_emotion(int max_height);
+/* Local, verified extended CJK for free-form speech/replies; base until installed. */
+const lv_font_t *ui_font_reply(const lv_font_t *base);
 
 /* A shared measuring font for the fitting: no glyph cache, resized per call, valid until the next probe call. Never draw with it. */
 const lv_font_t *ui_font_probe(int px);

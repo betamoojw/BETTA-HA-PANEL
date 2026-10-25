@@ -332,6 +332,7 @@ idf_component_register(
         "ui/widgets/w_binary.c"
         "ui/fonts/mdi_font_registry.c"
         "ui/text_font.c"
+        "ui/reply_font_file.c"
         "ui/notification_text.c"
         "ui/notification_markup.c"
         "ui/notification_message.c"
@@ -447,6 +448,7 @@ if(CONFIG_APP_PANEL_VARIANT_10INCH_1280)
     execute_process(COMMAND ${PYTHON} "${PROJECT_DIR}/tools/generate_otto_assets.py" --embed "${otto_source}" COMMAND_ERROR_IS_FATAL ANY)
     target_sources(${COMPONENT_LIB} PRIVATE "${otto_source}")
     target_sources(${COMPONENT_LIB} PRIVATE "xiaozhi/xiaozhi_audio.c" "xiaozhi/xiaozhi_wake.c")
+    target_sources(${COMPONENT_LIB} PRIVATE "xiaozhi/xiaozhi_font_store.c" "xiaozhi/xiaozhi_font_api.c")
     idf_component_optional_requires(PRIVATE 78__esp-opus espressif__esp_codec_dev espressif__esp-sr)
     idf_component_get_property(sr_dir espressif__esp-sr COMPONENT_DIR)
     set(wake_model "${CMAKE_CURRENT_BINARY_DIR}/xiaozhi_wake_model.bin")

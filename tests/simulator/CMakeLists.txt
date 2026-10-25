@@ -207,6 +207,9 @@ add_executable(betta-widget-sim
     "${REPO_ROOT}/main/ui/graph_history_store.c"
     "${REPO_ROOT}/main/ui/text_scale.c"
     "${REPO_ROOT}/main/ui/text_font.c"
+    "${REPO_ROOT}/main/ui/reply_font_file.c"
+    "${REPO_ROOT}/main/xiaozhi/xiaozhi_font_store.c"
+    "${REPO_ROOT}/main/util/sha256_soft.c"
     "${REPO_ROOT}/main/ui/notification_text.c"
     "${REPO_ROOT}/main/ui/notification_markup.c"
     "${REPO_ROOT}/main/ui/notification_message.c"
@@ -281,6 +284,23 @@ target_compile_definitions(betta-xiaozhi-test PRIVATE CONFIG_APP_PANEL_VARIANT_1
 target_compile_options(betta-xiaozhi-test PRIVATE -Wall -Wextra -Werror -UNDEBUG)
 target_link_libraries(betta-xiaozhi-test PRIVATE lvgl SDL2::SDL2 m)
 add_test(NAME xiaozhi-view-lifecycle COMMAND betta-xiaozhi-test)
+execute_process(COMMAND ${Python3_EXECUTABLE} "${REPO_ROOT}/tools/prepare_reply_font.py"
+    --extract "${CMAKE_CURRENT_BINARY_DIR}/reply-font.ttf" RESULT_VARIABLE reply_font_result)
+if(NOT reply_font_result EQUAL 0)
+    message(FATAL_ERROR "Cannot extract the verified reply font")
+endif()
+add_executable(betta-reply-font-test reply_font_regression.c
+    "${REPO_ROOT}/main/ui/text_font.c" "${REPO_ROOT}/main/ui/text_scale.c"
+    "${REPO_ROOT}/main/ui/reply_font_file.c" "${REPO_ROOT}/main/xiaozhi/xiaozhi_font_store.c"
+    "${REPO_ROOT}/main/util/sha256_soft.c"
+    "${REPO_ROOT}/main/ui/fonts/ttf_poppins_data.c" "${REPO_ROOT}/main/ui/fonts/ttf_poppins_bold_data.c"
+    "${REPO_ROOT}/main/ui/fonts/ttf_mdi_data.c" "${REPO_ROOT}/main/ui/fonts/ttf_emoji_data.c"
+    "${REPO_ROOT}/main/ui/fonts/ttf_cjk_data.c")
+target_include_directories(betta-reply-font-test PRIVATE "${REPO_ROOT}/main")
+target_compile_definitions(betta-reply-font-test PRIVATE XIAOZHI_FONT_TEST=1)
+target_compile_options(betta-reply-font-test PRIVATE -Wall -Wextra -Werror)
+target_link_libraries(betta-reply-font-test PRIVATE lvgl SDL2::SDL2 m)
+add_test(NAME xiaozhi-reply-font COMMAND betta-reply-font-test "${CMAKE_CURRENT_BINARY_DIR}/reply-font.ttf")
 add_executable(betta-splash-test boot_splash_regression.c "${REPO_ROOT}/main/ui/ui_boot_splash.c")
 target_include_directories(betta-splash-test PRIVATE "${REPO_ROOT}/main" "${CMAKE_CURRENT_LIST_DIR}/stubs")
 target_compile_definitions(betta-splash-test PRIVATE CONFIG_APP_PANEL_VARIANT_S3_480=1)

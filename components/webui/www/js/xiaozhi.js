@@ -3,13 +3,19 @@
  */
 (() => {
   const node = (id) => document.getElementById(id);
-  let busy = 0, talking = false, pending = Promise.resolve();
+  let busy = 0, talking = false, pending = Promise.resolve(), refreshing = false, revision = 0;
   async function refresh() {
     const section = node("settingsXiaozhiSection");
     if (!section || section.classList.contains("hidden") || document.hidden) { stop(); return; }
-    if (busy) return;
+    if (busy || refreshing) return;
+    refreshing = true;
+    const started = revision;
+    const controller = new AbortController();
+    const deadline = setTimeout(() => controller.abort(), 8000);
     try {
-      const s = await apiGet("/api/xiaozhi");
+      const s = await apiGet("/api/xiaozhi", controller.signal);
+      // A delayed poll must not undo a user's newer edit or re-open hidden UI.
+      if (started !== revision || busy || section.classList.contains("hidden") || document.hidden) return;
       node("xiaozhiEnabled").checked = s.enabled;
       node("xiaozhiEnabled").disabled = !s.supported;
       node("xiaozhiReset").disabled = !s.supported;
@@ -35,9 +41,12 @@
       if (!otto) node("xiaozhiOtto").removeAttribute("src");
       const key = `xiaozhi.state.${s.state}`;
       node("xiaozhiStatus").textContent = t(key) === key ? s.state : t(key);
-    } catch (_) { node("xiaozhiStatus").textContent = t("xiaozhi.state.connection_error"); }
+    } catch (_) {
+      if (started === revision && !busy) node("xiaozhiStatus").textContent = t("xiaozhi.state.connection_error");
+    } finally { clearTimeout(deadline); refreshing = false; }
   }
   function command(action, value = 0) {
+    revision++;
     busy++;
     // Keep rapid edits and start/release in order; never silently discard an edit.
     pending = pending.then(async () => {

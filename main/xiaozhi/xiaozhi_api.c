@@ -85,6 +85,11 @@ static esp_err_t guarded_emoji(httpd_req_t *r) { return http_guard_handle(r, emo
 static esp_err_t guarded_post(httpd_req_t *r) { return http_guard_handle(r, command); }
 esp_err_t xiaozhi_api_register(httpd_handle_t server)
 {
+#if CONFIG_APP_PANEL_VARIANT_10INCH_1280
+    extern esp_err_t xiaozhi_font_api_register(httpd_handle_t server);
+    esp_err_t font_err = xiaozhi_font_api_register(server);
+    if (font_err != ESP_OK) return font_err;
+#endif
     httpd_uri_t get = {.uri = "/api/xiaozhi", .method = HTTP_GET, .handler = guarded_get};
     httpd_uri_t post = {.uri = "/api/xiaozhi", .method = HTTP_POST, .handler = guarded_post};
     httpd_uri_t emoji = {.uri = "/api/xiaozhi/emoji", .method = HTTP_GET, .handler = guarded_emoji};

@@ -29,6 +29,7 @@ void display_note_activity(void) { ++wakeups; }
 int ui_fonts_role_px(ui_text_role_t role) { (void)role; return 48; }
 const lv_font_t *ui_font_emoji_for_text(int px) { (void)px; return LV_FONT_DEFAULT; }
 const lv_font_t *ui_font_emotion(int height) { (void)height; return LV_FONT_DEFAULT; }
+const lv_font_t *ui_font_reply(const lv_font_t *base) { return base; }
 void ui_popup_style_frame(lv_obj_t *card) { (void)card; }
 lv_obj_t *ui_popup_close_button(lv_obj_t *parent, lv_color_t color, lv_event_cb_t cb, void *data)
 {

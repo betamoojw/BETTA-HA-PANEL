@@ -16,6 +16,7 @@ function setup(saved = {}, overrides = {}) {
   let poll;
   const document = {getElementById:node, hidden:false, addEventListener:(type, cb)=>events[type]=cb};
   const context = {document, window:{addEventListener:(type, cb)=>events[type]=cb},
+    AbortController, setTimeout, clearTimeout,
     setInterval:cb=>poll=cb, t:key=>key, apiGet:async()=>({...model}),
     fetch:async(url, options)=>{
       assert.equal(url, '/api/xiaozhi');
@@ -69,6 +70,36 @@ test('reset is scoped to Xiaozhi and preserves cloud pairing',async()=>{
 test('server text is rendered as text, never HTML',async()=>{
   const s=setup({text:'<img src=x onerror=alert(1)>',code:'123456'});await s.poll();
   assert.equal(s.node('xiaozhiText').textContent,s.model.text);assert.equal(s.node('xiaozhiText').innerHTML,undefined);
+});
+
+test('slow status polling never accumulates overlapping requests', async()=>{
+  let resolve, calls=0;
+  const s=setup({}, {apiGet:()=>{calls++;return new Promise(r=>resolve=r);}});
+  const first=s.poll();
+  await Promise.all(Array.from({length:20},()=>s.poll()));
+  assert.equal(calls,1);
+  resolve({...s.model});await first;
+  const second=s.poll();assert.equal(calls,2);resolve({...s.model});await second;
+});
+test('a response started before an edit cannot overwrite the control', async()=>{
+  let resolve;
+  const s=setup({enabled:true,emoji_style:0}, {apiGet:()=>new Promise(r=>resolve=r)});
+  const poll=s.poll();s.node('xiaozhiEmoji').value='1';await s.fire('xiaozhiEmoji','change');
+  resolve({...s.model,emoji_style:0});await poll;
+  assert.equal(s.node('xiaozhiEmoji').value,'1');assert.equal(s.model.emoji_style,1);
+});
+test('status deadline releases the single-flight guard after a lost connection', async()=>{
+  let abort,calls=0,cleared=0;
+  const s=setup({}, {setTimeout:cb=>{abort=cb;return 1;},clearTimeout:()=>cleared++,
+    apiGet:(_path,signal)=>{calls++;return new Promise((_r,reject)=>signal.addEventListener('abort',()=>reject(new Error('timeout'))));}});
+  let poll=s.poll();abort();await poll;
+  assert.equal(s.node('xiaozhiStatus').textContent,'xiaozhi.state.connection_error');
+  poll=s.poll();assert.equal(calls,2);abort();await poll;assert.equal(cleared,2);
+});
+test('leaving the page while polling does not apply its delayed response', async()=>{
+  let resolve;const s=setup({}, {apiGet:()=>new Promise(r=>resolve=r)});
+  const poll=s.poll();s.document.hidden=true;resolve({...s.model,enabled:true});await poll;
+  assert.equal(s.node('xiaozhiEnabled').checked,undefined);
 });
 
 test('all Xiaozhi HTML labels are wired into the existing translation refresh',()=>{

@@ -70,8 +70,9 @@ ROM cannot address beyond 16 MiB. Use the [stub preservation procedure](../devel
 This verifies bytes before boot; normal boot diagnostics may subsequently write NVS.
 
 [Xiaozhi AI](../xiaozhi-ai.md) adds optional cloud-paired voice conversation using
-the onboard audio codecs. It defaults to off; audio and cloud acceptance tests
-are pending on this board.
+the onboard audio codecs. It defaults to off. This is the only profile that
+advertises Xiaozhi Common, KNX and User Only MCP tools because it is the only
+profile with supported microphone and speaker drivers.
 
 On 2026-10-24, the localization and overlay-lifetime build based on `af827c0`
 (with local changes; embedded ELF `329ee66bfab2f60a24f8f066def30d82eb3132e71a5ffe89d41de4d99982dfc1`)

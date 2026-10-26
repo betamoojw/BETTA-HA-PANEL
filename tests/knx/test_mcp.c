@@ -2,12 +2,28 @@
  * Copyright (c) 2026 andre68723 */
 #include "knx/knx.h"
 #include "knx/knx_mcp.h"
+#include "xiaozhi/xiaozhi_mcp_tools.h"
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 static unsigned calls;
+static unsigned device_calls;
 static bool large_page;
+bool xiaozhi_mcp_device_tool_supported(const char* name) {
+    return !strcmp(name,"self.get_device_status") ||
+        !strcmp(name,"self.audio_speaker.set_volume") ||
+        !strcmp(name,"self.get_system_info") ||
+        !strcmp(name,"self.reboot");
+}
+cJSON* xiaozhi_mcp_device_tool_call(const char* name,const cJSON* args,char* err,size_t size) {
+    (void)err;(void)size;device_calls++;
+    cJSON* result=cJSON_CreateObject();
+    cJSON_AddStringToObject(result,"tool",name);
+    const cJSON* volume=cJSON_GetObjectItemCaseSensitive(args,"volume");
+    if (volume) cJSON_AddNumberToObject(result,"volume",volume->valueint);
+    return result;
+}
 cJSON* knx_status(void) { return cJSON_Parse("{\"enabled\":false,\"state\":\"disabled\"}"); }
 cJSON* knx_objects(int offset,int limit) {
     assert(offset==0 && limit==5);
@@ -67,8 +83,32 @@ int main(void) {
     assert(!strcmp(cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(r,"id")),"init")); cJSON_Delete(r);
     r=request("{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/list\"}");
     char* text=cJSON_PrintUnformatted(r); assert(strlen(text)<6000);
+    assert(strstr(text,"self.get_device_status") && strstr(text,"self.audio_speaker.set_volume"));
     assert(strstr(text,"self.knx.set_object") && !strstr(text,"import_configuration"));
+    assert(!strstr(text,"self.get_system_info") && !strstr(text,"audience"));
     free(text); cJSON_Delete(r);
+    r=call("self.get_system_info","{}");
+    assert(cJSON_GetObjectItemCaseSensitive(r,"error") && device_calls==0);cJSON_Delete(r);
+    r=request("{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"tools/list\",\"params\":{\"withUserTools\":true}}");
+    text=cJSON_PrintUnformatted(r);
+    assert(strstr(text,"self.get_system_info") && strstr(text,"self.reboot") && strstr(text,"audience"));
+    assert(!strstr(text,"self.upgrade_firmware"));
+    free(text);cJSON_Delete(r);
+    r=call("self.get_system_info","{}");
+    assert(cJSON_GetObjectItemCaseSensitive(r,"result") && device_calls==1);cJSON_Delete(r);
+    knx_mcp_session_reset();
+    r=call("self.reboot","{}");
+    assert(cJSON_GetObjectItemCaseSensitive(r,"error") && device_calls==1);cJSON_Delete(r);
+    r=call("self.audio_speaker.set_volume","{\"volume\":81}");
+    assert(cJSON_GetObjectItemCaseSensitive(r,"error") && device_calls==1);cJSON_Delete(r);
+    r=call("self.audio_speaker.set_volume","{\"volume\":42}");
+    assert(cJSON_GetObjectItemCaseSensitive(r,"result") && device_calls==2);cJSON_Delete(r);
+    r=request("{\"jsonrpc\":\"2.0\",\"id\":4,\"method\":\"tools/list\",\"params\":{\"cursor\":\"self.knx.get_object\"}}");
+    text=cJSON_PrintUnformatted(r);
+    assert(strstr(text,"self.knx.get_object") && !strstr(text,"self.knx.list_objects"));
+    free(text);cJSON_Delete(r);
+    r=request("{\"jsonrpc\":\"2.0\",\"id\":5,\"method\":\"tools/list\",\"params\":{\"cursor\":\"missing\"}}");
+    assert(cJSON_GetObjectItemCaseSensitive(r,"error"));cJSON_Delete(r);
     r=call("self.knx.list_objects","{}"); assert(cJSON_GetObjectItemCaseSensitive(r,"result")); cJSON_Delete(r);
     large_page=true; r=call("self.knx.list_objects","{}");
     cJSON* result=cJSON_GetObjectItemCaseSensitive(r,"result");

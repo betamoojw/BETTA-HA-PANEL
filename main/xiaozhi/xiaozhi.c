@@ -139,6 +139,7 @@ static void disconnect_session(void)
 {
     want_listen = auto_listen = idle_capture = false;
     conversation(false);
+    knx_mcp_session_reset();
     wake_retry = esp_timer_get_time() + 1500000;
     xiaozhi_wake_reset();
     xiaozhi_audio_close();

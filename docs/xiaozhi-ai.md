@@ -9,6 +9,31 @@ Configured [KNX communication objects](knx.md) are available to the assistant
 through MCP when KNXnet/IP is enabled. Object permissions apply to voice commands;
 the assistant cannot change KNX configuration or enable the interface.
 
+## Device tools
+
+The assistant advertises tools only on `panel10`, the profile with a supported
+microphone and speaker:
+
+- **Common Tools:** read device/network/display status, set assistant volume,
+  set active display brightness and select an existing theme.
+- **KNX tools:** inspect configured objects and use their read/write permissions.
+- **User Only Tools:** read firmware/system information, restart the panel,
+  start an HTTPS firmware update and read display geometry.
+
+Common and KNX tools are visible during normal tool discovery. User Only Tools
+carry the MCP `audience: user` annotation and remain hidden until a
+`withUserTools` discovery request opts into them for the current connection.
+They are then callable until the MCP session is initialized again or
+disconnected. This audience signal is a cloud protocol convention, not a second
+local login prompt; use restart and firmware-update tools only from a Xiaozhi
+client you trust.
+
+Brightness, theme and volume changes use the same saved settings as the panel
+and editor. Firmware URLs must pass the panel's existing HTTPS, image identity
+and OTA compatibility checks. Camera capture, screenshot upload, image preview
+and asset-download tools are not advertised because this profile has no matching
+safe capability adapter.
+
 ## Pairing
 
 1. Open **Settings → Xiaozhi AI** in the web editor.
@@ -92,8 +117,10 @@ hands-free wake/reply, both emotion choices and idle auto-close. The owner
 confirmed Otto animation and stable physical output during speech. These are
 bounded device checks: far-field sensitivity, false-activation rates, speaker
 feedback in other rooms and all-day operation have not been measured.
-Home Assistant tool execution is not implemented. A successful build alone
-does not establish voice hardware support on another board.
+The device-tool implementation is host/build tested only; its cloud invocation
+has not been accepted on hardware. Home Assistant tool execution is not
+implemented. A successful build alone does not establish voice hardware support
+on another board.
 
 [Implementation](development/xiaozhi-ai.md) · [Waveshare panel](hardware/panel10.md)
 

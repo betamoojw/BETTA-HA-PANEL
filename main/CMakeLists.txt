@@ -161,6 +161,7 @@ idf_component_register(
         "api/http_server.c"
         "api/http_guard.c"
         "xiaozhi/xiaozhi.c"
+        "xiaozhi/xiaozhi_mcp_tools.c"
         "knx/knx_api.c"
         "knx/knx_service.cc"
         "knx/knx_storage.cc"

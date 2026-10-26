@@ -12,10 +12,21 @@ the Guition audio pins or its direct network-task LVGL calls.
 - `main/xiaozhi/xiaozhi.c`: one worker owns pairing, connection lifetime, Opus
   and audio I/O. HTTP and touch callbacks enqueue commands. The WebSocket event
   task only assembles bounded frames into a finite queue; overflow ends the
-  session. The shared [KNX MCP bridge](knx.md) advertises the configured objects.
+  session. The shared MCP dispatcher advertises device tools and the configured
+  [KNX objects](knx.md).
   Starting microphone capture discards stale speech frames but services queued
   MCP requests, preserving tool discovery even when initialize/tools/list arrive
   beside hello or TTS/stop. Disconnect still discards the whole old session.
+- `main/knx/knx_mcp.c`: pure JSON-RPC dispatch, schema validation, bounded
+  `tools/list` pagination and the ordered Common, KNX and User Only inventory.
+  A `withUserTools: true` list request exposes annotated user tools and enables
+  their calls for that initialized connection. See
+  [Xiaozhi MCP tools](xiaozhi-mcp-tools.md).
+- `main/xiaozhi/xiaozhi_mcp_tools.c`: `panel10` capability adapter for saved
+  speaker volume, brightness and theme, device/system status, display geometry,
+  reboot and the existing HTTPS OTA installer. Other variants return no device
+  capabilities, so no voice tool is advertised on hardware without supported
+  microphone and speaker drivers.
 - `xiaozhi_audio.c`: LCD-X BSP pin definitions, ES8311 output and ES7210 input;
   MIC1 is selected at 16 kHz, excluding the playback-reference slot. Opus decodes server audio directly
   to 16 kHz. Audio opens lazily on conversation start or enabled local detection.
@@ -49,8 +60,9 @@ After first use the idle worker remains allocated until reboot.
 
 ## Checks
 
-Run `node --test tests/webui/xiaozhi.test.mjs`, the full web test glob,
-`python tools/check_web.py`, the font/catalog checks and a `panel10` build.
+Run the `knx_mcp` host test, `node --test tests/webui/xiaozhi.test.mjs`, the
+full web test glob, `python tools/check_web.py`, the font/catalog checks and a
+`panel10` build.
 Hardware acceptance must cover off-by-default privacy, pairing, hold/release,
 speaker reply, disable during pairing/listening, reconnect and screen stability.
 Do not claim hardware verification from builds or screenshots alone.

@@ -44,6 +44,11 @@ The four looks differ in surfaces, shapes and effects, never in typeface or icon
 icons and symbols are Material Design Icons in every style. That is an architecture decision, recorded with its
 reasons in [development.md](development/conventions.md#text-and-fonts).
 
+Digital clock protection uses `ui_font_clock()` for display-sized Poppins digits,
+independent of dashboard text size. It measures the widest digit and AM/PM before
+choosing a cached 16-pixel size step, capped at 256 pixels. Its small glyph cache
+has no CJK/emoji fallback; ordinary labels and the optional date keep their roles.
+
 ## Shapes in code: one helper per element
 
 Every corner radius comes from `main/ui/theme/ui_style.h`, never from a number or `LV_RADIUS_CIRCLE` written into

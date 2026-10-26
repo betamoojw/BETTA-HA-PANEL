@@ -264,6 +264,10 @@ add_test(NAME screen-settings-events-and-layout
     COMMAND betta-widget-sim --regression screen-settings --fixture "${CMAKE_CURRENT_LIST_DIR}/screen_settings.json")
 set_tests_properties(screen-settings-events-and-layout PROPERTIES ENVIRONMENT "SDL_VIDEODRIVER=dummy")
 add_executable(betta-clock-test clock_protection_regression.c
+    "${REPO_ROOT}/main/ui/text_font.c" "${REPO_ROOT}/main/ui/text_scale.c"
+    "${REPO_ROOT}/main/ui/fonts/ttf_poppins_data.c" "${REPO_ROOT}/main/ui/fonts/ttf_poppins_bold_data.c"
+    "${REPO_ROOT}/main/ui/fonts/ttf_mdi_data.c" "${REPO_ROOT}/main/ui/fonts/ttf_emoji_data.c"
+    "${REPO_ROOT}/main/ui/fonts/ttf_cjk_data.c"
     "${REPO_ROOT}/main/ui/ui_analog_clock.c"
     "${REPO_ROOT}/main/settings/display_clock.c"
     "${REPO_ROOT}/main/settings/brightness_model.c"

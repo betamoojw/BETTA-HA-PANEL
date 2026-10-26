@@ -15,6 +15,16 @@ The dedicated empty fixture avoids unrelated widget orientation projection durin
 `betta-clock-test <width> <height>` exercises the production saver with a controlled clock: idle/off
 deadlines, movement bounds, night priority, complete wake gestures, storage-busy retention and
 the 30-second preview deadline. Both tests are registered with CTest.
+Clock checks use the real Poppins font at six geometries, standard/largest text and
+all date/seconds/12-hour combinations, including movement bounds and cache reuse.
+
+On 2026-10-26 COM24 ran the large digital clock build `45ef89dd-dirty` (ELF `e0680192`).
+App-only stub write/readback and protected-storage checks passed; source and valid OTA matched.
+The owner confirmed clear time/date, advancing seconds, touch wake, brightness and page switching.
+Screenshots verified large digits, a separate date and bounded movement; timed screen-off passed.
+One settings restart followed the owner's NTP change, which was retained; no crash was stored.
+English, Classic Emoji, 180-degree rotation, layout, themes and local backups were preserved.
+Remote wake/brightness also passed. Earlier white flashes remain unresolved despite this bounded pass.
 
 Local validation on 2026-10-24 passed the settings regression at default/largest text on 480 × 480,
 720 × 720 and 1280 × 800, plus all four Tab5 directions at largest text (720 × 1280 / 1280 × 720).

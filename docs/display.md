@@ -48,6 +48,9 @@ Choose **Clock** under **Settings → Display → When idle**, then enable
 **Analog clock** for a minimal dial, or leave it off for the digital clock.
 The same choice is available on the panel under **System settings**.
 Existing installations keep their digital clock until changed.
+Digital time uses large digits sized to the screen and selected format. It fits
+landscape, portrait and square displays, including seconds and AM/PM; the date
+stays smaller below the time. Turning seconds off gives the digits more room.
 
 Both styles use the configured local time zone and share the idle delay,
 brightness, optional date, seconds display, automatic screen-off and wake gesture.

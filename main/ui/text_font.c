@@ -15,7 +15,7 @@
 /* LVGL's own default font (the built-in unscii 8, see the root CMakeLists.txt): always there, the last resort when a font cannot be made. */
 #define FALLBACK_FONT ((const lv_font_t *)LV_FONT_DEFAULT)
 
-typedef enum { FAMILY_TEXT, FAMILY_BOLD, FAMILY_ICON, FAMILY_EMOJI, FAMILY_CJK, FAMILY_REPLY_CJK, FAMILY_REPLY } font_family_t;
+typedef enum { FAMILY_TEXT, FAMILY_BOLD, FAMILY_ICON, FAMILY_EMOJI, FAMILY_CJK, FAMILY_REPLY_CJK, FAMILY_REPLY, FAMILY_CLOCK } font_family_t;
 
 typedef struct {
     font_family_t family;
@@ -31,6 +31,7 @@ static text_board_t s_board;
 static ui_fonts_stats_t s_stats;
 static lv_font_t *s_probe;
 static int s_probe_px;
+static lv_font_t *s_clock_probe;
 
 void ui_fonts_set_user_step(int step) { s_user_step = text_scale_clamp_user_step(step); }
 int ui_fonts_user_step(void) { return s_user_step; }
@@ -168,6 +169,44 @@ const lv_font_t *ui_font_emotion(int max_height)
         return ui_font_emoji_for_text(32);
     }
     return font;
+}
+
+static int clock_text_width(const lv_font_t *font, bool format_24h, bool seconds)
+{
+    int digit = 0;
+    for (uint32_t c = '0'; c <= '9'; ++c)
+        digit = LV_MAX(digit, lv_font_get_glyph_width(font, c, 0));
+    int width = digit * (seconds ? 6 : 4) +
+        lv_font_get_glyph_width(font, ':', 0) * (seconds ? 2 : 1);
+    if (!format_24h) {
+        lv_point_t am, pm;
+        lv_text_get_size(&am, " AM", font, 0, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
+        lv_text_get_size(&pm, " PM", font, 0, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
+        width += LV_MAX(am.x, pm.x);
+    }
+    return width;
+}
+
+const lv_font_t *ui_font_clock(int max_width, int max_height, bool format_24h, bool seconds)
+{
+    /* Measure without filling glyph caches or creating large fallback fonts.
+     * Only the chosen 16-pixel step becomes an immutable drawing instance. */
+    if (!s_clock_probe)
+        s_clock_probe = make_font(ttf_poppins_data, ttf_poppins_size, 32, LV_FONT_KERNING_NONE, 0);
+    if (!s_clock_probe) return ui_font_role(UI_TEXT_HERO);
+    for (int px = 256; px >= 32; px -= 16) {
+        lv_tiny_ttf_set_size(s_clock_probe, px);
+        if (s_clock_probe->line_height > max_height ||
+            clock_text_width(s_clock_probe, format_24h, seconds) > max_width) continue;
+        font_instance_t *inst = find_instance(FAMILY_CLOCK, px);
+        if (inst) return inst->font;
+        if (s_count >= UI_FONT_MAX_INSTANCES) { s_stats.budget_hits++; break; }
+        lv_font_t *font = make_font(ttf_poppins_data, ttf_poppins_size, px, LV_FONT_KERNING_NONE, 16);
+        if (!font) break;
+        add_instance(FAMILY_CLOCK, px, font);
+        return font;
+    }
+    return ui_font_role(UI_TEXT_HERO);
 }
 
 /* Shared by regular, emphasis and measurement fonts. Keep the Latin line metrics;

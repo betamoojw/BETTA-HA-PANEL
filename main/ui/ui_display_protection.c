@@ -246,8 +246,15 @@ static void clock_layout(void)
     int diameter = LV_MIN(400, LV_MIN(width, height) * 2 / 3);
     int date_height = s_settings.clock.show_date ?
         lv_font_get_line_height(lv_obj_get_style_text_font(s_clock_date, 0)) + 16 : 0;
-    lv_obj_set_size(s_clock_group, analog ? diameter : width - 60,
-                    analog ? diameter + date_height : 170);
+    int time_width = width * 4 / 5;
+    if (!analog) {
+        const lv_font_t *font = ui_font_clock(time_width, height / 3,
+            s_settings.clock.format_24h, s_settings.clock.show_seconds);
+        lv_obj_set_style_text_font(s_clock_time, font, 0);
+        lv_obj_set_size(s_clock_group, time_width, lv_font_get_line_height(font) + date_height);
+    } else {
+        lv_obj_set_size(s_clock_group, diameter, diameter + date_height);
+    }
     lv_obj_set_hidden(s_clock_time, analog);
     if (s_clock_dial) {
         lv_obj_set_hidden(s_clock_dial, !analog);
@@ -493,8 +500,9 @@ static void create_overlay(void)
     if (s_clock_dial) lv_obj_set_hidden(s_clock_dial, true);
     s_clock_time = lv_label_create(s_clock_group);
     lv_label_set_text(s_clock_time, "--:--");
-    /* The longest 12-hour form fits compact panels even at the largest text step. */
-    lv_obj_set_style_text_font(s_clock_time, ui_text_fit("12:59:59 PM", ui_font_role(UI_TEXT_HERO), width - 60, 90), 0);
+    /* The screensaver chooses its display-sized font on entry and after reload. */
+    lv_obj_set_style_text_font(s_clock_time, ui_font_role(UI_TEXT_HERO), 0);
+    lv_label_set_long_mode(s_clock_time, LV_LABEL_LONG_CLIP);
     lv_obj_set_style_text_color(s_clock_time, lv_color_white(), 0);
     lv_obj_align(s_clock_time, LV_ALIGN_TOP_MID, 0, 0);
     s_clock_date = lv_label_create(s_clock_group);

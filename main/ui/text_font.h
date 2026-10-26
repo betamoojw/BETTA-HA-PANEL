@@ -61,6 +61,9 @@ const lv_font_t *ui_font_icon(ui_icon_font_t kind);
 const lv_font_t *ui_font_emoji_for_text(int text_px);
 /* Hero-role emotion glyph, bounded by its available display area. */
 const lv_font_t *ui_font_emotion(int max_height);
+/* Large digital screensaver time, fitted for every digit and the selected format.
+ * Separate from dashboard text scaling; cached sizes have no CJK/emoji chain. */
+const lv_font_t *ui_font_clock(int max_width, int max_height, bool format_24h, bool seconds);
 /* Local, verified extended CJK for free-form speech/replies; base until installed. */
 const lv_font_t *ui_font_reply(const lv_font_t *base);
 

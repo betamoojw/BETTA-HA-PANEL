@@ -21,10 +21,23 @@ typedef struct {
     lv_obj_t *button, *panel, *state, *emoji, *recognized, *reply, *chat, *talk;
     lv_timer_t *timer;
     uint32_t shown_seq, activity_seq, idle_since;
+    bool voice_opened;
     xiaozhi_status_t snapshot;
     lv_obj_t *otto;
     const lv_image_dsc_t *otto_asset;
 } view_t;
+static void set_dialog_visible(view_t *v, bool visible)
+{
+    lv_obj_set_hidden(v->panel, !visible);
+    lv_obj_t *glyph = lv_obj_get_child(v->button, 0);
+    if (visible) {
+        lv_obj_add_state(v->button, LV_STATE_CHECKED);
+        lv_obj_add_state(glyph, LV_STATE_CHECKED);
+    } else {
+        lv_obj_remove_state(v->button, LV_STATE_CHECKED);
+        lv_obj_remove_state(glyph, LV_STATE_CHECKED);
+    }
+}
 static void stop_animation(view_t *v)
 {
     if (v->otto) lv_obj_delete(v->otto);
@@ -33,11 +46,20 @@ static void stop_animation(view_t *v)
 static void hide(view_t *v)
 {
     stop_animation(v);
-    lv_obj_set_hidden(v->panel, true); xiaozhi_command("disconnect", 0);
+    set_dialog_visible(v, false); xiaozhi_command("disconnect", 0);
 }
-static void show(view_t *v)
+static void update_talk_mode(view_t *v)
 {
-    lv_obj_set_hidden(v->panel, false); lv_obj_move_foreground(lv_obj_get_parent(v->panel));
+    /* Wake availability is a preference, not the origin of this dialogue. */
+    bool hands_free = v->voice_opened && v->snapshot.wake_enabled && v->snapshot.wake_ready;
+    lv_obj_set_hidden(v->talk, hands_free);
+    lv_obj_set_height(v->chat, lv_pct(hands_free ? 52 : 40));
+}
+static void show(view_t *v, bool voice_opened)
+{
+    v->voice_opened = voice_opened;
+    update_talk_mode(v);
+    set_dialog_visible(v, true); lv_obj_move_foreground(lv_obj_get_parent(v->panel));
     v->idle_since = lv_tick_get(); display_note_activity();
 }
 static void label(lv_obj_t *obj, const char *value)
@@ -51,10 +73,10 @@ static void refresh(lv_timer_t *timer)
     if (lv_obj_is_hidden(v->button) == s->enabled) {
         lv_obj_set_hidden(v->button, !s->enabled); ui_pages_set_topbar_auxiliary(v->button);
     }
-    if (!s->enabled) lv_obj_set_hidden(v->panel, true);
+    if (!s->enabled) set_dialog_visible(v, false);
     if (s->dialog_seq != v->shown_seq) {
         v->shown_seq = s->dialog_seq;
-        if (s->enabled) show(v);
+        if (s->enabled) show(v, true);
     }
     if (s->activity_seq != v->activity_seq) {
         v->activity_seq = s->activity_seq; v->idle_since = lv_tick_get();
@@ -94,14 +116,13 @@ static void refresh(lv_timer_t *timer)
     }
     label(v->recognized, s->recognized);
     label(v->reply, s->reply);
-    bool hands_free = s->wake_enabled && s->wake_ready;
-    lv_obj_set_hidden(v->talk, hands_free);
-    lv_obj_set_height(v->chat, lv_pct(hands_free ? 52 : 40));
+    update_talk_mode(v);
 }
 static void toggle(lv_event_t *e)
 {
     view_t *v = lv_event_get_user_data(e);
-    if (lv_obj_is_hidden(v->panel)) { show(v); xiaozhi_command("open", 0); }
+    /* A header click only opens manual controls; pressing Talk starts capture. */
+    if (lv_obj_is_hidden(v->panel)) show(v, false);
     else hide(v);
 }
 static void close_clicked(lv_event_t *e) { hide(lv_event_get_user_data(e)); }
@@ -135,6 +156,13 @@ void xiaozhi_ui_create(lv_obj_t *screen)
     lv_obj_set_size(root, LV_PCT(100), LV_PCT(100));
     lv_obj_set_clickable(root, false); lv_obj_set_scrollable(root, false);
     v->button = ui_pages_create_topbar_action(root, APP_SYMBOL_AI_AGENT, toggle, v);
+    /* Checked styles restore the shared chip's original appearance on close. */
+    lv_obj_set_style_bg_color(v->button, lv_color_hex(APP_UI_COLOR_NAV_BTN_BG_ACTIVE), LV_STATE_CHECKED);
+    lv_obj_set_style_bg_opa(v->button, LV_OPA_COVER, LV_STATE_CHECKED);
+    lv_obj_set_style_border_color(v->button, lv_color_hex(APP_UI_COLOR_NAV_TAB_ACTIVE), LV_STATE_CHECKED);
+    lv_obj_set_style_border_opa(v->button, LV_OPA_COVER, LV_STATE_CHECKED);
+    lv_obj_set_style_text_color(lv_obj_get_child(v->button, 0),
+        lv_color_hex(APP_UI_COLOR_NAV_TAB_ACTIVE), LV_STATE_CHECKED);
     lv_obj_set_hidden(v->button, true); ui_pages_set_topbar_auxiliary(v->button);
     v->panel = lv_obj_create(root);
     int w = lv_display_get_horizontal_resolution(lv_display_get_default());

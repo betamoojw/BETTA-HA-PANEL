@@ -43,21 +43,27 @@ safe capability adapter.
 4. Wait for **Ready**. If pairing expired, start it again.
 
 Pairing sends the device identifier and firmware information to the Xiaozhi
-service. Audio goes to that service only during a conversation started with Talk, the AI
-icon in voice wake-up mode, or a detected wake word. Optional wake-word
+service. Audio goes to that service only during a conversation started with Talk
+or a detected wake word. Optional wake-word
 recognition runs locally; idle microphone samples are not uploaded.
 It requires internet access and an account with the cloud service.
 
 ## Conversation
 
 Tap the **AI agent (robot) icon** on the panel's top bar. Its frame, size and
-colour follow the settings icon and the selected theme. Hold **Talk**, speak toward the
-microphone, then release to request a reply. With **Voice wake-up** enabled, say
-**Ni hao Xiao Zhi** (你好小智), wait for **Listening**, then speak. The dialogue
-opens automatically; the AI icon can also open it and start listening. The
-Talk button is hidden while the local wake engine is ready. If it cannot start,
-manual Talk remains available. The browser's Talk button also
-uses the **panel microphone**, not the computer microphone. Capture ends after
+colour follow the settings icon and the selected theme. The icon opens manual
+controls, including **Hold to talk**, even when **Voice wake-up** is enabled.
+It highlights while the dialogue is visible and returns to its normal colours
+when closed, timed out or disabled, including dialogues opened by a wake word.
+Hold the button, speak toward the microphone, then release to request a reply.
+Opening the window alone does not start a cloud conversation.
+
+With **Voice wake-up** enabled, say **Ni hao Xiao Zhi** (你好小智), wait for
+**Listening**, then speak. A voice wake opens the dialogue automatically with
+the Talk button hidden. If the wake engine becomes unavailable, manual Talk
+returns. Closing a voice dialogue and reopening it with the header icon returns
+to manual controls. The browser offers Talk when wake detection is off or
+unavailable; it uses the **panel microphone**. Capture ends after
 at most 60 seconds even if the browser disappears.
 
 The reply plays through the panel speaker. A centered emotion follows the
@@ -75,9 +81,10 @@ or microphone. The Otto face keeps its black background inside the themed popup.
 
 **Dialogue idle timeout** is 30 seconds by default (10–300 seconds). Recognized
 voice, received speech text and reply audio renew it. Silence closes the popup
-and ends the cloud conversation, then returns to local wake detection. Cloud
-replies use automatic end-of-speech detection; after playback the panel listens
-for a follow-up until the idle timeout. This is half-duplex: wake detection is
+and ends the cloud conversation, then returns to local wake detection. After a
+wake word, automatic end-of-speech detection is used and the panel listens for
+a follow-up after playback until the idle timeout. In manual mode, hold Talk
+again for a follow-up. This is half-duplex: wake detection is
 paused during a cloud conversation and speaker playback. Use the icon/close
 button or Disconnect to cancel. Voice wake-up is independently off by default.
 Press the top-bar button again or use **Disconnect** in the editor to end the

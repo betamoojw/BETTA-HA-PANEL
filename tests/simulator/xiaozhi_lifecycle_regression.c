@@ -22,7 +22,8 @@
 static bool enabled;
 static xiaozhi_status_t mock;
 static unsigned wakeups;
-static const theme_palette_t palette = {.content_bg=0x101820,.text_primary=0xeeeeee};
+static const theme_palette_t palette = {.content_bg=0x101820,.text_primary=0xeeeeee,
+    .nav_btn_bg_active=0x365f74,.nav_tab_active=0xfdd835};
 const theme_palette_t *theme_palette_active(void) { return &palette; }
 ui_style_kind_t ui_style_get(void) { return UI_STYLE_MATTE; }
 void display_note_activity(void) { ++wakeups; }
@@ -36,7 +37,7 @@ lv_obj_t *ui_popup_close_button(lv_obj_t *parent, lv_color_t color, lv_event_cb_
     (void)color; lv_obj_t *b=lv_button_create(parent);lv_obj_set_size(b,48,48);
     lv_obj_add_event_cb(b,cb,LV_EVENT_CLICKED,data);return b;
 }
-static unsigned disconnects;
+static unsigned disconnects, opens, starts, stops;
 lv_obj_t *ui_pages_create_topbar_action(lv_obj_t *parent, const char *symbol,
     lv_event_cb_t clicked, void *user_data)
 {
@@ -55,13 +56,24 @@ void xiaozhi_status(xiaozhi_status_t *s)
 }
 esp_err_t xiaozhi_command(const char *action, int value)
 {
-    (void)value; assert(!strcmp(action,"open") || !strcmp(action,"disconnect")); if (!strcmp(action,"disconnect")) ++disconnects; return ESP_OK;
+    (void)value;
+    if (!strcmp(action,"open")) ++opens;
+    else if (!strcmp(action,"disconnect")) ++disconnects;
+    else if (!strcmp(action,"start")) ++starts;
+    else if (!strcmp(action,"stop")) ++stops;
+    else assert(!"Unexpected assistant command");
+    return ESP_OK;
 }
 static unsigned timer_count(void)
 {
     unsigned n = 0;
     for (lv_timer_t *t = lv_timer_get_next(NULL); t; t = lv_timer_get_next(t)) ++n;
     return n;
+}
+static void assert_header_active(lv_obj_t *button, bool active)
+{
+    assert(lv_obj_has_state(button, LV_STATE_CHECKED) == active);
+    assert(lv_obj_has_state(lv_obj_get_child(button, 0), LV_STATE_CHECKED) == active);
 }
 int main(void)
 {
@@ -98,10 +110,19 @@ int main(void)
     lv_obj_t *root = lv_obj_get_child(other, 0);
     lv_obj_t *button = lv_obj_get_child(root, 0), *panel = lv_obj_get_child(root, 1);
     assert(lv_obj_is_hidden(panel));
+    assert_header_active(button, false);
+    lv_color_t idle_bg = lv_obj_get_style_bg_color(button, LV_PART_MAIN);
+    lv_color_t idle_glyph = lv_obj_get_style_text_color(lv_obj_get_child(button, 0), LV_PART_MAIN);
     lv_obj_send_event(button, LV_EVENT_CLICKED, NULL);
     assert(!lv_obj_is_hidden(panel));
+    assert_header_active(button, true);
+    assert(lv_color_eq(lv_obj_get_style_bg_color(button, LV_PART_MAIN), lv_color_hex(palette.nav_btn_bg_active)));
+    assert(lv_color_eq(lv_obj_get_style_text_color(lv_obj_get_child(button, 0), LV_PART_MAIN), lv_color_hex(palette.nav_tab_active)));
     lv_obj_send_event(button, LV_EVENT_CLICKED, NULL);
     assert(lv_obj_is_hidden(panel) && disconnects == 101);
+    assert_header_active(button, false);
+    assert(lv_color_eq(lv_obj_get_style_bg_color(button, LV_PART_MAIN), idle_bg));
+    assert(lv_color_eq(lv_obj_get_style_text_color(lv_obj_get_child(button, 0), LV_PART_MAIN), idle_glyph));
     lv_obj_delete(other);
     assert(disconnects == 102 && timer_count() == baseline);
     const int sizes[][2]={{480,480},{720,720},{1280,800},{800,1280},{720,1280}};
@@ -110,11 +131,41 @@ int main(void)
         enabled=true;memset(&mock,0,sizeof(mock));mock.dialog_timeout=10;
         xiaozhi_ui_create(screen);
         root=lv_obj_get_child(screen,0);panel=lv_obj_get_child(root,1);
-        ++mock.dialog_seq;mock.wake_enabled=mock.wake_ready=true;
+        button=lv_obj_get_child(root,0);
+        assert_header_active(button, false);
+        lv_obj_t *talk=lv_obj_get_child(panel,4), *chat=lv_obj_get_child(panel,3);
+        mock.wake_enabled=mock.wake_ready=true;
+        unsigned prior_opens=opens, prior_starts=starts, prior_stops=stops;
+        lv_tick_inc(300);lv_timer_handler();
+        /* Clicking the header is manual even with a ready wake detector. */
+        lv_obj_send_event(button,LV_EVENT_CLICKED,NULL);
+        lv_tick_inc(300);lv_timer_handler();lv_obj_update_layout(screen);
+        assert(!lv_obj_is_hidden(panel)&&!lv_obj_is_hidden(talk));
+        assert_header_active(button, true);
+        assert(opens==prior_opens&&starts==prior_starts);
+        assert(lv_obj_get_y(chat)+lv_obj_get_height(chat)<=lv_obj_get_y(talk));
+        lv_obj_send_event(talk,LV_EVENT_PRESSED,NULL);assert(starts==prior_starts+1);
+        lv_obj_send_event(talk,LV_EVENT_RELEASED,NULL);assert(stops==prior_stops+1);
+        lv_obj_send_event(talk,LV_EVENT_PRESSED,NULL);
+        lv_obj_send_event(talk,LV_EVENT_PRESS_LOST,NULL);
+        assert(starts==prior_starts+2&&stops==prior_stops+2);
+        mock.wake_ready=false;lv_tick_inc(300);lv_timer_handler();
+        assert(!lv_obj_is_hidden(talk));
+        mock.wake_ready=true;lv_tick_inc(300);lv_timer_handler();
+        assert(!lv_obj_is_hidden(talk));
+        mock.wake_enabled=false;lv_tick_inc(300);lv_timer_handler();
+        assert(!lv_obj_is_hidden(talk));
+        mock.wake_enabled=true;lv_tick_inc(300);lv_timer_handler();
+        assert(!lv_obj_is_hidden(talk));
+        lv_obj_send_event(button,LV_EVENT_CLICKED,NULL);
+        assert(lv_obj_is_hidden(panel)&&timer_count()==baseline+1);
+        assert_header_active(button, false);
+        ++mock.dialog_seq;
         strcpy(mock.emotion,"happy");strcpy(mock.recognized,"hello");strcpy(mock.reply,"welcome");
         lv_tick_inc(300);lv_timer_handler();lv_obj_update_layout(screen);
         assert(!lv_obj_is_hidden(panel));assert(wakeups>0);
-        lv_obj_t *emoji=lv_obj_get_child(panel,2), *chat=lv_obj_get_child(panel,3), *talk=lv_obj_get_child(panel,4);
+        assert_header_active(button, true);
+        lv_obj_t *emoji=lv_obj_get_child(panel,2);
         assert(!strcmp(lv_label_get_text(emoji),xiaozhi_emotion_glyph("happy")));
         assert(lv_obj_is_hidden(talk));
         assert(lv_obj_get_y(chat)>lv_obj_get_y(emoji)+lv_obj_get_height(emoji));
@@ -132,15 +183,30 @@ int main(void)
         lv_tick_inc(9000);++mock.activity_seq;lv_timer_handler();assert(!lv_obj_is_hidden(panel));
         lv_tick_inc(9000);lv_timer_handler();assert(!lv_obj_is_hidden(panel));
         lv_tick_inc(1100);lv_timer_handler();assert(lv_obj_is_hidden(panel));
+        assert_header_active(button, false);
+        /* A voice-opened window must not leave the next header open hands-free. */
+        lv_obj_send_event(button,LV_EVENT_CLICKED,NULL);
+        assert(!lv_obj_is_hidden(panel)&&!lv_obj_is_hidden(talk));
+        lv_tick_inc(300);lv_timer_handler();assert(!lv_obj_is_hidden(talk));
+        ++mock.dialog_seq;lv_tick_inc(300);lv_timer_handler();
+        assert(!lv_obj_is_hidden(panel)&&lv_obj_is_hidden(talk));
+        lv_obj_send_event(button,LV_EVENT_CLICKED,NULL);
+        assert(lv_obj_is_hidden(panel));
         mock.wake_ready=false;++mock.dialog_seq;lv_tick_inc(300);lv_timer_handler();
         assert(!lv_obj_is_hidden(panel)&&!lv_obj_is_hidden(talk));
         lv_obj_send_event(lv_obj_get_child(panel,1),LV_EVENT_CLICKED,NULL);assert(lv_obj_is_hidden(panel));
+        assert_header_active(button, false);
+        lv_obj_send_event(button,LV_EVENT_CLICKED,NULL);assert_header_active(button, true);
+        enabled=false;lv_tick_inc(300);lv_timer_handler();
+        assert(lv_obj_is_hidden(panel));assert_header_active(button, false);
+        enabled=true;lv_tick_inc(300);lv_timer_handler();
+        assert(lv_obj_is_hidden(panel));assert_header_active(button, false);
         lv_obj_clean(screen);assert(timer_count()==baseline);
     }
     assert(!strcmp(xiaozhi_emotion_glyph("unexpected"),xiaozhi_emotion_glyph("neutral")));
     assert(!xiaozhi_dialog_expired(9999,0,10));assert(xiaozhi_dialog_expired(10000,0,10));
     lv_display_delete(display);
     lv_deinit();
-    puts("PASS: 100 rebuilds, Otto animation/classic switching, timeout, cleanup and five geometries");
+    puts("PASS: manual/wake origins, press/release/cancel, 100 rebuilds, Otto/classic, timeout and five geometries");
     return 0;
 }

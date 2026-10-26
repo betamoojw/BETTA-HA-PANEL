@@ -41,6 +41,9 @@ clock and the Home Assistant chip and only appears while MQTT runs.
 
 Wi-Fi uses the same framed height and normal width as Home Assistant. Its frame widens for **AP** during setup. The rightmost gear opens **System settings**. On compact panels the clock and left items make room for these controls; optional left items disappear when space runs out.
 
+The Xiaozhi robot icon highlights in the selected theme while its dialogue is
+open. Closing the dialogue or reaching its idle timeout restores the normal icon.
+
 ## System settings
 
 The rightmost gear opens language, time zone, appearance, colour theme and display controls.

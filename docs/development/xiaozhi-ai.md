@@ -34,7 +34,10 @@ the Guition audio pins or its direct network-task LVGL calls.
   the controls and timer; cleaning or deleting the dashboard destroys both and
   requests disconnect. The persistent screen must not own that cleanup callback:
   layout reloads clean its children without deleting the screen. Network tasks
-  never call LVGL.
+  never call LVGL. The view tracks whether it opened from a wake event or the
+  header: detector readiness alone must not hide manual Talk. Header clicks do
+  not send the automatic-listening `open` command; Talk press/release own manual
+  capture. A later wake event switches the visible view to hands-free mode.
 - `xiaozhi_api.c`: guarded GET/POST `/api/xiaozhi`, with bounded JSON commands.
   The API returns status, pairing code and latest transcript, never credentials.
 - `components/webui/www/js/xiaozhi.js`: immediate-save controls, scoped reset,
@@ -50,7 +53,9 @@ use the shared OTA gate. The persisted UUID matches both activation and WS
 headers. Pairing lasts at most 180 seconds and capture at most 60 seconds.
 Pairing begins only after an explicit command. Enabling alone does not contact
 the cloud. When independently enabled and paired, local wake detection runs
-while idle; a wake or a header click in this mode starts a cloud conversation. Disabling can wait for the current bounded network call.
+while idle; a detected wake starts a cloud conversation. A header click only
+opens manual controls; capture starts on Talk press and ends on release or
+press loss. Disabling can wait for the current bounded network call.
 
 Codec storage, PCM, receive frames and queued payloads use PSRAM. The worker
 stack is 32 KiB internal RAM because it performs NVS writes and Opus encoding;
@@ -70,7 +75,55 @@ Do not claim hardware verification from builds or screenshots alone.
 The simulator target `betta-xiaozhi-test` runs the production overlay against
 LVGL through 100 enabled/disabled dashboard rebuilds and screen deletion. Run
 it with `ctest --test-dir build/simulator/paneljc -R xiaozhi-view-lifecycle`.
-It checks timer cleanup without contacting a cloud service or opening audio.
+It checks timer cleanup and manual versus voice-opened controls at five
+geometries, including press/release/cancel and manual reopening after a voice
+timeout. It does not contact a cloud service or open audio.
+
+On 2026-10-26, the manual-open regression reproduced the hidden Talk button in
+the old view and passed with per-view origin tracking. It covers wake readiness
+changes, a later wake while manually open, both emoji styles, 100 rebuilds and
+five geometries. All 337 browser tests, web integrity and strict docs passed.
+The `panel10` build from `45ef89dd-dirty` succeeded (6,729,040 bytes; ELF SHA256
+`6368e9c87cdd69325c63a3a89fd39e008b85bef0c72b962281706da2976e349c`).
+That initial local image was retained; the following device trial used a
+fresh build of the same source changes.
+
+The authorized COM24 follow-up on 2026-10-26 ran `45ef89dd-dirty`, app SHA256
+`1c0d98a59ca24252fa7f1312ef2745a4ca45a5df61ebe6480bbc715d92b695cd`, ELF SHA256
+`fbb8522cf9504e7de0492a14c58b9b3f8a1772ef670cbb46bdff977b7e304442`.
+The app-only P4 stub flash and readback passed; metadata/NVS, coredump and the
+complete LittleFS checksums matched before boot. Boot ELF, source stamp and
+valid OTA state matched. The header-opened window displayed Hold to talk with
+Ready and no cloud capture despite an enabled, ready wake detector. Manual
+press/release produced recognition and a reply; a later detected wake opened
+the window without Talk and resumed listening after its reply. Device snapshots
+and API transitions agreed. The owner confirmed both paths, replies, idle
+auto-close and Talk returning on a subsequent header open.
+
+The final read-only check at 511 seconds found no unexpected reboot or new
+crash. Settings, layout, palettes, all 30 KNX objects and Chinese font metadata
+matched the baseline except an owner-confirmed change to the digital clock
+screensaver, which was retained. English, Classic Emoji, 180-degree rotation,
+volume 60, active brightness 75 and the Classic palette remained set. Existing
+local backups were preserved. This bounded functional trial does not resolve
+the previously reported intermittent full-screen white flashes.
+
+The header-state follow-up on 2026-10-26 built `panel10` from `45ef89dd-dirty`
+(6,729,296 bytes), with ELF SHA256
+`298677784b29a2365b4386583e9a7abe12e70a9327f7193faa38aa40ba11fa41`.
+The five-geometry LVGL lifecycle regression and strict docs passed. The authorized
+COM24 app-only stub flash passed readback and all protected-region checksums.
+Boot ELF, source/build stamp and valid OTA state matched. Device screenshots
+showed the active palette while manually open; another header click, Close and
+the unchanged 30-second timeout each restored identical idle icon pixels.
+A detected wake showed the same highlight without Talk, recognized speech and
+returned a Chinese reply. Auto-close restored the idle icon. The owner confirmed
+both opening paths, highlighting/restoration, replies, touch and normal output.
+At 333 seconds, boot sequence remained unchanged and there was no crash report.
+Settings, layout, themes, KNX configuration and Chinese font metadata matched
+the baseline, including English, Classic Emoji, 180-degree rotation and the
+digital clock screensaver. Local backups remain retained. This bounded trial
+does not resolve the earlier intermittent full-screen white flashes.
 
 Local validation on 2026-10-23: 299 browser tests passed (including eight
 assistant cases), web integrity and strict documentation builds passed, and

@@ -24,6 +24,14 @@ add_test(NAME knx_config COMMAND knx_config_test)
 add_executable(knx_mcp_test test_mcp.c "${KNX}/knx_mcp.c" "${CJSON_DIR}/cJSON.c")
 target_include_directories(knx_mcp_test PRIVATE "${ROOT}/main" "${ROOT}/tests/host/stubs" "${CJSON_DIR}" stubs)
 add_test(NAME knx_mcp COMMAND knx_mcp_test)
+# ESP-IDF archives main's source objects. A weak fallback in the dispatcher can
+# satisfy its own references and prevent extraction of the real device adapter.
+add_library(knx_mcp_link_archive STATIC "${KNX}/knx_mcp.c" mcp_link_adapter.c)
+target_include_directories(knx_mcp_link_archive PRIVATE "${ROOT}/main" "${ROOT}/tests/host/stubs" "${CJSON_DIR}" stubs)
+add_executable(knx_mcp_link_test test_mcp_link.c "${CJSON_DIR}/cJSON.c")
+target_include_directories(knx_mcp_link_test PRIVATE "${ROOT}/main" "${ROOT}/tests/host/stubs" "${CJSON_DIR}" stubs)
+target_link_libraries(knx_mcp_link_test PRIVATE knx_mcp_link_archive)
+add_test(NAME knx_mcp_link COMMAND knx_mcp_link_test)
 add_executable(knx_protocol_test "${ESP_KNX_IP_DIR}/test/host/test_protocol.cpp"
   "${ESP_KNX_IP_DIR}/src/knx_ip_protocol.cpp" "${ESP_KNX_IP_DIR}/src/knx_dpt.cpp")
 target_include_directories(knx_protocol_test PRIVATE "${ESP_KNX_IP_DIR}/include" "${ESP_KNX_IP_DIR}/private_include")

@@ -112,3 +112,8 @@ Investigation stopped at the owner's request before the voice-specific UART
 comparison completed. No display-driver change, new flash or settings change
 was made during that follow-up. The root cause remains unconfirmed; keep this
 limitation separate from the verified connection and Chinese-font changes.
+
+On 2026-10-26 the owner again reported the same white flashes during the MCP
+device-tool trial; the controls otherwise worked. Later bounded dialogue and
+header-icon checks passed, but do not establish a fix. The issue remains open
+for separate display investigation; these changes do not prove all-day stability.

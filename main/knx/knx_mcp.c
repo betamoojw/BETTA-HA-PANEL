@@ -53,20 +53,9 @@ void knx_mcp_session_reset(void)
     user_tools_authorized = false;
 }
 
-__attribute__((weak)) bool xiaozhi_mcp_device_tool_supported(const char *name)
-{
-    (void)name;
-    return false;
-}
-
-__attribute__((weak)) cJSON *xiaozhi_mcp_device_tool_call(
-    const char *name, const cJSON *arguments, char *error, size_t error_size)
-{
-    (void)name;
-    (void)arguments;
-    if (error_size) error[0] = '\0';
-    return NULL;
-}
+/* Require the adapter from xiaozhi_mcp_tools.c, including its unsupported-board
+ * implementation. Weak definitions here satisfy archive references locally
+ * and can stop the linker from extracting the real panel10 device tools. */
 
 static bool available(const tool_t *tool)
 {

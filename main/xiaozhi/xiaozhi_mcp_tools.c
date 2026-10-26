@@ -6,6 +6,7 @@
  * implementation integrated with BETTA's storage, UI event and OTA paths.
  */
 #include "xiaozhi_mcp_tools.h"
+#include "xiaozhi_mcp_ha.h"
 
 #include "sdkconfig.h"
 
@@ -143,6 +144,10 @@ bool xiaozhi_mcp_device_tool_supported(const char *name)
         "self.audio_speaker.set_volume",
         "self.screen.set_brightness",
         "self.screen.set_theme",
+        "self.get_network_info",
+        "self.ha.list_entities",
+        "self.ha.get_entity",
+        "self.ha.control_entity",
         "self.get_system_info",
         "self.reboot",
         "self.upgrade_firmware",
@@ -158,6 +163,13 @@ cJSON *xiaozhi_mcp_device_tool_call(const char *name, const cJSON *arguments,
                                     char *error, size_t error_size)
 {
     if (strcmp(name, "self.get_device_status") == 0) return device_status();
+    if (!strcmp(name, "self.ha.list_entities") || !strcmp(name, "self.ha.get_entity") ||
+        !strcmp(name, "self.ha.control_entity"))
+        return xiaozhi_mcp_ha_call(name, arguments, error, error_size);
+    if (strcmp(name, "self.get_network_info") == 0) {
+        cJSON *result = xiaozhi_mcp_network_info();
+        return result ? result : error_result(error, error_size, "Network snapshot allocation failed");
+    }
     if (strcmp(name, "self.audio_speaker.set_volume") == 0) {
         int volume = integer_argument(arguments, "volume");
         esp_err_t err = xiaozhi_command("volume", volume);

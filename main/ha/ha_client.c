@@ -3,6 +3,7 @@
  * Modified 2026 by andre68723 in the andre68723/BETTA-HA-PANEL fork, see docs/release-notes.md
  */
 #include "ha/ha_client.h"
+#include "ha/ha_service_request.h"
 #include "util/entity_id.h"
 #include "util/json_util.h"
 
@@ -3450,19 +3451,24 @@ static void ha_client_pending_response_expire_all(bool invoke_callbacks)
     }
 }
 
-static esp_err_t ha_client_send_json(cJSON *obj)
+static esp_err_t ha_client_send_json_impl(cJSON *obj, bool retry)
 {
     char *payload = cJSON_PrintUnformatted(obj);
     if (payload == NULL) {
         return ESP_ERR_NO_MEM;
     }
     esp_err_t err = ha_ws_send_text(payload);
-    if (err != ESP_OK && ha_ws_is_connected()) {
+    if (retry && err != ESP_OK && ha_ws_is_connected()) {
         vTaskDelay(pdMS_TO_TICKS(15));
         err = ha_ws_send_text(payload);
     }
     cJSON_free(payload);
     return err;
+}
+
+static esp_err_t ha_client_send_json(cJSON *obj)
+{
+    return ha_client_send_json_impl(obj, true);
 }
 
 static void ha_client_publish_event(app_event_type_t type, const char *entity_id)
@@ -5121,6 +5127,9 @@ static void ha_client_handle_event_message(cJSON *root)
             if (cJSON_IsString(state_item) && state_item->valuestring != NULL) {
                 state_value = state_item->valuestring;
             }
+        } else if (cJSON_IsNull(to_state) && cJSON_IsString(entity_id)) {
+            state_value = "unavailable";
+            state_changed = ha_client_import_ws_entity_state(entity_id->valuestring, state_value, NULL);
         }
         if (state_changed && cJSON_IsString(entity_id) && entity_id->valuestring != NULL) {
             ha_client_trace_service_state_changed(entity_id->valuestring, state_value);
@@ -5146,6 +5155,9 @@ static void ha_client_handle_event_message(cJSON *root)
             if (cJSON_IsString(state_item) && state_item->valuestring != NULL) {
                 state_value = state_item->valuestring;
             }
+        } else if (cJSON_IsNull(new_state) && cJSON_IsString(entity_id)) {
+            state_value = "unavailable";
+            state_changed = ha_client_import_ws_entity_state(entity_id->valuestring, state_value, NULL);
         }
         if (state_changed && cJSON_IsString(entity_id) && entity_id->valuestring != NULL) {
             ha_client_trace_service_state_changed(entity_id->valuestring, state_value);
@@ -7540,43 +7552,14 @@ esp_err_t ha_client_call_service(const char *domain, const char *service, const 
 
     ha_client_mark_ws_priority_boost(ha_client_now_ms());
 
-    cJSON *root = cJSON_CreateObject();
+    uint32_t req_id = ha_client_next_message_id();
+    cJSON *root = ha_service_request_create(req_id, domain, service, json_service_data);
     if (root == NULL) {
         return ESP_ERR_NO_MEM;
     }
-    uint32_t req_id = ha_client_next_message_id();
-    cJSON_AddNumberToObject(root, "id", (double)req_id);
-    cJSON_AddStringToObject(root, "type", "call_service");
-    cJSON_AddStringToObject(root, "domain", domain);
-    cJSON_AddStringToObject(root, "service", service);
-
-    cJSON *service_data_obj = NULL;
+    cJSON *service_data_obj = cJSON_GetObjectItemCaseSensitive(root, "service_data");
     char trace_entity_id[APP_MAX_ENTITY_ID_LEN] = {0};
     char current_entity_state[APP_MAX_STATE_LEN] = {0};
-    if (json_service_data != NULL && json_service_data[0] != '\0') {
-        cJSON *service_data = cJSON_Parse(json_service_data);
-        if (service_data != NULL && cJSON_IsObject(service_data)) {
-            service_data_obj = service_data;
-            cJSON_AddItemToObject(root, "service_data", service_data);
-        } else {
-            if (service_data != NULL) {
-                cJSON_Delete(service_data);
-            }
-            service_data_obj = cJSON_CreateObject();
-            if (service_data_obj == NULL) {
-                cJSON_Delete(root);
-                return ESP_ERR_NO_MEM;
-            }
-            cJSON_AddItemToObject(root, "service_data", service_data_obj);
-        }
-    } else {
-        service_data_obj = cJSON_CreateObject();
-        if (service_data_obj == NULL) {
-            cJSON_Delete(root);
-            return ESP_ERR_NO_MEM;
-        }
-        cJSON_AddItemToObject(root, "service_data", service_data_obj);
-    }
 
     if (cJSON_IsObject(service_data_obj)) {
         cJSON *entity_id = cJSON_GetObjectItemCaseSensitive(service_data_obj, "entity_id");
@@ -7622,7 +7605,9 @@ esp_err_t ha_client_call_service(const char *domain, const char *service, const 
     const char *expected_state =
         ha_client_expected_state_from_service(service, trace_entity_id, current_entity_state);
     ha_client_trace_service_queued(req_id, domain, service, trace_entity_id, expected_state);
-    esp_err_t err = ha_client_send_json(root);
+    /* A transport failure can be ambiguous. Never duplicate button, scene or
+     * script effects by automatically resending a service request. */
+    esp_err_t err = ha_client_send_json_impl(root, false);
     ha_client_trace_service_sent(req_id, err);
     cJSON_Delete(root);
     return err;

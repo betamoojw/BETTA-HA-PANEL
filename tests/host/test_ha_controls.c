@@ -107,9 +107,23 @@ static void options(void)
     cJSON_Delete(src);
 }
 
+static void climate_capabilities(void)
+{
+    cJSON *src = cJSON_Parse("{\"min_temp\":16,\"max_temp\":30,\"target_temp_step\":0.5,"
+        "\"supported_features\":57,\"preset_modes\":[\"eco\",\"comfort\"],\"unused\":\"drop\"}");
+    char out[APP_HA_ATTRS_MAX_LEN];
+    CHECK(ha_client_serialize_climate_attrs_compact(src, out, sizeof(out)));
+    cJSON *data = cJSON_Parse(out);
+    CHECK(cJSON_GetObjectItemCaseSensitive(data, "target_temp_step")->valuedouble == 0.5);
+    CHECK(cJSON_GetObjectItemCaseSensitive(data, "supported_features")->valueint == 57);
+    CHECK(cJSON_GetArraySize(cJSON_GetObjectItemCaseSensitive(data, "preset_modes")) == 2);
+    CHECK(cJSON_GetObjectItemCaseSensitive(data, "unused") == NULL);
+    cJSON_Delete(data); cJSON_Delete(src);
+}
+
 int main(void)
 {
-    registry(); options();
+    registry(); options(); climate_capabilities();
     printf("HA controls: %u checks passed\n", checks);
     return 0;
 }

@@ -15,7 +15,7 @@ The assistant advertises tools only on `panel10`, the profile with a supported
 microphone and speaker:
 
 - **Common Tools:** read device/network/display status, set assistant volume,
-  set active display brightness and select an existing theme.
+  set active display brightness, select a theme and query/control layout-bound HA entities.
 - **KNX tools:** inspect configured objects and use their read/write permissions.
 - **User Only Tools:** read firmware/system information, restart the panel,
   start an HTTPS firmware update and read display geometry.
@@ -33,6 +33,34 @@ and editor. Firmware URLs must pass the panel's existing HTTPS, image identity
 and OTA compatibility checks. Camera capture, screenshot upload, image preview
 and asset-download tools are not advertised because this profile has no matching
 safe capability adapter.
+
+Ask **"What is this panel's IP address?"** or **"Which Wi-Fi network are you
+connected to, and how strong is the signal?"** The network tool reads the
+panel's current Wi-Fi name, signal in dBm, channel, LAN IPv4 address, gateway,
+netmask, IPv4 DNS servers, hostname and MAC address. Unavailable fields are
+reported as unknown. It does not read passwords or change network settings;
+a Wi-Fi connection alone does not prove internet access.
+
+Ask **"Which Home Assistant entities are on this panel?"** or
+**"What is the living room temperature shown on this panel?"** The assistant can
+discover entities used by the saved layout and read their latest cached states,
+units and selected attributes. HA state changes update this cache automatically;
+adding or removing a layout binding changes what the assistant can query.
+Only layout entities are shared with the paired Xiaozhi service when queried.
+Offline, unsynchronized and unavailable states are identified explicitly.
+Each new query reads the cache again; changes are not continuously pushed to the cloud.
+
+Ask **"Through this panel's Home Assistant, turn on WLED-MTech"**, then
+**"Set WLED-MTech brightness to 50 percent"** or **"Turn WLED-MTech off"**.
+The assistant discovers the entity's supported actions before controlling it.
+Lights, switches, fans, covers, climate controls, numbers, selects, buttons,
+scenes and scripts have bounded actions; sensors and unsupported actions remain
+read-only. Only entities in the current saved layout can be controlled.
+Removing a binding removes access. Offline/unavailable entities and invalid
+values are rejected. A sent command is not proof that a device changed: the
+assistant must query HA feedback before claiming completion. HA configuration
+and credentials cannot be changed through these tools. The COM24 trial verified
+WLED power control and state feedback; other actions currently have local tests.
 
 ## Pairing
 
@@ -124,10 +152,13 @@ hands-free wake/reply, both emotion choices and idle auto-close. The owner
 confirmed Otto animation and stable physical output during speech. These are
 bounded device checks: far-field sensitivity, false-activation rates, speaker
 feedback in other rooms and all-day operation have not been measured.
-The device-tool implementation is host/build tested only; its cloud invocation
-has not been accepted on hardware. Home Assistant tool execution is not
-implemented. A successful build alone does not establish voice hardware support
-on another board.
+COM24 voice trials accepted status, volume, brightness, theme and network
+queries (IP, Wi-Fi name and signal strength). These bounded checks do not
+resolve the previously reported intermittent white flashes. Read-only Home Assistant
+queries passed a COM24 voice trial: layout discovery, live on/off updates and
+available brightness values. The owner confirmed replies, auto-close, touch and
+normal output. This remains a bounded trial. A successful build alone does not establish
+voice hardware support on another board.
 
 [Implementation](development/xiaozhi-ai.md) · [Waveshare panel](hardware/panel10.md)
 

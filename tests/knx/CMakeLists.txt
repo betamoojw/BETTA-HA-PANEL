@@ -24,6 +24,18 @@ add_test(NAME knx_config COMMAND knx_config_test)
 add_executable(knx_mcp_test test_mcp.c "${KNX}/knx_mcp.c" "${CJSON_DIR}/cJSON.c")
 target_include_directories(knx_mcp_test PRIVATE "${ROOT}/main" "${ROOT}/tests/host/stubs" "${CJSON_DIR}" stubs)
 add_test(NAME knx_mcp COMMAND knx_mcp_test)
+add_executable(xiaozhi_mcp_network_test test_mcp_network.c
+  "${ROOT}/main/xiaozhi/xiaozhi_mcp_network.c" "${CJSON_DIR}/cJSON.c")
+target_include_directories(xiaozhi_mcp_network_test PRIVATE stubs/network stubs "${ROOT}/tests/host/stubs" "${ROOT}/main" "${CJSON_DIR}")
+add_test(NAME xiaozhi_mcp_network COMMAND xiaozhi_mcp_network_test)
+add_executable(xiaozhi_mcp_ha_test test_mcp_ha.c
+  "${ROOT}/main/xiaozhi/xiaozhi_mcp_ha.c" "${ROOT}/main/ha/ha_model.c"
+  "${ROOT}/main/ha/ha_layout_entities.c" "${CJSON_DIR}/cJSON.c")
+target_sources(xiaozhi_mcp_ha_test PRIVATE "${ROOT}/main/layout/bambu_printer_slots.c" "${ROOT}/main/layout/evcc_slots.c"
+  "${ROOT}/main/xiaozhi/xiaozhi_ha_control.c" "${ROOT}/main/ha/ha_light_capabilities.c")
+target_sources(xiaozhi_mcp_ha_test PRIVATE "${ROOT}/main/ha/ha_service_request.c")
+target_include_directories(xiaozhi_mcp_ha_test PRIVATE stubs/ha "${ROOT}/tests/host/stubs" "${ROOT}/main" "${CJSON_DIR}")
+add_test(NAME xiaozhi_mcp_ha COMMAND xiaozhi_mcp_ha_test)
 # ESP-IDF archives main's source objects. A weak fallback in the dispatcher can
 # satisfy its own references and prevent extraction of the real device adapter.
 add_library(knx_mcp_link_archive STATIC "${KNX}/knx_mcp.c" mcp_link_adapter.c)

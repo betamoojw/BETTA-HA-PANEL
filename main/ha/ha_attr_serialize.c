@@ -302,6 +302,9 @@ bool ha_client_serialize_climate_attrs_compact(cJSON *src_attrs, char *out_json,
     any |= ha_client_copy_attr_dup(compact, "preset_mode", src_attrs, "preset_mode");
     any |= ha_client_copy_attr_dup(compact, "min_temp", src_attrs, "min_temp");
     any |= ha_client_copy_attr_dup(compact, "max_temp", src_attrs, "max_temp");
+    any |= ha_client_copy_attr_dup(compact, "target_temp_step", src_attrs, "target_temp_step");
+    any |= ha_client_copy_attr_dup(compact, "supported_features", src_attrs, "supported_features");
+    any |= ha_client_copy_attr_dup(compact, "preset_modes", src_attrs, "preset_modes");
     any |= ha_client_copy_attr_dup(compact, "target_temp_low", src_attrs, "target_temp_low");
     any |= ha_client_copy_attr_dup(compact, "target_temp_high", src_attrs, "target_temp_high");
     any |= ha_client_copy_attr_dup(compact, "humidity", src_attrs, "humidity");

@@ -10,8 +10,14 @@
 static unsigned calls;
 static unsigned device_calls;
 static bool large_page;
+static bool network_supported = true;
+static bool all_device_tools;
 bool xiaozhi_mcp_device_tool_supported(const char* name) {
+    if (all_device_tools) return true;
     return !strcmp(name,"self.get_device_status") ||
+        !strcmp(name,"self.ha.list_entities") || !strcmp(name,"self.ha.get_entity") ||
+        !strcmp(name,"self.ha.control_entity") ||
+        (network_supported && !strcmp(name,"self.get_network_info")) ||
         !strcmp(name,"self.audio_speaker.set_volume") ||
         !strcmp(name,"self.get_system_info") ||
         !strcmp(name,"self.reboot");
@@ -82,8 +88,10 @@ int main(void) {
     cJSON* r=request("{\"jsonrpc\":\"2.0\",\"id\":\"init\",\"method\":\"initialize\"}");
     assert(!strcmp(cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(r,"id")),"init")); cJSON_Delete(r);
     r=request("{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/list\"}");
-    char* text=cJSON_PrintUnformatted(r); assert(strlen(text)<6000);
+    char* text=cJSON_PrintUnformatted(r); assert(strlen(text)<7800);
     assert(strstr(text,"self.get_device_status") && strstr(text,"self.audio_speaker.set_volume"));
+    assert(strstr(text,"self.get_network_info"));
+    assert(strstr(text,"self.ha.list_entities") && strstr(text,"self.ha.get_entity") && strstr(text,"self.ha.control_entity"));
     assert(strstr(text,"self.knx.set_object") && !strstr(text,"import_configuration"));
     assert(!strstr(text,"self.get_system_info") && !strstr(text,"audience"));
     free(text); cJSON_Delete(r);
@@ -134,5 +142,54 @@ int main(void) {
     r=call("self.knx.import_configuration","{}"); assert(cJSON_GetObjectItemCaseSensitive(r,"error")); cJSON_Delete(r);
     r=call("self.knx.get_object","{\"object_id\":\"sensor\"}");
     text=cJSON_PrintUnformatted(r); assert(strstr(text,"valid")); free(text); cJSON_Delete(r);
-    puts("KNX MCP discovery, argument validation, permission dispatch and errors passed");
+    /* Network queries are Common Tools, with no user-only opt-in or arguments. */
+    knx_mcp_session_reset();
+    unsigned previous_calls = device_calls;
+    r=call("self.get_network_info","{}");
+    assert(cJSON_GetObjectItemCaseSensitive(r,"result") && device_calls==previous_calls+1);
+    cJSON_Delete(r);
+    r=call("self.get_network_info","{\"password\":\"not-allowed\"}");
+    assert(cJSON_GetObjectItemCaseSensitive(r,"error") && device_calls==previous_calls+1);
+    cJSON_Delete(r);
+    network_supported=false;
+    r=call("self.get_network_info","{}");
+    assert(cJSON_GetObjectItemCaseSensitive(r,"error") && device_calls==previous_calls+1);
+    cJSON_Delete(r);
+    r=request("{\"jsonrpc\":\"2.0\",\"id\":6,\"method\":\"tools/list\"}");
+    text=cJSON_PrintUnformatted(r); assert(!strstr(text,"self.get_network_info"));
+    free(text); cJSON_Delete(r);
+    r=call("self.ha.get_entity","{\"entity_id\":\"sensor.room\"}");
+    assert(cJSON_GetObjectItemCaseSensitive(r,"result")); cJSON_Delete(r);
+    const char* bad_ha[]={"{}","{\"entity_id\":4}","{\"entity_id\":\"sensor.room\",\"service\":\"turn_on\"}","{\"entity_id\":\"a\",\"entity_id\":\"b\"}"};
+    for (size_t i=0;i<sizeof(bad_ha)/sizeof(bad_ha[0]);i++) {
+        r=call("self.ha.get_entity",bad_ha[i]); assert(cJSON_GetObjectItemCaseSensitive(r,"error")); cJSON_Delete(r);
+    }
+    r=call("self.ha.list_entities","{\"limit\":6}");
+    assert(cJSON_GetObjectItemCaseSensitive(r,"error")); cJSON_Delete(r);
+    r=call("self.ha.call_service","{}");
+    assert(cJSON_GetObjectItemCaseSensitive(r,"error")); cJSON_Delete(r);
+    /* Exercise the complete panel10 inventory with the real schemas and
+     * user-only annotations, following continuations whenever required. */
+    all_device_tools=true;
+    char cursor[96]="", query[256]; unsigned tool_count=0, pages=0;
+    do {
+        snprintf(query,sizeof(query),"{\"jsonrpc\":\"2.0\",\"id\":8,\"method\":\"tools/list\",\"params\":{\"withUserTools\":true,\"cursor\":\"%s\"}}",cursor);
+        r=request(query); result=cJSON_GetObjectItemCaseSensitive(r,"result"); assert(result);
+        tool_count+=cJSON_GetArraySize(cJSON_GetObjectItemCaseSensitive(result,"tools"));
+        const char* next=cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(result,"nextCursor"));
+        snprintf(cursor,sizeof(cursor),"%s",next?next:"");
+        text=cJSON_PrintUnformatted(r); assert(text && strlen(text)<8192); free(text); cJSON_Delete(r);
+        assert(++pages<5);
+    } while (cursor[0]);
+    assert(tool_count==18 && pages>=1);
+    r=call("self.ha.control_entity","{\"entity_id\":\"switch.lamp\",\"action\":\"turn_on\"}");
+    assert(cJSON_GetObjectItemCaseSensitive(r,"result")); cJSON_Delete(r);
+    const char* bad_control[]={"{}","{\"entity_id\":\"switch.lamp\"}",
+        "{\"entity_id\":\"switch.lamp\",\"action\":\"turn_on\",\"service\":\"unlock\"}",
+        "{\"entity_id\":\"light.lamp\",\"action\":\"set_brightness\",\"value\":50}",
+        "{\"entity_id\":\"a\",\"entity_id\":\"b\",\"action\":\"turn_on\"}"};
+    for (size_t i=0;i<sizeof(bad_control)/sizeof(bad_control[0]);i++) {
+        r=call("self.ha.control_entity",bad_control[i]); assert(cJSON_GetObjectItemCaseSensitive(r,"error")); cJSON_Delete(r);
+    }
+    puts("KNX/HA MCP discovery, argument validation, permission dispatch and errors passed");
 }

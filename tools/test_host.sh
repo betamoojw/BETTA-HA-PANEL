@@ -196,7 +196,7 @@ cc -std=gnu11 -Wall -Wextra -Werror -g -I main "${cjson_flags[@]}" \
 # Transactional settings and preservation on storage failures, using the actual stores.
 cc -std=gnu11 -Wall -Wextra -Werror -Wno-unused-parameter -g \
   -I tests/host/storage_stubs -I main -I tests/host/stubs "${variant_flags[@]}" "${cjson_flags[@]}" \
-  tests/host/test_runtime_storage.c main/util/sha256_soft.c main/ui/text_scale.c main/settings/brightness_model.c main/ui/theme/ui_style_registry.c \
+  tests/host/test_runtime_storage.c main/util/sha256_soft.c main/ui/text_scale.c main/settings/brightness_model.c main/settings/display_clock.c main/ui/theme/ui_style_registry.c \
   "${cjson_sources[@]}" "${cjson_libs[@]}" -lm -o "$out/test_runtime_storage"
 "$out/test_runtime_storage"
 

@@ -249,9 +249,9 @@ Follow [Installation](getting-started.md) and [partition migration](development/
 
 - **Display and presence:** runtime controls cover active and dimmed brightness,
   plus optional display protection that moves weather or cycles pages before
-  switching the backlight off. The JC camera,
-  and optionally the Tab5 camera, measure ambient light and presence for brightness and wake; they do not
-  record or stream images.
+  switching the backlight off. JC, Tab5 and Waveshare LCD-X (`panel10`, OV5647) cameras sense light/movement without recording or streaming.
+  LCD-X defaults off and supports brightness adaptation, approach/night wake, sensitivity 1–10 (default 5) and a device-timed 30-second test.
+  Actual exposure/gain compensate sensor auto exposure; failures invalidate motion. LCD-X light/approach/night/30s checks passed a bounded 2026-10-27 trial; wider calibration remains pending. CSI shares the display's interrupt core.
 
 - **Sound:** optional generated notification and doorbell sounds on panel4 and
   Tab5 have volume, night mute and a test control. JC audio is disabled in current builds. Existing notifications

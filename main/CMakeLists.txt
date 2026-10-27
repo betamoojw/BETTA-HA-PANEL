@@ -214,6 +214,7 @@ idf_component_register(
         "api/api_notifications.c"
         ${PANEL_DRIVER_SRCS}
         "drivers/ambient_camera.c"
+        "drivers/ambient_camera_policy.c"
         "drivers/display_orientation.c"
         "drivers/orientation_policy.c"
         "ui/display_geometry.c"

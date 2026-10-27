@@ -5,7 +5,7 @@
 These are driver and hardware-validation notes. For the controls themselves, see
 [Display and brightness](../display.md) and [notification sounds](../notifications.md#sound).
 
-## Ambient camera (paneljc and Tab5)
+## Ambient camera
 
 On paneljc the built-in OV02C10 is used as a light and presence sensor, never for image recording or streaming:
 short bursts of frames (40 for a light reading every 20 s, 8
@@ -14,9 +14,32 @@ exposure and gain; PSRAM for two 1288x728 RGB565 buffers (about 3.8 MB), a 6 KB 
 The sensor's SCCB shares the touch I2C bus (GPIO 7/8). The camera is only opened while
 "automatic brightness" or "wake on approach" is enabled. The calibration is rough (dark
 room about -6.3, a phone light in front of the lens about -5.7, daylight in the study about
--4.65); `AMBIENT_LIGHT_DARK/BRIGHT` (-6.3 / -4.6) in `ambient_camera.c` map that to 10..100 %.
+-4.65); `ambient_light_percent()` in `ambient_camera_policy.c` maps -6.3 / -4.6 to 10..100 %.
 
 Tab5 uses its SC2356 through the SC202CS sensor driver and the M5Stack BSP camera power and I2C setup. It shares the duty-cycled luma and presence logic and supports the same Settings controls, but starts with both camera options off. In one ST7121/ESP32-P4 v1.3 trial on 2026-10-05, the room-light reading changed from about 89% to 27–28% when the lens was covered and returned to about 89% when uncovered. Broader brightness calibration, presence wake and long-term I2C/touch coexistence remain pending.
+
+LCD-X (`panel10`) uses its OV5647 front camera on the BSP-owned GPIO7/8 I2C
+bus, with no separate reset or power-down GPIO, matching Waveshare's camera
+example. The 800×640 RAW8 mode needs two RGB565 buffers totalling 2,048,000
+bytes in PSRAM. Runtime sensing starts off; the task opens the camera only on
+an enabled automation or a 30-second test. The OV5647's internal AEC/AGC keeps
+image brightness steady, so the driver reads actual exposure/gain statistics
+instead of treating its exposure-target control as a shutter measurement.
+The current light curve comes from JC measurements; wider LCD-X calibration is
+pending. The [2026-10-27 device trial](panel10.md#validation-status-and-next-checks)
+passed light response, approach/night wake and test expiry. Long-term touch/audio
+coexistence remains unverified. Night wake needs visible light for frame differences.
+
+The ambient task stays on the core that initialized the display. IDF 6.1 binds
+CSI and DSI DMA to one private interrupt group; starting CSI on another core
+failed with `ESP_ERR_INVALID_STATE` on the v3.2 panel. After a failed stream
+start, `REQBUFS` clears queued buffers so a later retry does not fail at `QBUF`.
+
+`GET /api/version` reports camera readiness, capture failure, fresh motion and
+light statistics. The test API rejects unsupported/unavailable cameras; a failed
+capture invalidates motion. The 30-second deadline is protected across tasks and
+cannot be extended by repeated start requests or sensitivity edits. Frames stay
+in volatile PSRAM; only scalar sensing results are exposed by the API.
 
 ## Optional chime output
 

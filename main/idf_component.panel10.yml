@@ -7,6 +7,19 @@
 # SDKCONFIG_DEFAULTS overlay. Do NOT edit main/idf_component.yml directly --
 # it is regenerated from this file on every configure.
 dependencies:
+  # OV5647 sensing; matches the vendored esp_cam_sensor 2.3.0 core.
+  espressif/esp_video:
+    version: "2.3.0"
+    rules:
+      - if: "target in [esp32p4]"
+  # Preserve the existing panel10 dependency versions when adding the camera
+  # causes the component manager to resolve transitive dependencies again.
+  espressif/button:
+    version: "4.2.2"
+  espressif/libpng:
+    version: "1.6.58~2"
+  espressif/zlib:
+    version: "1.3.2~1"
   esp_knx_ip:
     git: https://github.com/betamoojw/esp32_knx_ip.git
     path: components/esp_knx_ip

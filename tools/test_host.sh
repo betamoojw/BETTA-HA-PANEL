@@ -20,6 +20,19 @@ case "$variant" in
 esac
 
 cjson_sources=()
+
+# Ambient sensing decisions and the OV5647 register readback need no device.
+ambient_test="${TMPDIR:-/tmp}/betta-test-ambient-$$"
+cc -std=c11 -Wall -Wextra -Werror -I main \
+  -I components/esp_cam_sensor/sensors/ov5647/private_include \
+  tests/host/test_ambient_camera.c main/drivers/ambient_camera_policy.c -lm -o "$ambient_test"
+"$ambient_test"
+rm -f "$ambient_test"
+cc -std=c11 -Wall -Wextra -Werror -I main -I tests/host -I tests/host/stubs \
+  -DCONFIG_APP_FEATURE_AMBIENT_CAMERA=1 -DCONFIG_APP_PANEL_VARIANT_10INCH_1280=1 -DAMBIENT_CAMERA_TEST \
+  tests/host/test_ambient_camera_runtime.c main/drivers/ambient_camera_policy.c -lm -o "$ambient_test"
+"$ambient_test"
+rm -f "$ambient_test"
 cjson_flags=()
 cjson_libs=()
 if [ -f "$cjson/cJSON.c" ]; then

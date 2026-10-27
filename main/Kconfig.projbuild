@@ -128,7 +128,7 @@ menu "Ambient camera"
 config APP_FEATURE_AMBIENT_CAMERA
     bool "Use the built-in camera as ambient light / presence sensor"
     default n
-    depends on APP_PANEL_VARIANT_10INCH_JC || APP_PANEL_VARIANT_TAB5_1280
+    depends on APP_PANEL_VARIANT_10INCH_JC || APP_PANEL_VARIANT_TAB5_1280 || APP_PANEL_VARIANT_10INCH_1280
     help
         Duty-cycled capture of a few frames every few seconds, reduced to a
         luma grid. No streaming, no JPEG, nothing leaves the device.

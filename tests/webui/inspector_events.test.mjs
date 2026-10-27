@@ -330,6 +330,7 @@ test("every Inspector input has a registered editing event", () => {
 });
 
 for (const [project, camera, rotation] of [
+  ["betta-ha-panel-10.1", false, false],
   ["betta-ha-panel-tab5", false, true],
   ["betta-ha-panel", false, false],
   ["betta-ha-panel-jc", true, false],
@@ -815,4 +816,74 @@ test("Color popup HEX and native picker events edit the model, save and reload",
   await run("el.saveBtn.onclick()");
   assert.equal(run("savedLayout.pages[0].widgets[0].energy_colors.grid"), "#000000");
   assert.equal(run("hexField.value"), "#000000");
+});
+
+
+test("LCD-X camera controls save, disable, reload and preserve sensitivity/night wake", async () => {
+  const run = setupInspector("graph", "sensor.temperature", "", true);
+  run(`
+    editor.appProject = 'betta-ha-panel-10.1';
+    globalThis.sentSettings = null;
+    globalThis.timerCallback = null;
+    setTimeout = callback => { timerCallback = callback; return 1; };
+    putSettings = async payload => { sentSettings = payload; editor.settings = payload; };
+    el.settingsHardwareAutoBrightness.checked = true; el.settingsHardwareAutoBrightness.dispatch('change');
+    el.settingsHardwarePresenceWake.checked = true; el.settingsHardwarePresenceWake.dispatch('change');
+    el.settingsHardwareNightPresenceWake.checked = true; el.settingsHardwareNightPresenceWake.dispatch('change');
+    el.settingsHardwarePresenceSensitivity.value = '7'; el.settingsHardwarePresenceSensitivity.dispatch('input');
+  `);
+  await run("timerCallback()");
+  for (const key of ['auto_brightness', 'presence_wake', 'night_presence_wake'])
+    assert.equal(run(`sentSettings.hardware.${key}`), true);
+  assert.equal(run("sentSettings.hardware.presence_sensitivity"), 7);
+  run(`
+    el.settingsHardwareAutoBrightness.checked = false; el.settingsHardwareAutoBrightness.dispatch('change');
+    el.settingsHardwarePresenceWake.checked = false; el.settingsHardwarePresenceWake.dispatch('change');
+  `);
+  await run("timerCallback()");
+  run("apiGet = async () => sentSettings; loadI18nLanguage = async () => {}; renderTimezonePresets = () => {}; renderSecretFields = () => {}; renderRestoreNotice = () => {}; resetSettingsDirty = () => {}; document.body = {dataset:{}};");
+  assert.notEqual(await run("loadSettings(true)"), null, run("editor.settingsLoadError"));
+  assert.equal(run("el.settingsHardwareAutoBrightness.checked"), false);
+  assert.equal(run("el.settingsHardwarePresenceWake.checked"), false);
+  assert.equal(run("el.settingsHardwarePresenceSensitivity.value"), '7');
+  assert.equal(run("el.settingsHardwareNightPresenceWake.checked"), true);
+  run("el.settingsHardwarePresenceWake.checked = true; el.settingsHardwarePresenceWake.dispatch('change')");
+  await run("timerCallback()");
+  assert.equal(run("sentSettings.hardware.presence_wake"), true);
+  assert.equal(run("sentSettings.hardware.presence_sensitivity"), 7);
+});
+
+test("Camera test distinguishes startup, fresh movement, failure and expiry", async () => {
+  const run = setupInspector();
+  run(`
+    globalThis.cameraReply = {ready: false, motion_valid: false, test_active: true, test_remaining_s: 30};
+    globalThis.cameraStarts = 0;
+    globalThis.cleared = 0;
+    t = (key) => key;
+    setInterval = () => 42;
+    clearInterval = () => { cleared++; };
+    fetch = async (url) => {
+      if (url === '/api/camera/test') cameraStarts++;
+      return {ok: true, json: async () => ({camera: cameraReply})};
+    };
+  `);
+  await run("startCameraTest()");
+  assert.equal(run("el.settingsCameraTestStatus.textContent"), 'settings.camera.test_running');
+  await run("startCameraTest()");
+  assert.equal(run("cameraStarts"), 1);
+  run("cameraReply.ready = true; cameraReply.motion_valid = true; cameraReply.presence_detected = true");
+  await run("pollCameraTest()");
+  assert.match(run("el.settingsCameraTestStatus.textContent"), /presence_detected/);
+  run("cameraReply.failed = true");
+  await run("pollCameraTest()");
+  assert.equal(run("el.settingsCameraTestStatus.textContent"), 'settings.camera.test_failed');
+  assert.equal(run("cameraTestTimer"), null);
+  run("cameraReply = {test_active: false}");
+  await run("startCameraTest()");
+  assert.equal(run("cameraTestTimer"), null);
+  assert.equal(run("el.settingsCameraTestStatus.textContent"), '');
+  run("cameraReply = null");
+  await run("startCameraTest()");
+  assert.equal(run("el.settingsCameraTestStatus.textContent"), 'settings.camera.test_failed');
+  assert.equal(run("cameraTestTimer"), null);
 });

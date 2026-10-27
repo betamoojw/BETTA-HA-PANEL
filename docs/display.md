@@ -92,14 +92,22 @@ option returns to the first page or keeps the last one. A night level of 0 % alw
 
 ## Room light and presence
 
-The camera of the Guition JC8012P4A1 and the M5Stack Tab5 senses light and movement. It records and streams nothing.
+The cameras of the Guition JC8012P4A1, M5Stack Tab5 and Waveshare LCD-X 10.1-inch
+sense light and movement. They record and stream nothing. A bounded Waveshare
+trial passed light response and approach/night wake; wider calibration is pending.
 
 - **Adapt to room light** scales active and dimmed brightness; night brightness stays as chosen.
 - **Wake on approach** wakes a dimmed or protected display on movement. Set the sensitivity; **Wake at night** is a
   separate switch.
 
-Both options are off by default. On one Tab5 (2026-10-05) covering the camera dropped the measured light factor from
-89 % to 27–28 %. More in [Cameras and chimes](hardware/peripherals.md#ambient-camera-paneljc-and-tab5).
+Sensitivity runs from 1 (low) to 10 (high), with 5 as the default. **Test now (30s)**
+samples movement while the display is awake and expires on the panel even if the
+browser closes. Sensitivity edits do not extend the test. A failed camera reports
+a test failure instead of claiming that no movement was detected. Movement sensing
+needs visible light; enabling night wake does not add infrared or dark-room vision.
+
+Both options default off on Tab5 and LCD-X, and on for JC. On one Tab5 (2026-10-05) covering the camera dropped the measured light factor from
+89 % to 27–28 %. More in [Cameras and chimes](hardware/peripherals.md#ambient-camera).
 
 ## Display rotation
 

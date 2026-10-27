@@ -380,9 +380,20 @@ esp_err_t api_version_get_handler(httpd_req_t *req)
         int threshold_pct = ambient_camera_get_presence_threshold_pct();
         cJSON *camera = cJSON_AddObjectToObject(root, "camera");
         if (camera != NULL) {
+            cJSON_AddBoolToObject(camera, "ready", reading.ready);
+            cJSON_AddBoolToObject(camera, "failed", reading.failed);
+            cJSON_AddBoolToObject(camera, "motion_valid", reading.motion_valid);
+            cJSON_AddBoolToObject(camera, "light_valid", reading.valid);
+            if (reading.valid) {
+                cJSON_AddNumberToObject(camera, "luma", reading.luma);
+                cJSON_AddNumberToObject(camera, "exposure", reading.exposure);
+                cJSON_AddNumberToObject(camera, "gain", reading.gain);
+                cJSON_AddNumberToObject(camera, "light_index", reading.light_index);
+            }
             cJSON_AddNumberToObject(camera, "presence_motion_pct", reading.motion_pct);
             cJSON_AddNumberToObject(camera, "presence_threshold_pct", threshold_pct);
-            cJSON_AddBoolToObject(camera, "presence_detected", reading.motion_pct >= threshold_pct);
+            cJSON_AddBoolToObject(camera, "presence_detected", reading.motion_valid && !reading.failed &&
+                reading.motion_pct >= threshold_pct);
             cJSON_AddBoolToObject(camera, "test_active", test_active);
             cJSON_AddNumberToObject(camera, "test_remaining_s", test_remaining_s);
         }

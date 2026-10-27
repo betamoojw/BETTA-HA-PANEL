@@ -94,6 +94,12 @@ on 2026-10-21. Its separate `dependencies.lock.panel10` keeps this BSP out
 of the Panel4 dependency resolution. Physical display/touch checks remain
 required after flashing.
 
+The OV5647 front camera reuses `bsp_i2c_get_handle()` (SDA7/SCL8), with reset
+and power-down set to -1, as in the [Waveshare camera example](https://github.com/waveshareteam/ESP32-P4-WIFI6-Touch-LCD-X/blob/main/examples/esp-idf/09_video_lcd_display/main/app_video.c).
+The vendored sensor and `esp_video` both use 2.3.0. The ISP outputs RGB565 to
+two PSRAM buffers in bursts; it does not publish a camera stream. See
+[camera validation limits](peripherals.md#ambient-camera).
+
 ## Guition JC8012P4A1 (`paneljc`) { #paneljc }
 
 Device guide: [Guition JC8012P4A1](paneljc.md).

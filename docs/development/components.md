@@ -3,11 +3,11 @@
 
 ## Vendored camera component and the P4 silicon cap
 
-`components/esp_cam_sensor` is Espressif's core plus the OV02C10 driver (JC8012P4A1) and the SC202CS/SC2356 drivers
+`components/esp_cam_sensor` is Espressif's core plus OV02C10 (JC8012P4A1), OV5647 (LCD-X, with read-only AEC/AGC statistics) and SC202CS/SC2356 drivers
 (Tab5), cut down to those sensors and the DW9714 motor. `tools/vendor_cam_sensor.py <version>` stages a new registry core
-and keeps both sensor directories and `project_include.cmake`; `esp_video` pins the matching line (2.3.x wants 2.3.*).
+and keeps all three sensor directories and `project_include.cmake`; `esp_video` pins the matching line (2.3.x wants 2.3.*).
 After a version change update the `esp_cam_sensor`, `esp_video`, `esp_ipa` and `esp_h264` entries in the variant lock
-files, rebuild both camera variants and check each camera on its panel (`POST /api/camera/test`, the
+files, rebuild the affected camera variants and check each camera on its panel (`POST /api/camera/test`, the
 `ambient_cam: luma ...` log line). Tab5 awaits its first device test.
 
 Versions stop at `esp_video` 2.3.0, `esp_ipa` 2.2.0~1 and `esp_cam_sensor` 2.3.0 on purpose: the prebuilt `libesp_ipa.a`

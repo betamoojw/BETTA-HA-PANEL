@@ -447,8 +447,18 @@ async function pollCameraTest() {
     const response = await fetch("/api/version", { cache: "no-store" });
     const info = await response.json();
     const cam = info && info.camera;
-    if (!cam || !cam.test_active) {
+    if (!cam || cam.failed) {
+      stopCameraTest(t("settings.camera.test_failed"));
+      return;
+    }
+    if (!cam.test_active) {
       stopCameraTest("");
+      return;
+    }
+    if (cam.ready === false || cam.motion_valid === false) {
+      if (el.settingsCameraTestStatus) {
+        el.settingsCameraTestStatus.textContent = t("settings.camera.test_running", { seconds: cam.test_remaining_s });
+      }
       return;
     }
     const key = cam.presence_detected ? "settings.camera.presence_detected" : "settings.camera.presence_not_detected";
@@ -473,8 +483,8 @@ async function startCameraTest() {
     if (el.settingsCameraTestStatus) el.settingsCameraTestStatus.textContent = t("settings.camera.test_failed");
     return;
   }
-  pollCameraTest();
   cameraTestTimer = setInterval(pollCameraTest, 1500);
+  await pollCameraTest();
 }
 
 function setPercentSlider(input, output, value, min = 1) {

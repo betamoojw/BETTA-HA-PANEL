@@ -2,7 +2,7 @@
  * Copyright (c) 2026 andre68723 -- file added in the andre68723/BETTA-HA-PANEL fork, see docs/release-notes.md
  *
  * Built-in camera used only as an ambient light and presence sensor
- * (OV02C10 on JC8012P4A1, SC2356 on Tab5). It never streams continuously and never produces
+ * (OV02C10 on JC8012P4A1, SC2356 on Tab5, OV5647 on Waveshare LCD-X). It never streams continuously and never produces
  * images for the user: every few seconds it runs a short burst of frames,
  * reduces the last one to a 16x16 luma grid plus exposure and gain, and stops
  * again.
@@ -14,6 +14,9 @@
 
 typedef struct {
     bool valid;
+    bool ready;        /* camera opened successfully */
+    bool failed;       /* initialization or latest capture/readback failed */
+    bool motion_valid; /* a fresh pair of frames is available */
     float luma;        /* mean luma of the last frame, 0..255 */
     float exposure;    /* sensor exposure register value */
     float gain;        /* sensor gain, 1.0 = base gain */
@@ -22,10 +25,12 @@ typedef struct {
     int motion_level;  /* mean absolute luma change, 0..255 */
 } ambient_camera_reading_t;
 
-/* Turn the two features on or off (both default to off; sensitivity 1..10, night_wake lets movement wake the display during night mode). Call before start. */
+/* Set runtime options (JC defaults on, Tab5/LCD-X off; sensitivity 1..10).
+ * night_wake allows movement to wake the display during night mode. */
 void ambient_camera_configure(bool auto_brightness, bool presence_wake, int sensitivity, bool night_wake);
 
-/* Start the sampling task (no-op on variants without the camera). */
+/* Start from the task/core that initialized the display (shared DMA interrupt).
+ * No-op on variants without the camera. */
 void ambient_camera_start(void);
 
 /* Latest sample; false while none is available. */
@@ -39,7 +44,7 @@ bool ambient_camera_available(void);
  * detected right now. */
 int ambient_camera_get_presence_threshold_pct(void);
 
-/* Forces presence sampling for `duration_ms` even while the display stays active (normally
+/* Forces presence sampling for at most 30 seconds even while the display stays active (normally
  * sampling only runs once the display is already dimmed, to wake it -- Settings > Display keeps
  * it active while testing the sensitivity, so without this there would be nothing to show). */
 void ambient_camera_start_test(uint32_t duration_ms);

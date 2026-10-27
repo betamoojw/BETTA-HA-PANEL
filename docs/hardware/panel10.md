@@ -11,6 +11,7 @@ This guide shows the Waveshare **ESP32-P4-WIFI6-Touch-LCD-10.1** from the
 LCD-X series. The `panel10` firmware profile provides 1280 × 800 geometry and
 uses the Waveshare LCD-X BSP with JD9365 display and GT9271 touch support.
 The profile targets ESP32-P4 Rev3.x; verify the chip revision before flashing.
+The size-optimized build keeps camera and voice support within the existing OTA slots.
 
 ## Specifications
 
@@ -22,7 +23,7 @@ The profile targets ESP32-P4 Rev3.x; verify the chip revision before flashing.
 | Flash / PSRAM | 32 MB flash / Hex PSRAM at 200 MHz |
 | Display / touch controller | JD9365 / GT9271 |
 | Navigation | Up to 12 pages |
-| Camera / sound | No configured ambient camera; ES8311 and external-speaker connector, no enabled BETTA audio driver |
+| Camera / sound | OV5647 light/presence sensing, off by default; ES8311/ES7210 audio for optional Xiaozhi |
 
 ## Firmware and revisions
 
@@ -40,6 +41,35 @@ port has a different role.
 
 ## Validation status and next checks
 
+Camera automation supports **Adapt brightness to room light**, **Wake on approach**,
+**Also wake at night**, sensitivity 1–10 (default 5), and **Test now (30s)** under
+**Settings → Display**. It processes light and movement locally, without recording
+or streaming images. Both automation switches default to off.
+
+On 2026-10-27, the v3.2 panel at `192.168.71.120` passed a bounded camera trial
+using source `2e48ed6f-dirty`, build stamp `21:53:56`, app SHA256
+`b3d261563ea7d2b8018f67f4af50becf8871e7c2174dfd1fb70a1809a09a15e2`.
+OTA reported `valid`; no new crash or unexpected restart was observed.
+
+- Covering the lens produced a 10% room-light factor and 8% backlight output;
+  uncovering it in room light produced 76–78% and 57–59%. The owner confirmed
+  the physical brightness change. These percentages are software readbacks,
+  not optical measurements.
+- The owner confirmed approach wake without touching the display. During a
+  forced night schedule, motion restored brightness from 10% to 75% with
+  night wake enabled. A repeat trial with night wake disabled detected motion
+  above the sensitivity-5 threshold while backlight output stayed at 10%; the
+  owner confirmed that movement without touching did not brighten the screen.
+- The 30-second test expired on the device. Repeating start and saving a
+  sensitivity change from 5 to 7 did not extend it.
+- Original settings and Xiaozhi preferences were restored, including sensitivity
+  5. Layout content was retained; two page-title edits made by the owner during
+  the trial were explicitly kept.
+
+Xiaozhi was paused for the isolated night tests and restored afterward.
+Wider lighting/distance calibration and long-term touch/audio coexistence remain
+untested. Night wake needs visible light; this camera does not add night vision.
+
 On 2026-10-21, the COM24 ESP32-P4 v3.2 unit (32 MB flash and 32 MB PSRAM)
 booted the LCD-X adaptation based on `3a77ecd0`. USB writes passed hash checks,
 the running ELF matched, and ESP-Hosted updated the C6 to 2.12.13. The panel
@@ -51,8 +81,8 @@ screenshot passed. The complete original P4 flash was backed up locally.
 The owner subsequently confirmed that Live Display returns the mirrored screen
 in the web editor. Two earlier automated browser trials reported busy and logged
 display-lock timeouts; their cause and repeatability have not been established.
-Backlight optical measurements, remote-touch input, P4 application OTA and
-long-duration stability have not been verified.
+Backlight optical measurements, remote-touch input and long-duration stability
+have not been verified.
 
 On 2026-10-21, clean commit `0a551a2` was reflashed on the same COM24 unit
 using esptool 5.3.1 and the P4 flasher stub with GD25Q256 flash. In one stub

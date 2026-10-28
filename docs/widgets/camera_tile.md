@@ -10,7 +10,7 @@ Show camera snapshots or an optional MJPEG live picture.
 2. Use **Search** beside the entity field to choose an entity by name. Configure its options below.
 3. Resize the widget for its content, then **Save** the layout. Try its controls on the panel.
 
-By default, the widget refreshes its snapshot every 10 seconds while visible; a tap loads a new snapshot. Enable **Live picture (MJPEG)** in the Inspector to stream while visible and tap to open a full-screen view. Live is off by default. It accepts Home Assistant camera entities that provide MJPEG; RTSP, H.264/H.265 and audio are not supported. The source camera determines how often a new image is available. Streams pause on hidden pages, under popups and during display protection. At most two streams run at once; other live tiles wait. This feature is separate from the onboard ambient-light camera.
+By default, the widget refreshes its snapshot every 10 seconds while visible; a tap loads a new snapshot. Enable **Live picture (MJPEG)** in the Inspector to stream while visible and tap to open a full-screen view. Live is off by default. It accepts Home Assistant camera entities that provide MJPEG; RTSP, H.264/H.265 and audio are not supported. The source camera determines how often a new image is available. Streams pause on hidden pages, under popups and during display protection. At most two streams run at once; other live tiles wait. For the LCD-X built-in camera or a saved IP/HA JPEG source, use **Settings → Cameras → Add to tile** or enter its ID in **Camera source**. A source ID overrides the entity binding. Built-in image output needs its own explicit enable; see [Cameras](../cameras.md).
 
 ## Preview
 

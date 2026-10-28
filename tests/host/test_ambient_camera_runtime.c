@@ -13,6 +13,11 @@ static int ambient_limit = 100;
 static bool timeout_set, controls_fail, task_fail, dimmed, night, changed;
 static bool start_fail;
 static unsigned queue_mask;
+bool camera_store_local(camera_config_t *out) { memset(out,0,sizeof(*out));return true; }
+uint32_t camera_store_generation(void) { return 0; }
+bool camera_output_needed(void) { return false; }
+void camera_output_publish(const uint8_t *p,unsigned w,unsigned h) {(void)p;(void)w;(void)h;}
+void camera_output_invalidate(void) {}
 
 esp_err_t bsp_i2c_init(void) { return ESP_OK; }
 i2c_master_bus_handle_t bsp_i2c_get_handle(void) { return (void *)1; }

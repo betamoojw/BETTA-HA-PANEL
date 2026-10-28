@@ -15,7 +15,9 @@ typedef int portMUX_TYPE;
 #define ESP_FAIL -1
 #define ESP_ERR_INVALID_STATE -2
 #define ESP_ERR_NOT_SUPPORTED -3
-#define ESP_ERR_NO_MEM -4
+#ifndef ESP_ERR_NO_MEM
+#define ESP_ERR_NO_MEM 0x101
+#endif
 #define portMUX_INITIALIZER_UNLOCKED 0
 #define portENTER_CRITICAL(p) ((void)(p))
 #define portEXIT_CRITICAL(p) ((void)(p))

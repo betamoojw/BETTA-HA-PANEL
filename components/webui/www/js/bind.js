@@ -453,6 +453,7 @@ if (el.addBambuPrinterBtn) {
   bindInspectorAutoApply(el.fShowName, ["change"], { softEntityValidation: true });
   bindInspectorAutoApply(el.fSensorShowAge, ["change"], { softEntityValidation: true });
   bindInspectorAutoApply(el.fCameraLive, ["change"], { softEntityValidation: true });
+  bindInspectorAutoApply(el.fCameraSource, ["input", "change"], { softEntityValidation: true });
   bindInspectorAutoApply(el.fLockConfirm, ["change"], { softEntityValidation: true });
   bindInspectorAutoApply(el.fAlarmDisarm, ["change"], { softEntityValidation: true });
   bindInspectorAutoApply(el.fAlarmArmHome, ["change"], { softEntityValidation: true });

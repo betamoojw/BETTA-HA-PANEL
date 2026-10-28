@@ -33,6 +33,8 @@ behaviour.
 
 The audio/camera column describes BETTA's available functions. Camera sensing
 adjusts brightness or wakes the display; it does not record or stream video.
+LCD-X also has separate, default-off [camera image output](cameras.md), with local
+checks completed and hardware acceptance pending.
 Chimes are doorbell and notification tones. A quiet Tab5 test chime was heard on 2026-10-05; broader acoustic checks remain pending.
 See [Cameras and chimes](hardware/peripherals.md) for validation details and
 [Notifications](notifications.md#sound) for setup.

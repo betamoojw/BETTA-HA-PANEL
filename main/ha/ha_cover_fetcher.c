@@ -3,6 +3,7 @@
  * Modified 2026 by andre68723 in the andre68723/BETTA-HA-PANEL fork, see docs/release-notes.md
  */
 #include "ha/ha_cover_fetcher.h"
+#include "camera/camera_source_fetch.h"
 
 #include <inttypes.h>
 #include <stdio.h>
@@ -1381,6 +1382,7 @@ static const char *cover_header_or_dash(esp_http_client_handle_t cli, const char
 
 static esp_err_t cover_download(const char *url, http_sink_t *sink)
 {
+    if(!strncmp(url,"betta-camera:",13))return camera_source_fetch(url+13,&sink->buf,&sink->len);
     cover_http_work_t *work = (cover_http_work_t *)cover_heap_calloc(1, sizeof(*work));
     if (work == NULL) {
         ESP_LOGW(TAG, "cover http work alloc failed");
@@ -2206,7 +2208,7 @@ static void cover_task(void *arg)
 
         /* 1) Wait for WS liveness, the heavy WS gate and a small internal
          *    heap/socket reserve. Cover fetches are nice-to-have UI work. */
-        if (!cover_wait_until_http_ready(req.lifetime)) {
+        if (strncmp(req.url,"betta-camera:",13) && !cover_wait_until_http_ready(req.lifetime)) {
             cover_request_finish(req.lifetime);
             continue;
         }
@@ -2219,7 +2221,7 @@ static void cover_task(void *arg)
         bool ok = false;
         bool cancelled_download = false;
         for (uint8_t attempt = 0; attempt < COVER_HTTP_MAX_ATTEMPTS; attempt++) {
-            if (!cover_wait_until_http_ready(req.lifetime)) {
+            if (strncmp(req.url,"betta-camera:",13) && !cover_wait_until_http_ready(req.lifetime)) {
                 cancelled_download = true;
                 break;
             }

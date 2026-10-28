@@ -3,13 +3,19 @@
  */
 #include "ha/ha_camera_stream.h"
 #include "ha/ha_client.h"
+#include "camera/camera_store.h"
 #include "host_adapters.h"
 #include <stdlib.h>
 #include <stdio.h>
 
 struct ha_camera_stream { unsigned sequence; };
 static unsigned active, starts;
-static bool sleeping;
+static bool sleeping, output_allowed=true;
+static uint32_t output_generation;
+void sim_camera_output_enabled(bool value){output_allowed=value;output_generation++;}
+uint32_t camera_store_generation(void){return output_generation;}
+bool camera_store_output_allowed(const char *id){return id!=NULL&&output_allowed;}
+int camera_source_refresh_ms(const char *id){(void)id;return 10000;}
 static ha_camera_stream_status_t state = HA_CAMERA_LIVE;
 unsigned sim_camera_active(void) { return active; }
 unsigned sim_camera_starts(void) { return starts; }

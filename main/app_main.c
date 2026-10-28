@@ -5,6 +5,7 @@
 
 #include "xiaozhi/xiaozhi.h"
 #include "knx/knx.h"
+#include "camera/camera_store.h"
 #include "xiaozhi/xiaozhi_font_store.h"
 #include <stdio.h>
 #include <string.h>
@@ -182,6 +183,8 @@ void app_main(void)
     ESP_ERROR_CHECK(app_events_init());
     ESP_ERROR_CHECK(ha_model_init());
     ESP_ERROR_CHECK(ha_energy_model_init());
+    esp_err_t camera_init_err = camera_store_init();
+    if (camera_init_err != ESP_OK) ESP_LOGW(TAG_APP, "Camera settings unavailable; retained on disk");
     esp_err_t settings_init_err = runtime_settings_init();
     if (settings_init_err != ESP_OK) ESP_LOGW(TAG_APP, "Settings initialization deferred: %s", esp_err_to_name(settings_init_err));
     ESP_ERROR_CHECK(admin_auth_init());

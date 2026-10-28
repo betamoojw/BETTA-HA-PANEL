@@ -331,6 +331,7 @@ const el = {
   alarmOptions: document.getElementById("alarmOptions"),
   cameraOptions: document.getElementById("cameraOptions"),
   fCameraLive: document.getElementById("fCameraLive"),
+  fCameraSource: document.getElementById("fCameraSource"),
   fLockConfirm: document.getElementById("fLockConfirm"),
   historyOptions: document.getElementById("historyOptions"),
   fHistoryPopup: document.getElementById("fHistoryPopup"),

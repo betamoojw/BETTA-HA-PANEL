@@ -77,6 +77,7 @@ typedef struct {
     bool sensor_show_age; /* sensor: "N min ago" freshness text below the value, default true */
     bool lock_confirm; /* lock_tile: ask before unlocking or opening, default false */
     bool camera_live; /* camera_tile: HA MJPEG while visible; opt-in, default false */
+    char camera_source[24]; /* empty: HA entity; local or saved source id */
     unsigned alarm_actions; /* alarm_tile: bit (1 << ha_alarm_action_t) per action offered, 0 = all */
     bool history_popup; /* sensor/binary/contact/lock: show Recorder history on tap/long press */
     int x;

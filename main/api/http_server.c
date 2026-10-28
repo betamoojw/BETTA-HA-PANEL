@@ -94,7 +94,7 @@ esp_err_t http_server_start(void)
         http_task_prio = 1;
     }
     cfg.task_priority = http_task_prio;
-    cfg.max_uri_handlers = 64;
+    cfg.max_uri_handlers = 80;
     cfg.max_open_sockets = http_socket_client_budget(CONFIG_LWIP_MAX_SOCKETS);
     if (cfg.max_open_sockets < 4) return ESP_ERR_INVALID_STATE;
     cfg.lru_purge_enable = true;

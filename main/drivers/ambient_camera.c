@@ -5,10 +5,13 @@
  * (OV02C10 on paneljc, SC2356/SC202CS on Tab5, OV5647 on LCD-X).
  * The V4L2 capture flow (esp_video, RGB565 through the ISP, user-pointer
  * buffers) follows the approach of the BETTA-kruzio project's local camera
- * module, reduced to a duty-cycled light sensor.
+ * module. The same duty-cycled capture owner serves optional LCD-X image output;
+ * it never creates a second CSI/ISP owner or changes the light sensor's AE policy.
  */
 #include "drivers/ambient_camera.h"
 #include "drivers/ambient_camera_policy.h"
+#include "camera/camera_store.h"
+#include "camera/camera_output.h"
 
 #include <stddef.h>
 #include <string.h>
@@ -62,6 +65,9 @@ static ambient_camera_reading_t s_reading;
 static portMUX_TYPE s_lock = portMUX_INITIALIZER_UNLOCKED;
 static uint8_t s_prev_grid[AMBIENT_GRID * AMBIENT_GRID];
 static bool s_have_prev;
+static camera_motion_state_t s_advanced_motion;
+static camera_motion_status_t s_motion_status;
+static uint32_t s_camera_generation;
 static int s_fd = -1;
 static uint8_t *s_bufs[AMBIENT_BUFS];
 static size_t s_buf_size;
@@ -386,6 +392,23 @@ static bool ambient_sample(int frames, bool want_light, int64_t deadline_ms)
     int changed_pct = 0;
     int level = 0;
     const bool motion_valid = ambient_motion(motion_grid, &changed_pct, &level);
+    camera_config_t camera = {0};
+    const bool advanced = camera_store_local(&camera) && camera.motion.enabled;
+    bool motion_trigger = false;
+    if (advanced) {
+        /* Zones follow the mirrored output, without changing sensor registers
+         * or the grid used for exposure-compensated room-light sensing. */
+        uint8_t grid[AMBIENT_GRID * AMBIENT_GRID];
+        for (int y=0;y<AMBIENT_GRID;y++) for (int x=0;x<AMBIENT_GRID;x++)
+            grid[y*AMBIENT_GRID+x]=motion_grid[(camera.vflip?AMBIENT_GRID-1-y:y)*AMBIENT_GRID+
+                (camera.hflip?AMBIENT_GRID-1-x:x)];
+        motion_trigger = camera_motion_sample(&s_advanced_motion,&camera.motion,grid,ambient_now_ms());
+        portENTER_CRITICAL(&s_lock);
+        s_motion_status=s_advanced_motion.status;
+        portEXIT_CRITICAL(&s_lock);
+        changed_pct=s_advanced_motion.status.changed_pct;
+        level=s_advanced_motion.status.level;
+    }
     r.ready = true;
     r.failed = false;
     r.motion_valid = motion_valid;
@@ -421,18 +444,21 @@ static bool ambient_sample(int frames, bool want_light, int64_t deadline_ms)
 
     /* Someone moved in front of the panel while it is dimmed: wake it up. */
     ambient_config_t config = ambient_config();
-    if (motion_valid && r.motion_pct >= config.presence_pct &&
+    if ((advanced ? motion_trigger : (motion_valid && r.motion_pct >= config.presence_pct)) &&
         ambient_motion_needed(false, config.presence_wake, display_is_dimmed(), night_mode_active(), config.night_wake)) {
         ESP_LOGI(TAG_AMBIENT, "presence: %d%% of the cells changed, waking the display", r.motion_pct);
         display_note_activity();
     }
+    camera_output_publish(s_bufs[last],s_width,s_height);
     return true;
 }
 
 static void ambient_reset_motion(bool failed)
 {
     s_have_prev = false;
+    camera_motion_reset(&s_advanced_motion,ambient_now_ms());
     portENTER_CRITICAL(&s_lock);
+    s_motion_status=s_advanced_motion.status;
     s_reading.motion_valid = false;
     s_reading.motion_pct = 0;
     s_reading.failed = failed;
@@ -450,14 +476,21 @@ static void ambient_task(void *arg)
     for (;;) {
         ambient_config_t config = ambient_config();
         bool test_active = ambient_camera_test_active(NULL);
-        if (config.generation != generation) {
+        uint32_t camera_generation=camera_store_generation();
+        const bool need_output=camera_output_needed();
+        camera_config_t camera = {0};
+        const bool advanced = camera_store_local(&camera) && camera.motion.enabled;
+        if (config.generation != generation || camera_generation != s_camera_generation) {
             generation = config.generation;
+            s_camera_generation=camera_generation;
             s_last_light_ms = 0;
             ambient_reset_motion(false);
+            camera_output_invalidate();
         }
-        if (!config.auto_brightness && !config.presence_wake && !test_active) {
+        if (!config.auto_brightness && !config.presence_wake && !test_active && !need_output && !advanced) {
             ambient_reset_motion(false);
-            vTaskDelay(pdMS_TO_TICKS(1000));
+            camera_output_invalidate();
+            vTaskDelay(pdMS_TO_TICKS(200));
             continue;
         }
         if (!opened) {
@@ -475,11 +508,11 @@ static void ambient_task(void *arg)
         }
         const bool need_light = config.auto_brightness &&
             (s_last_light_ms == 0 || ambient_now_ms() - s_last_light_ms >= AMBIENT_LIGHT_INTERVAL_MS);
-        const bool need_motion = ambient_motion_needed(test_active, config.presence_wake,
+        const bool need_motion = advanced || ambient_motion_needed(test_active, config.presence_wake,
             display_is_dimmed(), night_mode_active(), config.night_wake);
-        if (need_light || need_motion) {
+        if (need_light || need_motion || need_output) {
             int64_t deadline_ms = ambient_now_ms() + 2000;
-            if (test_active && !need_light && !ambient_motion_needed(false, config.presence_wake,
+            if (test_active && !advanced && !need_light && !need_output && !ambient_motion_needed(false, config.presence_wake,
                     display_is_dimmed(), night_mode_active(), config.night_wake)) {
                 portENTER_CRITICAL(&s_lock);
                 if (s_test_until_ms < deadline_ms) deadline_ms = s_test_until_ms;
@@ -491,8 +524,9 @@ static void ambient_task(void *arg)
             }
         } else {
             ambient_reset_motion(false);
+            camera_output_invalidate();
         }
-        vTaskDelay(pdMS_TO_TICKS(need_motion ? 1000 : 2000));
+        vTaskDelay(pdMS_TO_TICKS(need_output || (need_motion && advanced) ? 250 : need_motion ? 1000 : 200));
     }
 }
 
@@ -563,7 +597,18 @@ bool ambient_camera_test_active(int *out_remaining_s)
     return seconds > 0;
 }
 
+void ambient_camera_motion_status(camera_motion_status_t *out)
+{
+    if (!out) return;
+    portENTER_CRITICAL(&s_lock);
+    *out=s_motion_status;
+    if (ambient_now_ms()-s_motion_ms>4000) {out->valid=false;out->active=false;}
+    portEXIT_CRITICAL(&s_lock);
+}
+
 #else /* !CONFIG_APP_FEATURE_AMBIENT_CAMERA */
+
+void ambient_camera_motion_status(camera_motion_status_t *out){if(out)memset(out,0,sizeof(*out));}
 
 void ambient_camera_start(void) {}
 

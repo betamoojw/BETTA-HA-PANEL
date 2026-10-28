@@ -14,6 +14,7 @@
   <link rel="stylesheet" href="/css/readability.css" />
   <link rel="stylesheet" href="/css/preview-fit.css" />
   <link rel="stylesheet" href="/css/settings.css" />
+  <link rel="stylesheet" href="/css/camera.css" />
   <link rel="stylesheet" href="/css/layout-toolbar.css" />
   <link rel="stylesheet" href="/css/layout-actions.css" />
   <link rel="stylesheet" href="/css/evcc-wallbox.css" />
@@ -191,6 +192,31 @@
       </div>
 
       <div id="settingsPane" class="pane hidden">
+        <section class="display-settings">
+          <h2 id="settingsCameraHeading" data-i18n-key="cam.title">Cameras</h2>
+          <p class="meta" data-i18n-key="cam.privacy">Image output is off by default. Enable it to allow snapshots and preview; streaming has a separate switch. Images stay in RAM and are not recorded. Display automation works independently.</p>
+          <p id="camOutputUnavailable" class="meta" data-i18n-key="cam.unavailable" hidden>Built-in image output is unavailable on this board.</p>
+          <div id="camForm"></div>
+          <div class="row">
+            <button id="camSave" class="btn primary" type="button" data-i18n-key="cam.save" disabled>Save camera settings</button>
+            <button id="camReload" class="btn small" type="button" data-i18n-key="cam.reload">Reload</button>
+            <button id="camReset" class="btn small" type="button" data-i18n-key="cam.reset" disabled>Reset this page to defaults</button>
+          </div>
+          <p id="camMessage" role="status" aria-live="polite"></p>
+          <h3 data-i18n-key="cam.preview_heading">Preview and motion test</h3>
+          <div class="row">
+            <button id="camPreview" class="btn small" type="button" data-i18n-key="cam.preview" disabled>Preview (30s)</button>
+            <button id="camPreviewStop" class="btn small" type="button" data-i18n-key="cam.stop" disabled>Stop preview</button>
+            <button id="camMotionTest" class="btn small" type="button" data-i18n-key="cam.test" disabled>Test motion (30s)</button>
+            <button id="camLocalTile" class="btn small" type="button" data-i18n-key="cam.add_local_tile">Add built-in camera tile</button>
+          </div>
+          <p id="camStatus" role="status"></p><p id="camZoneStatus" class="meta"></p>
+          <div id="camPreviewFrame" class="cam-image-frame"><img id="camPreviewImage" alt="Camera preview" hidden /><div id="camZoneOverlay"></div></div>
+          <p id="camStreamAddress" class="meta" hidden></p>
+          <h3 data-i18n-key="cam.sources">IP / Home Assistant cameras</h3>
+          <p class="meta" data-i18n-key="cam.sources_hint">Up to four saved JPEG sources. Credentials go only to the configured server; redirects are rejected. HTTP Basic authentication is unencrypted over HTTP. Backups omit passwords.</p>
+          <div id="camSources"></div>
+        </section>
         <section class="display-settings">
           <h2 id="settingsKnxHeading" data-i18n-key="knx.title">KNXnet/IP</h2>
           <p class="meta" data-i18n-key="knx.about">Routing on your existing Wi-Fi network. Requires a multicast-capable KNX/IP router; tunneling and KNX Secure are not supported.</p>
@@ -1621,6 +1647,8 @@
                     </label>
                   </div>
                   <div id="cameraOptions" class="slider-options hidden">
+                    <label><span data-i18n-key="cam.tile_source">Camera source</span><input id="fCameraSource" type="text" maxlength="23" placeholder="local" /></label>
+                    <p class="meta" data-i18n-key="cam.tile_hint">Leave empty for the Home Assistant entity above, or enter local / an ID saved in Settings → Cameras.</p>
                     <label class="row"><input id="fCameraLive" type="checkbox" />
                       <span id="fCameraLiveLabel">Live picture (MJPEG)</span>
                     </label>
@@ -1884,6 +1912,7 @@
   <datalist id="energyEntityOptions"></datalist>
   <script src="/js/config.js"></script>
   <script src="/js/i18n.js"></script>
+  <script src="/js/i18n-camera.js"></script>
   <script src="/js/i18n-knx.js"></script>
   <script src="/js/i18n-es.js"></script>
   <script src="/js/i18n-fr.js"></script>
@@ -1918,6 +1947,7 @@
   <script src="/js/remote-display.js"></script>
   <script src="/js/xiaozhi.js"></script>
   <script src="/js/knx.js"></script>
+  <script src="/js/camera-editor.js"></script>
   <script src="/js/main.js"></script>
 </body>
 </html>

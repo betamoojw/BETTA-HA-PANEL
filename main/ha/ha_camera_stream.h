@@ -10,7 +10,8 @@ typedef enum {
     HA_CAMERA_UNSUPPORTED, HA_CAMERA_FAILED
 } ha_camera_stream_status_t;
 
-/* HA-origin MJPEG only, at most two streams. No arbitrary URL or printer credentials.
+/* HA-origin MJPEG or saved betta-camera:<id> snapshot feeds, at most two workers.
+ * Saved sources use their own credentials, never printer or foreign HA credentials.
  * Handles own one worker reference and one consumer reference. No worker touches
  * LVGL or stores consumer pointers. Stop is non-blocking, including during HTTP.
  * All three functions may be called with the display lock held. */

@@ -17,6 +17,8 @@
 #include "esp_timer.h"
 
 #include "ha/ha_cover_fetcher.h"
+#include "camera/camera_store.h"
+#include "camera/camera_source_fetch.h"
 #include "ui/fonts/app_symbols.h"
 #include "ui/theme/ui_typography.h"
 #include "ui/theme/theme_default.h"
@@ -24,6 +26,7 @@
 #include "ui/ui_camera_view.h"
 #include "ui/ui_memory.h"
 #include "util/log_tags.h"
+#include "src/misc/cache/instance/lv_image_cache.h"
 
 #define CAMERA_REFRESH_MS 10000
 /* The shared fetcher may drop a queued request without calling back (its queue is short, other tiles fetch pictures too).
@@ -43,10 +46,12 @@ typedef struct {
     lv_timer_t *timer;
     lv_obj_t *feed, *view;
     bool live;
+    bool custom;
     bool inflight;
     bool have_image;
     bool unavailable;
     int64_t last_request_ms;
+    uint32_t generation;
 } w_camera_ctx_t;
 
 static int64_t camera_now_ms(void)
@@ -57,6 +62,7 @@ static int64_t camera_now_ms(void)
 static void camera_release(w_camera_ctx_t *ctx)
 {
     if (ctx->dsc.data != NULL) {
+        lv_image_cache_drop(&ctx->dsc);
         heap_caps_free((void *)ctx->dsc.data);
         ctx->dsc.data = NULL;
         ctx->dsc.data_size = 0;
@@ -94,6 +100,10 @@ static void camera_result_cb(void *user, const ha_cover_result_t *result)
         return;
     }
     ctx->inflight = false;
+    if(ctx->custom && (!camera_store_output_allowed(ctx->entity_id+13) || ctx->generation!=camera_store_generation())) {
+        if(result && result->valid){ha_cover_result_t discarded=*result;ha_cover_result_release(&discarded);}
+        return;
+    }
     if (result == NULL || !result->valid) {
         ESP_LOGW(TAG_UI, "camera %s: no picture (download or decoding failed)", ctx->entity_id);
         return; /* keep the last picture */
@@ -125,6 +135,7 @@ static void camera_request(w_camera_ctx_t *ctx)
     if (h > 320) h = 320;
     ctx->inflight = true;
     ctx->last_request_ms = camera_now_ms();
+    ctx->generation=camera_store_generation();
     if (ha_cover_fetcher_request(ctx->url, w, h, camera_result_cb, ctx) != ESP_OK) {
         ctx->inflight = false;
     }
@@ -136,11 +147,18 @@ static void camera_timer_cb(lv_timer_t *timer)
     if (ctx == NULL || ctx->card == NULL || lv_obj_is_hidden(ctx->card)) {
         return;
     }
+    if(ctx->custom && (!camera_store_output_allowed(ctx->entity_id+13) || ctx->generation!=camera_store_generation())) {
+        ha_cover_fetcher_cancel(ctx);ctx->inflight=false;ctx->have_image=false;
+        lv_obj_set_hidden(ctx->img,true);lv_image_set_src(ctx->img,NULL);camera_release(ctx);
+        ctx->generation=camera_store_generation();
+        if(!ctx->live)lv_obj_set_hidden(ctx->placeholder,false);
+        if(!camera_store_output_allowed(ctx->entity_id+13))return;
+    }
     /* Skip while another page is shown. */
     if (!lv_obj_is_visible(ctx->card)) {
         return;
     }
-    camera_request(ctx);
+    if(!ctx->live && (!ctx->custom || camera_now_ms()-ctx->last_request_ms>=camera_source_refresh_ms(ctx->entity_id+13)))camera_request(ctx);
 }
 
 static void camera_view_closed(void *user)
@@ -184,8 +202,13 @@ esp_err_t w_camera_create(const ui_widget_def_t *def, lv_obj_t *parent, ui_widge
         return ESP_ERR_NO_MEM;
     }
     snprintf(ctx->entity_id, sizeof(ctx->entity_id), "%s", def->entity_id);
+    ctx->custom=def->camera_source[0]!=0;
+    if(ctx->custom){
+        snprintf(ctx->entity_id,sizeof(ctx->entity_id),"betta-camera:%s",def->camera_source);
+        snprintf(ctx->url,sizeof(ctx->url),"%s",ctx->entity_id);
+    }
     ctx->live = def->camera_live;
-    ctx->unavailable = true;
+    ctx->unavailable = !ctx->custom;
 
     lv_obj_t *card = lv_obj_create(parent);
     ctx->card = card;
@@ -234,7 +257,7 @@ esp_err_t w_camera_create(const ui_widget_def_t *def, lv_obj_t *parent, ui_widge
     lv_obj_add_event_cb(card, camera_clicked_cb, LV_EVENT_CLICKED, ctx);
     lv_obj_add_event_cb(card, camera_event_cb, LV_EVENT_DELETE, ctx);
     lv_obj_add_event_cb(card, camera_event_cb, LV_EVENT_SIZE_CHANGED, ctx);
-    ctx->timer = lv_timer_create(camera_timer_cb, CAMERA_REFRESH_MS, ctx);
+    ctx->timer = lv_timer_create(camera_timer_cb, ctx->custom?200:CAMERA_REFRESH_MS, ctx);
     camera_layout(ctx);
     return ESP_OK;
 }
@@ -245,6 +268,7 @@ void w_camera_apply_state(ui_widget_instance_t *instance, const ha_state_t *stat
         return;
     }
     w_camera_ctx_t *ctx = (w_camera_ctx_t *)instance->ctx;
+    if(ctx->custom)return;
     if (strncmp(state->entity_id, ctx->entity_id, APP_MAX_ENTITY_ID_LEN) != 0) {
         return;
     }
@@ -268,7 +292,8 @@ void w_camera_mark_unavailable(ui_widget_instance_t *instance)
     if (instance == NULL || instance->ctx == NULL) {
         return;
     }
-    ((w_camera_ctx_t *)instance->ctx)->unavailable = true;
+    w_camera_ctx_t *ctx=instance->ctx;
+    if(!ctx->custom)ctx->unavailable=true;
 }
 
 void w_camera_set_visible(ui_widget_instance_t *instance, bool visible)

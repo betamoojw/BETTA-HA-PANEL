@@ -269,7 +269,7 @@ function setActiveSettingsSection(sectionId) {
   editor.activeSettingsSection = item.sectionId;
   // KNX owns a separate save action; the generic shortcut would save unrelated settings.
   if (el.stackedSaveBtn) el.stackedSaveBtn.classList.toggle("hidden",
-    editor.activePane !== "settings" || item.sectionId === "settingsKnxSection");
+    editor.activePane !== "settings" || ["settingsKnxSection","settingsCameraSection"].includes(item.sectionId));
   if (item.sectionId === "settingsAlertsSection") {
     renderAlertList(); // the draft survives leaving and returning; a reloaded layout replaces it
   }
@@ -1611,6 +1611,7 @@ async function downloadBackup() {
       themes: { active_id: themeList.active_id || "", custom: customThemes },
       languages: { custom: customLanguages },
       knx: { configuration: await backupGet("/api/knx/config"), enabled: !!(await backupGet("/api/knx")).enabled },
+      cameras: await backupGet("/api/camera/config"),
     };
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
     const link = document.createElement("a");
@@ -1668,6 +1669,10 @@ async function restoreBackup() {
       if (!backup.knx.configuration || typeof backup.knx.enabled !== "boolean") throw new Error("Invalid KNX backup");
       await backupSend("/api/knx/config", "PUT", backup.knx.configuration);
       await backupSend("/api/knx", "PUT", {enabled: backup.knx.enabled});
+    }
+    if(backup.cameras){
+      if(!backup.cameras.local||!Array.isArray(backup.cameras.sources))throw new Error("Invalid camera backup");
+      await backupSend("/api/camera/config","PUT",{local:backup.cameras.local,sources:backup.cameras.sources});
     }
     await backupSend("/api/layout", "PUT", backup.layout);
     await backupSend("/api/settings", "PUT", { ...backup.settings, reboot: true });

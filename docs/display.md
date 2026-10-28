@@ -93,7 +93,8 @@ option returns to the first page or keeps the last one. A night level of 0 % alw
 ## Room light and presence
 
 The cameras of the Guition JC8012P4A1, M5Stack Tab5 and Waveshare LCD-X 10.1-inch
-sense light and movement. They record and stream nothing. A bounded Waveshare
+sense light and movement without recording or streaming in automation mode. LCD-X
+also has separate, default-off [image output controls](cameras.md). A bounded Waveshare
 trial passed light response and approach/night wake; wider calibration is pending.
 
 - **Adapt to room light** scales active and dimmed brightness; night brightness stays as chosen.

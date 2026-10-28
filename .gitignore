@@ -32,6 +32,7 @@ tools/*
 !tools/clean.sh
 !tools/check.sh
 !tools/check_web.py
+!tools/check_camera_editor.py
 !tools/editor_local.py
 !tools/editor_local_demo.py
 !tools/editor_local/

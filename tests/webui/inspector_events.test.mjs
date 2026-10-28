@@ -62,6 +62,20 @@ function setupInspector(widgetType = "graph", entityId = "sensor.temperature", s
   return run;
 }
 
+test("saved camera source uses real Inspector events, persists and can return to a HA entity", async () => {
+  const run=setupInspector("camera_tile","camera.front");
+  run('el.fCameraSource.value="local";el.fCameraSource.dispatchEvent(new Event("input"));');
+  await run("el.saveBtn.onclick()");
+  assert.equal(run("savedLayout.pages[0].widgets[0].camera_source"),"local");
+  assert.equal(run("savedLayout.pages[0].widgets[0].entity_id"),"");
+  run('editor.layout=savedLayout;el.fCameraSource.value="door";el.fCameraSource.dispatchEvent(new Event("change"));');
+  await run("el.saveBtn.onclick()");assert.equal(run("savedLayout.pages[0].widgets[0].camera_source"),"door");
+  run('el.fCameraSource.value="";el.fEntity.value="camera.front";el.fCameraSource.dispatchEvent(new Event("change"));');
+  await run("el.saveBtn.onclick()");
+  assert.equal(run("savedLayout.pages[0].widgets[0].camera_source"),undefined);
+  assert.equal(run("savedLayout.pages[0].widgets[0].entity_id"),"camera.front");
+});
+
 for (const [input, property] of [
   ["fEntity", "entity_id"], ["fSecondaryEntity", "secondary_entity_id"],
   ["fTertiaryEntity", "tertiary_entity_id"], ["fEtlCharge", "battery_charge_entity_id"],

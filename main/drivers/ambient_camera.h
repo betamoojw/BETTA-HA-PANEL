@@ -1,16 +1,16 @@
 /* SPDX-License-Identifier: LicenseRef-FNCL-1.1
  * Copyright (c) 2026 andre68723 -- file added in the andre68723/BETTA-HA-PANEL fork, see docs/release-notes.md
  *
- * Built-in camera used only as an ambient light and presence sensor
- * (OV02C10 on JC8012P4A1, SC2356 on Tab5, OV5647 on Waveshare LCD-X). It never streams continuously and never produces
- * images for the user: every few seconds it runs a short burst of frames,
- * reduces the last one to a 16x16 luma grid plus exposure and gain, and stops
- * again.
+ * Shared camera owner for light/presence sensing (OV02C10 on JC8012P4A1,
+ * SC2356 on Tab5, OV5647 on Waveshare LCD-X). Short capture bursts reduce to a
+ * 16x16 luma grid plus exposure/gain. LCD-X can also publish the last frame to
+ * camera_output when image output is explicitly enabled and a viewer requests it.
  */
 #pragma once
 
 #include <stdbool.h>
 #include <stdint.h>
+#include "camera/camera_motion.h"
 
 typedef struct {
     bool valid;
@@ -51,3 +51,4 @@ void ambient_camera_start_test(uint32_t duration_ms);
 
 /* True with the remaining seconds while a test started by ambient_camera_start_test is running. */
 bool ambient_camera_test_active(int *out_remaining_s);
+void ambient_camera_motion_status(camera_motion_status_t *out);

@@ -20,6 +20,11 @@ static bool valid(const char *type, const char *entity, const char *options)
 int main(void)
 {
     CHECK(valid("camera_tile", "camera.printer", ""));
+    CHECK(valid("camera_tile", "", ",\"camera_source\":\"local\",\"camera_live\":true"));
+    CHECK(valid("camera_tile", "", ",\"camera_source\":\"front_door\""));
+    CHECK(!valid("camera_tile", "", ",\"camera_source\":\"../secret\""));
+    CHECK(!valid("camera_tile", "", ",\"camera_source\":true"));
+    CHECK(!valid("sensor", "sensor.room", ",\"camera_source\":\"local\""));
     CHECK(valid("camera_tile", "camera.printer", ",\"camera_live\":false"));
     CHECK(valid("camera_tile", "camera.printer", ",\"camera_live\":true"));
     CHECK(valid("camera_tile", "image.snapshot", ""));

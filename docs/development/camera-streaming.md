@@ -6,10 +6,14 @@ Live mode is opt-in (`camera_live: true` on a Camera widget). Existing layouts
 keep the snapshot timer and tap-to-refresh behaviour. A Bambu widget's optional
 `camera_entity_id` adds a live-view action in its Status popup.
 
+The optional `camera_source` property selects `local` or an ID from **Settings →
+Cameras**. These sources use the same native feed/view with a bounded JPEG fetcher;
+see [Local camera](local-camera.md). Existing HA entity/MJPEG bindings are unchanged.
+
 ## Transport and decoding
 
 `ha/ha_camera_stream.c` requests `/api/camera_proxy_stream/<camera entity>`
-from the configured Home Assistant origin. It accepts no arbitrary URL, disables
+from the configured Home Assistant origin for HA entity bindings. This path accepts no arbitrary URL, disables
 redirects and keeps the bearer token in the worker context only. It does not
 connect to the printer or negotiate RTSP, HLS, WebRTC or audio.
 
@@ -67,3 +71,16 @@ was authenticated, neither watchdog reported a stall, no crash report was
 retained, and the camera task's minimum free stack was 6,208 of 8,192 bytes.
 The capture verifies LVGL rendering. Source freshness, frame rate, physical
 touch/full-screen behaviour and long-term stability were not measured.
+
+On 2026-10-28, COM24 Waveshare LCD-X 10.1 passed a 485-second built-in-camera trial
+at display setting 90 with `6298ed52-dirty`, stamped `Oct 28 2026 22:31:33`
+(app SHA256 prefix `f4e0f933`). The owner confirmed snapshot/live tile pictures,
+live updates, full-screen orientation/proportions, touch and two open/close cycles.
+Page hiding stopped the native stream worker; the frame sequence stayed unchanged
+after demand expired. Returning restarted one worker and frame publication.
+Removing the temporary page released the worker and restored the six-page layout.
+Settings, English, Classic Emoji, orientation and local backups were preserved.
+During full-screen samples, internal free memory was 130,099 bytes and the camera
+worker's minimum free stack was 6,136 of 8,192 bytes in PSRAM. No reboot or retained
+crash occurred. This does not establish sustained stability, other native-view
+rotations, motion-zone/automation coexistence or external-source behaviour.

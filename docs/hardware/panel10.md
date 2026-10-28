@@ -46,6 +46,11 @@ Camera automation supports **Adapt brightness to room light**, **Wake on approac
 **Settings → Display**. It processes light and movement locally, without recording
 or streaming images. Both automation switches default to off.
 
+[Settings → Cameras](../cameras.md) also provides manually enabled JPEG/MJPEG
+output, image adjustments, motion zones and saved IP/HA sources. These expanded
+features are separate from the device-tested automation below; hardware acceptance
+of the new output path is pending.
+
 On 2026-10-27, the v3.2 panel at `192.168.71.120` passed a bounded camera trial
 using source `2e48ed6f-dirty`, build stamp `21:53:56`, app SHA256
 `b3d261563ea7d2b8018f67f4af50becf8871e7c2174dfd1fb70a1809a09a15e2`.

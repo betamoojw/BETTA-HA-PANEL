@@ -21,6 +21,17 @@ SUPPORT = Path(__file__).resolve().parent / 'editor_local'
 CSP = "default-src 'self'; connect-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self' data:; object-src 'none'; base-uri 'self'"
 
 
+def camera_defaults():
+    return {'local': {'enabled': False, 'stream_enabled': False, 'hflip': False, 'vflip': False,
+                     'resolution': 0, 'jpeg_quality': 55,
+                     'image': {'brightness': 0, 'contrast': 128, 'saturation': 128, 'hue': 0,
+                               'wb_red': 100, 'wb_blue': 100, 'sharpen': 100, 'denoise': 100,
+                               'tone_shadows': 0, 'tone_highlights': 0},
+                     'motion': {'enabled': False, 'ignore_lighting': True, 'threshold': 8,
+                                'min_area': 0, 'min_duration_ms': 0, 'cooldown_ms': 1000,
+                                'start_delay_ms': 2000, 'zones': []}}, 'sources': []}
+
+
 def demo_fixture(variant):
     wide, compact, _devices = fixtures()
     _, gallery = prepare_fixture(json.loads(DATA.read_text(encoding='utf-8')), variant)
@@ -107,6 +118,9 @@ def demo_responses(variant, fixture_path=None, all_widgets=False):
         'media_parameters': {'multicast_address': '224.0.23.12', 'udp_port': 3671,
                              'transport_mode': 'routing', 'interface_identifier': 'Local simulation', 'nat': False},
         'comObjects': []}
+    responses['/api/camera/config'] = dict(camera_defaults(), defaults=camera_defaults(),
+                                          supported=variant == 'panel10', motion_supported=True, local_only=True)
+    responses['/api/camera/status'] = dict(valid=False, ready=False, trigger_count=0, zones=[], local_only=True)
     return responses, templates
 
 
@@ -117,7 +131,7 @@ class Store:
         self.display_test = {"kind": "active", "percent": 0, "until": 0.0}
         if self.path.exists() and not reset:
             saved = json.loads(self.path.read_text(encoding='utf-8'))
-            for key in ('/api/layout', '/api/settings', '/api/knx', '/api/knx/config'):
+            for key in ('/api/layout', '/api/settings', '/api/knx', '/api/knx/config', '/api/camera/config'):
                 if key in saved: responses[key] = saved[key]
         if reset: self.persist()
 
@@ -128,7 +142,7 @@ class Store:
 
     def persist(self):
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        saved = {key: self.responses[key] for key in ('/api/layout', '/api/settings', '/api/knx', '/api/knx/config')}
+        saved = {key: self.responses[key] for key in ('/api/layout', '/api/settings', '/api/knx', '/api/knx/config', '/api/camera/config')}
         temporary = self.path.with_suffix('.tmp')
         temporary.write_text(json.dumps(saved, ensure_ascii=False, indent=2), encoding='utf-8')
         temporary.replace(self.path)
@@ -208,6 +222,8 @@ def build_server(port=8766, variant='paneljc', fixture_path=None, state_path=Non
                 return self.reply({'spike': bool(extra), 'ui': default_ui, 'variant': variant,
                                    'canvas_w': GEOMETRY[variant][0], 'canvas_h': GEOMETRY[variant][2]})
             if not url.path.startswith('/api/'): return super().do_GET()
+            if url.path in ('/api/camera/snapshot', '/api/camera/stream'):
+                return self.reply({'error': 'Local simulation has no camera image'}, 503)
             with store.lock:
                 if url.path == '/api/ha/light_entities':
                     domains = query.get('domain', ['sensor'])[0].split(',')
@@ -256,6 +272,18 @@ def build_server(port=8766, variant='paneljc', fixture_path=None, state_path=Non
             if not isinstance(body, dict): return self.reply({'error': 'Expected a JSON object'}, 400)
             path = urlsplit(self.path).path
             with store.lock:
+                if path == '/api/camera/config' and self.command == 'PUT':
+                    if not isinstance(body.get('local'), dict) or not isinstance(body.get('sources'), list):
+                        return self.reply({'error': 'Invalid local camera configuration'}, 400)
+                    # This editor never opens a camera or connects to saved URLs.
+                    value = responses[path]
+                    value.update(local=body['local'], sources=body['sources'])
+                    for source in value['sources']:
+                        source['password_set'] = bool(source.pop('password', source.get('password_set', False)))
+                    store.persist()
+                    return self.reply(value)
+                if path == '/api/camera/test' and self.command == 'POST':
+                    return self.reply({'ok': False, 'local_only': True, 'error': 'Local simulation has no motion sensor'}, 503)
                 if path == '/api/knx' and self.command == 'PUT':
                     if set(body) != {'enabled'} or type(body['enabled']) is not bool:
                         return self.reply({'error': 'Expected boolean enabled'}, 400)

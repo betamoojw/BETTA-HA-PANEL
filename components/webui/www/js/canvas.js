@@ -1179,6 +1179,7 @@ function renderInspector() {
     }
     if (el.cameraOptions) el.cameraOptions.classList.add("hidden");
     if (el.fCameraLive) el.fCameraLive.checked = false;
+    if (el.fCameraSource) el.fCameraSource.value = "";
     bambuResetInspector(); evccResetInspector();
     for (const input of [el.fCarPrecond, el.fCarLock, el.fCarTemp, el.fEtlStyle, el.fEtlCharge, el.fEtlDischarge, el.fEtlSoc, el.fEtlForecast]) {
       if (input) input.value = "";
@@ -1346,6 +1347,7 @@ function renderInspector() {
   }
   if (el.cameraOptions) el.cameraOptions.classList.toggle("hidden", widget.type !== "camera_tile");
   if (el.fCameraLive) el.fCameraLive.checked = widget.type === "camera_tile" && widget.camera_live === true;
+  if (el.fCameraSource) el.fCameraSource.value = widget.camera_source || "";
   if (el.lockOptions) el.lockOptions.classList.toggle("hidden", widget.type !== "lock_tile");
   if (el.fLockConfirm) el.fLockConfirm.checked = widget.type === "lock_tile" && widget.lock_confirm === true;
   alarmLoadInspector(widget);
@@ -2107,6 +2109,7 @@ function addWidget(type, options = {}) {
     widget.secondary_entity_id = DEFAULT_SONOS_FAVORITES_SENSOR;
   }
 
+  if(type==="camera_tile"&&options.cameraSource){widget.camera_source=options.cameraSource;widget.camera_live=true;widget.entity_id="";}
   page.widgets.push(widget);
   editor.selectedWidgetId = id;
   renderAll();
@@ -2189,7 +2192,9 @@ function applyInspector(options = {}) {
   const tertiaryConfig = tertiaryEntityConfigForWidgetType(widgetType);
   const nextEntityId = el.fEntity.value.trim() || pickDefaultEntityForWidgetType(widgetType, sliderDomain, buttonMode);
 
-  const primaryEntityValid = entityMatchesWidgetType({ id: nextEntityId }, widgetType, sliderDomain, buttonMode);
+  const cameraSource=widgetType==="camera_tile"?(el.fCameraSource?.value.trim()||""):"";
+  if(cameraSource&&!/^[a-z0-9_-]{1,23}$/.test(cameraSource))return false;
+  const primaryEntityValid = !!cameraSource || entityMatchesWidgetType({ id: nextEntityId }, widgetType, sliderDomain, buttonMode);
   if (!primaryEntityValid && !softEntityValidation) {
     const allowedDomains = allowedEntityDomainsForWidgetType(widgetType, sliderDomain, buttonMode);
     const allowedHint = allowedDomains.length ? allowedDomains.join(", ") : t("layout.status.expected_domain");
@@ -2200,8 +2205,9 @@ function applyInspector(options = {}) {
   widget.title = el.fTitle.value.trim();
   const previousEntityId = String(widget.entity_id || "");
   if (primaryEntityValid) {
-    widget.entity_id = nextEntityId;
+    widget.entity_id = cameraSource ? "" : nextEntityId;
   }
+  if(cameraSource)widget.camera_source=cameraSource;else delete widget.camera_source;
   if (widgetType === "solar_forecast") {
     // Store what the user typed; an emptied field stays empty (slot disabled).
     widget.forecast_today_entity_id = el.fSolarForecastToday?.value.trim() ?? "";

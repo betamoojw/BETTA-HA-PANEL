@@ -2,6 +2,8 @@
  * Copyright (c) 2026 andre68723 -- see docs/release-notes.md
  */
 #include "ha/ha_camera_stream.h"
+#include "camera/camera_source_fetch.h"
+#include "camera/camera_config.h"
 #include "ha/ha_client.h"
 #include "ha/mjpeg_parser.h"
 #include "esp_crt_bundle.h"
@@ -103,10 +105,21 @@ static bool frame_ready(void *user, const uint8_t *jpeg, size_t length)
 static void stream_task(void *user)
 {
     ha_camera_stream_t *s = user;
-    uint8_t *jpeg = heap_caps_malloc(MJPEG_FRAME_MAX, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    bool custom=!strncmp(s->path,"betta-camera:",13);
+    uint8_t *jpeg = custom ? NULL : heap_caps_malloc(MJPEG_FRAME_MAX, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     unsigned failures = 0;
-    if (!jpeg) status_set(s, HA_CAMERA_FAILED);
-    while (jpeg && !cancelled(s) && failures < 3) {
+    if (!custom && !jpeg) status_set(s, HA_CAMERA_FAILED);
+    while ((custom || jpeg) && !cancelled(s) && failures < 3) {
+        if(custom){
+            uint8_t *picture=NULL;size_t length=0;
+            esp_err_t err=camera_source_fetch(s->path+13,&picture,&length);
+            if(!cancelled(s)&&err==ESP_OK&&frame_ready(s,picture,length))failures=0;
+            else if(!cancelled(s)){failures++;status_set(s,HA_CAMERA_WAITING);}
+            heap_caps_free(picture);
+            int delay=camera_source_refresh_ms(s->path+13);
+            for(int elapsed=0;elapsed<delay&&!cancelled(s);elapsed+=100)vTaskDelay(pdMS_TO_TICKS(100));
+            continue;
+        }
         if (!ready()) {
             status_set(s, HA_CAMERA_WAITING);
             vTaskDelay(pdMS_TO_TICKS(250));
@@ -184,7 +197,13 @@ static void stream_task(void *user)
 ha_camera_stream_t *ha_camera_stream_start(const char *entity_id, int width, int height)
 {
     char path[144];
-    if (!mjpeg_camera_path(entity_id, path, sizeof(path)) || width < 16 || height < 16) return NULL;
+    bool custom=entity_id&&!strncmp(entity_id,"betta-camera:",13);
+    if(custom){
+        const char *id=entity_id+13;
+        if(strcmp(id,"local")&&!camera_source_id_valid(id))return NULL;
+        snprintf(path,sizeof(path),"%s",entity_id);
+    }else if(!mjpeg_camera_path(entity_id,path,sizeof(path)))return NULL;
+    if(width<16||height<16)return NULL;
     taskENTER_CRITICAL(&s_count_lock);
     bool available = s_workers < 2;
     if (available) s_workers++;

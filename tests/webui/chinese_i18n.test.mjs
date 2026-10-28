@@ -7,7 +7,7 @@ import vm from 'node:vm';
 
 const read = path => fs.readFileSync(new URL('../../' + path, import.meta.url), 'utf8');
 const context = vm.createContext({});
-for (const name of ['i18n', 'i18n-knx', 'i18n-es', 'i18n-fr', 'i18n-pl', 'i18n-zh-cn', 'i18n-zh-tw']) {
+for (const name of ['i18n', 'i18n-camera', 'i18n-knx', 'i18n-es', 'i18n-fr', 'i18n-pl', 'i18n-zh-cn', 'i18n-zh-tw']) {
   vm.runInContext(read(`components/webui/www/js/${name}.js`), context);
 }
 const catalogs = JSON.parse(vm.runInContext('JSON.stringify(WEB_I18N_BUILTIN)', context));

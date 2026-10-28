@@ -12,7 +12,8 @@ const registry = {media_type:"knx_ip",comObjects:[{id:"lamp",name:"客厅灯",wr
 const stored = {
   "/api/layout":{pages:[]}, "/api/settings":{ui:{language:"en"},hardware:{rotation:180}},
   "/api/themes":{themes:[]}, "/api/i18n/languages":{languages:[]},
-  "/api/knx":{enabled:true}, "/api/knx/config":registry
+  "/api/knx":{enabled:true}, "/api/knx/config":registry,
+  "/api/camera/config":{local:{enabled:false,stream_enabled:false},sources:[{id:"door",source:"http",snapshot_url:"http://camera.test/jpeg",password_set:true}]}
 };
 function setup(backup, failKnx=false) {
   const writes=[], message={}, nodes={settingsBackupMsg:message,settingsBackupFile:{files:[{text:async()=>JSON.stringify(backup)}]}};
@@ -41,6 +42,15 @@ test("full backup includes KNX configuration and enable preference without chang
   assert.deepEqual(restore.writes.slice(0,2),[
     {path:"/api/knx/config",body:registry},{path:"/api/knx",body:{enabled:true}}
   ]);
+});
+
+test("full backup includes camera preferences and redacted sources; restore keeps IDs and opt-in",async()=>{
+  const s=setup();await s.run("downloadBackup()");const backup=await s.exported();
+  assert.deepEqual(backup.cameras,stored["/api/camera/config"]);
+  assert.equal('password' in backup.cameras.sources[0],false);
+  const restore=setup(backup);await restore.run("restoreBackup()");
+  assert.deepEqual(restore.writes.find(w=>w.path==='/api/camera/config').body,backup.cameras);
+  assert.equal(backup.settings.ui.language,'en');assert.equal(backup.settings.hardware.rotation,180);
 });
 test("legacy backups leave KNX intact and rejected registries cannot enable it",async()=>{
   const backup={format:"betta-panel-backup",layout:{pages:[]},settings:{ui:{language:"en"}}};

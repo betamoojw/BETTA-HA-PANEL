@@ -61,6 +61,19 @@ int sim_camera_regression(void)
     lv_obj_delete(widget.obj); advance();
     CHECK(lv_obj_get_child_count(lv_layer_top()) == 0 && sim_camera_active() == 0);
     CHECK(sim_host_service_calls()->count == 0);
+    for(int i=0;i<2;i++){
+        snprintf(def.camera_source,sizeof(def.camera_source),"%s",i?"door":"local");
+        sim_camera_output_enabled(false);
+        CHECK(w_camera_create(&def,lv_screen_active(),&widget)==ESP_OK);advance();
+        CHECK(sim_camera_active()==0);
+        sim_camera_output_enabled(true);advance();advance();CHECK(sim_camera_active()==1);
+        lv_obj_t *feed=lv_obj_get_child(widget.obj,2),*image=lv_obj_get_child(feed,0);
+        CHECK(!lv_obj_is_hidden(image));
+        sim_camera_output_enabled(false);advance();CHECK(sim_camera_active()==0);
+        CHECK(lv_obj_is_hidden(image)&&lv_image_get_src(image)==NULL);
+        lv_obj_delete(widget.obj);advance();
+    }
+    sim_camera_output_enabled(true);
     printf("camera lifecycle: %u checks passed\n", checks);
     return 0;
 }

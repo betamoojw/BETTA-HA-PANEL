@@ -25,6 +25,7 @@ www/css/inspector.css compact Inspector fields, tabs and independently scrolling
 www/js/config.js      constants, the entity picker configurations
 www/js/i18n.js        built-in translations (en, de)
 www/js/i18n-knx.js    KNX additions to the English and German catalogs
+www/js/i18n-camera.js camera additions to the English and German catalogs
 www/js/i18n-{es,fr,pl,zh-*}.js generated additional catalogs (sources in components/webui/i18n/)
 www/js/state.js       size limits, the `editor` state object, the DOM element map `el`
 www/js/util.js        normalizers, layout normalization, status line, `t()`, storage
@@ -51,6 +52,7 @@ www/js/theme.js       theme editor
 www/js/menus.js       dropdown menus
 www/js/xiaozhi.js     optional panel-microphone assistant controls and bounded status polling
 www/js/knx.js         optional KNX Routing configuration, status and commissioning controls
+www/js/camera-editor.js camera settings, timed preview, motion zones and saved source management
 www/js/main.js        calls `bootstrap()` once everything has loaded
 ```
 

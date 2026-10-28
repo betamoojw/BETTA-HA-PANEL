@@ -5,6 +5,8 @@
 #include "ha/ha_camera_stream.h"
 #include "ha/ha_client.h"
 #include "camera_test_platform.h"
+#include "camera/camera_source_fetch.h"
+#include "camera/camera_config.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -12,6 +14,7 @@
 static unsigned checks, allocations, semaphores, opens, decodes, reads;
 static int code = 401;
 static bool blocked, busy, fail_task, fail_heap, silence, consume;
+static bool custom_run, offline;
 static int64_t clock_ms = 1000;
 static const char *content_type = "multipart/x-mixed-replace;boundary=--x";
 static const char body[] = "--x\r\nContent-Type: image/jpeg\r\nContent-Length: 8\r\n\r\n"
@@ -21,6 +24,13 @@ static ha_camera_stream_t *owner;
 static esp_http_client_config_t configuration;
 static struct { void (*run)(void *); void *arg; } tasks[8];
 static unsigned task_count;
+esp_err_t camera_source_fetch(const char *id,uint8_t **jpeg,size_t *len){
+    (void)id;*jpeg=NULL;*len=0;
+    if(!custom_run)return ESP_FAIL;
+    *jpeg=heap_caps_malloc(8,MALLOC_CAP_SPIRAM);*len=8;memcpy(*jpeg,"\xff\xd8" "ABCD" "\xff\xd9",8);return ESP_OK;
+}
+int camera_source_refresh_ms(const char *id){(void)id;return 500;}
+bool camera_source_id_valid(const char *id){return id&&*id&&strlen(id)<24;}
 #define CHECK(c) do { checks++; if (!(c)) { fprintf(stderr, "Camera worker %d: %s\n", __LINE__, #c); exit(1); } } while (0)
 
 void *heap_caps_malloc(size_t n, unsigned caps)
@@ -47,9 +57,14 @@ BaseType_t xTaskCreatePinnedToCoreWithCaps(void (*run)(void *), const char *name
     tasks[task_count].run = run; tasks[task_count++].arg = arg; return pdPASS;
 }
 void vTaskDeleteWithCaps(void *task) {}
-void vTaskDelay(TickType_t ms) { clock_ms += ms; busy = false; }
+void vTaskDelay(TickType_t ms) {
+    clock_ms += ms; busy = false;
+    if(custom_run&&owner){ha_cover_result_t frame={0};ha_camera_stream_status_t status;
+        CHECK(ha_camera_stream_take(owner,&frame,&status)&&status==HA_CAMERA_LIVE);
+        ha_cover_result_release(&frame);ha_camera_stream_stop(owner);owner=NULL;}
+}
 int64_t esp_timer_get_time(void) { return clock_ms * 1000; }
-bool ha_client_is_connected(void) { return true; }
+bool ha_client_is_connected(void) { return !offline; }
 bool ha_client_heavy_gate_is_busy(void) { return busy; }
 bool ha_client_get_http_context(ha_client_http_ctx_t *ctx)
 {
@@ -147,5 +162,10 @@ int main(void)
     CHECK(reads - before <= 60);
     CHECK(!ha_camera_stream_take(a, &frame, &status) && status == HA_CAMERA_FAILED);
     ha_camera_stream_stop(a); clean();
+    custom_run=true;offline=true;before=opens;
+    owner=ha_camera_stream_start("betta-camera:local",800,640);CHECK(owner);run_tasks();
+    CHECK(!owner&&opens==before);clean();
+    owner=ha_camera_stream_start("betta-camera:door",320,200);CHECK(owner);run_tasks();
+    CHECK(!owner&&opens==before);clean();
     printf("Camera worker: %u checks passed (HTTP failures, framing, silence, cancellation, bounds, ownership)\n", checks);
 }

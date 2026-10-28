@@ -866,6 +866,8 @@ static bool ui_runtime_widget_from_json(cJSON *widget_json, ui_widget_def_t *out
     out->hide_name = !widget_show_name(widget_json);
     out->lock_confirm = cJSON_IsTrue(lock_confirm);
     out->camera_live = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(widget_json, "camera_live"));
+    const cJSON *camera_source=cJSON_GetObjectItemCaseSensitive(widget_json,"camera_source");
+    if(cJSON_IsString(camera_source))snprintf(out->camera_source,sizeof(out->camera_source),"%s",camera_source->valuestring);
     out->alarm_actions = ha_alarm_action_mask_parse(cJSON_GetObjectItemCaseSensitive(widget_json, "alarm_actions"));
     out->history_popup = cJSON_IsTrue(history_popup);
     out->sensor_show_age = true;

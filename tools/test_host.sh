@@ -30,7 +30,7 @@ cc -std=c11 -Wall -Wextra -Werror -I main \
 rm -f "$ambient_test"
 cc -std=c11 -Wall -Wextra -Werror -I main -I tests/host -I tests/host/stubs \
   -DCONFIG_APP_FEATURE_AMBIENT_CAMERA=1 -DCONFIG_APP_PANEL_VARIANT_10INCH_1280=1 -DAMBIENT_CAMERA_TEST \
-  tests/host/test_ambient_camera_runtime.c main/drivers/ambient_camera_policy.c -lm -o "$ambient_test"
+  tests/host/test_ambient_camera_runtime.c main/drivers/ambient_camera_policy.c main/camera/camera_motion.c -lm -o "$ambient_test"
 "$ambient_test"
 rm -f "$ambient_test"
 cjson_flags=()
@@ -47,6 +47,10 @@ else
 fi
 out="$(mktemp -d)"
 trap 'rm -rf "$out"' EXIT
+cc -std=c11 -Wall -Wextra -Werror -I main "${cjson_flags[@]}" \
+  tests/host/test_camera_config.c main/camera/camera_config.c main/camera/camera_motion.c main/camera/camera_image.c \
+  "${cjson_sources[@]}" "${cjson_libs[@]}" -lm -o "$out/test_camera_config"
+"$out/test_camera_config"
 cc -std=gnu11 -Wall -Wextra -Werror -I main tests/host/test_http_socket_budget.c -o "$out/test_http_socket_budget"
 "$out/test_http_socket_budget"
 cc -std=gnu11 -Wall -Wextra -Werror -DXIAOZHI_FONT_TEST -I main tests/host/test_xiaozhi_font_store.c \
@@ -110,6 +114,13 @@ cc -std=gnu11 -Wall -Wextra -Werror -Wno-unused-parameter -g -I main \
 cc -std=gnu11 -Wall -Wextra -Werror -Wno-unused-parameter -g -I tests/host/camera_stubs -I main \
   tests/host/test_camera_stream.c main/ha/ha_camera_stream.c main/ha/mjpeg_parser.c -o "$out/test_camera_stream"
 "$out/test_camera_stream"
+cc -std=gnu11 -Wall -Wextra -Werror -I tests/host/camera_stubs -I main \
+  tests/host/test_camera_source.c main/camera/camera_source_fetch.c -o "$out/test_camera_source"
+"$out/test_camera_source"
+cc -std=gnu11 -Wall -Wextra -Werror -I tests/host/camera_stubs -I tests/host/stubs -I main \
+  -DCONFIG_APP_FEATURE_AMBIENT_CAMERA=1 -DCONFIG_APP_PANEL_VARIANT_10INCH_1280=1 \
+  tests/host/test_camera_output.c main/camera/camera_output.c main/camera/camera_image.c -lm -o "$out/test_camera_output"
+"$out/test_camera_output"
 
 cc -std=gnu11 -Wall -Wextra -Werror -g -I main -I tests/host/stubs \
   "${variant_flags[@]}" "${cjson_flags[@]}" tests/host/test_camera_layout.c \

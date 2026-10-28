@@ -11,6 +11,7 @@ unsigned sim_camera_active(void);
 unsigned sim_camera_starts(void);
 void sim_camera_status(ha_camera_stream_status_t value);
 void sim_camera_sleep(bool value);
+void sim_camera_output_enabled(bool value);
 
 void sim_host_energy_set(const ha_energy_snapshot_t *snapshot);
 void sim_host_state_add(const ha_state_t *state);

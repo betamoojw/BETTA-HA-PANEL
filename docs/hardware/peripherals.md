@@ -12,7 +12,7 @@ short bursts of frames (40 for a light reading every 20 s, 8
 for movement about every 1.3 s while the display is dimmed), a 16x16 luma grid,
 exposure and gain; PSRAM for two 1288x728 RGB565 buffers (about 3.8 MB), a 6 KB task.
 The sensor's SCCB shares the touch I2C bus (GPIO 7/8). The camera is only opened while
-"automatic brightness" or "wake on approach" is enabled. The calibration is rough (dark
+"automatic brightness", "wake on approach", advanced motion or a temporary test is enabled. The calibration is rough (dark
 room about -6.3, a phone light in front of the lens about -5.7, daylight in the study about
 -4.65); `ambient_light_percent()` in `ambient_camera_policy.c` maps -6.3 / -4.6 to 10..100 %.
 
@@ -22,7 +22,8 @@ LCD-X (`panel10`) uses its OV5647 front camera on the BSP-owned GPIO7/8 I2C
 bus, with no separate reset or power-down GPIO, matching Waveshare's camera
 example. The 800×640 RAW8 mode needs two RGB565 buffers totalling 2,048,000
 bytes in PSRAM. Runtime sensing starts off; the task opens the camera only on
-an enabled automation or a 30-second test. The OV5647's internal AEC/AGC keeps
+an enabled automation, advanced motion, a 30-second test or explicit picture demand.
+The OV5647's internal AEC/AGC keeps
 image brightness steady, so the driver reads actual exposure/gain statistics
 instead of treating its exposure-target control as a shutter measurement.
 The current light curve comes from JC measurements; wider LCD-X calibration is
@@ -39,7 +40,10 @@ start, `REQBUFS` clears queued buffers so a later retry does not fail at `QBUF`.
 light statistics. The test API rejects unsupported/unavailable cameras; a failed
 capture invalidates motion. The 30-second deadline is protected across tasks and
 cannot be extended by repeated start requests or sensitivity edits. Frames stay
-in volatile PSRAM; only scalar sensing results are exposed by the API.
+in volatile PSRAM. Automation exposes scalar sensing results; LCD-X has separate,
+default-off JPEG/MJPEG output through the same capture owner. See
+[Local camera](../development/local-camera.md) for its image controls, motion zones,
+resource bounds and pending hardware checks.
 
 ## Optional chime output
 

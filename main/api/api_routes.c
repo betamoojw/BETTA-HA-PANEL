@@ -3,6 +3,7 @@
  * Modified 2026 by andre68723 in the andre68723/BETTA-HA-PANEL fork, see docs/release-notes.md
  */
 #include "api/api_routes.h"
+#include "api/api_camera_local.h"
 #include "xiaozhi/xiaozhi.h"
 #include "knx/knx.h"
 #include "api/http_guard.h"
@@ -528,5 +529,5 @@ esp_err_t api_routes_register(httpd_handle_t server)
     ESP_RETURN_ON_ERROR(
         httpd_register_uri_handler(server, &post_notifications), "api_routes", "POST /api/notifications");
 
-    return ESP_OK;
+    return api_camera_local_register(server);
 }

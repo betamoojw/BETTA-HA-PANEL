@@ -79,7 +79,9 @@ GUIDANCE = {
                    "Enable **Live picture (MJPEG)** in the Inspector to stream while visible and tap to open a full-screen view. "
                    "Live is off by default. It accepts Home Assistant camera entities that provide MJPEG; RTSP, H.264/H.265 and audio are not supported. "
                    "The source camera determines how often a new image is available. Streams pause on hidden pages, under popups and during display protection. "
-                   "At most two streams run at once; other live tiles wait. This feature is separate from the onboard ambient-light camera.",
+                   "At most two streams run at once; other live tiles wait. "
+                   "For the LCD-X built-in camera or a saved IP/HA JPEG source, use **Settings → Cameras → Add to tile** or enter its ID in **Camera source**. "
+                   "A source ID overrides the entity binding. Built-in image output needs its own explicit enable; see [Cameras](../cameras.md).",
     "room_tile": "Select the main room entity and up to seven additional entities, or import an area in the editor. Choose humidity, cover or media as the optional extra readout/action, or tick Controls on the card for lights, switches and covers as buttons (needs a card of about 400 x 240 px).",
     "energy_timeline": "Use cumulative energy counters with Recorder statistics. A wider card reveals more details; rings and the timeline share the selected presentation. Under Appearance → Colors, change the six flow colors using the swatches or HEX values. Reset to defaults restores the original palette. Colors also apply to the detail popup.",
     "sonos_favorites": "Assign the target media player and the Sonos favourites sensor as the list source.",

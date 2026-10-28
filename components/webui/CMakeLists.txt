@@ -11,6 +11,7 @@
 set(WEBUI_JS_SOURCES
     js/config.js
     js/i18n.js
+    js/i18n-camera.js
     js/i18n-knx.js
     js/i18n-es.js
     js/i18n-fr.js
@@ -45,6 +46,7 @@ set(WEBUI_JS_SOURCES
     js/remote-display.js
     js/xiaozhi.js
     js/knx.js
+    js/camera-editor.js
     js/main.js)
 
 # Base editor styles first, then one file per appearance style (docs/appearance.md).
@@ -58,6 +60,7 @@ set(WEBUI_CSS_SOURCES
     css/readability.css
     css/preview-fit.css
     css/settings.css
+    css/camera.css
     css/layout-toolbar.css
     css/layout-actions.css
     css/evcc-wallbox.css

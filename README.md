@@ -42,6 +42,8 @@ The hardware table below says what has been tried on a device.
   English/German UI and custom themes or translations.
 - **Manage the panel:** brightness and night mode, HTTP/MQTT notifications,
   backup/restore, OTA updates and device diagnostics from the editor.
+- **View cameras:** optional LCD-X JPEG/MJPEG output, image controls, motion zones
+  and saved IP/HA sources in [Cameras](docs/cameras.md). Image output starts off.
 
 The [feature guide](docs/features.md), [widget library](docs/widgets/README.md) and
 [integration guide](docs/home-assistant.md) cover the details.
@@ -53,7 +55,7 @@ The [feature guide](docs/features.md), [widget library](docs/widgets/README.md) 
 | `panel4` | Waveshare ESP32-P4-WIFI6-Touch-LCD-4B, 4-inch | 720 × 720 | Runs on hardware |
 | `panels3` | [Guition ESP32-S3-4848S040](docs/hardware/panels3.md), 4-inch | 480 × 480 | Build/simulator, physical display/touch and LAN editor/API checked; OTA trial pending |
 | `tab5` | **M5Stack Tab5**, 5-inch | 1280 × 720 / 720 × 1280, automatic rotation | ST7121/v1.3 device trial on 2026-10-05 |
-| `panel10` | Waveshare ESP32-P4-WIFI6-Touch-LCD-10.1 | 1280 × 800 | Profile compile checked with Nano BSP; LCD-X trial pending |
+| `panel10` | Waveshare ESP32-P4-WIFI6-Touch-LCD-10.1 | 1280 × 800 | LCD-X v3.2 display/touch, LAN and basic camera automation trial passed; expanded camera output trial pending |
 | `paneljc` | Guition JC8012P4A1, 10.1-inch, original/V1 panel | 1280 × 800 | Runs on hardware |
 | `paneljc-v2` | Guition JC8012P4A1, 10.1-inch, V2 panel | 1280 × 800 | Compile checked |
 

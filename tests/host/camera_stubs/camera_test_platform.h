@@ -11,16 +11,25 @@
 typedef int esp_err_t;
 #define ESP_OK 0
 #define ESP_FAIL -1
+#define ESP_ERR_INVALID_ARG 0x102
+#define ESP_ERR_INVALID_STATE 0x103
+#define ESP_ERR_NO_MEM 0x101
+#define ESP_ERR_INVALID_SIZE 0x104
+#define ESP_ERR_INVALID_RESPONSE 0x108
+#define ESP_ERR_TIMEOUT 0x107
 #define ESP_ERR_HTTP_EAGAIN 0x7007
 typedef struct { uint32_t w, h; } lv_test_image_header_t;
 typedef struct { lv_test_image_header_t header; const uint8_t *data; size_t data_size; } lv_image_dsc_t;
 typedef uint32_t TickType_t;
 typedef int BaseType_t;
 typedef void *SemaphoreHandle_t;
+typedef int StaticSemaphore_t;
 typedef int portMUX_TYPE;
 #define portMUX_INITIALIZER_UNLOCKED 0
 #define taskENTER_CRITICAL(p) ((void)(p))
 #define taskEXIT_CRITICAL(p) ((void)(p))
+#define portENTER_CRITICAL(p) ((void)(p))
+#define portEXIT_CRITICAL(p) ((void)(p))
 #define portMAX_DELAY UINT32_MAX
 #define pdTRUE 1
 #define pdPASS 1
@@ -34,6 +43,7 @@ void heap_caps_free(void *);
 size_t heap_caps_get_free_size(unsigned);
 size_t heap_caps_get_largest_free_block(unsigned);
 SemaphoreHandle_t xSemaphoreCreateMutex(void);
+SemaphoreHandle_t xSemaphoreCreateMutexStatic(StaticSemaphore_t *);
 BaseType_t xSemaphoreTake(SemaphoreHandle_t, TickType_t);
 void xSemaphoreGive(SemaphoreHandle_t);
 void vSemaphoreDelete(SemaphoreHandle_t);
@@ -48,14 +58,20 @@ typedef struct {
     const char *url, *common_name;
     int timeout_ms, buffer_size, buffer_size_tx;
     bool disable_auto_redirect;
+    bool keep_alive_enable;
+    int method,auth_type;
+    const char *username,*password;
     esp_err_t (*event_handler)(esp_http_client_event_t *);
     void *user_data;
 } esp_http_client_config_t;
+#define HTTP_METHOD_GET 0
+#define HTTP_AUTH_TYPE_BASIC 1
 esp_http_client_handle_t esp_http_client_init(const esp_http_client_config_t *);
 esp_err_t esp_http_client_set_header(esp_http_client_handle_t, const char *, const char *);
 esp_err_t esp_http_client_open(esp_http_client_handle_t, int);
 int esp_http_client_fetch_headers(esp_http_client_handle_t);
 int esp_http_client_get_status_code(esp_http_client_handle_t);
 int esp_http_client_read(esp_http_client_handle_t, char *, int);
+bool esp_http_client_is_complete_data_received(esp_http_client_handle_t);
 void esp_http_client_close(esp_http_client_handle_t);
 void esp_http_client_cleanup(esp_http_client_handle_t);

@@ -37,6 +37,12 @@ session when the display resolution event fires, releasing old remote input.
 Its next connection uses the new geometry. Screen protection uses a relative
 overlay size so it follows both landscape and portrait.
 
+LCD-X built-in camera output follows the applied pose through a single RGB565
+transform before JPEG encoding. The raw camera reference is native zero (user
+rotation 90). Snapshots, MJPEG and native camera views share rotated output;
+quarter turns swap image dimensions. Saved motion regions stay in sensor
+coordinates, with rotated preview overlays. See [Local camera](local-camera.md).
+
 The optional Xiaozhi action shares the right-hand topbar layout with connection
 and settings icons. Its actual width is reserved before positioning the clock
 and left-hand slots, including AP, MQTT and crash-warning combinations. A fixed

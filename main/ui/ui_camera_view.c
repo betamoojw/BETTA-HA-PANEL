@@ -3,6 +3,7 @@
  */
 #include "ui/ui_camera_view.h"
 #include "ha/ha_camera_stream.h"
+#include "camera/camera_store.h"
 #include "ui/ui_display_protection.h"
 #include "ui/ui_i18n.h"
 #include "ui/ui_memory.h"
@@ -12,6 +13,7 @@
 #include "src/misc/cache/instance/lv_image_cache.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 typedef struct {
     lv_obj_t *root, *image, *message;
@@ -19,6 +21,7 @@ typedef struct {
     ha_camera_stream_t *stream;
     ha_cover_result_t frame;
     char entity[APP_MAX_ENTITY_ID_LEN];
+    uint32_t generation;
 } camera_feed_t;
 
 static bool covered(lv_obj_t *root)
@@ -50,6 +53,19 @@ static void fit(camera_feed_t *f)
 static void poll(lv_timer_t *timer)
 {
     camera_feed_t *f = lv_timer_get_user_data(timer);
+    if(!strncmp(f->entity,"betta-camera:",13)) {
+        uint32_t generation=camera_store_generation();
+        bool allowed=camera_store_output_allowed(f->entity+13);
+        if(!allowed||generation!=f->generation){
+            ha_camera_stream_stop(f->stream);f->stream=NULL;f->generation=generation;
+            lv_obj_set_hidden(f->image,true);lv_image_set_src(f->image,NULL);
+            lv_image_cache_drop(&f->frame.image);ha_cover_result_release(&f->frame);
+        }
+        if(!allowed){
+            lv_label_set_text(f->message,ui_i18n_get("camera.paused","Paused"));
+            lv_obj_set_hidden(f->message,false);return;
+        }
+    }
     if (covered(f->root)) {
         ha_camera_stream_stop(f->stream);
         f->stream = NULL;

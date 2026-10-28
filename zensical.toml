@@ -72,6 +72,7 @@ nav = [
     { "Look and behaviour" = [
       { "Appearance" = "appearance.md" },
       { "Display and brightness" = "display.md" },
+      { "Cameras" = "cameras.md" },
     ] },
     { "Home Assistant" = [
       { "Home Assistant setup" = "home-assistant.md" },
@@ -107,6 +108,7 @@ nav = [
       { "KNX" = "development/knx.md" },
       { "Xiaozhi resources" = "development/xiaozhi-resources.md" },
       { "Camera streaming" = "development/camera-streaming.md" },
+      { "Local camera" = "development/local-camera.md" },
       { "UI performance" = "development/ui-performance.md" },
       { "Security implementation" = "security-implementation.md" },
       { "Widget anatomy" = "widget-anatomy.md" },

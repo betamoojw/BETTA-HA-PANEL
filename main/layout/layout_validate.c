@@ -377,9 +377,20 @@ static bool validate_widget(cJSON *widget, const char *known_widget_ids, size_t 
     }
 
     bool requires_entity = true;
+    const cJSON *camera_source=cJSON_GetObjectItemCaseSensitive(widget,"camera_source");
+    bool camera_custom=false;
+    if(camera_source){
+        bool ok=cJSON_IsString(camera_source)&&cJSON_IsString(type)&&!strcmp(type->valuestring,"camera_tile")&&
+            strlen(camera_source->valuestring)>0&&strlen(camera_source->valuestring)<24;
+        if(ok)for(const char *p=camera_source->valuestring;*p;p++)
+            if(!((*p>='a'&&*p<='z')||(*p>='0'&&*p<='9')||*p=='_'||*p=='-'))ok=false;
+        if(!ok)layout_validation_add(result,"camera_source must be local or a saved camera id on a camera_tile");
+        camera_custom=ok;
+    }
     if (cJSON_IsString(type) && type->valuestring != NULL) {
         requires_entity = widget_requires_primary_entity(type->valuestring);
     }
+    if(camera_custom)requires_entity=false;
 
     if (requires_entity) {
         if (!cJSON_IsString(entity_id) || !is_valid_entity_id(entity_id->valuestring)) {
@@ -851,7 +862,7 @@ static bool validate_widget(cJSON *widget, const char *known_widget_ids, size_t 
         (cJSON_IsTrue(camera_live) && (!cJSON_IsString(type) || strcmp(type->valuestring, "camera_tile"))))) {
         layout_validation_add(result, "camera_live must be a boolean on a camera_tile");
     }
-    if (cJSON_IsTrue(camera_live) && cJSON_IsString(entity_id) &&
+    if (!camera_custom && cJSON_IsTrue(camera_live) && cJSON_IsString(entity_id) &&
         !entity_in_domain(entity_id->valuestring, "camera")) {
         layout_validation_add(result, "camera_live requires a camera.* entity (MJPEG)");
     }

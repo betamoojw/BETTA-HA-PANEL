@@ -41,3 +41,5 @@ The optional HTTP notification route needs YAML.
     [Choose your display](choose-display.md).
 
 For firmware development, builds and technical references, see [Development](development.md).
+
+For optional built-in pictures, motion zones and IP sources, see [Cameras](cameras.md).

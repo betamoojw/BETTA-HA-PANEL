@@ -1,0 +1,18 @@
+---
+Checks: >
+  -*,
+  clang-analyzer-core.*,
+  clang-analyzer-cplusplus.*,
+  clang-analyzer-deadcode.*,
+  clang-analyzer-security.*,
+  bugprone-*,
+  cert-*,
+  performance-*,
+  portability-*
+WarningsAsErrors: '*'
+HeaderFilterRegex: '(^|[/\])(main|components|tests)[/\].*'
+ExcludeHeaderFilterRegex: '(^|[/\])(build|managed_components|third_party|components[/\]webui[/\]www)[/\].*'
+SystemHeaders: false
+FormatStyle: file
+UseColor: true
+...

@@ -25,7 +25,7 @@ $repoRoot = Split-Path $PSScriptRoot -Parent
 Push-Location $repoRoot
 try {
     & "$env:IDF_PYTHON_ENV_PATH/Scripts/python.exe" "$env:IDF_PATH/tools/idf.py" `
-        -B "build/$Variant" -D "IDF_TARGET=$targetChip" `
+        --preset $Variant -B "build/$Variant" -D "IDF_TARGET=$targetChip" `
         -D "SDKCONFIG_DEFAULTS=$defaults" -D "SDKCONFIG=$repoRoot/build/$Variant/sdkconfig" @IdfArguments
     $buildExit = $LASTEXITCODE
     if ($buildExit -eq 0) {

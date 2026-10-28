@@ -32,7 +32,7 @@ esac
 [ -z "${EXTRA_DEFAULTS:-}" ] || defaults="$defaults;$EXTRA_DEFAULTS"
 command -v idf.py >/dev/null 2>&1 || { echo "idf.py not found: source ESP-IDF's export.sh first"; exit 2; }
 rc=0
-idf.py -B "build/$variant" -D "IDF_TARGET=$target" \
+idf.py --preset "$variant" -B "build/$variant" -D "IDF_TARGET=$target" \
   -D "SDKCONFIG_DEFAULTS=$defaults" -D "SDKCONFIG=$PWD/build/$variant/sdkconfig" "$@" || rc=$?
 
 # Keep the ELF of every successful build under .local/elf/<variant>/<sha256 prefix>.elf (git-ignored, the newest 12 per variant). A core

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LicenseRef-FNCL-1.1
  * Copyright (c) 2026 andre68723 -- see docs/release-notes.md
  */
+#include "ui/ui_transition.h"
 #include "ui/ui_camera_view.h"
 #include "ha/ha_camera_stream.h"
 #include "camera/camera_store.h"
@@ -150,7 +151,7 @@ static void view_deleted(lv_event_t *event)
 
 static void view_close(lv_event_t *event)
 {
-    lv_obj_delete_async(lv_event_get_user_data(event));
+    ui_transition_close_async(lv_event_get_user_data(event));
 }
 
 lv_obj_t *ui_camera_view_open(const char *entity, const char *title, void (*closed)(void *), void *user)
@@ -180,5 +181,6 @@ lv_obj_t *ui_camera_view_open(const char *entity, const char *title, void (*clos
     lv_obj_t *feed = ui_camera_feed_create(root, entity, w, h - head);
     if (feed) lv_obj_set_pos(feed, 0, head);
     else { lv_obj_delete(root); return NULL; }
+    ui_transition_fade_in(root);
     return root;
 }

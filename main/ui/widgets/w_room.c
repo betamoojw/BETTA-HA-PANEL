@@ -11,6 +11,7 @@
  * Inspired by the RoomCard for Home Assistant (lop1505/RoomCard), which
  * populates a room from a Home Assistant area; nothing was taken from it.
  */
+#include "ui/ui_transition.h"
 #include "ui/ui_widget_factory.h"
 
 #include <math.h>
@@ -676,10 +677,14 @@ static void room_layout(w_room_ctx_t *ctx)
 static void room_popup_close(w_room_ctx_t *ctx)
 {
     if (ctx->popup != NULL) {
-        lv_obj_t *p = ctx->popup;
-        ctx->popup = NULL;
-        lv_obj_del_async(p);
+        ui_transition_close_async(ctx->popup);
     }
+}
+
+static void room_popup_deleted(lv_event_t *event)
+{
+    w_room_ctx_t *ctx = lv_event_get_user_data(event);
+    ctx->popup = NULL;
 }
 
 static void room_popup_close_cb(lv_event_t *e)
@@ -718,6 +723,7 @@ static void room_show_popup(w_room_ctx_t *ctx)
 
     lv_obj_t *overlay = lv_obj_create(lv_layer_top());
     ctx->popup = overlay;
+    lv_obj_add_event_cb(overlay, room_popup_deleted, LV_EVENT_DELETE, ctx);
     lv_obj_set_size(overlay, sw, sh);
     lv_obj_set_scrollable(overlay, false);
     lv_obj_set_clickable(overlay, true);
@@ -804,6 +810,7 @@ static void room_show_popup(w_room_ctx_t *ctx)
         }
     }
     free(st);
+    ui_transition_fade_in(overlay);
 }
 
 static void room_extra_call(const w_room_ctx_t *ctx, room_action_t action)

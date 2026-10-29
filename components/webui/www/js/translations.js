@@ -552,6 +552,8 @@ setTextById("addBambuPrinterBtn", "layout.widgets.add_bambu_printer");
 
   setTextById("settingsLanguageLabel", "settings.ui.language");
   setTextById("settingsUiStyleLabel", "settings.ui.style");
+  setTextById("settingsPageAnimationsLabel", "settings.ui.page_animations");
+  setTextById("settingsPageAnimationsHint", "settings.ui.page_animations_hint");
   setTextById("settingsUiTextStepLabel", "settings.ui.text_step");
   if (el.settingsUiTextStep) {
     for (const opt of el.settingsUiTextStep.options) opt.textContent = t(`settings.ui.text_step.${opt.value}`);

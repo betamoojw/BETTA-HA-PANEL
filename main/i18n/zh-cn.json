@@ -617,7 +617,10 @@
       "light": "浅色",
       "ocean": "海洋",
       "contrast": "高对比度",
-      "black": "纯黑"
+      "black": "纯黑",
+      "page_animations": "页面动画",
+      "on": "开启",
+      "off": "关闭"
     },
     "alerts": {
       "title": "告警",

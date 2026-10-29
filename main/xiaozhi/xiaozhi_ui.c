@@ -9,6 +9,7 @@
 #include "ui/ui_i18n.h"
 #include "ui/ui_pages.h"
 #include "ui/ui_popup.h"
+#include "ui/ui_transition.h"
 #include "ui/fonts/app_symbols.h"
 #include "ui/theme/ui_typography.h"
 #include "ui/theme/ui_style.h"
@@ -21,14 +22,17 @@ typedef struct {
     lv_obj_t *button, *panel, *state, *emoji, *recognized, *reply, *chat, *talk;
     lv_timer_t *timer;
     uint32_t shown_seq, activity_seq, idle_since;
-    bool voice_opened;
+    bool voice_opened, dialog_visible;
     xiaozhi_status_t snapshot;
     lv_obj_t *otto;
     const lv_image_dsc_t *otto_asset;
 } view_t;
 static void set_dialog_visible(view_t *v, bool visible)
 {
-    lv_obj_set_hidden(v->panel, !visible);
+    if (v->dialog_visible == visible) return;
+    v->dialog_visible = visible;
+    if (visible) ui_transition_fade_in(v->panel);
+    else ui_transition_hide(v->panel);
     lv_obj_t *glyph = lv_obj_get_child(v->button, 0);
     if (visible) {
         lv_obj_add_state(v->button, LV_STATE_CHECKED);
@@ -45,8 +49,9 @@ static void stop_animation(view_t *v)
 }
 static void hide(view_t *v)
 {
-    stop_animation(v);
+    if (!v->dialog_visible) return;
     set_dialog_visible(v, false); xiaozhi_command("disconnect", 0);
+    if (lv_obj_is_hidden(v->panel)) stop_animation(v);
 }
 static void update_talk_mode(view_t *v)
 {
@@ -80,9 +85,12 @@ static void refresh(lv_timer_t *timer)
     }
     if (s->activity_seq != v->activity_seq) {
         v->activity_seq = s->activity_seq; v->idle_since = lv_tick_get();
-        if (!lv_obj_is_hidden(v->panel)) display_note_activity();
+        if (v->dialog_visible) display_note_activity();
     }
-    if (lv_obj_is_hidden(v->panel)) { stop_animation(v); return; }
+    if (!v->dialog_visible) {
+        if (lv_obj_is_hidden(v->panel)) stop_animation(v);
+        return;
+    }
     unsigned timeout = s->dialog_timeout >= 10 && s->dialog_timeout <= 300 ? s->dialog_timeout : 30;
     if (xiaozhi_dialog_expired(lv_tick_elaps(v->idle_since), 0, timeout)) { hide(v); return; }
     char key[80], text[128]; snprintf(key, sizeof(key), "xiaozhi.state.%s", s->state);
@@ -122,7 +130,7 @@ static void toggle(lv_event_t *e)
 {
     view_t *v = lv_event_get_user_data(e);
     /* A header click only opens manual controls; pressing Talk starts capture. */
-    if (lv_obj_is_hidden(v->panel)) show(v, false);
+    if (!v->dialog_visible) show(v, false);
     else hide(v);
 }
 static void close_clicked(lv_event_t *e) { hide(lv_event_get_user_data(e)); }

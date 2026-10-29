@@ -617,7 +617,10 @@
       "light": "淺色",
       "ocean": "海洋",
       "contrast": "高對比",
-      "black": "純黑"
+      "black": "純黑",
+      "page_animations": "頁面動畫",
+      "on": "開啟",
+      "off": "關閉"
     },
     "alerts": {
       "title": "警示",

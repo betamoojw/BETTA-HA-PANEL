@@ -5,6 +5,7 @@
  * temperature with minus / plus buttons, an operating mode chip and (when the
  * device has fan modes) a fan mode chip. Chips open a list to pick from.
  */
+#include "ui/ui_transition.h"
 #include "ui/ui_widget_factory.h"
 
 #include <math.h>
@@ -133,9 +134,7 @@ typedef struct {
 static void climate_popup_close(w_climate_ctx_t *ctx)
 {
     if (ctx != NULL && ctx->popup != NULL) {
-        lv_obj_t *p = ctx->popup;
-        ctx->popup = NULL;
-        lv_obj_del(p);
+        ui_transition_close(ctx->popup);
     }
 }
 
@@ -325,6 +324,7 @@ static void climate_show_popup(w_climate_ctx_t *ctx, unsigned kind)
         lv_obj_set_style_text_color(label, lv_color_hex(active ? 0x1B1300 : APP_UI_COLOR_TEXT_PRIMARY), LV_PART_MAIN);
         lv_obj_align(label, LV_ALIGN_LEFT_MID, 8, 0);
     }
+    ui_transition_fade_in(overlay);
 }
 
 static void climate_mode_btn_cb(lv_event_t *e)

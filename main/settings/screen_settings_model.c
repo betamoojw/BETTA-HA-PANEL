@@ -17,6 +17,7 @@ void screen_settings_read(screen_settings_t *out, const runtime_settings_t *sett
         settings->hardware_saver_timeout_minutes, clock->start_seconds, clock->brightness,
         clock->off_enabled, clock->off_seconds, clock->format_24h, clock->show_seconds, clock->show_date, clock->analog, settings->hardware_rotation / 90, settings->hardware_auto_rotation}};
     for (int i = 0; i < 5; i++) if (strcmp(settings->hardware_saver_mode, modes[i]) == 0) out->value[SCREEN_MODE] = i;
+    out->page_animations = settings->ui_page_animations;
     snprintf(out->language, sizeof(out->language), "%s", settings->ui_language);
     snprintf(out->timezone, sizeof(out->timezone), "%s", settings->time_tz);
     snprintf(out->style, sizeof(out->style), "%s", settings->ui_style);
@@ -30,6 +31,8 @@ void screen_settings_merge(runtime_settings_t *settings, const screen_settings_t
         snprintf(settings->time_tz, sizeof(settings->time_tz), "%s", patch->timezone);
     if (patch->dirty & SYSTEM_DIRTY(SYSTEM_STYLE))
         snprintf(settings->ui_style, sizeof(settings->ui_style), "%s", patch->style);
+    if (patch->dirty & SYSTEM_DIRTY(SYSTEM_ANIMATIONS))
+        settings->ui_page_animations = patch->page_animations;
     screen_settings_t merged;
     screen_settings_read(&merged, settings);
     static const int low[] = {1, 0, 5, 0, 1, 15, 1, 0, 30, 0, 0, 0, 0, 0, 0, 0};

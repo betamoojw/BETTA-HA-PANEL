@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LicenseRef-FNCL-1.1 | Copyright (c) 2026 andre68723
  * Minimal evcc loadpoint controls through Home Assistant; every displayed state is HA-confirmed. */
+#include "ui/ui_transition.h"
 #include "ui/ui_widget_factory.h"
 #include <math.h>
 #include <stdio.h>
@@ -135,7 +136,7 @@ static void number_deleted(lv_event_t *event)
 static void number_close(lv_event_t *event)
 {
     wallbox_t *ctx = lv_event_get_user_data(event);
-    if (ctx->number_popup) lv_obj_delete_async(ctx->number_popup);
+    if (ctx->number_popup) ui_transition_close_async(ctx->number_popup);
 }
 static void number_apply(lv_event_t *event)
 {
@@ -194,6 +195,7 @@ static void number_open(wallbox_t *ctx)
     lv_obj_add_event_cb(apply, number_apply, LV_EVENT_CLICKED, ctx);
     lv_obj_t *caption = lv_label_create(apply); ui_text_set(caption, UI_TEXT_LABEL, true);
     lv_label_set_text(caption, tr("evcc.apply", "Apply")); lv_obj_center(caption);
+    ui_transition_fade_in(overlay);
 }
 static void clicked(lv_event_t *event)
 {

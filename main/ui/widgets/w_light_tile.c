@@ -2,6 +2,7 @@
  * Copyright (c) 2026 Cpt_Kirk
  * Modified 2026 by andre68723 in the andre68723/BETTA-HA-PANEL fork, see docs/release-notes.md
  */
+#include "ui/ui_transition.h"
 #include "ui/ui_widget_factory.h"
 
 #include <stdbool.h>
@@ -1131,7 +1132,7 @@ static void light_popup_close_event_cb(lv_event_t *event)
     }
     light_popup_ctx_t *popup = (light_popup_ctx_t *)lv_event_get_user_data(event);
     if (popup != NULL && popup->overlay != NULL) {
-        lv_obj_del(popup->overlay);
+        ui_transition_close(popup->overlay);
     }
 }
 
@@ -1618,6 +1619,7 @@ static void w_light_tile_open_color_popup(w_light_tile_ctx_t *ctx)
         light_effect_label_update(ctx);
     }
     light_popup_show_band(popup, ctx->can_color_temp ? LIGHT_POPUP_BAND_KELVIN : LIGHT_POPUP_BAND_RGB);
+    ui_transition_fade_in(popup->overlay);
 }
 
 static void w_light_tile_color_button_event_cb(lv_event_t *event)

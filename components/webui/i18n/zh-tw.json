@@ -1573,5 +1573,7 @@
   "cam.tile_source": "攝影機來源",
   "cam.tile_hint": "留空以使用上方的 Home Assistant 實體，或輸入 local／「設定 → 攝影機」中儲存的 ID。",
   "cam.local_simulation": "本機模擬：未連接攝影機或感測器",
-  "cam.rotation_hint": "畫面自動跟隨螢幕旋轉。已儲存的移動區域始終偵測原來的攝影機區域。"
+  "cam.rotation_hint": "畫面自動跟隨螢幕旋轉。已儲存的移動區域始終偵測原來的攝影機區域。",
+  "settings.ui.page_animations": "頁面動畫",
+  "settings.ui.page_animations_hint": "頁面滑入，彈出視窗淡入淡出。關閉後立即切換。"
 }

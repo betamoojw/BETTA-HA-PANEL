@@ -3,6 +3,7 @@
  *
  * Moved out of the vacuum tile's cleaning-mode popup so the select tile shares it.
  */
+#include "ui/ui_transition.h"
 #include "ui/ui_option_picker.h"
 
 #include <stdlib.h>
@@ -46,14 +47,14 @@ static void picker_backdrop_cb(lv_event_t *event)
 {
     picker_t *picker = (picker_t *)lv_event_get_user_data(event);
     if (lv_event_get_target(event) == lv_event_get_current_target(event)) {
-        lv_obj_delete_async(picker->overlay);
+        ui_transition_close_async(picker->overlay);
     }
 }
 
 static void picker_close_cb(lv_event_t *event)
 {
     picker_t *picker = (picker_t *)lv_event_get_user_data(event);
-    lv_obj_delete_async(picker->overlay);
+    ui_transition_close_async(picker->overlay);
 }
 
 static void picker_option_cb(lv_event_t *event)
@@ -64,7 +65,7 @@ static void picker_option_cb(lv_event_t *event)
         picker->cfg.chosen(picker->cfg.user, index);
     }
     /* Not deleted in place: this row belongs to the overlay. */
-    lv_obj_delete_async(picker->overlay);
+    ui_transition_close_async(picker->overlay);
 }
 
 static lv_color_t picker_surface(void)
@@ -188,6 +189,7 @@ lv_obj_t *ui_option_picker_open(const ui_option_picker_cfg_t *cfg)
     if (current_btn != NULL) {
         lv_obj_scroll_to_view(current_btn, LV_ANIM_OFF); /* a long list opens at the current option */
     }
+    ui_transition_fade_in(overlay);
     return overlay;
 }
 

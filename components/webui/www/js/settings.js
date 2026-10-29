@@ -676,6 +676,7 @@ function renderSettings() {
   if (el.settingsLanguage) {
     el.settingsLanguage.value = normalizeUiLanguage(ui.language);
   }
+  fillPageAnimationSettings(ui);
   if (el.settingsUiStyle) {
     const style = normalizeUiStyle(ui.style);
     el.settingsUiStyle.value = style;
@@ -1579,7 +1580,7 @@ function settingsForBackup(s) {
     },
     hardware: { ...(s.hardware || {}) },
     time: { ntp_server: s.time?.ntp_server || "", timezone: s.time?.timezone || "" },
-    ui: { language: s.ui?.language || "de", style: s.ui?.style || UI_STYLE_DEFAULT, text_step: normalizeTextStep(s.ui?.text_step) },
+    ui: { language: s.ui?.language || "de", style: s.ui?.style || UI_STYLE_DEFAULT, text_step: normalizeTextStep(s.ui?.text_step), page_animations: s.ui?.page_animations !== false },
     // Absent on a board without update support; restoring such a backup leaves the panel's own values.
     ...(s.ota ? { ota: { update_check: !!s.ota.update_check, include_prereleases: !!s.ota.include_prereleases, auto_install: !!s.ota.auto_install } } : {}),
   };
@@ -2123,6 +2124,7 @@ function pushUiLive() {
         language: normalizeUiLanguage(el.settingsLanguage?.value),
         style: el.settingsUiStyle ? el.settingsUiStyle.value : UI_STYLE_DEFAULT,
         text_step: el.settingsUiTextStep ? normalizeTextStep(el.settingsUiTextStep.value) : 0,
+        page_animations: el.settingsPageAnimations?.checked !== false,
       },
       time: { timezone: el.settingsTimezone?.value.trim() || "" },
       topbar: { left_slots: leftSlots, weather_entity_id: weatherEntity || null, stock_entity_id: stockEntity || null },
@@ -2144,7 +2146,7 @@ function updateRotationFields() {
 function bindHardwareLive() {
   el.settingsHardwareAutoRotation?.addEventListener("change", updateRotationFields);
   if (el.settingsTimezone) el.settingsTimezone.addEventListener("change", pushTimezoneLive);
-  for (const input of [el.settingsUiStyle, el.settingsUiTextStep, el.settingsLanguage, el.settingsTopbarSlot1,
+  for (const input of [el.settingsUiStyle, el.settingsPageAnimations, el.settingsUiTextStep, el.settingsLanguage, el.settingsTopbarSlot1,
     el.settingsTopbarSlot2, el.settingsTopbarSlot3, el.settingsTopbarWeatherEntity, el.settingsTopbarStockEntity]) {
     if (input) input.addEventListener("change", pushUiLive);
   }
@@ -2248,7 +2250,12 @@ function resetDisplayDefaults() {
   setStatus(t("settings.reset.done"));
 }
 
+function fillPageAnimationSettings(ui = {}) {
+  if (el.settingsPageAnimations) el.settingsPageAnimations.checked = ui.page_animations !== false;
+}
+
 function resetAppearanceDefaults() {
+  if (el.settingsPageAnimations) el.settingsPageAnimations.checked = true;
   if (el.settingsUiStyle) {
     el.settingsUiStyle.value = UI_STYLE_DEFAULT;
     el.settingsUiStyle.dispatchEvent(new Event("change", { bubbles: true }));
@@ -2432,6 +2439,7 @@ async function saveSettings() {
     ui: {
       language,
       style: el.settingsUiStyle ? el.settingsUiStyle.value : UI_STYLE_DEFAULT,
+      page_animations: el.settingsPageAnimations?.checked !== false,
     },
     reboot: "auto", // the panel restarts only for Wi-Fi, Home Assistant, MQTT, time server or room changes
   };

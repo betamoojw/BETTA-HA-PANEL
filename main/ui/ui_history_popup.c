@@ -3,6 +3,7 @@
  *
  * Shared Recorder history popup for sensors, binary sensors and locks.
  */
+#include "ui/ui_transition.h"
 #include "ui/ui_history_popup.h"
 
 #include "ha/ha_alarm_state.h"
@@ -86,7 +87,7 @@ static void popup_deleted(lv_event_t *event)
 static void popup_close(lv_event_t *event)
 {
     history_popup_t *popup = (history_popup_t *)lv_event_get_user_data(event);
-    if (popup && popup->overlay) lv_obj_delete_async(popup->overlay);
+    if (popup && popup->overlay) ui_transition_close_async(popup->overlay);
 }
 
 static void backdrop_clicked(lv_event_t *event)
@@ -702,6 +703,7 @@ void ui_history_popup_open(const char *entity_id, const char *title, const char 
         (void)ha_history_check_week(entity_id, unit, state_class, popup->check_generation, check_received);
     }
 #endif
+    ui_transition_fade_in(popup->overlay);
 }
 
 #ifdef BETTA_SIMULATOR
@@ -749,6 +751,7 @@ void ui_history_popup_open_days(const char *title, uint32_t bar_color, const cha
     if (ha_history_request_days(list, count, popup->days_generation, days_received) != ESP_OK)
         lv_label_set_text(popup->status, ui_i18n_get("history.week_error", "Could not load statistics"));
 #endif
+    ui_transition_fade_in(popup->overlay);
 }
 
 static void sessions_tick(lv_timer_t *timer)
@@ -784,4 +787,5 @@ void ui_history_popup_open_evcc(const char *entity)
     popup->sessions_timer = lv_timer_create(sessions_tick, 250, popup);
     if (!popup->sessions_timer) { lv_obj_delete(popup->overlay); return; }
     lv_obj_update_layout(popup->card); sessions_tick(popup->sessions_timer);
+    ui_transition_fade_in(popup->overlay);
 }

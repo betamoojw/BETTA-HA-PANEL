@@ -2,6 +2,7 @@
  * Copyright (c) 2026 Cpt_Kirk
  * Modified 2026 by andre68723 in the andre68723/BETTA-HA-PANEL fork, see docs/release-notes.md
  */
+#include "ui/ui_transition.h"
 #include "ha/ha_alarm_state.h"
 #include "ui/display_geometry.h"
 #include "layout/layout_orientation.h"
@@ -1128,6 +1129,7 @@ static esp_err_t ui_runtime_apply_layout(const char *layout_json, const runtime_
         theme_palette_set_active(&palette->palette, palette->id, palette->name);
         ui_style_set(ui_style_from_name(live->ui_style));
         ui_fonts_set_user_step(live->ui_text_step);
+        ui_transition_configure(live->ui_page_animations);
         theme_default_rebuild_styles();
     }
     ui_runtime_load_alerts(root);

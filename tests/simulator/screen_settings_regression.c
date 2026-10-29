@@ -11,6 +11,7 @@
 #include "ui/ui_screen_settings.h"
 #include "ui/ui_display_protection.h"
 #include "ui/ui_pages.h"
+#include "ui/ui_transition.h"
 #include "ui/fonts/app_symbols.h"
 #include "ui/ui_i18n.h"
 #include "ui/theme/theme_palette.h"
@@ -148,6 +149,7 @@ static void check_system_settings(void)
         CHECK(bounds.y2 < lv_display_get_vertical_resolution(lv_display_get_default()));
         lv_dropdown_close(object);
     }
+    select_system(SYSTEM_ANIMATIONS, 1); /* enabled */
     select_system(SYSTEM_LANGUAGE, 6); /* Simplified Chinese */
     select_system(SYSTEM_TIMEZONE, 1); /* First shared catalog entry */
     select_system(SYSTEM_STYLE, 4); /* Matte */
@@ -157,16 +159,18 @@ static void check_system_settings(void)
     CHECK(ui_screen_settings_root() != NULL && !strcmp(settings.ui_language, "en"));
     fail_save = false; click_save();
     CHECK(ui_screen_settings_root() == NULL);
+    CHECK(settings.ui_page_animations);
     CHECK(!strcmp(settings.ui_language, "zh-cn") && !strcmp(settings.ui_style, "matte"));
     CHECK(strcmp(settings.time_tz, "Asia/Shanghai") != 0);
     CHECK(!strcmp(settings.ha_ws_url, "ws://example.invalid/concurrent"));
     CHECK(strcmp(saved_theme, "dark_v2") != 0);
     ui_screen_settings_open();
+    select_system(SYSTEM_ANIMATIONS, 2); /* disabled */
     select_system(SYSTEM_THEME, 7); /* Imported palette after six built-ins */
     select_system(SYSTEM_LANGUAGE, 1);
     select_system(SYSTEM_LANGUAGE, 0); /* Return to preserved saved value */
     click_save(); CHECK(!strcmp(settings.ui_language, "zh-cn"));
-    CHECK(!strcmp(saved_theme, "imported_test"));
+    CHECK(!strcmp(saved_theme, "imported_test") && !settings.ui_page_animations);
     ui_screen_settings_open(); select_system(SYSTEM_LANGUAGE, 1);
     lv_obj_t *caption = find_text(ui_screen_settings_root(), ui_i18n_get("screen.cancel", "Cancel"));
     lv_obj_send_event(lv_obj_get_parent(caption), LV_EVENT_CLICKED, NULL);
@@ -302,5 +306,22 @@ int sim_screen_settings_regression(void)
     clock.format_24h = false; clock.show_date = false;
     display_clock_format(&clock, &time, text, sizeof(text), date, sizeof(date));
     CHECK(strcmp(text, "12:05:07 AM") == 0 && date[0] == '\0');
+    ui_transition_configure(true);
+    ui_screen_settings_open();
+    lv_obj_t *animated = ui_screen_settings_root();
+    CHECK(lv_obj_get_style_opa(animated, 0) == 0);
+    SDL_Delay(900); lv_timer_handler();
+    CHECK(lv_obj_get_style_opa(animated, 0) == 255);
+    lv_obj_t *cancel = lv_obj_get_parent(find_text(animated, ui_i18n_get("screen.cancel", "Cancel")));
+    lv_obj_send_event(cancel, LV_EVENT_CLICKED, NULL);
+    CHECK(ui_screen_settings_root() == animated && lv_obj_has_state(cancel, LV_STATE_DISABLED));
+    lv_obj_send_event(cancel, LV_EVENT_CLICKED, NULL); /* duplicate close is harmless */
+    SDL_Delay(900); lv_timer_handler();
+    CHECK(ui_screen_settings_root() == NULL);
+    ui_screen_settings_open();
+    ui_pages_init(); /* rebuild while settings fade in */
+    SDL_Delay(900); lv_timer_handler();
+    CHECK(ui_screen_settings_root() == NULL);
+    ui_transition_configure(false);
     printf("Screen settings: %u checks passed\n", checks); return 0;
 }

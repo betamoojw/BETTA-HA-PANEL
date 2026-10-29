@@ -110,7 +110,7 @@ def demo_responses(variant, fixture_path=None, all_widgets=False):
     offset = -1 if variant == 'panels3' else (1 if variant == 'tab5' else 0)
     version['text'].update(board=variant, floor=20 if variant in ('panel4', 'tab5') else 16,
                            sizes=[[sizes[index + offset + step] for index in (1, 2, 3, 5, 6)] for step in range(3)])
-    responses['/api/settings']['ui'].update(language='de', text_step=0)
+    responses['/api/settings']['ui'].update(language='de', text_step=0, page_animations=True)
     responses['/api/settings']['device'] = {'id': 'local-editor', 'room': 'Lokaler Editor'}
     responses['/api/knx'] = {'enabled': False, 'state': 'disabled', 'object_count': 0, 'local_only': True}
     responses['/api/knx/config'] = {

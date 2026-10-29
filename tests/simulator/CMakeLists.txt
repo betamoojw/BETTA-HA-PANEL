@@ -94,6 +94,8 @@ add_executable(betta-widget-sim
     energy_regression.c
     font_budget_regression.c
     notification_regression.c
+    page_transition_regression.c
+    popup_transition_regression.c
     screen_settings_regression.c
     alert_center_regression.c
     "${REPO_ROOT}/main/settings/brightness_model.c"
@@ -144,6 +146,7 @@ add_executable(betta-widget-sim
     "${REPO_ROOT}/main/ui/ui_camera_view.c"
     "${REPO_ROOT}/main/ui/ui_widget_factory.c"
     "${REPO_ROOT}/main/ui/ui_pages.c"
+    "${REPO_ROOT}/main/ui/ui_transition.c"
     "${REPO_ROOT}/main/ui/ui_screen_settings.c"
     "${REPO_ROOT}/main/settings/display_clock.c"
     "${REPO_ROOT}/main/settings/screen_settings_model.c"
@@ -282,7 +285,7 @@ foreach(geometry "480;480" "720;720" "1280;800" "720;1280" "800;1280" "1280;720"
     add_test(NAME "clock-${clock_w}x${clock_h}" COMMAND betta-clock-test ${clock_w} ${clock_h})
 endforeach()
 add_executable(betta-xiaozhi-test xiaozhi_lifecycle_regression.c "${REPO_ROOT}/main/xiaozhi/xiaozhi_ui.c" "${REPO_ROOT}/main/xiaozhi/xiaozhi_dialog.c")
-target_sources(betta-xiaozhi-test PRIVATE "${OTTO_SOURCE}")
+target_sources(betta-xiaozhi-test PRIVATE "${OTTO_SOURCE}" "${REPO_ROOT}/main/ui/ui_transition.c")
 target_include_directories(betta-xiaozhi-test PRIVATE "${REPO_ROOT}/main" "${CMAKE_CURRENT_LIST_DIR}/stubs")
 target_compile_definitions(betta-xiaozhi-test PRIVATE CONFIG_APP_PANEL_VARIANT_10INCH_1280=1)
 target_compile_options(betta-xiaozhi-test PRIVATE -Wall -Wextra -Werror -UNDEBUG)
@@ -326,3 +329,8 @@ endforeach()
 set_source_files_properties("${REPO_ROOT}/main/ui/ui_pages.c" PROPERTIES COMPILE_OPTIONS "-Wno-unused-but-set-variable")
 
 add_test(NAME alert-center-events-and-layout COMMAND betta-widget-sim --fixture "${CMAKE_CURRENT_LIST_DIR}/screen_settings.json" --regression alerts)
+
+add_test(NAME page-transition-lifecycle COMMAND betta-widget-sim --fixture "${CMAKE_CURRENT_LIST_DIR}/screen_settings.json" --regression transitions)
+set_tests_properties(page-transition-lifecycle PROPERTIES ENVIRONMENT "SDL_VIDEODRIVER=dummy")
+add_test(NAME popup-transition-lifecycle COMMAND betta-widget-sim --fixture "${CMAKE_CURRENT_LIST_DIR}/screen_settings.json" --regression popups)
+set_tests_properties(popup-transition-lifecycle PROPERTIES ENVIRONMENT "SDL_VIDEODRIVER=dummy")

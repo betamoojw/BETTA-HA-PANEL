@@ -3,6 +3,7 @@
  * Modified 2026 by andre68723 in the andre68723/BETTA-HA-PANEL fork, see docs/release-notes.md
  */
 
+#include "ui/ui_transition.h"
 #include "xiaozhi/xiaozhi.h"
 #include "knx/knx.h"
 #include "camera/camera_store.h"
@@ -197,6 +198,7 @@ void app_main(void)
     }
     (void)ui_i18n_init(s_runtime_settings.ui_language);
     ui_style_set(ui_style_from_name(s_runtime_settings.ui_style));
+    ui_transition_configure(s_runtime_settings.ui_page_animations);
     ui_fonts_set_user_step(s_runtime_settings.ui_text_step);
     (void)time_sync_set_timezone(s_runtime_settings.time_tz);
     display_orientation_configure(s_runtime_settings.hardware_auto_rotation, s_runtime_settings.hardware_rotation);

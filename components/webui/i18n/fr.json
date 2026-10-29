@@ -1573,5 +1573,7 @@
   "cam.tile_source": "Source caméra",
   "cam.tile_hint": "Laissez vide pour l’entité Home Assistant ci-dessus, ou saisissez local / un ID enregistré dans Réglages → Caméras.",
   "cam.local_simulation": "Simulation locale : aucune caméra ni capteur connecté",
-  "cam.rotation_hint": "L’image suit automatiquement la rotation de l’écran. Les zones de mouvement enregistrées conservent la même zone de caméra."
+  "cam.rotation_hint": "L’image suit automatiquement la rotation de l’écran. Les zones de mouvement enregistrées conservent la même zone de caméra.",
+  "settings.ui.page_animations": "Animations des pages",
+  "settings.ui.page_animations_hint": "Les pages glissent et les fenêtres apparaissent et disparaissent en fondu. Désactivez pour un changement immédiat."
 }

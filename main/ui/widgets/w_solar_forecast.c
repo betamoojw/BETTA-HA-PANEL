@@ -2,6 +2,7 @@
  * Copyright (c) 2026 Cpt_Kirk
  * Copyright (c) 2026 andre68723 -- file added in the andre68723/BETTA-HA-PANEL fork, see docs/release-notes.md
  */
+#include "ui/ui_transition.h"
 #include "ui/display_geometry.h"
 #include "ui/ui_widget_factory.h"
 
@@ -495,7 +496,13 @@ static void solar_render(w_solar_forecast_ctx_t *ctx)
 static void solar_popup_close(w_solar_forecast_ctx_t *ctx)
 {
     if (ctx->popup_timer) { lv_timer_delete(ctx->popup_timer); ctx->popup_timer = NULL; }
-    if (ctx->popup) { lv_obj_delete(ctx->popup); ctx->popup = NULL; }
+    if (ctx->popup) ui_transition_close(ctx->popup);
+}
+static void solar_popup_deleted(lv_event_t *event)
+{
+    w_solar_forecast_ctx_t *ctx = lv_event_get_user_data(event);
+    ctx->popup = NULL;
+    if (ctx->popup_timer) { lv_timer_delete(ctx->popup_timer); ctx->popup_timer = NULL; }
 }
 static void solar_popup_timeout(lv_timer_t *timer) { solar_popup_close(lv_timer_get_user_data(timer)); }
 static void solar_popup_close_clicked(lv_event_t *event) { solar_popup_close(lv_event_get_user_data(event)); }
@@ -504,6 +511,7 @@ static void solar_popup_open(lv_event_t *event)
     w_solar_forecast_ctx_t *ctx = lv_event_get_user_data(event);
     if (ctx->popup) return;
     ctx->popup = lv_obj_create(lv_layer_top());
+    lv_obj_add_event_cb(ctx->popup, solar_popup_deleted, LV_EVENT_DELETE, ctx);
     lv_obj_set_size(ctx->popup, APP_VIEW_WIDTH - 32, APP_VIEW_HEIGHT - 80);
     lv_obj_center(ctx->popup); theme_default_style_card(ctx->popup);
     lv_obj_set_style_text_color(ctx->popup, theme_default_color_text_primary(), LV_PART_MAIN);
@@ -535,6 +543,7 @@ static void solar_popup_open(lv_event_t *event)
         lv_obj_align(reading, LV_ALIGN_TOP_RIGHT, -16, 70 + i * row_step);
     }
     ctx->popup_timer = lv_timer_create(solar_popup_timeout, 60000, ctx);
+    ui_transition_fade_in(ctx->popup);
 }
 
 static void w_solar_forecast_event_cb(lv_event_t *event)
@@ -542,7 +551,7 @@ static void w_solar_forecast_event_cb(lv_event_t *event)
     w_solar_forecast_ctx_t *ctx = (w_solar_forecast_ctx_t *)lv_event_get_user_data(event);
     lv_event_code_t code = lv_event_get_code(event);
     if (code == LV_EVENT_DELETE) {
-        solar_popup_close(ctx);
+        if (ctx->popup) lv_obj_delete(ctx->popup); /* owner teardown is synchronous */
         free(ctx);
     } else if (code == LV_EVENT_SIZE_CHANGED) {
         solar_render(ctx);

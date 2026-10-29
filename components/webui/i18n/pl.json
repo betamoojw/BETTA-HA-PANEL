@@ -1573,5 +1573,7 @@
   "cam.tile_source": "Źródło kamery",
   "cam.tile_hint": "Pozostaw puste dla encji Home Assistant powyżej albo wpisz local / ID zapisane w Ustawienia → Kamery.",
   "cam.local_simulation": "Symulacja lokalna: brak podłączonej kamery lub czujnika",
-  "cam.rotation_hint": "Obraz automatycznie podąża za obrotem ekranu. Zapisane strefy ruchu zachowują ten sam obszar kamery."
+  "cam.rotation_hint": "Obraz automatycznie podąża za obrotem ekranu. Zapisane strefy ruchu zachowują ten sam obszar kamery.",
+  "settings.ui.page_animations": "Animacje stron",
+  "settings.ui.page_animations_hint": "Strony wsuwają się, a okna pojawiają się i znikają płynnie. Wyłącz, aby zmieniać je natychmiast."
 }

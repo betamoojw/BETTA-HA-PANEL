@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: LicenseRef-FNCL-1.1 | Copyright (c) 2026 andre68723 */
+#include "ui/ui_transition.h"
 #include "ui/ui_alert_center.h"
 #include "ui/ui_pages.h"
 #include "ui/ui_popup.h"
@@ -88,10 +89,10 @@ static void deleted(lv_event_t *event)
 }
 void ui_alert_center_close(void) { if (s_root) lv_obj_delete(s_root); }
 lv_obj_t *ui_alert_center_root(void) { return s_root; }
-static void close_clicked(lv_event_t *event) { (void)event; ui_alert_center_close(); }
+static void close_clicked(lv_event_t *event) { (void)event; ui_transition_close(s_root); }
 static void backdrop(lv_event_t *event)
 {
-    if (lv_event_get_target(event) == lv_event_get_current_target(event)) ui_alert_center_close();
+    if (lv_event_get_target(event) == lv_event_get_current_target(event)) ui_transition_close(s_root);
 }
 void ui_alert_center_open(void)
 {
@@ -127,6 +128,7 @@ void ui_alert_center_open(void)
     lv_obj_set_scroll_dir(s_body, LV_DIR_VER);
     lv_obj_set_scrollbar_mode(s_body, LV_SCROLLBAR_MODE_AUTO);
     render();
+    ui_transition_fade_in(s_root);
 }
 void ui_alert_center_crash(unsigned index, const coredump_record_t *r)
 {

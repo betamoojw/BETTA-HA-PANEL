@@ -617,7 +617,10 @@
       "light": "Clair",
       "ocean": "Océan",
       "contrast": "Contraste élevé",
-      "black": "Noir pur"
+      "black": "Noir pur",
+      "page_animations": "Animations des pages",
+      "on": "Activé",
+      "off": "Désactivé"
     },
     "alerts": {
       "title": "Alertes",

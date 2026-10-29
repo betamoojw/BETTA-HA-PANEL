@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LicenseRef-FNCL-1.1
  * Copyright (c) 2026 andre68723 -- file added in the andre68723/BETTA-HA-PANEL fork, see docs/release-notes.md
  */
+#include "ui/ui_transition.h"
 #include "ui/ui_energy_timeline_popup.h"
 
 #include <stdio.h>
@@ -26,8 +27,7 @@ static void popup_close_cb(lv_event_t *e)
 {
     (void)e;
     if (s_popup.overlay != NULL) {
-        lv_obj_delete(s_popup.overlay);
-        s_popup.overlay = NULL;
+        ui_transition_close(s_popup.overlay);
     }
 }
 
@@ -236,4 +236,5 @@ void ui_energy_timeline_popup_open(const ui_energy_timeline_popup_info_t *info, 
         }
     }
     lv_obj_update_layout(s_popup.body);
+    ui_transition_fade_in(s_popup.overlay);
 }

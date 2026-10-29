@@ -89,3 +89,22 @@ test("the panel's role sizes follow the chosen step", () => {
   assert.equal(run("textRoleSize('value', 28)"), 28); // before the panel answered
   assert.equal(run("normalizeTextStep('1')"), 1);
 });
+
+
+test("page animations save through change events, reload and the scoped reset", () => {
+  const run = setup();
+  run("fillPageAnimationSettings({}); el.settingsUiTextStep.value = '2'");
+  assert.equal(run("el.settingsPageAnimations.checked"), true);
+  for (const enabled of [false, true, false]) {
+    run(`el.settingsPageAnimations.checked = ${enabled}; el.settingsPageAnimations.dispatch('change')`);
+    assert.equal(run("puts.at(-1).ui.page_animations"), enabled);
+    assert.equal(run("puts.at(-1).reboot"), false);
+    run("fillPageAnimationSettings(puts.at(-1).ui)");
+    assert.equal(run("el.settingsPageAnimations.checked"), enabled);
+    assert.equal(run("settingsForBackup({ui: puts.at(-1).ui}).ui.page_animations"), enabled);
+  }
+  run("resetAppearanceDefaults()");
+  assert.equal(run("puts.at(-1).ui.page_animations"), true);
+  assert.equal(run("puts.at(-1).ui.text_step"), 2);
+  assert.equal(run("puts.at(-1).ui.language"), "en");
+});

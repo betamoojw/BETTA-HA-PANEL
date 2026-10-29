@@ -2,6 +2,7 @@
  * Copyright (c) 2026 Cpt_Kirk
  * Modified 2026 by andre68723 in the andre68723/BETTA-HA-PANEL fork, see docs/release-notes.md
  */
+#include "ui/ui_transition.h"
 #include "ui/widgets/weather_tile_internal.h"
 
 /* ---- Day detail popup ------------------------------------------------- */
@@ -20,9 +21,7 @@ static void weather_popup_close(w_weather_tile_ctx_t *ctx)
         ctx->popup_close_timer = NULL;
     }
     if (ctx->popup != NULL) {
-        lv_obj_t *popup = ctx->popup;
-        ctx->popup = NULL;
-        lv_obj_del(popup);
+        ui_transition_close(ctx->popup);
     }
 }
 
@@ -453,6 +452,7 @@ static void weather_show_report_popup(w_weather_tile_ctx_t *ctx)
         weather_popup_add_text(list, today, lv_color_hex(APP_UI_COLOR_TEXT_MUTED));
     }
     weather_popup_arm_auto_close(ctx);
+    ui_transition_fade_in(overlay);
 }
 
 void weather_report_clicked_cb(lv_event_t *event)
@@ -642,6 +642,7 @@ static void weather_show_day_popup(w_weather_tile_ctx_t *ctx, int index)
     }
     weather_request_day_details(ctx, list, index);
     weather_popup_arm_auto_close(ctx);
+    ui_transition_fade_in(overlay);
 }
 
 void weather_col_clicked_cb(lv_event_t *event)

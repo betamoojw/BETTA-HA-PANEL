@@ -10,6 +10,7 @@
  *
  * The state rules are in bambu_printer_policy.c (host tested), the drawing in bambu_printer_illustration.c.
  */
+#include "ui/ui_transition.h"
 #include "ui/ui_widget_factory.h"
 
 #include <math.h>
@@ -474,7 +475,7 @@ static void detail_close_cb(lv_event_t *event)
 {
     w_bambu_ctx_t *ctx = (w_bambu_ctx_t *)lv_event_get_user_data(event);
     if (ctx->detail != NULL) {
-        lv_obj_delete_async(ctx->detail);
+        ui_transition_close_async(ctx->detail);
     }
 }
 
@@ -593,6 +594,7 @@ static void bambu_status_clicked(lv_event_t *event)
         lv_obj_center(label);
     }
     detail_fill(ctx);
+    ui_transition_fade_in(overlay);
 }
 
 /* ---- layout and render --------------------------------------------------------------------------------------- */

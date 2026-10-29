@@ -5,6 +5,7 @@
  * The top bar's connectivity popups (Wi-Fi card, Home Assistant / MQTT / firmware card), moved out of
  * ui_pages.c. See ui_conn_popup.h.
  */
+#include "ui/ui_transition.h"
 #include "ui/ui_conn_popup.h"
 
 #include <inttypes.h>
@@ -51,7 +52,7 @@ static void wifi_info_popup_close_event_cb(lv_event_t *event)
     }
     lv_obj_t *overlay = (lv_obj_t *)lv_event_get_user_data(event);
     if (overlay != NULL) {
-        lv_obj_del(overlay);
+        ui_transition_close(overlay);
     }
 }
 
@@ -61,7 +62,7 @@ static void wifi_info_popup_overlay_event_cb(lv_event_t *event)
         return;
     }
     if (lv_event_get_target(event) == lv_event_get_current_target(event)) {
-        lv_obj_del((lv_obj_t *)lv_event_get_current_target(event));
+        ui_transition_close(lv_event_get_current_target_obj(event));
     }
 }
 
@@ -69,6 +70,7 @@ static void wifi_info_popup_overlay_event_cb(lv_event_t *event)
  * connectivity popup can show it without reaching into ha_client. */
 static bool s_topbar_api_connected = false;
 static bool s_topbar_api_sync_done = false;
+static lv_obj_t *s_conn_popup_overlay;
 
 typedef struct {
     const char *label;   /* section header when value is NULL */
@@ -331,12 +333,14 @@ static void ui_pages_conn_popup_refresh_timer_cb(lv_timer_t *timer)
 
 static void ui_pages_conn_popup_deleted_cb(lv_event_t *event)
 {
-    (void)event;
+    if (lv_event_get_target_obj(event) != s_conn_popup_overlay) return;
+    s_conn_popup_overlay = NULL;
     ui_pages_conn_popup_stop_timer();
 }
 
 static void ui_pages_show_connectivity_popup(conn_popup_kind_t kind)
 {
+    if (s_conn_popup_overlay) lv_obj_delete(s_conn_popup_overlay);
     lv_obj_t *screen = lv_scr_act();
     lv_obj_update_layout(screen);
     int screen_w = lv_obj_get_width(screen);
@@ -353,6 +357,7 @@ static void ui_pages_show_connectivity_popup(conn_popup_kind_t kind)
     conn_popup_build_rows(kind, rows, &row_count);
 
     lv_obj_t *overlay = lv_obj_create(lv_layer_top());
+    s_conn_popup_overlay = overlay;
     lv_obj_set_size(overlay, screen_w, screen_h);
     lv_obj_align(overlay, LV_ALIGN_CENTER, 0, 0);
     lv_obj_set_scrollable(overlay, false);
@@ -433,6 +438,7 @@ static void ui_pages_show_connectivity_popup(conn_popup_kind_t kind)
     s_conn_popup_row_count = row_count;
     s_conn_popup_timer = lv_timer_create(ui_pages_conn_popup_refresh_timer_cb, 2000, NULL);
     lv_obj_add_event_cb(overlay, ui_pages_conn_popup_deleted_cb, LV_EVENT_DELETE, NULL);
+    ui_transition_fade_in(overlay);
 }
 
 void ui_conn_popup_show_wifi(void)

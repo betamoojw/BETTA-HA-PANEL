@@ -116,6 +116,15 @@ int main(void)
 {
     runtime_settings_t next = changed(), loaded;
     unsigned cases = 0;
+    assert(next.ui_page_animations); /* new installations and legacy settings */
+    baseline(); assert(runtime_settings_load(&loaded) == ESP_OK && loaded.ui_page_animations);
+    for (int enabled = 0; enabled < 2; enabled++) {
+        baseline(); next.ui_page_animations = enabled;
+        assert(runtime_settings_save(&next) == ESP_OK);
+        assert(runtime_settings_load(&loaded) == ESP_OK && loaded.ui_page_animations == enabled);
+        ++cases;
+    }
+
     for (unsigned fault = 1; fault <= 17; ++fault) {
         baseline(); fail_nvs = fault;
         esp_err_t err = runtime_settings_save(&next);

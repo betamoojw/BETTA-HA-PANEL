@@ -15,6 +15,9 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "util/log_tags.h"
+#if CONFIG_APP_PANEL_VARIANT_10INCH_1280
+#include "drivers/display_present.h"
+#endif
 
 #if SOC_MIPI_DSI_SUPPORTED
 /* One display per panel. The adapter owns its LVGL buffers and flush handshake;
@@ -26,6 +29,9 @@ typedef struct {
     bool swap_bytes;
     uint8_t *scratch;
     size_t capacity;
+#if CONFIG_APP_PANEL_VARIANT_10INCH_1280
+    display_present_t *present;
+#endif
 #if CONFIG_APP_DISPLAY_PPA
     ppa_client_handle_t ppa;
     SemaphoreHandle_t done;
@@ -122,6 +128,16 @@ static esp_err_t draw_bitmap(lv_display_t *disp, esp_lcd_panel_handle_t panel,
     } else if (ctx->swap_bytes) {
         lv_draw_sw_rgb565_swap(output, count);
     }
+#if CONFIG_APP_PANEL_VARIANT_10INCH_1280
+    if (ctx->present) {
+        esp_err_t err = display_present_write(ctx->present, physical, output, lv_display_flush_is_last(disp));
+        /* A missing completion must never recycle an uncertain front buffer or
+         * hold the UI lock forever. Retain a diagnosable crash on failure. */
+        ESP_ERROR_CHECK(err);
+        lv_display_flush_ready(disp);
+        return ESP_OK;
+    }
+#endif
     return esp_lcd_panel_draw_bitmap(panel, physical.x1, physical.y1,
                                      physical.x2, physical.y2, output);
 }
@@ -203,6 +219,11 @@ lv_display_t *display_port_add_dsi(esp_lcd_panel_handle_t panel,
                                   uint16_t width, uint16_t height,
                                   bool rotate, bool swap_bytes)
 {
+#if CONFIG_APP_PANEL_VARIANT_10INCH_1280
+    /* Whole-frame presentation owns DPI completion; partial draws complete
+     * synchronously in draw_bitmap, not through the adapter's DMA2D ISR. */
+    if (esp_lv_adapter_set_default_display_idf_callback_registration_enabled(false) != ESP_OK) return NULL;
+#endif
     static const uint8_t divisors[] = {5, 8, 10, 12};
     for (size_t i = 0; i < sizeof(divisors); ++i) {
         const uint16_t rows = height / divisors[i];
@@ -225,6 +246,16 @@ lv_display_t *display_port_add_dsi(esp_lcd_panel_handle_t panel,
         if (disp) {
             const esp_lv_adapter_draw_bitmap_callbacks_t callbacks = {.custom_draw_bitmap = draw_bitmap};
             if (esp_lv_adapter_set_draw_bitmap_callbacks(disp, &callbacks, ctx) == ESP_OK) {
+#if CONFIG_APP_PANEL_VARIANT_10INCH_1280
+                ctx->present = display_present_create(panel, width, height);
+                if (!ctx->present) {
+                    esp_lv_adapter_unregister_display(disp);
+                    context_destroy(ctx);
+                    ESP_LOGE(TAG_DISPLAY, "Could not initialize synchronized LCD-X frame presentation");
+                    return NULL;
+                }
+                ESP_LOGI(TAG_DISPLAY, "LCD-X presentation: two DPI framebuffers, whole-frame swaps, bounded completion wait");
+#endif
                 ESP_LOGI(TAG_DISPLAY, "esp_lvgl_adapter DSI: partial RGB565, PSRAM double buffers, %zu pixels, rotation=%s",
                          pixels, rotate ?
 #if CONFIG_APP_DISPLAY_PPA

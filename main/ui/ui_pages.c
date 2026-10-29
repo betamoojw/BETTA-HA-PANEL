@@ -3,6 +3,7 @@
  * Modified 2026 by andre68723 in the andre68723/BETTA-HA-PANEL fork, see docs/release-notes.md
  */
 
+#include "ui/ui_transition.h"
 #ifdef ESP_PLATFORM
 #include "xiaozhi/xiaozhi.h"
 #endif
@@ -585,7 +586,19 @@ static void ui_pages_betta_hide(void);
 static void ui_pages_betta_dismiss_cb(lv_event_t *event)
 {
     LV_UNUSED(event);
-    ui_pages_betta_hide();
+    ui_transition_close(s_betta_overlay);
+}
+
+static void ui_pages_betta_deleted(lv_event_t *event)
+{
+    LV_UNUSED(event);
+    if (s_betta_lottie) lv_obj_delete(s_betta_lottie);
+    s_betta_overlay = NULL;
+    s_betta_lottie = NULL;
+    lv_free(s_betta_buf);
+    s_betta_buf = NULL;
+    s_betta_taps = 0U;
+    s_betta_last_ms = 0U;
 }
 
 static void ui_pages_betta_show(void)
@@ -626,6 +639,7 @@ static void ui_pages_betta_show(void)
     lv_obj_set_style_bg_opa(s_betta_overlay, LV_OPA_70, LV_PART_MAIN);
     lv_obj_set_clickable(s_betta_overlay, true);
     lv_obj_add_event_cb(s_betta_overlay, ui_pages_betta_dismiss_cb, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(s_betta_overlay, ui_pages_betta_deleted, LV_EVENT_DELETE, NULL);
 
     s_betta_lottie = lv_lottie_create(s_betta_overlay);
     lv_lottie_set_buffer(s_betta_lottie, side, side, s_betta_buf);
@@ -635,6 +649,7 @@ static void ui_pages_betta_show(void)
     lv_obj_center(s_betta_lottie);
 
     lv_obj_move_foreground(s_betta_overlay);
+    ui_transition_fade_in(s_betta_overlay);
 }
 
 static void ui_pages_betta_hide(void)
@@ -1046,6 +1061,7 @@ static void ui_pages_create_nav(lv_obj_t *screen)
 
 void ui_pages_init(void)
 {
+    ui_transition_finish();
     ui_alert_center_close();
     memset(s_pages, 0, sizeof(s_pages));
     s_page_count = 0;
@@ -1093,16 +1109,7 @@ void ui_pages_init(void)
     memset(s_nav_extra_page_index, 0, sizeof(s_nav_extra_page_index));
 
 #if LV_USE_LOTTIE && APP_UI_BETTA_LOTTIE_ASSET
-    /* Screen will be cleaned below; the overlay is owned by the active screen.
-     * Drop our handles and free the lottie render buffer to avoid a leak. */
-    s_betta_overlay = NULL;
-    s_betta_lottie  = NULL;
-    if (s_betta_buf != NULL) {
-        lv_free(s_betta_buf);
-        s_betta_buf = NULL;
-    }
-    s_betta_taps    = 0U;
-    s_betta_last_ms = 0U;
+    ui_pages_betta_hide(); /* retire the animation before releasing its buffer */
 #endif
 
     lv_obj_t *screen = lv_scr_act();
@@ -1225,6 +1232,9 @@ bool ui_pages_show_index(uint16_t index)
         return false;
     }
 
+    if (s_current_index == (int16_t)index) return true;
+    const bool animate = s_current_index >= 0;
+    ui_transition_finish();
     for (uint16_t i = 0; i < s_page_count; i++) {
         if (s_pages[i].container == NULL) {
             continue;
@@ -1236,6 +1246,7 @@ bool ui_pages_show_index(uint16_t index)
         }
     }
     s_current_index = (int16_t)index;
+    if (animate) ui_transition_page_enter(s_pages[index].container);
     {
         static bool s_refr_cb_added = false;
         lv_display_t *disp = lv_display_get_default();

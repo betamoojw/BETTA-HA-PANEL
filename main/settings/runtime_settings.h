@@ -37,6 +37,7 @@ typedef struct {
     char time_tz[APP_TIME_TZ_MAX_LEN];
     char ui_language[APP_UI_LANGUAGE_MAX_LEN];
     char ui_style[12]; /* a supported ID, see ui/theme/ui_style_registry.h */
+    bool ui_page_animations; /* shared page entrance and settings fade */
     int ui_text_step;  /* text size: 0 Standard, 1 Larger, 2 Largest (ui/text_scale.h) */
     char topbar_left_slots[APP_TOPBAR_LEFT_SLOTS][APP_MAX_UI_OPTION_LEN];
     bool topbar_weather_enabled;

@@ -178,9 +178,9 @@ static bool normalize_ui_language(char *language, size_t language_len)
 /* Signature of everything that needs the UI to be rebuilt when it changes. */
 static void ui_settings_signature(const runtime_settings_t *s, char *out, size_t out_len)
 {
-    snprintf(out, out_len, "%s|%s|%s|%s|%s|%d|%s|%s|%d", s->ui_language, s->ui_style, s->topbar_left_slots[0],
+    snprintf(out, out_len, "%s|%s|%s|%s|%s|%d|%s|%s|%d|%d", s->ui_language, s->ui_style, s->topbar_left_slots[0],
         s->topbar_left_slots[1], s->topbar_left_slots[2], s->topbar_weather_enabled ? 1 : 0,
-        s->topbar_weather_entity_id, s->topbar_stock_entity_id, s->ui_text_step);
+        s->topbar_weather_entity_id, s->topbar_stock_entity_id, s->ui_text_step, s->ui_page_animations);
 }
 
 static void apply_hardware_settings_live(const runtime_settings_t *settings)
@@ -360,6 +360,7 @@ esp_err_t api_settings_get_handler(httpd_req_t *req)
 
     cJSON_AddStringToObject(ui, "language", settings->ui_language);
     cJSON_AddStringToObject(ui, "style", settings->ui_style);
+    cJSON_AddBoolToObject(ui, "page_animations", settings->ui_page_animations);
     cJSON_AddNumberToObject(ui, "text_step", settings->ui_text_step);
     cJSON_AddItemToObject(root, "ui", ui);
 
@@ -744,6 +745,7 @@ esp_err_t api_settings_put_handler(httpd_req_t *req)
         (void)update_string_setting(
             ui, "language", settings->ui_language, sizeof(settings->ui_language), &invalid_type, &too_long);
         (void)update_int_setting(ui, "text_step", &settings->ui_text_step, 0, TEXT_USER_STEP_MAX, &invalid_type, &out_of_range);
+        (void)update_bool_setting(ui, "page_animations", &settings->ui_page_animations, &invalid_type);
         cJSON *style_item = cJSON_GetObjectItemCaseSensitive(ui, "style");
         if (style_item != NULL) {
             ui_style_kind_t style_kind;

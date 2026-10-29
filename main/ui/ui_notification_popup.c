@@ -7,6 +7,7 @@
  * content in place. Lives on lv_layer_top() so it renders above all
  * pages and widgets; a scrim blocks touches behind it.
  */
+#include "ui/ui_transition.h"
 #include "ui/display_geometry.h"
 #include "ui/ui_notification_popup.h"
 #include "ui/notification_emoji.h"
@@ -176,7 +177,7 @@ static void notif_dismiss_internal(void)
 {
     notif_stop_timer();
     if (s_notif.overlay != NULL) {
-        lv_obj_del(s_notif.overlay);
+        ui_transition_close(s_notif.overlay);
         /* overlay delete event resets the rest of the state */
     }
 }
@@ -431,6 +432,7 @@ static void notif_create_overlay(const app_notification_t *notification)
     lv_obj_align(btn, LV_ALIGN_TOP_RIGHT, 0, 0);
 
     notif_apply_texts(notification);
+    ui_transition_fade_in(overlay);
 }
 
 /* The last REST/MQTT message, in PSRAM and RAM only (lost on reboot). */
@@ -483,6 +485,8 @@ void ui_notification_popup_show(app_notification_t *notification)
     display_note_activity();
     (void)chime_request(notification->sound, false, 0);
 
+    /* A new message must not inherit an old dismissal deadline. */
+    if (ui_transition_is_closing(s_notif.overlay)) lv_obj_delete(s_notif.overlay);
     if (s_notif.overlay != NULL) {
         notif_apply_texts(notification);
     } else {

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LicenseRef-FNCL-1.1
  * Copyright (c) 2026 andre68723 -- file added in the andre68723/BETTA-HA-PANEL fork, see docs/release-notes.md
  */
+#include "ui/ui_transition.h"
 #include "ui/ui_pin_pad.h"
 
 #include <stdio.h>
@@ -65,14 +66,14 @@ static void pad_deleted_cb(lv_event_t *event)
 static void pad_close_cb(lv_event_t *event)
 {
     pad_t *pad = (pad_t *)lv_event_get_user_data(event);
-    lv_obj_delete_async(pad->overlay);
+    ui_transition_close_async(pad->overlay);
 }
 
 static void pad_backdrop_cb(lv_event_t *event)
 {
     pad_t *pad = (pad_t *)lv_event_get_user_data(event);
     if (lv_event_get_target(event) == lv_event_get_current_target(event)) {
-        lv_obj_delete_async(pad->overlay);
+        ui_transition_close_async(pad->overlay);
     }
 }
 
@@ -87,7 +88,7 @@ static void pad_key_cb(lv_event_t *event)
         if (pad->cfg.submit != NULL) {
             pad->cfg.submit(pad->cfg.user, pad->code);
         }
-        lv_obj_delete_async(pad->overlay);
+        ui_transition_close_async(pad->overlay);
     } else if (key == KEY_BACK) {
         if (pad->len > 0) {
             pad->code[--pad->len] = '\0';
@@ -217,6 +218,7 @@ lv_obj_t *ui_pin_pad_open(const ui_pin_pad_cfg_t *cfg)
         lv_obj_set_style_text_color(label, ui_style_button_icon_color(bg), LV_PART_MAIN);
         lv_obj_center(label);
     }
+    ui_transition_fade_in(overlay);
     return overlay;
 }
 

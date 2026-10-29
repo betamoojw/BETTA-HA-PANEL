@@ -243,6 +243,7 @@ static esp_err_t serialize_public_settings(const runtime_settings_t *settings, u
 
     if (cJSON_AddStringToObject(ui, "language", settings->ui_language) == NULL) goto oom;
     if (cJSON_AddStringToObject(ui, "style", settings->ui_style) == NULL) goto oom;
+    if (cJSON_AddBoolToObject(ui, "page_animations", settings->ui_page_animations) == NULL) goto oom;
     if (cJSON_AddNumberToObject(ui, "text_step", settings->ui_text_step) == NULL) goto oom;
 
     for (size_t i = 0; i < APP_TOPBAR_LEFT_SLOTS; i++) {
@@ -375,6 +376,7 @@ static esp_err_t parse_settings_json(const char *json, runtime_settings_t *out, 
         if (cJSON_IsString(style) && style->valuestring != NULL) {
             strlcpy(out->ui_style, ui_style_name(ui_style_from_name(style->valuestring)), sizeof(out->ui_style));
         }
+        json_copy_bool(ui, "page_animations", &out->ui_page_animations);
         json_copy_int(ui, "text_step", &out->ui_text_step);
         out->ui_text_step = text_scale_clamp_user_step(out->ui_text_step);
     }
@@ -528,6 +530,7 @@ void runtime_settings_set_defaults(runtime_settings_t *out)
     strlcpy(out->time_tz, APP_TIME_TZ, sizeof(out->time_tz));
     strlcpy(out->ui_language, APP_UI_DEFAULT_LANGUAGE, sizeof(out->ui_language));
     strlcpy(out->ui_style, ui_style_name(UI_STYLE_DEFAULT), sizeof(out->ui_style));
+    out->ui_page_animations = true;
     out->ui_text_step = 0;
     strlcpy(out->topbar_left_slots[0], "date", sizeof(out->topbar_left_slots[0]));
     for (size_t i = 1; i < APP_TOPBAR_LEFT_SLOTS; i++) {

@@ -24,6 +24,7 @@ if(CONFIG_APP_PANEL_VARIANT_S3_480)
 elseif(CONFIG_APP_PANEL_VARIANT_10INCH_1280)
     set(PANEL_DRIVER_SRCS
         "drivers/display_init_panel10.c"
+        "drivers/display_present.c"
         "drivers/touch_init_panel10.c"
     )
 elseif(CONFIG_APP_PANEL_VARIANT_TAB5_1280)
@@ -290,6 +291,7 @@ idf_component_register(
         "ui/ui_camera_view.c"
         "ui/ui_ota_progress.c"
         "ui/ui_pages.c"
+        "ui/ui_transition.c"
         "ui/ui_conn_popup.c"
     "ui/ui_alert_center.c"
     "ui/alert_policy.c"

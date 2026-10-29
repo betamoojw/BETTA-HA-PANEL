@@ -100,3 +100,9 @@ Use `"alert_demo": true` and `"open_popup": "alerts"` for synthetic alert detail
 It defaults to animated Otto Robot; `style: "classic"` selects the original emoji.
 It opens the production dialogue with a mocked status source, without audio or
 a cloud connection. Label screenshots as local simulations.
+
+`--regression transitions` exercises shared page animations, interruption and
+popup fades at all four native rotations. `--regression popups` covers real
+popup events with animations on/off, repeated actions, timeout, replacement and
+owner teardown. Static fixture captures keep
+transitions disabled; they show the settled layout, not an animation midpoint.

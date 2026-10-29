@@ -1573,5 +1573,7 @@
   "cam.tile_source": "摄像头来源",
   "cam.tile_hint": "留空使用上方的 Home Assistant 实体，或输入 local／“设置 → 摄像头”中保存的 ID。",
   "cam.local_simulation": "本地模拟：未连接摄像头或传感器",
-  "cam.rotation_hint": "画面自动跟随屏幕旋转。已保存的运动区域始终检测原来的摄像头区域。"
+  "cam.rotation_hint": "画面自动跟随屏幕旋转。已保存的运动区域始终检测原来的摄像头区域。",
+  "settings.ui.page_animations": "页面动画",
+  "settings.ui.page_animations_hint": "页面滑入，弹窗淡入淡出。关闭后立即切换。"
 }

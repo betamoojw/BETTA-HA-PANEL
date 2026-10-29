@@ -37,6 +37,22 @@ All four use the same Poppins text and Material Design Icons. Values and actions
 keep their meaning when the style changes; the available controls still depend
 on the Home Assistant entity.
 
+## Page animations
+
+**Settings → Design → Page animations** enables a short slide that slows to a
+stop when switching dashboard pages. Popup windows and subpages quickly fade in
+and out: System settings, connectivity and alerts, widget details and history,
+option lists, the PIN pad, notifications, camera fullscreen and Xiaozhi dialogs.
+The same option is available in the panel's **System settings**. It is on by
+default; switch it off for immediate changes. The choice survives restart and
+backup/restore and does not change the selected style, language or layout.
+
+Tabs, room links, remote navigation and automatic page cycling share this
+behavior, including camera, house and energy pages. The header and tabs stay in
+place. Tabs remain usable during a transition; moving page controls become
+available when the slide finishes. Opening a layout or rebuilding it after a
+settings or rotation change displays the page immediately.
+
 ## Colour themes
 
 Choose **Dark, Classic, Light, Ocean, High Contrast or Pure Black**, or import a

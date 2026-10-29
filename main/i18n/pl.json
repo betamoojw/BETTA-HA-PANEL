@@ -617,7 +617,10 @@
       "light": "Jasny",
       "ocean": "Ocean",
       "contrast": "Wysoki kontrast",
-      "black": "Czysta czerń"
+      "black": "Czysta czerń",
+      "page_animations": "Animacje stron",
+      "on": "Włączone",
+      "off": "Wyłączone"
     },
     "alerts": {
       "title": "Alerty",

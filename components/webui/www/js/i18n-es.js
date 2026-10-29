@@ -1577,5 +1577,7 @@ WEB_I18N_BUILTIN["es"] = {
   "cam.tile_source": "Fuente de cámara",
   "cam.tile_hint": "Deja vacío para la entidad de Home Assistant anterior, o introduce local / un ID guardado en Ajustes → Cámaras.",
   "cam.local_simulation": "Simulación local: sin cámara ni sensor conectados",
-  "cam.rotation_hint": "La imagen sigue automáticamente la rotación de la pantalla. Las zonas de movimiento guardadas conservan la misma área de la cámara."
+  "cam.rotation_hint": "La imagen sigue automáticamente la rotación de la pantalla. Las zonas de movimiento guardadas conservan la misma área de la cámara.",
+  "settings.ui.page_animations": "Animaciones de página",
+  "settings.ui.page_animations_hint": "Las páginas se deslizan y las ventanas emergentes se abren y cierran con un fundido. Desactiva para cambios instantáneos."
 };

@@ -744,6 +744,7 @@ static void sim_style_card(ui_widget_instance_t *instance)
 int main(int argc, char **argv)
 {
     extern int sim_wallbox_regression(void);
+    bool transitions_regression = false, popups_regression = false;
     bool wallbox_regression = false;
     extern int sim_controls_regression(void);
     bool controls_regression = false;
@@ -782,6 +783,8 @@ int main(int argc, char **argv)
             else if (strcmp(argv[i - 1], "--regression") == 0 && strcmp(value, "bambu") == 0) bambu_regression = true;
         else if (strcmp(argv[i - 1], "--regression") == 0 && strcmp(value, "history") == 0) history_regression = true;
         else if (strcmp(argv[i - 1], "--regression") == 0 && strcmp(value, "energy") == 0) energy_regression = true;
+        else if (strcmp(argv[i - 1], "--regression") == 0 && strcmp(value, "transitions") == 0) transitions_regression = true;
+        else if (strcmp(argv[i - 1], "--regression") == 0 && strcmp(value, "popups") == 0) popups_regression = true;
         else if (strcmp(argv[i - 1], "--regression") == 0 && strcmp(value, "controls") == 0) controls_regression = true;
         else if (strcmp(argv[i - 1], "--regression") == 0 && strcmp(value, "alerts") == 0) alerts_regression = true;
         else if (strcmp(argv[i - 1], "--regression") == 0 && strcmp(value, "screen-settings") == 0) screen_settings_regression = true;
@@ -912,6 +915,8 @@ int main(int argc, char **argv)
     lv_sdl_window_set_title(display, "BETTA widget simulator");
     lv_sdl_mouse_create();
     theme_default_init();
+    if (transitions_regression) { extern int sim_page_transition_regression(void); cJSON_Delete(root); return sim_page_transition_regression(); }
+    if (popups_regression) { extern int sim_popup_transition_regression(void); cJSON_Delete(root); return sim_popup_transition_regression(); }
     if (wallbox_regression) { cJSON_Delete(root); return sim_wallbox_regression(); }
     if (controls_regression) {
         cJSON_Delete(root);

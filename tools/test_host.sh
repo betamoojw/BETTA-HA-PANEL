@@ -79,6 +79,10 @@ cc -std=gnu11 -Wall -Wextra -Werror -g -I main \
   tests/host/test_display_rotation.c main/drivers/display_rotation.c \
   -o "$out/test_display_rotation"
 "$out/test_display_rotation"
+cc -std=gnu11 -Wall -Wextra -Werror -g -Itests/host/display_present_stubs -Imain \
+  tests/host/test_display_present.c main/drivers/display_present.c \
+  -o "$out/test_display_present"
+"$out/test_display_present"
 "$out/test_host"
 
 cc -std=gnu11 -Wall -Wextra -Werror -g -I main -I tests/host/stubs \

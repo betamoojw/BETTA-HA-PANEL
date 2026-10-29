@@ -4,6 +4,7 @@
  * Date/time tile. The popup edits local calendar fields and sends one HA service call on Save;
  * the tile itself changes only after a state update from Home Assistant.
  */
+#include "ui/ui_transition.h"
 #include "ui/ui_widget_factory.h"
 
 #include <stdio.h>
@@ -87,7 +88,7 @@ static void popup_deleted(lv_event_t *event)
 static void popup_close(lv_event_t *event)
 {
     w_datetime_ctx_t *ctx = (w_datetime_ctx_t *)lv_event_get_user_data(event);
-    if (ctx->popup != NULL) lv_obj_delete_async(ctx->popup);
+    if (ctx->popup != NULL) ui_transition_close_async(ctx->popup);
 }
 
 static void popup_backdrop(lv_event_t *event)
@@ -160,7 +161,7 @@ static void popup_save(lv_event_t *event)
         lv_label_set_text(ctx->error_label, ui_i18n_get("datetime.failed", "Could not save"));
         return;
     }
-    lv_obj_delete_async(ctx->popup);
+    ui_transition_close_async(ctx->popup);
 }
 
 static void popup_open(w_datetime_ctx_t *ctx)
@@ -290,6 +291,7 @@ static void popup_open(w_datetime_ctx_t *ctx)
     lv_obj_set_style_text_font(cancel_label, ui_text_fit(lv_label_get_text(cancel_label),
         ui_font_role(UI_TEXT_VALUE), DT_BUTTON_W - 24, DT_BUTTON_H - 12), LV_PART_MAIN);
     lv_obj_center(cancel_label);
+    ui_transition_fade_in(overlay);
 }
 
 static void card_clicked(lv_event_t *event)

@@ -11,6 +11,7 @@
 #include "ui/ui_popup.h"
 #include "ui/theme/ui_style.h"
 #include "xiaozhi/xiaozhi_dialog.h"
+#include "ui/ui_transition.h"
 #include "xiaozhi/xiaozhi_emoji.h"
 
 /* Fail in the test runner instead of opening the Windows CRT assertion dialog. */
@@ -205,8 +206,44 @@ int main(void)
     }
     assert(!strcmp(xiaozhi_emotion_glyph("unexpected"),xiaozhi_emotion_glyph("neutral")));
     assert(!xiaozhi_dialog_expired(9999,0,10));assert(xiaozhi_dialog_expired(10000,0,10));
+    /* Real reusable dialog: fade, rapid header reversal, timeout, disable and
+     * rebuild. Closing must disconnect once and reject a late Talk press. */
+    for (unsigned style = 0; style < 2; style++) {
+        ui_transition_configure(true);
+        enabled = true; memset(&mock, 0, sizeof(mock));
+        mock.emoji_style = style; mock.dialog_timeout = 10;
+        xiaozhi_ui_create(screen);
+        root = lv_obj_get_child(screen, 0);
+        button = lv_obj_get_child(root, 0); panel = lv_obj_get_child(root, 1);
+        lv_obj_t *talk = lv_obj_get_child(panel, 4);
+        lv_obj_send_event(button, LV_EVENT_CLICKED, NULL);
+        assert(lv_obj_get_style_opa(panel, 0) == 0);
+        lv_tick_inc(200); lv_timer_handler();
+        assert(lv_obj_get_style_opa(panel, 0) == 255);
+        unsigned before = disconnects, prior = starts;
+        lv_obj_send_event(button, LV_EVENT_CLICKED, NULL);
+        assert(ui_transition_is_closing(panel) && !lv_obj_is_hidden(panel));
+        lv_obj_send_event(talk, LV_EVENT_PRESSED, NULL); assert(starts == prior);
+        assert(disconnects == before + 1);
+        lv_obj_send_event(button, LV_EVENT_CLICKED, NULL); /* reopen during fade */
+        lv_tick_inc(200); lv_timer_handler();
+        assert(!lv_obj_is_hidden(panel) && !ui_transition_is_closing(panel));
+        lv_tick_inc(10100); lv_timer_handler();
+        assert(ui_transition_is_closing(panel));
+        lv_tick_inc(200); lv_timer_handler(); assert(lv_obj_is_hidden(panel));
+        lv_obj_send_event(button, LV_EVENT_CLICKED, NULL);
+        enabled = false; lv_tick_inc(300); lv_timer_handler();
+        ui_transition_configure(false); assert(lv_obj_is_hidden(panel));
+        enabled = true; lv_tick_inc(300); lv_timer_handler();
+        ui_transition_configure(true);
+        lv_obj_send_event(button, LV_EVENT_CLICKED, NULL);
+        lv_obj_send_event(button, LV_EVENT_CLICKED, NULL);
+        lv_obj_clean(screen); lv_tick_inc(300); lv_timer_handler();
+        assert(timer_count() == baseline);
+    }
+    ui_transition_configure(false);
     lv_display_delete(display);
     lv_deinit();
-    puts("PASS: manual/wake origins, press/release/cancel, 100 rebuilds, Otto/classic, timeout and five geometries");
+    puts("PASS: manual/wake origins, press/release/cancel, 100 rebuilds, Otto/classic, timeout, five geometries and popup fades");
     return 0;
 }

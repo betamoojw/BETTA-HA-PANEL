@@ -5,11 +5,13 @@ See [Alert center](alert-center.md) for the shared header alert regression.
 
 ### Native screen settings
 
-Run `tools/simulator.sh <variant> --regression screen-settings --fixture tests/simulator/screen_settings.json`.
+Run `scripts/simulator.sh <variant> --regression screen-settings --fixture tests/simulator/screen_settings.json`.
 It exercises actual LVGL control events, Save/reopen, disabled-option retention, failed-save retry,
 unrelated-settings preservation and 100 view rebuilds. Header checks include AP, MQTT and crash-marker
 combinations. Every variant accepts native `--rotation 0|90|180|270`; see [Display rotation](display-rotation.md).
 The dedicated empty fixture avoids unrelated widget orientation projection during these checks.
+CTest covers both real time and the shared fixed simulator clock. Save-result polling, view teardown
+and fade completion advance through LVGL's selected delay callback, so both clock modes exercise the same events.
 `betta-clock-test <width> <height>` exercises the production saver with a controlled clock: idle/off
 deadlines, movement bounds, night priority, complete wake gestures, storage-busy retention and
 the 30-second preview deadline. Both tests are registered with CTest.

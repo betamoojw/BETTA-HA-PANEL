@@ -292,7 +292,14 @@ target_link_libraries(betta-rotation-test PRIVATE lvgl SDL2::SDL2 m)
 add_test(NAME display-cpu-rotation COMMAND betta-rotation-test)
 add_test(NAME screen-settings-events-and-layout
     COMMAND betta-widget-sim --regression screen-settings --fixture "${CMAKE_CURRENT_LIST_DIR}/screen_settings.json")
-set_tests_properties(screen-settings-events-and-layout PROPERTIES ENVIRONMENT "SDL_VIDEODRIVER=dummy")
+set_tests_properties(screen-settings-events-and-layout PROPERTIES ENVIRONMENT "SDL_VIDEODRIVER=dummy;BETTA_SIM_NOW=real")
+# Exercise the same fixed clock as scripts/check.sh, without duplicating its timestamp.
+add_test(NAME screen-settings-fixed-clock-events-and-layout
+    COMMAND ${Python3_EXECUTABLE} -c
+        "import os, sys; sys.path.insert(0, sys.argv[1]); from generate_simulator_gallery import use_fixed_clock; use_fixed_clock(); os.execv(sys.argv[2], sys.argv[2:])"
+        "${REPO_ROOT}/tools" "$<TARGET_FILE:betta-widget-sim>"
+        --regression screen-settings --fixture "${CMAKE_CURRENT_LIST_DIR}/screen_settings.json")
+set_tests_properties(screen-settings-fixed-clock-events-and-layout PROPERTIES ENVIRONMENT "SDL_VIDEODRIVER=dummy")
 add_executable(betta-clock-test clock_protection_regression.c sim_clock.c
     "${REPO_ROOT}/main/ui/text_font.c" "${REPO_ROOT}/main/ui/text_scale.c"
     "${REPO_ROOT}/main/ui/fonts/ttf_poppins_data.c" "${REPO_ROOT}/main/ui/fonts/ttf_poppins_bold_data.c"

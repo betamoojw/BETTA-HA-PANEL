@@ -6,7 +6,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include "lvgl.h"
-#include "SDL.h"
 #include "settings/screen_settings_service.h"
 #include "ui/ui_screen_settings.h"
 #include "ui/ui_display_protection.h"
@@ -105,7 +104,8 @@ static void click_save(void)
     CHECK(caption != NULL);
     lv_obj_send_event(lv_obj_get_parent(caption), LV_EVENT_CLICKED, NULL);
     screen_settings_process();
-    SDL_Delay(110); lv_timer_handler();
+    /* Follow LVGL's selected real or virtual clock before polling the save result. */
+    lv_delay_ms(110); lv_timer_handler();
 }
 
 static void select_system(int field, unsigned index)
@@ -280,7 +280,7 @@ int sim_screen_settings_regression(void)
     for (int i = 0; i < 100; i++) {
         ui_screen_settings_open(); CHECK(ui_screen_settings_root() != NULL);
         ui_pages_init(); CHECK(ui_screen_settings_root() == NULL);
-        lv_tick_inc(110); lv_timer_handler();
+        lv_delay_ms(110); lv_timer_handler();
     }
     display_clock_t clock; display_clock_defaults(&clock);
     CHECK(!display_clock_is_off(&clock, 359999) && display_clock_is_off(&clock, 360000));
@@ -310,17 +310,17 @@ int sim_screen_settings_regression(void)
     ui_screen_settings_open();
     lv_obj_t *animated = ui_screen_settings_root();
     CHECK(lv_obj_get_style_opa(animated, 0) == 0);
-    SDL_Delay(900); lv_timer_handler();
+    lv_delay_ms(900); lv_timer_handler();
     CHECK(lv_obj_get_style_opa(animated, 0) == 255);
     lv_obj_t *cancel = lv_obj_get_parent(find_text(animated, ui_i18n_get("screen.cancel", "Cancel")));
     lv_obj_send_event(cancel, LV_EVENT_CLICKED, NULL);
     CHECK(ui_screen_settings_root() == animated && lv_obj_has_state(cancel, LV_STATE_DISABLED));
     lv_obj_send_event(cancel, LV_EVENT_CLICKED, NULL); /* duplicate close is harmless */
-    SDL_Delay(900); lv_timer_handler();
+    lv_delay_ms(900); lv_timer_handler();
     CHECK(ui_screen_settings_root() == NULL);
     ui_screen_settings_open();
     ui_pages_init(); /* rebuild while settings fade in */
-    SDL_Delay(900); lv_timer_handler();
+    lv_delay_ms(900); lv_timer_handler();
     CHECK(ui_screen_settings_root() == NULL);
     ui_transition_configure(false);
     printf("Screen settings: %u checks passed\n", checks); return 0;

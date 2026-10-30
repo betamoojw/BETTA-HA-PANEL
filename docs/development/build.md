@@ -25,6 +25,11 @@ shasum -a 256 release/network_adapter_esp32c6_3.0.10.bin   # c552957fad9f35cf31b
 
 The build embeds it and the P4 updates the C6 over SDIO when needed. Without the file the build warns and skips that
 updater ([adapter policy](https://github.com/andre68723/BETTA-HA-PANEL/blob/main/release/README.md#esp-hosted-c6-firmware-source)).
+On `panel10`, the build validates and losslessly compresses the bundled image with `tools/pack_c6_image.py`.
+The updater expands it in PSRAM only when versions differ, checks its exact length and SHA256 before transfer,
+and releases the buffer on completion or failure. Other profiles retain their existing embedding.
+Regression checks: `python -m unittest discover -s tests/tools -p test_pack_c6_image.py` and `tools/test_host.sh`
+(the native decoder checks need zlib development files, or the fetched zlib component).
 
 ## Build and flash a variant
 

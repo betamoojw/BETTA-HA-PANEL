@@ -21,6 +21,27 @@ esac
 
 cjson_sources=()
 
+# The bundled coprocessor archive must reject corruption and release failed allocations.
+c6_test="${TMPDIR:-/tmp}/betta-test-c6-image-$$"
+zlib_dir="managed_components/espressif__zlib/zlib"
+zlib_sources=(); zlib_flags=(); zlib_libs=()
+if [ -f "$zlib_dir/inflate.c" ]; then
+  zlib_flags=(-I "$zlib_dir")
+  for source in adler32 crc32 compress deflate trees uncompr inflate inffast inftrees zutil; do
+    zlib_sources+=("$zlib_dir/$source.c")
+  done
+elif command -v pkg-config >/dev/null 2>&1 && pkg-config --exists zlib; then
+  read -r -a zlib_flags <<< "$(pkg-config --cflags zlib)" || true
+  read -r -a zlib_libs <<< "$(pkg-config --libs zlib)"
+else
+  echo 'zlib development files or the fetched zlib component are required' >&2; exit 2
+fi
+cc -std=c11 -Wall -Wextra -Werror -I main -I tests/host/c6_image_stubs -I tests/host/stubs \
+  "${zlib_flags[@]}" tests/host/test_c6_image.c main/net/c6_image.c main/util/sha256_soft.c \
+  "${zlib_sources[@]}" "${zlib_libs[@]}" -o "$c6_test"
+"$c6_test"
+rm -f "$c6_test"
+
 # Ambient sensing decisions and the OV5647 register readback need no device.
 ambient_test="${TMPDIR:-/tmp}/betta-test-ambient-$$"
 cc -std=c11 -Wall -Wextra -Werror -I main \

@@ -12,7 +12,8 @@ The development branch combines these updates with its existing S3/LCD-X support
 Live Display, native settings, clocks and animations, Xiaozhi, KNX and saved camera sources. Existing translations
 are retained; new upstream labels fall back to English until their additional-language translations are supplied.
 Late weather detail responses are discarded safely after their popup closes, including responses already queued for the UI task.
-The combined `panel10` build with the bundled C6 updater exceeds its existing 6.5 MiB OTA slot; the partition layout is unchanged.
+The combined `panel10` build fits its existing 6.5 MiB OTA slot by losslessly compressing the bundled C6 updater.
+All features and the partition layout are retained; the restored C6 image is verified before transfer.
 
 ### Widgets: new and changed
 

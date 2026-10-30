@@ -567,7 +567,23 @@ endif()
 
 if(HOSTED_C6_FW_BIN)
     set(HOSTED_C6_FW_EMBED "${HOSTED_C6_FW_EMBED_DIR}/hosted_c6_fw.bin")
-    configure_file("${HOSTED_C6_FW_BIN}" "${HOSTED_C6_FW_EMBED}" COPYONLY)
+    # LCD-X needs the space for voice/camera features and already depends on zlib.
+    # Keep other profiles' embedding and dependency sets unchanged.
+    if(CONFIG_APP_PANEL_VARIANT_10INCH_1280)
+        set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+            "${HOSTED_C6_FW_BIN}" "${CMAKE_SOURCE_DIR}/tools/pack_c6_image.py")
+        execute_process(COMMAND "${PYTHON}" "${CMAKE_SOURCE_DIR}/tools/pack_c6_image.py"
+            "${HOSTED_C6_FW_BIN}" "${HOSTED_C6_FW_EMBED}" RESULT_VARIABLE HOSTED_C6_PACK_RESULT)
+        if(NOT HOSTED_C6_PACK_RESULT EQUAL 0)
+            message(FATAL_ERROR "Could not validate and compress the C6 firmware image")
+        endif()
+        target_sources(${COMPONENT_LIB} PRIVATE "net/c6_image.c")
+        idf_component_optional_requires(PRIVATE zlib)
+        target_compile_definitions(${COMPONENT_LIB} PRIVATE APP_HOSTED_C6_FW_COMPRESSED=1)
+    else()
+        configure_file("${HOSTED_C6_FW_BIN}" "${HOSTED_C6_FW_EMBED}" COPYONLY)
+        target_compile_definitions(${COMPONENT_LIB} PRIVATE APP_HOSTED_C6_FW_COMPRESSED=0)
+    endif()
     target_add_binary_data(${COMPONENT_LIB} "${HOSTED_C6_FW_EMBED}" BINARY)
     set(APP_HAVE_HOSTED_C6_FW_IMAGE 1)
     message(STATUS "Embedding ESP-Hosted C6 firmware image: ${HOSTED_C6_FW_BIN}")

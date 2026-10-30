@@ -30,6 +30,8 @@
 #include "esp_app_format.h"
 #include "esp_hosted.h"
 #include "esp_system.h"
+#include "esp_heap_caps.h"
+#include "net/c6_image.h"
 #endif
 
 #include "freertos/FreeRTOS.h"
@@ -702,6 +704,15 @@ static bool hosted_parse_version_text(const char *text, uint32_t *major, uint32_
 }
 
 #if APP_HAVE_HOSTED_C6_FW_IMAGE
+static void hosted_release_embedded_c6_fw(const uint8_t *data)
+{
+#if APP_HOSTED_C6_FW_COMPRESSED
+    heap_caps_free((void *)data);
+#else
+    (void)data;
+#endif
+}
+
 static esp_err_t hosted_get_embedded_c6_fw(const uint8_t **out_data, size_t *out_len, char *out_version, size_t out_version_len)
 {
     if (out_data == NULL || out_len == NULL) {
@@ -714,29 +725,41 @@ static esp_err_t hosted_get_embedded_c6_fw(const uint8_t **out_data, size_t *out
         return ESP_ERR_NOT_FOUND;
     }
 
+#if APP_HOSTED_C6_FW_COMPRESSED
+    uint8_t *raw = NULL;
+    size_t len = 0;
+    esp_err_t unpack_err = c6_image_unpack(start, (size_t)(end - start), &raw, &len);
+    if (unpack_err != ESP_OK) return unpack_err;
+#else
+    const uint8_t *raw = start;
     size_t len = (size_t)(end - start);
+#endif
     if (len < (sizeof(esp_image_header_t) + sizeof(esp_image_segment_header_t) + sizeof(esp_app_desc_t))) {
+        hosted_release_embedded_c6_fw(raw);
         return ESP_ERR_INVALID_SIZE;
     }
 
-    const esp_image_header_t *image_header = (const esp_image_header_t *)start;
+    const esp_image_header_t *image_header = (const esp_image_header_t *)raw;
     if (image_header->magic != ESP_IMAGE_HEADER_MAGIC) {
+        hosted_release_embedded_c6_fw(raw);
         return ESP_ERR_INVALID_RESPONSE;
     }
     if (image_header->chip_id != ESP_CHIP_ID_ESP32C6) {
+        hosted_release_embedded_c6_fw(raw);
         return ESP_ERR_INVALID_RESPONSE;
     }
 
     size_t app_desc_offset = sizeof(esp_image_header_t) + sizeof(esp_image_segment_header_t);
-    const esp_app_desc_t *app_desc = (const esp_app_desc_t *)(start + app_desc_offset);
+    const esp_app_desc_t *app_desc = (const esp_app_desc_t *)(raw + app_desc_offset);
     if (app_desc->magic_word != ESP_APP_DESC_MAGIC_WORD) {
+        hosted_release_embedded_c6_fw(raw);
         return ESP_ERR_INVALID_RESPONSE;
     }
 
     if (out_version != NULL && out_version_len > 0) {
         strlcpy(out_version, app_desc->version, out_version_len);
     }
-    *out_data = start;
+    *out_data = raw;
     *out_len = len;
     return ESP_OK;
 }
@@ -840,7 +863,7 @@ static void wifi_mgr_maybe_auto_update_c6_fw(const esp_hosted_coprocessor_fwver_
                     (unsigned int)bundled_minor,
                     (unsigned int)bundled_patch,
                     ESP_HOSTED_VERSION_PRINTF_ARGS(host_version));
-                return;
+                goto release_image;
             }
             ESP_LOGW(TAG_WIFI,
                 "Proceeding despite bundled/host version mismatch (bundled=%u.%u.%u host="
@@ -853,13 +876,13 @@ static void wifi_mgr_maybe_auto_update_c6_fw(const esp_hosted_coprocessor_fwver_
 
         if (bundled_version == running_version) {
             ESP_LOGW(TAG_WIFI, "Running C6 version already equals bundled image; skipping auto update");
-            return;
+            goto release_image;
         }
     } else {
         ESP_LOGW(TAG_WIFI,
             "Could not parse bundled C6 version string '%s'; skipping auto update for safety",
             fw_version_text);
-        return;
+        goto release_image;
     }
 
     /* The update ends with a deliberate restart. A freshly installed image is still on probation (pending verify), and the bootloader returns to the
@@ -868,14 +891,14 @@ static void wifi_mgr_maybe_auto_update_c6_fw(const esp_hosted_coprocessor_fwver_
     if (strcmp(ota_validate_image_state(), "pending_verify") == 0) {
         ESP_LOGW(TAG_WIFI, "C6 update needed, but this image is still pending verification: deferred until it is marked valid");
         s_c6_update_deferred = true;
-        return;
+        goto release_image;
     }
 
     /* Never two coprocessor updates in a row: if the version still differs right after one (the C6 reports 0.0.0 or
      * another number than the bundled image), repeating it would flash the C6 and restart the panel at every boot. */
     if (reboot_log_last_cause() == REBOOT_CAUSE_C6_UPDATE) {
         ESP_LOGW(TAG_WIFI, "C6 firmware still differs right after a C6 update: not updating again until the next restart");
-        return;
+        goto release_image;
     }
 
     ESP_LOGW(TAG_WIFI, "Starting automatic C6 OTA update over ESP-Hosted transport");
@@ -901,7 +924,7 @@ static void wifi_mgr_maybe_auto_update_c6_fw(const esp_hosted_coprocessor_fwver_
         ESP_LOGW(TAG_WIFI, "esp_hosted_slave_ota_begin failed: %s", esp_err_to_name(err));
         ui_boot_splash_set_status("C6 update failed to start");
         ui_boot_splash_hide();
-        return;
+        goto release_image;
     }
 
     size_t offset = 0;
@@ -913,9 +936,9 @@ static void wifi_mgr_maybe_auto_update_c6_fw(const esp_hosted_coprocessor_fwver_
             ESP_LOGW(TAG_WIFI, "esp_hosted_slave_ota_write failed at offset %u: %s",
                 (unsigned int)offset, esp_err_to_name(err));
             ui_boot_splash_set_status("C6 update write failed");
-        ui_boot_splash_hide();
+            ui_boot_splash_hide();
             (void)esp_hosted_slave_ota_end();
-            return;
+            goto release_image;
         }
         offset += chunk_len;
         uint8_t progress = (uint8_t)((offset * 100U) / fw_len);
@@ -930,7 +953,7 @@ static void wifi_mgr_maybe_auto_update_c6_fw(const esp_hosted_coprocessor_fwver_
         ESP_LOGW(TAG_WIFI, "esp_hosted_slave_ota_end failed: %s", esp_err_to_name(err));
         ui_boot_splash_set_status("C6 update finalize failed");
         ui_boot_splash_hide();
-        return;
+        goto release_image;
     }
 
     bool activate_supported =
@@ -941,7 +964,7 @@ static void wifi_mgr_maybe_auto_update_c6_fw(const esp_hosted_coprocessor_fwver_
             ESP_LOGW(TAG_WIFI, "esp_hosted_slave_ota_activate failed: %s", esp_err_to_name(err));
             ui_boot_splash_set_status("C6 update activate failed");
             ui_boot_splash_hide();
-            return;
+            goto release_image;
         }
     }
 
@@ -949,7 +972,12 @@ static void wifi_mgr_maybe_auto_update_c6_fw(const esp_hosted_coprocessor_fwver_
     ui_boot_splash_set_status("C6 update done, rebooting...");
     ESP_LOGW(TAG_WIFI, "C6 OTA update completed. Rebooting host to resynchronize transport");
     reboot_log_mark(REBOOT_CAUSE_C6_UPDATE);
+    hosted_release_embedded_c6_fw(fw_data);
     esp_restart();
+    return;
+
+release_image:
+    hosted_release_embedded_c6_fw(fw_data);
 #endif
 }
 

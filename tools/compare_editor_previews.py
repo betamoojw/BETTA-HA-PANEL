@@ -26,12 +26,12 @@ import subprocess
 import tempfile
 import threading
 from functools import partial
-from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+from http.server import SimpleHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
 from check_widget_layout import CASES, case_fixture
-from generate_docs_examples import DATA, REPO, TOP_BAR_H, WWW, build_simulator, demo_api, prepare_fixture
+from generate_docs_examples import DemoHTTPServer, DATA, REPO, TOP_BAR_H, WWW, build_simulator, demo_api, prepare_fixture
 
 SHEET_HEIGHT = 1500
 
@@ -59,7 +59,7 @@ def serve(responses):
             self.end_headers()
             self.wfile.write(body)
 
-    server = ThreadingHTTPServer(("127.0.0.1", 0), partial(Handler, directory=str(WWW)))
+    server = DemoHTTPServer(("127.0.0.1", 0), partial(Handler, directory=str(WWW)))
     threading.Thread(target=server.serve_forever, daemon=True).start()
     return server
 
@@ -170,6 +170,8 @@ def main():
         lvgl = render_cases(fixture, chosen, args.style, args.output)
     responses = demo_api(fixture)
     responses["/api/settings"]["ui"]["style"] = args.style
+    # The gallery fixture holds one page per widget; the panel's page limit would reject the layout.
+    responses["/api/version"]["max_pages"] = max(responses["/api/version"]["max_pages"], len(fixture["pages"]))
     server = serve(responses)
     problems, images = [], []
     try:
@@ -207,7 +209,7 @@ def main():
                 key = widget["id"] if widget else page_id
                 shot = args.output / f"{key}_editor.png"
                 try:
-                    tile = page.locator("#canvas") if widget is None else page.locator(f'[data-widget-id="{key}"]')
+                    tile = page.locator("#canvas") if widget is None else page.locator(f'#canvas .widget-box[data-widget-id="{key}"]')
                     tile.wait_for(timeout=3000)
                     tile.screenshot(path=str(shot))
                 except Exception as error:  # noqa: BLE001 - report and go on with the next widget

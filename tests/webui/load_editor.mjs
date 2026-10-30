@@ -12,12 +12,13 @@ import { fileURLToPath } from "node:url";
 
 const JS_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "../../components/webui/www/js");
 
-// Scripts in index.html order, as far as the tested code needs them.
-const SCRIPTS = ["config.js", "i18n.js", "i18n-camera.js", "i18n-knx.js", "i18n-es.js", "i18n-fr.js", "i18n-pl.js", "i18n-zh-cn.js", "i18n-zh-tw.js", "state.js", "util.js", "ui-basics.js", "translations.js", "timezones.js", "settings-clock.js", "settings.js", "brightness-test.js", "update-check.js", "layout-model.js", "pickers.js", "readability.js", "bambu-printer.js", "evcc-wallbox.js", "energy-timeline-colors.js", "tile-previews.js", "layout-history.js", "widget-actions.js", "canvas.js", "inspector-layout.js", "room-import.js", "theme.js", "inspector-hints.js", "bind.js"];
+// Production order, excluding the async browser bootstrap; check_web ties HTML to CMake.
+const HTML = fs.readFileSync(path.join(JS_DIR, "../index.html"), "utf8");
+const SCRIPTS = [...HTML.matchAll(/<script src="\/js\/([^"]+)"/g)].map(([, file]) => file).filter(file => file !== "main.js");
 
-export function loadEditor({ width = 1280, height = 680 } = {}) {
+export function loadEditor({ width = 1280, height = 680, now } = {}) {
   const document = {
-    getElementById: () => null,
+    getElementById: id => /^(xiaozhi|knx|camera)/.test(id) ? { addEventListener() {}, classList: { contains: () => true }, style: {}, dataset: {} } : null,
     querySelector: () => null,
     querySelectorAll: () => [],
     createElement: () => ({ getContext: () => ({font: "", measureText: (text) => ({width: text.length * 15})}), style: {}, dataset: {}, classList: { add() {}, remove() {}, toggle() {} }, append() {}, appendChild() {} }),
@@ -25,12 +26,19 @@ export function loadEditor({ width = 1280, height = 680 } = {}) {
     documentElement: { dataset: {}, lang: "en" },
   };
   const context = vm.createContext({
+    ...(now === undefined ? {} : { Date: class extends Date {
+      constructor(...args) { super(...(args.length ? args : [now])); }
+      static now() { return now; }
+    } }),
     document,
-    window: {},
+    module: { exports: {} },
+    window: { addEventListener() {} },
     navigator: { languages: ["en"] },
     console,
     setTimeout,
     clearTimeout,
+    setInterval: () => 0,
+    clearInterval() {},
     Intl,
     URLSearchParams,
   });

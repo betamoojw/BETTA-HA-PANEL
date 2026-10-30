@@ -27,7 +27,9 @@
 #include "drivers/ambient_camera.h"
 #include "drivers/display_init.h"
 #include "drivers/display_backlight.h"
+#include "drivers/touch_track.h"
 #include "net/wifi_diag_store.h"
+#include "net/c6_memory.h"
 #include "net/wifi_mgr.h"
 #include "settings/night_mode.h"
 #include "ui/ui_display_protection.h"
@@ -148,7 +150,9 @@ static void set_json_headers(httpd_req_t *req)
 }
 
 /* One entry per FreeRTOS task with its stack: where it lives (internal RAM or PSRAM), its allocated size and how
- * little of it was ever free (bytes). Read with GET /api/version?tasks=1 to size stacks from measurements. */
+ * little of it was ever free (bytes). "run_time" and "total_time" are the cumulative run-time counters (same unit): the difference
+ * of two reads gives each task's share of the time and "core" says where it ran (-1 = unpinned). Read with
+ * GET /api/version?tasks=1 to size stacks and find what loads a core. */
 static void add_task_stacks(cJSON *root)
 {
     const UBaseType_t capacity = uxTaskGetNumberOfTasks() + 4U;
@@ -158,7 +162,9 @@ static void add_task_stacks(cJSON *root)
         heap_caps_free(tasks);
         return;
     }
-    const UBaseType_t count = uxTaskGetSystemState(tasks, capacity, NULL);
+    uint32_t total_time = 0;
+    const UBaseType_t count = uxTaskGetSystemState(tasks, capacity, &total_time);
+    cJSON_AddNumberToObject(root, "total_time", (double)total_time);
     for (UBaseType_t i = 0; i < count; i++) {
         cJSON *item = cJSON_CreateObject();
         if (item == NULL) {
@@ -169,6 +175,9 @@ static void add_task_stacks(cJSON *root)
         cJSON_AddBoolToObject(item, "stack_internal", esp_ptr_internal(tasks[i].pxStackBase));
         cJSON_AddNumberToObject(item, "stack_size", (double)heap_caps_get_allocated_size(tasks[i].pxStackBase));
         cJSON_AddNumberToObject(item, "stack_free_min", (double)tasks[i].usStackHighWaterMark);
+        const BaseType_t core = xTaskGetCoreID(tasks[i].xHandle);
+        cJSON_AddNumberToObject(item, "core", core == tskNO_AFFINITY ? -1 : (double)core);
+        cJSON_AddNumberToObject(item, "run_time", (double)tasks[i].ulRunTimeCounter);
         cJSON_AddItemToArray(list, item);
     }
     heap_caps_free(tasks);
@@ -210,7 +219,8 @@ esp_err_t api_version_get_handler(httpd_req_t *req)
         }
     }
     /* Text sizes of this board (ui/text_scale.h): px per role (meta, label, value, key, hero) for the user steps 0..2, so the editor
-     * previews the panel's sizes without a table of its own. "step" is the step in use now. */
+     * previews the panel's sizes without a table of its own. "step" is the step in use now; "adaptive" says whether the widgets
+     * lay out from their text roles (UI_TEXT_ADAPTIVE) or keep the 10-inch boards' fixed rows and smaller roles. */
     {
         static const char *const role_names[] = {"meta", "label", "value", "key", "hero"};
         cJSON *text = cJSON_AddObjectToObject(root, "text");
@@ -220,6 +230,7 @@ esp_err_t api_version_get_handler(httpd_req_t *req)
             const text_board_t board = text_scale_build_board();
             cJSON_AddNumberToObject(text, "step", ui_fonts_user_step());
             cJSON_AddNumberToObject(text, "floor", text_scale_floor_px(board));
+            cJSON_AddBoolToObject(text, "adaptive", UI_TEXT_ADAPTIVE);
             for (size_t r = 0; r < sizeof(role_names) / sizeof(role_names[0]); r++) {
                 cJSON_AddItemToArray(roles, cJSON_CreateString(role_names[r]));
             }
@@ -283,6 +294,11 @@ esp_err_t api_version_get_handler(httpd_req_t *req)
         /* Version of the ESP32-C6 firmware image embedded in this build (it matches esp_hosted). */
         add_version_if_present(components, "esp32_c6_firmware", APP_HOSTED_C6_EXPECTED_VERSION);
 #endif
+        /* What the C6 itself reported over ESP-Hosted this boot; differs from the embedded image until the host has updated it. */
+        char c6_running[16];
+        if (wifi_mgr_get_c6_version(c6_running, sizeof(c6_running))) {
+            add_version_if_present(components, "esp32_c6_running", c6_running);
+        }
     }
 
     /* Live memory snapshot, for spotting leaks/regressions across firmware
@@ -462,6 +478,30 @@ esp_err_t api_version_get_handler(httpd_req_t *req)
     if (wifi_diag_store_load(&wifi_diag_prev)) {
         api_version_add_wifi_diag(cJSON_AddObjectToObject(wifi_diag_obj, "prev_boot"), &wifi_diag_prev);
     }
+    c6_memory_add_json(root, wifi_diag_obj);
+
+    /* Touch contact counters since boot (all zero on boards whose driver does not feed them): "lost" are contacts that
+     * ended before they were reported, "flagged" points carried the controller's weak-signal flag. */
+    const touch_track_stats_t *touch = touch_track_stats();
+    cJSON *touch_obj = cJSON_AddObjectToObject(root, "touch");
+    cJSON_AddNumberToObject(touch_obj, "frames", (double)touch->frames);
+    cJSON_AddNumberToObject(touch_obj, "flagged", (double)touch->flagged);
+    cJSON_AddNumberToObject(touch_obj, "invalid", (double)touch->invalid);
+    cJSON_AddNumberToObject(touch_obj, "contacts", (double)touch->contacts);
+    cJSON_AddNumberToObject(touch_obj, "confirmed", (double)touch->confirmed);
+    cJSON_AddNumberToObject(touch_obj, "lost", (double)touch->lost);
+    cJSON_AddNumberToObject(touch_obj, "held", (double)touch->held);
+    cJSON_AddNumberToObject(touch_obj, "reads", (double)touch->reads);
+    cJSON_AddNumberToObject(touch_obj, "empty", (double)touch->empty);
+    cJSON_AddNumberToObject(touch_obj, "i2c_errors", (double)touch->i2c_errors);
+    cJSON_AddNumberToObject(touch_obj, "late", (double)touch->late);
+    cJSON_AddNumberToObject(touch_obj, "max_gap_ms", (double)touch->max_gap_ms);
+    cJSON_AddNumberToObject(touch_obj, "ui_pressed", (double)touch->ui_pressed);
+    cJSON_AddNumberToObject(touch_obj, "ui_released", (double)touch->ui_released);
+    cJSON_AddNumberToObject(touch_obj, "ui_clicked", (double)touch->ui_clicked);
+    cJSON_AddNumberToObject(touch_obj, "ui_scrolled", (double)touch->ui_scrolled);
+    cJSON_AddNumberToObject(touch_obj, "ui_long", (double)touch->ui_long);
+    cJSON_AddNumberToObject(touch_obj, "ui_lost", (double)touch->ui_lost);
 
     cJSON_AddNumberToObject(root, "uptime_s", (double)(esp_timer_get_time() / 1000000));
     sample_cpu_load();

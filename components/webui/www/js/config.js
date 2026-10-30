@@ -60,6 +60,8 @@ const DEFAULT_SOLCAST_ENTITIES = {
   day3: "sensor.solcast_pv_forecast_prognose_tag_3",
   day4: "sensor.solcast_pv_forecast_prognose_tag_4",
   day5: "sensor.solcast_pv_forecast_prognose_tag_5",
+  day6: "sensor.solcast_pv_forecast_prognose_tag_6",
+  day7: "sensor.solcast_pv_forecast_prognose_tag_7",
 };
 const DEFAULT_SONOS_FAVORITES_SENSOR = "sensor.sonos_favorites";
 const ENERGY_PAGE_TYPE = "energy_dashboard";
@@ -135,7 +137,8 @@ function fullNavPages() {
 }
 const ENTITY_PICKER_CONFIGS = {
   sensor: {
-    domain: "sensor",
+    domain: "any",
+    allowedDomains: ["sensor", "binary_sensor"],
     titleKey: "entity_picker.title_sensor",
     blankKey: "entity_picker.blank_sensor",
     widgetKey: "entity_picker.widget_sensor",
@@ -354,6 +357,41 @@ const ENTITY_PICKER_CONFIGS = {
     widgetFallback: "Alarm widget",
     itemsFallback: "alarm panels",
   },
+  stock_quotes: {
+    domain: "sensor",
+    titleKey: "entity_picker.title_stock_quotes",
+    blankKey: "entity_picker.blank_stock_quotes",
+    widgetKey: "entity_picker.widget_stock_quotes",
+    itemsKey: "entity_picker.items_sensor",
+    titleFallback: "Choose a quote sensor",
+    blankFallback: "Blank Stocks & ETFs widget",
+    widgetFallback: "Stocks & ETFs widget",
+    itemsFallback: "sensors",
+  },
+  parqet_portfolio: {
+    domain: "sensor",
+    titleKey: "entity_picker.title_parqet_portfolio",
+    blankKey: "entity_picker.blank_parqet_portfolio",
+    widgetKey: "entity_picker.widget_parqet_portfolio",
+    itemsKey: "entity_picker.items_sensor",
+    titleFallback: "Choose the portfolio value sensor",
+    blankFallback: "Blank Parqet Portfolio widget",
+    widgetFallback: "Parqet Portfolio widget",
+    itemsFallback: "sensors",
+  },
+  energy_price_forecast: {
+    domain: "sensor",
+    titleKey: "entity_picker.title_energy_price_forecast",
+    blankKey: "entity_picker.blank_energy_price_forecast",
+    widgetKey: "entity_picker.widget_energy_price_forecast",
+    itemsKey: "entity_picker.items_sensor",
+    titleFallback: "Choose the price sensor",
+    blankFallback: "Blank Energy Price Forecast widget",
+    widgetFallback: "Energy Price Forecast widget",
+    itemsFallback: "sensors",
+    minSearch: 2,
+    liveSearch: false,
+  },
   energy_timeline: {
     domain: "sensor",
     titleKey: "entity_picker.title_energy_timeline",
@@ -568,6 +606,6 @@ const ALARM_ACTION_FIELDS = [
   ["fAlarmArmVacation", "arm_vacation"],
   ["fAlarmArmCustom", "arm_custom_bypass"],
 ];
-const WIDGET_NAME_TYPES = new Set(["wallbox_evcc", "sensor", "button", "slider", "gauge", "graph", "empty_tile", "light_tile", "heating_tile", "weather_tile", "weather_3day", "solar_forecast", "car_widget", "bambu_printer", "todo_list", "media_player", "sonos_favorites", "cover_tile", "fan_tile", "contact_tile", "camera_tile", "climate_tile", "scene_tile", "select_tile", "energy_timeline", "datetime_tile", "lock_tile", "alarm_tile", "binary_tile", "room_tile", "vacuum_tile", "roborock_tile"]);
+const WIDGET_NAME_TYPES = new Set(["wallbox_evcc", "sensor", "button", "slider", "gauge", "graph", "empty_tile", "light_tile", "heating_tile", "weather_tile", "weather_3day", "solar_forecast", "energy_price_forecast", "parqet_portfolio", "stock_quotes", "car_widget", "bambu_printer", "todo_list", "media_player", "sonos_favorites", "cover_tile", "fan_tile", "contact_tile", "camera_tile", "climate_tile", "scene_tile", "select_tile", "energy_timeline", "datetime_tile", "lock_tile", "alarm_tile", "binary_tile", "room_tile", "vacuum_tile", "roborock_tile"]);
 // Widget types whose name is hidden unless show_name is true: the weather tiles show the weather, not the place.
 const WIDGET_NAME_HIDDEN_BY_DEFAULT = new Set(["weather_tile", "weather_3day"]);

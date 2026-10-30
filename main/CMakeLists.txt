@@ -60,6 +60,8 @@ elseif(CONFIG_APP_PANEL_VARIANT_10INCH_JC)
     set(APP_DEPENDENCIES_LOCK "${CMAKE_SOURCE_DIR}/dependencies.lock.paneljc")
 elseif(CONFIG_APP_PANEL_VARIANT_TAB5_1280)
     set(APP_DEPENDENCIES_LOCK "${CMAKE_SOURCE_DIR}/dependencies.lock.tab5")
+elseif(CONFIG_APP_PANEL_VARIANT_10INCH_1280)
+    set(APP_DEPENDENCIES_LOCK "${CMAKE_SOURCE_DIR}/dependencies.lock.panel10")
 else()
     set(APP_DEPENDENCIES_LOCK "${CMAKE_SOURCE_DIR}/dependencies.lock")
 endif()
@@ -235,17 +237,28 @@ idf_component_register(
         "ha/ha_printer_lookup.c"
         "ha/ha_evcc_lookup.c"
         "ha/ha_discovery_domains.c"
+        "ha/ha_entity_source.c"
         "ha/ha_registry_discovery.c"
         "ha/ha_auth_state.c"
         "ha/ha_select_options.c"
     "ha/ha_evcc_value.c"
+    "ha/ha_evcc_vehicle_names.c"
     "ha/ha_evcc_sessions.c"
         "ha/ha_control_options.c"
         "ha/ha_datetime_value.c"
+        "ha/ha_timestamp_format.c"
+        "ha/ha_sensor_value.c"
         "ha/ha_history.c"
         "ha/ha_history_reduce.c"
         "ha/ha_energy_prefs.c"
         "ha/ha_history_stats.c"
+        "ha/ha_price_series.c"
+        "ha/parqet_portfolio.c"
+        "ha/parqet_performance.c"
+        "ha/parqet_request.c"
+        "ha/ha_quote.c"
+        "ha/ha_quote_series.c"
+        "ha/ha_easy_stock.c"
         "ha/ha_history_week.c"
         "ha/ha_lock_state.c"
         "ha/ha_alarm_state.c"
@@ -273,6 +286,8 @@ idf_component_register(
         "settings/i18n_store.c"
         "net/wifi_mgr.c"
         "net/wifi_diag_store.c"
+        "net/c6_memory.c"
+        "net/c6_memory_state.c"
         "net/time_sync.c"
         "net/timezone_catalog.c"
         "api/api_time_status.c"
@@ -302,6 +317,7 @@ idf_component_register(
         "ui/ui_widget_factory.c"
         "ui/ui_bindings.c"
         "ui/widgets/w_sensor.c"
+        "ui/widgets/w_sensor_list.c"
         "ui/widgets/w_button.c"
         "ui/widgets/w_slider.c"
         "ui/widgets/w_gauge.c"
@@ -323,7 +339,13 @@ idf_component_register(
         "ui/widgets/weather_value_parse.c"
         "ui/widgets/weather_condition_icon.c"
         "ui/widgets/weather_now_view.c"
+        "ui/widgets/weather_hourly.c"
+        "ha/ha_weather_hourly.c"
         "ui/widgets/w_solar_forecast.c"
+        "ui/widgets/w_energy_price_forecast.c"
+        "ui/widgets/w_parqet_portfolio.c"
+        "ui/widgets/w_stock_quotes.c"
+        "ui/quote_history_feed.c"
         "ui/widgets/w_car_widget.c"
         "ui/widgets/w_bambu_printer.c"
         "ui/widgets/w_wallbox_evcc.c"
@@ -411,6 +433,7 @@ idf_component_register(
         "drivers/display_rotation.c"
         "drivers/display_policy.c"
         "drivers/touch_track.c"
+        "drivers/touch_latch.c"
         "drivers/audio_out.c"
         "api/api_sound.c"
     INCLUDE_DIRS
@@ -517,7 +540,7 @@ file(MAKE_DIRECTORY "${HOSTED_C6_FW_EMBED_DIR}")
 set(HOSTED_C6_HOST_MANIFEST_FILE
     "${CMAKE_CURRENT_LIST_DIR}/../managed_components/espressif__esp_hosted/idf_component.yml")
 set(HOSTED_C6_EXPECTED_VERSION "unknown")
-if(CONFIG_ESP_HOSTED_ENABLED AND EXISTS "${HOSTED_C6_HOST_MANIFEST_FILE}")
+if(CONFIG_ESP_HOSTED AND EXISTS "${HOSTED_C6_HOST_MANIFEST_FILE}")
     file(READ "${HOSTED_C6_HOST_MANIFEST_FILE}" HOSTED_C6_HOST_MANIFEST_TEXT)
     string(REGEX MATCH "\nversion:[ \t]*\"?([0-9]+\\.[0-9]+\\.[0-9]+)\"?"
         _HOSTED_C6_VER_MATCH "${HOSTED_C6_HOST_MANIFEST_TEXT}")
@@ -530,10 +553,10 @@ if(NOT HOSTED_C6_EXPECTED_VERSION STREQUAL "unknown")
     set(HOSTED_C6_FW_BIN_RELEASE_VERSIONED
         "${CMAKE_SOURCE_DIR}/release/network_adapter_esp32c6_${HOSTED_C6_EXPECTED_VERSION}.bin")
 endif()
-if(CONFIG_ESP_HOSTED_ENABLED AND DEFINED HOSTED_C6_FW_BIN_RELEASE_VERSIONED AND EXISTS "${HOSTED_C6_FW_BIN_RELEASE_VERSIONED}")
+if(CONFIG_ESP_HOSTED AND DEFINED HOSTED_C6_FW_BIN_RELEASE_VERSIONED AND EXISTS "${HOSTED_C6_FW_BIN_RELEASE_VERSIONED}")
     set(HOSTED_C6_FW_BIN "${HOSTED_C6_FW_BIN_RELEASE_VERSIONED}")
     message(STATUS "Using release C6 firmware image: ${HOSTED_C6_FW_BIN_RELEASE_VERSIONED}")
-elseif(CONFIG_ESP_HOSTED_ENABLED AND EXISTS "${HOSTED_C6_FW_BIN_RELEASE_GENERIC}")
+elseif(CONFIG_ESP_HOSTED AND EXISTS "${HOSTED_C6_FW_BIN_RELEASE_GENERIC}")
     set(HOSTED_C6_FW_BIN "${HOSTED_C6_FW_BIN_RELEASE_GENERIC}")
     message(STATUS "Using release C6 firmware image: ${HOSTED_C6_FW_BIN_RELEASE_GENERIC}")
 elseif(NOT HOSTED_C6_EXPECTED_VERSION STREQUAL "unknown")
@@ -548,7 +571,7 @@ if(HOSTED_C6_FW_BIN)
     target_add_binary_data(${COMPONENT_LIB} "${HOSTED_C6_FW_EMBED}" BINARY)
     set(APP_HAVE_HOSTED_C6_FW_IMAGE 1)
     message(STATUS "Embedding ESP-Hosted C6 firmware image: ${HOSTED_C6_FW_BIN}")
-elseif(CONFIG_ESP_HOSTED_ENABLED)
+elseif(CONFIG_ESP_HOSTED)
     message(WARNING
         "No ESP-Hosted C6 firmware image found in release/. "
         "Runtime C6 auto-update will be skipped until a release image is provided.")

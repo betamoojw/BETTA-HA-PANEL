@@ -39,13 +39,18 @@ Choose **+ Page → Energy dashboard**, then select the source in the page inspe
 | Home Assistant Energy | The sources configured in Home Assistant's Energy dashboard |
 | Manual live sensors | Live power sensors for grid, solar, home and optionally battery; gas and water are optional |
 
+Energy nodes follow the selected appearance: Flat uses plain outlined circles, Glow adds coloured
+light halos, Glass uses translucent surfaces with light rims, and Matte uses opaque borderless surfaces.
+Source colours and the home consumption ring keep their meaning in every style.
+
 Both sources use the same fixed page layout; an HA Lovelace Energy card is not imported.
 The 24-hour [Energy timeline](widgets/energy_timeline.md) is a separate widget and needs no energy page.
 See [Home Assistant setup](home-assistant.md#energy-and-rooms) for what each needs.
 
 ### Seven-day details
 
-Tap **Gas**, **Water** or **Solar** to see the last seven days as daily consumption: one bar per local calendar day,
+Tap **Gas**, **Water** or **Solar** to see the last seven days: daily consumption for Gas/Water and daily production
+for Solar, with one bar per local calendar day,
 today last. Today is lighter because it is not complete yet; a day without statistics shows a dash instead of a bar.
 Water and Gas use the sources of Home Assistant's Energy dashboard, or with *Manual live sensors* the Gas and Water
 entities of the page. Solar sums its production counters. A source needs long-term statistics as a cumulative counter

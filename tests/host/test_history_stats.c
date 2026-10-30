@@ -282,12 +282,152 @@ static void test_counter_and_sources(void)
     tzset();
 }
 
+/* 30 days of daily means and 12 months of weekly means (a quote's history): windows, rows, gaps and bad rows. */
+static void test_ranges(void)
+{
+    setenv("TZ", "CET-1CEST,M3.5.0,M10.5.0/3", 1);
+    tzset();
+    const int64_t now = 1792350000; /* 2026-10-18 */
+    ha_stats_window_t w;
+    const char *period = NULL;
+    CHECK(ha_stats_range_window(now, HA_RANGE_30_DAYS, &w, &period) && strcmp(period, "day") == 0);
+    CHECK(w.end_epoch == now && w.start_epoch == ha_stats_local_day_start(now, -29));
+    ha_stats_window_t wy;
+    CHECK(ha_stats_range_window(now, HA_RANGE_12_MONTHS, &wy, &period) && strcmp(period, "week") == 0);
+    CHECK(wy.start_epoch == ha_stats_local_day_start(now, -364));
+    CHECK(!ha_stats_range_window(-1, HA_RANGE_30_DAYS, &w, &period));
+
+    /* rows: epoch milliseconds like the hourly rows; one gap (null mean), one row out of the window, one out of order */
+    char json[1024];
+    const long long d0 = (long long)w.start_epoch * 1000;
+    snprintf(json, sizeof(json),
+             "{\"sensor.sap\":[{\"start\":%lld,\"end\":%lld,\"mean\":190.5,\"min\":188.0,\"max\":193.2},"
+             "{\"start\":%lld,\"mean\":null},"
+             "{\"start\":%lld,\"mean\":195.0},"
+             "{\"start\":%lld,\"mean\":196.0},"
+             "{\"start\":%lld,\"mean\":150.0}]}",
+             d0, d0 + 86400000LL, d0 + 86400000LL * 2, d0 + 86400000LL * 3, d0 + 86400000LL * 2, d0 - 86400000LL * 9);
+    cJSON *result = cJSON_Parse(json);
+    ha_range_series_t series;
+    CHECK(ha_stats_parse_range(result, "sensor.sap", &w, HA_RANGE_30_DAYS, &series) == HA_STATS_OUTCOME_OK);
+    CHECK(series.count == 4 && series.rejected == 2);
+    CHECK(series.point[0].start == w.start_epoch && NEAR(series.point[0].mean, 190.5) && series.point[0].has_range);
+    CHECK(NEAR(series.point[0].min, 188.0) && NEAR(series.point[0].max, 193.2));
+    CHECK(isnan(series.point[1].mean) && isnan(series.point[2].mean));
+    CHECK(series.point[1].start == w.start_epoch + 86400 && series.point[2].start == w.start_epoch + 2 * 86400);
+    CHECK(!series.point[3].has_range && NEAR(series.point[3].min, 195.0) && NEAR(series.point[3].max, 195.0));
+    cJSON_Delete(result);
+
+    /* A one-day move followed by a 28-day gap must retain the same calendar/time span as a complete month. */
+    snprintf(json, sizeof(json), "{\"sensor.sap\":[{\"start\":%lld,\"mean\":100},{\"start\":%lld,\"mean\":101},"
+             "{\"start\":%lld,\"mean\":102}]}", d0, d0 + 86400000LL,
+             (long long)ha_stats_local_day_start(w.start_epoch, 29) * 1000);
+    result = cJSON_Parse(json);
+    CHECK(ha_stats_parse_range(result, "sensor.sap", &w, HA_RANGE_30_DAYS, &series) == HA_STATS_OUTCOME_OK);
+    CHECK(series.count == 30 && NEAR(series.point[1].mean, 101) && isnan(series.point[2].mean));
+    CHECK(NEAR(series.point[29].mean, 102) && series.point[29].start == ha_stats_local_day_start(w.start_epoch, 29));
+    cJSON_Delete(result);
+
+    /* Missing local days and weeks across both clock changes retain real UTC coordinates. */
+    const int64_t transitions[] = {1774738800LL, 1792879200LL}; /* Sundays at local midnight */
+    for (size_t i = 0; i < sizeof(transitions) / sizeof(transitions[0]); i++) {
+        const int64_t begin = ha_stats_local_day_start(transitions[i], -1);
+        for (int weekly = 0; weekly < 2; weekly++) {
+            const int step = weekly ? 7 : 1;
+            ha_stats_window_t dst = {.start_epoch = begin, .end_epoch = ha_stats_local_day_start(begin, 3 * step)};
+            const int64_t last = ha_stats_local_day_start(begin, 2 * step);
+            snprintf(json, sizeof(json), "{\"sensor.sap\":[{\"start\":%lld,\"mean\":100},{\"start\":%lld,\"mean\":102}]}",
+                     (long long)begin * 1000, (long long)last * 1000);
+            result = cJSON_Parse(json);
+            CHECK(ha_stats_parse_range(result, "sensor.sap", &dst, weekly ? HA_RANGE_12_MONTHS : HA_RANGE_30_DAYS,
+                                       &series) == HA_STATS_OUTCOME_OK);
+            CHECK(series.count == 3 && isnan(series.point[1].mean));
+            CHECK(series.point[1].start == ha_stats_local_day_start(begin, step) && series.point[2].start == last);
+            CHECK(last - begin == 2 * step * 86400 + (i == 0 ? -3600 : 3600));
+            cJSON_Delete(result);
+        }
+    }
+
+    /* a week row may start before the window (its Monday), a day row may not */
+    snprintf(json, sizeof(json), "{\"sensor.sap\":[{\"start\":%lld,\"mean\":1.5}]}", (long long)(wy.start_epoch - 3 * 86400) * 1000);
+    result = cJSON_Parse(json);
+    CHECK(ha_stats_parse_range(result, "sensor.sap", &wy, HA_RANGE_12_MONTHS, &series) == HA_STATS_OUTCOME_OK && series.count == 1);
+    CHECK(ha_stats_parse_range(result, "sensor.sap", &wy, HA_RANGE_30_DAYS, &series) == HA_STATS_OUTCOME_EMPTY && series.rejected == 1);
+    cJSON_Delete(result);
+
+    /* no rows, a missing id, the wrong shape and too many rows */
+    result = cJSON_Parse("{\"sensor.sap\":[]}");
+    CHECK(ha_stats_parse_range(result, "sensor.sap", &w, HA_RANGE_30_DAYS, &series) == HA_STATS_OUTCOME_EMPTY);
+    CHECK(ha_stats_parse_range(result, "sensor.other", &w, HA_RANGE_30_DAYS, &series) == HA_STATS_OUTCOME_EMPTY);
+    cJSON_Delete(result);
+    result = cJSON_Parse("[]");
+    CHECK(ha_stats_parse_range(result, "sensor.sap", &w, HA_RANGE_30_DAYS, &series) == HA_STATS_OUTCOME_INVALID);
+    cJSON_Delete(result);
+    char *many = malloc(4096);
+    strcpy(many, "{\"sensor.sap\":[");
+    for (int i = 0; i < HA_RANGE_MAX_POINTS + 1; i++) strcat(many, i ? ",{\"start\":1,\"mean\":1}" : "{\"start\":1,\"mean\":1}");
+    strcat(many, "]}");
+    result = cJSON_Parse(many);
+    CHECK(ha_stats_parse_range(result, "sensor.sap", &w, HA_RANGE_30_DAYS, &series) == HA_STATS_OUTCOME_INVALID);
+    cJSON_Delete(result);
+    free(many);
+    unsetenv("TZ");
+    tzset();
+}
+
+static void test_numeric_bounds(void)
+{
+    ha_stats_window_t window;
+    CHECK(ha_stats_week_window(NOW, &window));
+    const char *bad_rows[] = {
+        "{\"start\":1e200,\"mean\":1}",
+        "{\"start\":-1e200,\"mean\":1}",
+        "{\"start\":1790784000000.5,\"mean\":1}",
+        "{\"start\":1790784000000,\"end\":1e200,\"mean\":1}",
+        "{\"start\":1790784000000,\"mean\":1e200}"
+    };
+    for (size_t i = 0; i < sizeof(bad_rows) / sizeof(bad_rows[0]); i++) {
+        char json[256];
+        snprintf(json, sizeof(json), "{\"sensor.p\":[%s]}", bad_rows[i]);
+        cJSON *root = cJSON_Parse(json);
+        ha_stats_series_t hourly;
+        CHECK(ha_stats_parse_hourly(root, "sensor.p", &window, HA_STATS_VALUE_MEAN, true, &hourly) == HA_STATS_OUTCOME_EMPTY);
+        CHECK(hourly.valid == 0 && hourly.rejected == 1);
+        cJSON_Delete(root);
+    }
+    cJSON *root = cJSON_Parse("{\"sensor.p\":[{\"start\":1790784000000,\"mean\":2,\"min\":-1e200,\"max\":1e200}]}");
+    ha_stats_series_t hourly;
+    CHECK(ha_stats_parse_hourly(root, "sensor.p", &window, HA_STATS_VALUE_MEAN, true, &hourly) == HA_STATS_OUTCOME_OK);
+    CHECK(hourly.flags[1] == HA_STATS_FLAG_VALUE && NEAR(hourly.value[1], 2));
+    cJSON_Delete(root);
+
+    CHECK(ha_stats_range_window(NOW, HA_RANGE_30_DAYS, &window, NULL));
+    char json[768];
+    const long long start = (long long)window.start_epoch * 1000;
+    snprintf(json, sizeof(json), "{\"sensor.p\":[{\"start\":1e200,\"mean\":1},{\"start\":-1e200,\"mean\":1},"
+             "{\"start\":%lld.5,\"mean\":1},{\"start\":%lld,\"mean\":1e200},"
+             "{\"start\":%lld,\"mean\":2,\"min\":-1e200,\"max\":1e200}]}", start, start, start);
+    root = cJSON_Parse(json);
+    ha_range_series_t range;
+    CHECK(ha_stats_parse_range(root, "sensor.p", &window, HA_RANGE_30_DAYS, &range) == HA_STATS_OUTCOME_OK);
+    CHECK(range.count == 1 && range.rejected == 4 && NEAR(range.point[0].mean, 2));
+    CHECK(!range.point[0].has_range && isfinite(range.point[0].min) && isfinite(range.point[0].max));
+    cJSON_Delete(root);
+
+    root = cJSON_Parse("[{\"statistic_id\":\"sensor.p\",\"mean_type\":1e200,\"has_mean\":true}]");
+    ha_stats_meta_t metadata;
+    CHECK(ha_stats_parse_metadata(root, "sensor.p", &metadata) && metadata.mean_type != 1);
+    cJSON_Delete(root);
+}
+
 int main(void)
 {
     test_counter_and_sources();
     test_metadata_and_eligibility();
     test_week_window_and_rows();
     test_daily_sums();
+    test_ranges();
+    test_numeric_bounds();
     printf("%s: %d checks, %d failed\n", failed == 0 ? "PASS statistics parser" : "FAIL statistics parser", checks, failed);
     return failed == 0 ? 0 : 1;
 }

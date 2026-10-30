@@ -1,13 +1,9 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: LicenseRef-FNCL-1.1
 # Copyright (c) 2026 andre68723 -- file added in the andre68723/BETTA-HA-PANEL fork, see docs/release-notes.md
-"""Fast checks that need no device and no ESP-IDF (run by tools/check.sh):
+"""Static documentation, editor, widget registration and translation checks.
 
-- the documentation: relative links in the Markdown files point at files that exist
-- the web editor: HTML tags balance, the built-in translation tables (en and de must have the same
-  keys, no key twice in one table), the firmware translation tables (English stays
-  ASCII; German is full UTF-8 -- see docs/development/conventions.md)
-- exits non-zero when something is wrong
+Run by scripts/check.sh without a device or ESP-IDF. Failures exit nonzero.
 """
 import html.parser
 import gzip
@@ -18,6 +14,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -56,11 +53,7 @@ def check_html():
 
 
 def check_editor_files():
-    """The ordered source list, source HTML and www/js must agree.
-
-    Also exercise the firmware-only bundle generator in a temporary directory;
-    the generated code is never placed in the checked-in www/ source tree.
-    """
+    """Compare ordered editor sources/HTML and exercise bundling in a temporary directory."""
     cmake = (ROOT / "components" / "webui" / "CMakeLists.txt").read_text(encoding="utf-8")
     sources = re.search(r"set\(WEBUI_JS_SOURCES(.*?)\)", cmake, re.S)
     if not sources:
@@ -154,18 +147,20 @@ def check_editor_files():
                 fail(f"gzip round-trip differs for {name}")
 
 
+def web_i18n_source():
+    paths = [WWW / "js" / "i18n.js", *sorted((WWW / "js").glob("i18n-*.js"))]
+    return "\n".join(path.read_text(encoding="utf-8") for path in paths)
+
+
 def language_tables(text):
-    """Return {lang: [keys in order]} of WEB_I18N_BUILTIN (en, de)."""
-    start = text.index("const WEB_I18N_BUILTIN = {")
+    """Return {lang: [keys in order]} across the built-in language files."""
     tables, current = {}, None
-    for line in text[start:].splitlines():
+    for line in text.splitlines():
         m = re.match(r"^  (\w\w): \{$", line)
         if m:
             current = m.group(1)
             tables[current] = []
             continue
-        if line.startswith("};"):
-            break
         if current:
             k = re.match(r'^    "([^"]+)":', line)
             if k:
@@ -174,7 +169,21 @@ def language_tables(text):
 
 
 def check_web_i18n():
-    tables = language_tables((WWW / "js" / "i18n.js").read_text(encoding="utf-8"))
+    text = web_i18n_source()
+    tables = language_tables(text)
+    values, current = {}, None
+    for line in text.splitlines():
+        header = re.match(r"^  (\w\w): \{$", line)
+        if header:
+            current = header.group(1)
+            values[current] = {}
+        entry = re.match(r'^    ("(?:[^"\\]|\\.)*"): ("(?:[^"\\]|\\.)*"),?$', line)
+        if current and entry:
+            key, value = (json.loads(part) for part in entry.groups())
+            values[current][key] = value
+            # This state deliberately hides its message when automatic installation is disabled.
+            if not value.strip() and key != "update.auto.state.wait_disabled":
+                fail(f"web i18n {current}: {key!r} is empty")
     for lang, keys in tables.items():
         seen = set()
         for key in keys:
@@ -186,10 +195,27 @@ def check_web_i18n():
         fail(f"js/i18n.js: key {key!r} is in en but not in de")
     for key in sorted(de - en):
         fail(f"js/i18n.js: key {key!r} is in de but not in en")
+    for key in sorted(en & de):
+        placeholders = [sorted(re.findall(r"\{[a-zA-Z0-9_]+\}", values[lang].get(key, ""))) for lang in ("en", "de")]
+        if placeholders[0] != placeholders[1]:
+            fail(f"web i18n: {key!r} has different en/de placeholders: {placeholders}")
+
+
+def check_widget_help_summaries():
+    """The inspector's widget popup repeats the summary of the widget guide (tools/widget_docs_content.py)."""
+    from widget_docs_content import WIDGETS
+    text = web_i18n_source()
+    english = text[text.index("const WEB_I18N_BUILTIN = {"):text.index("\n  de: {")]
+    for kind, widget in WIDGETS.items():
+        m = re.search(r'"inspector\.help\.widget_' + kind + r'":\s*"((?:[^"\\]|\\.)*)"', english)
+        expected = widget["summary"].replace("`", "")
+        if not m:
+            fail(f"js/i18n.js: no inspector.help.widget_{kind}")
+        elif json.loads(f'"{m.group(1)}"') != expected:
+            fail(f"js/i18n.js: inspector.help.widget_{kind} differs from the guide summary: {expected!r}")
 
 
 def check_markdown_links():
-    import subprocess
     tracked = subprocess.run(["git", "ls-files", "--cached", "--others", "--exclude-standard", "*.md"], cwd=ROOT, capture_output=True, text=True).stdout.split()
     link = re.compile(r"\]\(([^)\s]+)\)")
     for name in tracked:
@@ -225,33 +251,53 @@ def check_firmware_i18n():
             fail(f"i18n_store.c line {n}: non-ASCII text (the EN built-in table is ASCII on purpose)")
 
 
-def firmware_translation_keys(text, table):
-    """The leaf keys under "lvgl" of the built-in table `table` (I18N_BUILTIN_DE or _EN) in i18n_store.c."""
-    import json
+def firmware_translation_values(text, table):
+    """Decode the C strings separately, then check the actual JSON including duplicate members."""
     start = text.index(f"static const char *{table} =")
     end = text.index("\n\n", start)
-    parts = re.findall(r'^\s*"((?:[^"\\]|\\.)*)"\s*;?\s*$', text[start:end], re.M)
-    document = json.loads("".join(parts).replace('\\"', '"').replace("\\\\", "\\"))
-    keys = set()
+    parts = re.findall(r'^\s*("(?:[^"\\]|\\.)*")\s*;?\s*$', text[start:end], re.M)
+    def unique_object(pairs):
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                fail(f"{table}: duplicate JSON member {key!r}")
+            result[key] = value
+        return result
+    document = json.loads("".join(json.loads(part) for part in parts), object_pairs_hook=unique_object)
+    if set(document) != {"lvgl"} or not isinstance(document["lvgl"], dict):
+        fail(f"{table}: the root must contain only the lvgl object")
+        return {}
+    values = {}
 
     def walk(node, prefix):
         for key, value in node.items():
             if isinstance(value, dict):
                 walk(value, prefix + key + ".")
             else:
-                keys.add(prefix + key)
+                if not isinstance(value, str) or not value.strip():
+                    fail(f"{table}: {prefix + key!r} is empty or not a string")
+                values[prefix + key] = value
 
     walk(document["lvgl"], "")
-    return keys
+    return values
+
+
+def firmware_translation_keys(text, table):
+    return set(firmware_translation_values(text, table))
 
 
 def check_firmware_translation_keys():
     """Every ui_i18n_get("key", ...) in main/ needs an entry in both built-in tables: a missing one silently shows the
     English fallback on a German panel."""
     text = (ROOT / "main" / "settings" / "i18n_store.c").read_text(encoding="utf-8")
-    de, en = firmware_translation_keys(text, "I18N_BUILTIN_DE"), firmware_translation_keys(text, "I18N_BUILTIN_EN")
-    for key in sorted(de ^ en):
+    de, en = (firmware_translation_values(text, table) for table in ("I18N_BUILTIN_DE", "I18N_BUILTIN_EN"))
+    for key in sorted(de.keys() ^ en.keys()):
         fail(f"i18n_store.c: key {key!r} is in only one of the two built-in tables")
+    for key in sorted(de.keys() & en.keys()):
+        formats = [re.findall(r"%(?:[-+ #0]*\d*(?:\.\d+)?(?:hh|ll|[hlzjt])?[diuoxXfFeEgGcsp]|%)", table[key])
+                   for table in (en, de)]
+        if formats[0] != formats[1]:
+            fail(f"i18n_store.c: {key!r} has different en/de printf formats: {formats}")
     used = {}
     for path in sorted((ROOT / "main").rglob("*.c")):
         for key in re.findall(r'ui_i18n_get\(\s*"([^"]+)"', path.read_text(encoding="utf-8", errors="ignore")):
@@ -262,86 +308,74 @@ def check_firmware_translation_keys():
 
 
 def entity_picker_widget_types(text):
-    """Return {picker key: widget type} from ENTITY_PICKER_CONFIGS in js/config.js, resolving a config's
-    own widgetType override (contact_tile -> binary_tile and the like)."""
+    """Read picker keys and their optional widgetType override."""
     start = text.index("const ENTITY_PICKER_CONFIGS = {")
-    end = text.index("\n};", start)
-    types, key, widget_type = {}, None, None
-    for line in text[start:end].splitlines():
-        m = re.match(r"^  (\w+): \{$", line)
-        if m:
-            key, widget_type = m.group(1), None
-            continue
-        if key and re.match(r"^  \},?$", line):
-            types[key] = widget_type or key
-            key = None
-            continue
-        if key:
-            wt = re.match(r'^\s*widgetType: "([a-z_0-9]+)",?$', line)
-            if wt:
-                widget_type = wt.group(1)
+    body = text[start:text.index("\n};", start)]
+    types = {}
+    for key, config in re.findall(r'^  (\w+): \{\n(.*?)^  \},?$', body, re.M | re.S):
+        override = re.search(r'^\s*widgetType: "([a-z_0-9]+)"', config, re.M)
+        types[key] = override.group(1) if override else key
     return types
 
 
 def switch_case_types(text, func_signature):
-    """Return the set of `case "...":` labels in the switch of the named function, up to its closing brace
-    (the next top-level `function` keyword at column 0)."""
+    """Read case labels up to the next top-level function."""
     start = text.index(func_signature)
     end = text.index("\nfunction ", start + len(func_signature))
     return set(re.findall(r'case "([a-z_0-9]+)":', text[start:end]))
 
 
 def tile_preview_types(canvas_js, previews_js):
-    """Widget types with their own editor preview: the solar/car/Sonos tiles have a dedicated preview
-    function picked before tilePreviewMarkup() is even called; everything else goes through its switch."""
+    """Read dedicated canvas previews and the shared tilePreviewMarkup switch."""
     special = set(re.findall(
         r'(?:if|else if) \(widget\.type === "([a-z_0-9]+)"\) \{\s*\n\s*box\.innerHTML = \w+PreviewMarkup\(widget\);',
         canvas_js))
     return special | switch_case_types(previews_js, "function tilePreviewMarkup(widget) {")
 
 
-def creatable_widget_types(bind_js, config_js):
-    """The widget types the Add menu can actually create: bind.js wires every button to either a plain
-    addWidget("type") or openLightEntityPicker("picker key"), the latter resolved through that picker's
-    own widgetType override (contact_tile -> binary_tile and the like, see entity_picker_widget_types()).
-    A few ENTITY_PICKER_CONFIGS entries exist only to search an entity for an *existing* widget's field
-    (image, used for the vacuum tile's map entity) and never become a widget of their own, so they are
-    left out by only looking at what bind.js's buttons actually call."""
-    picker_widget_types = entity_picker_widget_types(config_js)
-    types = set(re.findall(r'addWidget\("([a-z_0-9]+)"\)', bind_js))
-    for key in re.findall(r'openLightEntityPicker\("([a-z_0-9]+)"', bind_js):
-        types.add(picker_widget_types.get(key, key))
+def creatable_widget_types(bind_js, config_js, custom_js=""):
+    """Bound plain/picker creators and one level of named custom Add handlers; picker aliases remain valid."""
+    from check_simulator_fields import function_body
+    source = bind_js
+    for name in re.findall(r'\.onclick = \(\) => (?:void )?(\w+)\(\)', bind_js):
+        signature = f"function {name}("
+        if signature in custom_js:
+            source += function_body(custom_js, signature)
+    types = set(re.findall(r'addWidget\("([a-z_0-9]+)"', source))
+    pickers = entity_picker_widget_types(config_js)
+    for key in re.findall(r'openLightEntityPicker\("([a-z_0-9]+)"', source):
+        if key in pickers:
+            types.update((key, pickers[key]))
     return types
 
 
 def check_widget_type_tables():
-    """New widget types are added in several places at once (docs/development/conventions.md, 'New widget types'): a tile
-    preview and size limits in the web editor are two of them, and unlike a missing translation there is
-    no structural check today that a type the Add menu can create actually has both. Forgetting one does
-    not break the editor outright, it just falls back to a generic box or generic min/max size for that
-    type."""
-    config_js = (WWW / "js" / "config.js").read_text(encoding="utf-8")
-    canvas_js = (WWW / "js" / "canvas.js").read_text(encoding="utf-8")
-    state_js = (WWW / "js" / "state.js").read_text(encoding="utf-8")
-    bind_js = (WWW / "js" / "bind.js").read_text(encoding="utf-8")
-    previews = tile_preview_types(canvas_js, (WWW / "js" / "tile-previews.js").read_text(encoding="utf-8"))
-    sizes = switch_case_types(state_js, "function widgetSizeLimitsForCanvas(type) {")
-    for widget_type in sorted(creatable_widget_types(bind_js, config_js)):
-        if widget_type not in previews:
-            fail(f"the Add menu can create a {widget_type!r} tile with no preview in js/tile-previews.js "
-                 f"tilePreviewMarkup() (or its own *PreviewMarkup function)")
-        if widget_type not in sizes:
-            fail(f"the Add menu can create a {widget_type!r} tile with no entry in js/state.js "
-                 f"widgetSizeLimits()")
+    """Report missing registrations per supported C type; this is not behavioral or visual parity."""
+    from check_simulator_fields import function_body
+    from generate_widget_docs import size_limits, WIDGETS, GROUPS
+    scripts = {p.stem: p.read_text(encoding="utf-8") for p in (WWW / "js").glob("*.js")}
+    factory = (ROOT / "main/ui/ui_widget_factory.c").read_text(encoding="utf-8")
+    registrations = {
+        "editor.add": creatable_widget_types(scripts["bind"], scripts["config"], "\n".join(scripts.values())),
+        "editor.preview": tile_preview_types(scripts["canvas"], scripts["tile-previews"]),
+        "editor.sizes": switch_case_types(scripts["state"], "function widgetSizeLimitsForCanvas(type) {"),
+        "editor.names": set(re.findall(r'"(\w+)"', re.search(r'const WIDGET_NAME_TYPES = new Set\(\[(.*?)\]\)', scripts["config"]).group(1))),
+        "docs.content": set(WIDGETS),
+    }
+    for operation in ("create", "apply_state", "mark_unavailable"):
+        body = function_body(factory, f"ui_widget_factory_{operation}_inner(")
+        registrations[f"factory.{operation}"] = set(re.findall(r'strcmp\([^,]+,\s*"(\w+)"', body))
+    groups = [kind for _, _, kinds in GROUPS for kind in kinds]
+    for kind in sorted(set(size_limits()) - {"roborock_tile"}):
+        missing = [place for place, types in registrations.items() if kind not in types]
+        if groups.count(kind) != 1:
+            missing.append("docs.group (expected once)")
+        if missing:
+            fail(f"widget {kind}: missing " + ", ".join(missing))
 
 
 def check_style_registry():
-    """The appearance style IDs exist in four places that cannot share code: the firmware registry
-    (main/ui/theme/ui_style_registry.c), the editor constants (js/config.js), the settings options in
-    index.html and the tools module (tools/ui_styles.py). A missed entry shows up only as a rejected
-    save or a missing gallery column, so compare them here, together with the translations and
-    gallery titles each supported style needs (docs/appearance.md)."""
-    sys.path.insert(0, str(ROOT / "tools"))
+    """Compare firmware, editor, settings and gallery style registries and defaults."""
     import gallery_content
     import ui_styles
 
@@ -402,7 +436,7 @@ def check_style_registry():
     for stem in sorted(css_files - set(c_ids) - {"depth"}):
         fail(f"css/style-{stem}.css belongs to no supported style (ui_style_registry.c)")
 
-    i18n = (WWW / "js" / "i18n.js").read_text(encoding="utf-8")
+    i18n = web_i18n_source()
     tables = language_tables(i18n)
     for style_id in c_ids:
         for key in (f"settings.appearance.{style_id}", f"settings.appearance.{style_id}_info"):
@@ -414,11 +448,31 @@ def check_style_registry():
                 fail(f"tools/gallery_content.py {table_name} has no {style_id!r}")
 
 
+def check_toolchains():
+    """Validate the unavoidable pre-checkout/installer literals against the CI targets."""
+    expected = tomllib.loads((ROOT / "pyproject.toml").read_text())["tool"]["betta"]["ci"]
+    for name in ("check.yml", "docs.yml"):
+        workflow = (ROOT / ".github/workflows" / name).read_text()
+        for key, target in (("python-version", "python"), ("version", "uv")):
+            values = re.findall(r"^\s+" + key + r":\s*['\"]?([\d.]+)['\"]?\s*$", workflow, re.M)
+            if values != [expected[target]]:
+                fail(f"{name}: {key} {values} differs from pyproject.toml target {expected[target]}")
+        if name == "check.yml":
+            values = re.findall(r"node-version:\s*['\"]?(\d+)", workflow)
+            if values != [expected["node"]]:
+                fail(f"{name}: node-version differs from pyproject.toml")
+    workflow = (ROOT / ".github/workflows/build.yml").read_text()
+    if re.findall(r"container:\s*espressif/idf:v([^@\s]+)", workflow) != [expected["idf"]]:
+        fail("build.yml: IDF image version differs from pyproject.toml")
+
+
 if __name__ == "__main__":
+    check_toolchains()
     check_markdown_links()
     check_editor_files()
     check_html()
     check_web_i18n()
+    check_widget_help_summaries()
     check_firmware_i18n()
     check_firmware_translation_keys()
     check_widget_type_tables()

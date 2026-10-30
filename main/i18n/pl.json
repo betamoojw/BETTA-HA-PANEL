@@ -41,7 +41,14 @@
       "days_title": "Dzienne zużycie",
       "days_partial": "Jasne słupki: niepełny dzień",
       "days_sources": "Brakuje niektórych źródeł",
-      "days_unsupported": "Brak statystyk dla tego źródła"
+      "days_unsupported": "Brak statystyk dla tego źródła",
+      "range_30d": "30 d",
+      "range_12m": "12 m",
+      "daily_mean": "Daily means",
+      "weekly_mean": "Weekly means",
+      "range_empty_30d": "No statistics for 30 days yet",
+      "range_empty_12m": "No statistics for 12 months yet",
+      "days_production": "Daily production"
     },
     "energytl": {
       "home": "Zużycie domu",
@@ -185,7 +192,8 @@
       "custom": "Własny"
     },
     "car": {
-      "precond": "Przygot."
+      "precond": "Przygot.",
+      "precond_pending": "Wysyłanie..."
     },
     "fan": {
       "oscillate": "Oscylacja"
@@ -235,7 +243,25 @@
       "map_failed": "Podgląd mapy niedostępny",
       "ready_to_charge": "W stacji",
       "mode": "Tryb",
-      "mode_title": "Tryb sprzątania"
+      "mode_title": "Tryb sprzątania",
+      "send_failed": "Command not sent",
+      "not_connected": "Home Assistant niepołączony",
+      "state": {
+        "cleaning": "Sprzątanie",
+        "docked": "Docked",
+        "returning": "Powrót",
+        "idle": "Bezczynny",
+        "paused": "Wstrzymano",
+        "error": "Error",
+        "unavailable": "Niedostępne",
+        "unknown": "Nieznany",
+        "segment_cleaning": "Room cleaning",
+        "room_cleaning": "Room cleaning",
+        "zoned_cleaning": "Zone cleaning",
+        "spot_cleaning": "Spot cleaning",
+        "going_to_target": "Going to target",
+        "target_found": "Target reached"
+      }
     },
     "topbar": {
       "ha": "HA",
@@ -250,6 +276,26 @@
         "hour_many": "%d godz. temu",
         "day_one": "1 dzień temu",
         "day_many": "%d dni temu"
+      },
+      "in": {
+        "now": "now",
+        "min_one": "in 1 min",
+        "min_many": "in %d min",
+        "hour_one": "in 1 hour",
+        "hour_many": "in %d hours",
+        "day_one": "in 1 day",
+        "day_many": "in %d days"
+      },
+      "day": {
+        "today": "today",
+        "tomorrow": "tomorrow",
+        "yesterday": "yesterday"
+      },
+      "dur": {
+        "d": "d",
+        "h": "h",
+        "min": "min",
+        "s": "s"
       }
     },
     "heating": {
@@ -319,7 +365,9 @@
         "sunny": "Słońce",
         "windy": "Wietrznie",
         "windy_variant": "Wietrznie i pochmurno"
-      }
+      },
+      "hourly_empty": "No hourly forecast",
+      "hourly_loading": "Loading hourly forecast..."
     },
     "graph": {
       "no_history": "brak historii",
@@ -350,7 +398,14 @@
       "firmware": "Firmware",
       "version": "Wersja",
       "built": "Kompilacja",
-      "update_available": "Dostępna aktualizacja"
+      "update_available": "Dostępna aktualizacja",
+      "reconnect": "Reconnect",
+      "reconnecting": "Reconnecting...",
+      "retry_hint": "Fix access or remove the IP ban in Home Assistant first, then reconnect.",
+      "access": "Access",
+      "forbidden": "Denied (HTTP 403); check HA IP bans",
+      "token_rejected": "Access token rejected",
+      "no_rejection": "No rejection reported"
     },
     "wifi": {
       "info": {
@@ -377,7 +432,12 @@
       "weekday_3": "Śr",
       "weekday_4": "Cz",
       "weekday_5": "Pt",
-      "weekday_6": "So"
+      "weekday_6": "So",
+      "details_title": "Solar forecast today",
+      "remaining": "Pozostało",
+      "total": "Total",
+      "day_6": "Day 6",
+      "day_7": "Day 7"
     },
     "energy": {
       "title": "Energia",
@@ -449,7 +509,15 @@
       "sessions_error": "Nie można załadować sesji",
       "sessions_empty": "Brak zakończonych sesji",
       "sessions_unsupported": "Sesje niedostępne",
-      "sessions_preview": "Sesje dostępne na panelu"
+      "sessions_preview": "Sesje dostępne na panelu",
+      "header_power": "Charging power",
+      "flow_pv": "PV",
+      "flow_battery": "Bateria",
+      "flow_grid": "Sieć",
+      "flow_home": "Dom",
+      "flow_car": "Samochód",
+      "flow_export": "Export",
+      "guest": "Guest vehicle"
     },
     "camera": {
       "live": "Kamera na żywo",
@@ -492,7 +560,86 @@
       "sending": "Wysyłanie...",
       "last_job": "Ostatnie zadanie",
       "details": "Stan drukarki",
-      "not_connected": "Home Assistant niepołączony"
+      "not_connected": "Home Assistant niepołączony",
+      "step": {
+        "filament_loading": "Loading filament",
+        "print_calibration_lines": "Printing calibration lines",
+        "preparing_ams": "Preparing AMS",
+        "preparing_hotend": "Preparing hotend",
+        "moving_toolhead_above_purge_chute": "Moving to purge chute",
+        "paused_nozzle_clog": "Paused: nozzle clogged",
+        "check_plaform": "Checking platform",
+        "bed_level_phase_1": "Bed leveling 1",
+        "bed_level_phase_2": "Bed leveling 2",
+        "bed_level_high_temperature": "High-temperature bed leveling",
+        "auto_bed_leveling": "Auto bed leveling",
+        "calibrating_detection_nozzle_clumping": "Calibrating clump detection",
+        "calibrating_cutter_model_offset": "Calibrating cutter offset",
+        "scanning_bed_surface": "Scanning bed surface",
+        "inspecting_first_layer": "Inspecting first layer",
+        "hotend_type_detection": "Detecting hotend type",
+        "check_material": "Checking material",
+        "check_material_position": "Checking material position",
+        "calibrating_extrusion": "Calibrating extrusion",
+        "calibrating_extrusion_flow": "Calibrating flow",
+        "paused_skipped_step": "Paused: skipped step",
+        "cooling_chamber": "Cooling chamber",
+        "check_door_and_cover": "Checking door and cover",
+        "cleaning_nozzle_tip": "Cleaning nozzle tip",
+        "calibrating_micro_lidar": "Calibrating micro lidar",
+        "laser_calibration": "Laser calibration",
+        "cooling_nozzle": "Cooling nozzle",
+        "filament_unloading": "Unloading filament",
+        "active_arc_fitting": "Arc fitting",
+        "paused_ams_lost": "Paused: AMS lost",
+        "absolute_accuracy_calibration": "Accuracy calibration",
+        "check_absolute_accuracy_before_calibration": "Checking accuracy",
+        "check_absolute_accuracy_after_calibration": "Checking accuracy",
+        "paused_user_gcode": "Paused by G-code",
+        "calibrate_birdeye_camera": "Calibrating overview camera",
+        "check_birdeye_camera_position": "Checking overview camera",
+        "pre_extrusion_before_printing": "Pre-extruding",
+        "changing_filament": "Changing filament",
+        "homing_blade_holder": "Homing blade holder",
+        "calibrating_blade_holder_position": "Calibrating blade holder",
+        "hotend_pick_place_test": "Testing hotend change",
+        "build_plate_alignment_detection": "Detecting plate alignment",
+        "identifying_build_plate_type": "Identifying build plate",
+        "measuring_surface": "Measuring surface",
+        "measuring_rotary_attachment": "Measuring rotary attachment",
+        "motor_noise_showoff": "Motor noise check",
+        "calibrating_motor_noise": "Calibrating motor noise",
+        "paused_filament_runout": "Paused: filament ran out",
+        "calibrating_live_view_camera": "Calibrating live camera",
+        "calibrating_camera_offset": "Calibrating camera offset",
+        "check_quick_release": "Checking quick release",
+        "m400_pause": "Paused (M400)",
+        "paused_low_fan_speed_heat_break": "Paused: heatbreak fan slow",
+        "heatbed_surface_foreign_object_detection": "Checking bed for objects",
+        "heatbed_underside_foreign_object_detection": "Checking under the bed",
+        "heating_hotend": "Heating hotend",
+        "paused_first_layer_error": "Paused: first layer error",
+        "moving_toolhead_to_center_of_heatbed": "Moving to bed center",
+        "waiting_for_heatbed_temperature": "Waiting for bed temperature",
+        "checking_extruder_temperature": "Checking extruder temperature",
+        "calibrate_nozzle_offset": "Calibrating nozzle offset",
+        "paused_chamber_temperature_control_error": "Paused: chamber temperature error",
+        "waiting_chamber_temperature_equalize": "Waiting for chamber temperature",
+        "paused_nozzle_temperature_malfunction": "Paused: nozzle temperature error",
+        "homing_toolhead": "Homing toolhead",
+        "paused_front_cover_falling": "Paused: front cover fell",
+        "heated_bedcooling": "Cooling bed",
+        "paused_heat_bed_temperature_malfunction": "Paused: bed temperature error",
+        "heating_chamber": "Heating chamber",
+        "paused_nozzle_filament_covered_detected": "Paused: filament on nozzle",
+        "paused_cutter_error": "Paused: cutter error",
+        "purifying_chamber_air": "Purifying chamber air",
+        "heatbed_preheating": "Preheating bed",
+        "paused_user": "Paused by user",
+        "thermal_preconditioning": "Thermal preconditioning",
+        "sweeping_xy_mech_mode": "Checking XY mechanics"
+      },
+      "abort_confirm": "Abort print"
     },
     "autoupdate": {
       "rollback_title": "Aktualizacja wycofana",
@@ -564,7 +711,9 @@
       "receiving": "Odbieranie oprogramowania...",
       "writing": "Zapisywanie oprogramowania",
       "success": "Aktualizacja zapisana. Ponowne uruchamianie...",
-      "failed": "Aktualizacja nie powiodła się. Szczegóły w edytorze."
+      "failed": "Aktualizacja nie powiodła się. Szczegóły w edytorze.",
+      "writing_version": "Writing firmware %s",
+      "unknown_size": "%s / unknown"
     },
     "titles": {
       "car": "Samochód",
@@ -645,6 +794,67 @@
       "entity": "Encja",
       "state": "Stan",
       "sensor": "Alert czujnika / dzwonka"
+    },
+    "price": {
+      "today": "Dziś",
+      "tomorrow": "Jutro",
+      "min": "min",
+      "max": "max",
+      "average": "Average",
+      "cheap": "Cheap",
+      "no_cheap": "No cheap window left",
+      "no_data": "No prices",
+      "no_today": "No prices for today",
+      "no_tomorrow": "Tomorrow not published yet",
+      "no_clock": "No clock"
+    },
+    "parqet": {
+      "xirr": "XIRR",
+      "ttwror": "TTWROR",
+      "dividends": "Dividends",
+      "realized": "Realised",
+      "performance": "Performance",
+      "holdings": "Holdings",
+      "loading": "Loading",
+      "no_answer": "No answer (the reply may be too large)",
+      "failed": "Not available",
+      "no_data": "Brak danych",
+      "largest": "Largest",
+      "top": "Top 5",
+      "flop": "Flop 5",
+      "pick_interval": "Pick an interval",
+      "unit_mismatch": "Unit differs"
+    },
+    "stock": {
+      "title": "Stocks & ETFs",
+      "lookup_failed": "Source unknown",
+      "unsupported": "Not a quote",
+      "period": {
+        "1d": "1D",
+        "1w": "1W",
+        "30d": "30D",
+        "ytd": "YTD",
+        "1y": "1Y"
+      },
+      "source": {
+        "closes": "Closes",
+        "recorded": "Recorded",
+        "averages": "HA averages"
+      },
+      "since": "since",
+      "from": "from",
+      "prev_close": "prev. close",
+      "trend": "trend",
+      "history_failed": "History not available",
+      "history_empty": "No history for this period",
+      "market": {
+        "open": "Market open",
+        "pre": "Pre-market",
+        "post": "After hours",
+        "closed": "Market closed"
+      },
+      "updated": "updated",
+      "last_price": "last price"
     }
   }
 }

@@ -7,7 +7,7 @@
  *    buttons use opaque fills with no depth effects.
  *  - Tracks follow each look's radius and surface; the fill carries the accent.
  *
- * Header-only on purpose: these are small style setters.
+ * Surface and semantic-role implementation lives in ui_style.c.
  */
 #pragma once
 
@@ -43,7 +43,6 @@ typedef struct {
     bool touch_tracks;     /* thick slider and progress tracks, sized for a finger */
     bool value_beside_slider; /* a slider's value sits in its own fixed column beside the track */
     bool caps_titles;      /* widget titles in capitals (ui_style_title()) */
-    bool single_line_titles; /* widget titles on one line, ellipsized */
     bool round_switches;   /* switches are always pills, whatever the ends of the style's other tracks */
     bool frameless_page;   /* no frame around the page's content area */
     bool plain_tracks;     /* slider tracks: the style's track radius, no outline, no shadow */
@@ -85,6 +84,20 @@ void ui_style_apply_card(lv_obj_t *card);
  * with a light edge, Flat and Matte opaque without depth. `bg` is the base colour, `border` the
  * outline (Flat and Glow). Sets the default and pressed states. */
 void ui_style_button(lv_obj_t *btn, lv_color_t bg, lv_color_t border, lv_color_t pressed_bg);
+
+/* Semantic controls (docs/appearance-implementation.md): an explicit primary role
+ * keeps the accent independent of state, as on the media player's Play/Pause.
+ * Openers, one-shot actions and value +/- stay neutral; abort uses danger. */
+typedef enum {
+    UI_CONTROL_ACTION,
+    UI_CONTROL_ACTIVE,
+    UI_CONTROL_SELECTED,
+    UI_CONTROL_DANGER,
+    UI_CONTROL_PRIMARY,
+} ui_control_role_t;
+lv_color_t ui_style_control_fill(ui_control_role_t role, bool enabled, lv_color_t accent);
+lv_color_t ui_style_control_color(ui_control_role_t role, bool enabled);
+void ui_style_action_button(lv_obj_t *btn, lv_obj_t *label, ui_control_role_t role, bool enabled);
 
 /* Same, with the pressed color derived from the base. */
 static inline void ui_style_button_auto(lv_obj_t *btn, lv_color_t bg, lv_color_t border)

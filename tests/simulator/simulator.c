@@ -20,6 +20,7 @@
 #include "ui/display_geometry.h"
 #include "layout/layout_orientation.h"
 #include "ha/ha_alarm_state.h"
+#include "ha/ha_attr_serialize.h"
 #include "ha/ha_display_precision.h"
 #include "ui/text_font.h"
 #include "ui/theme/ui_day_grid.h"
@@ -29,6 +30,7 @@
 #include "ui/ui_i18n.h"
 #include "ui/ui_energy_page.h"
 #include "ui/ui_history_popup.h"
+#include "ha/parqet_performance.h"
 #include "ui/ui_boot_splash.h"
 #include "ui/ui_house_page.h"
 #include "ui/ui_notification_popup.h"
@@ -43,6 +45,7 @@ static xiaozhi_status_t demo_assistant;
 void xiaozhi_status(xiaozhi_status_t *s) { *s = demo_assistant; }
 esp_err_t xiaozhi_command(const char *action, int value) { (void)action; (void)value; return ESP_OK; }
 #include "ui/ui_conn_popup.h"
+#include "popup_contract_regression.h"
 #include "ui/ui_pages.h"
 #include "ui/ui_alert_center.h"
 #include "ui/fonts/app_symbols.h"
@@ -75,6 +78,7 @@ void w_media_player_set_visible(ui_widget_instance_t *, bool);
 void w_vacuum_set_visible(ui_widget_instance_t *, bool);
 void w_camera_apply_state(ui_widget_instance_t *, const ha_state_t *);
 void w_todo_sim_seed(ui_widget_instance_t *, const char *const *, const bool *, size_t);
+void w_weather_tile_simulator_set_hourly(ui_widget_instance_t *, const cJSON *);
 esp_err_t w_light_tile_create(const ui_widget_def_t *, lv_obj_t *, ui_widget_instance_t *);
 void w_light_tile_apply_state(ui_widget_instance_t *, const ha_state_t *);
 esp_err_t w_heating_tile_create(const ui_widget_def_t *, lv_obj_t *, ui_widget_instance_t *);
@@ -91,6 +95,12 @@ esp_err_t w_lock_create(const ui_widget_def_t *, lv_obj_t *, ui_widget_instance_
 void w_lock_apply_state(ui_widget_instance_t *, const ha_state_t *);
 esp_err_t w_alarm_create(const ui_widget_def_t *, lv_obj_t *, ui_widget_instance_t *);
 void w_alarm_apply_state(ui_widget_instance_t *, const ha_state_t *);
+esp_err_t w_parqet_portfolio_create(const ui_widget_def_t *, lv_obj_t *, ui_widget_instance_t *);
+esp_err_t w_stock_quotes_create(const ui_widget_def_t *, lv_obj_t *, ui_widget_instance_t *);
+void w_stock_quotes_apply_state(ui_widget_instance_t *, const ha_state_t *);
+void w_parqet_portfolio_apply_state(ui_widget_instance_t *, const ha_state_t *);
+esp_err_t w_energy_price_forecast_create(const ui_widget_def_t *, lv_obj_t *, ui_widget_instance_t *);
+void w_energy_price_forecast_apply_state(ui_widget_instance_t *, const ha_state_t *);
 esp_err_t w_energy_timeline_create(const ui_widget_def_t *, lv_obj_t *, ui_widget_instance_t *);
 void w_energy_timeline_apply_state(ui_widget_instance_t *, const ha_state_t *);
 esp_err_t w_select_create(const ui_widget_def_t *, lv_obj_t *, ui_widget_instance_t *);
@@ -143,6 +153,9 @@ static const sim_widget_type_t k_types[] = {
     {"datetime_tile", w_datetime_create, w_datetime_apply_state},
     {"lock_tile", w_lock_create, w_lock_apply_state},
     {"alarm_tile", w_alarm_create, w_alarm_apply_state},
+    {"energy_price_forecast", w_energy_price_forecast_create, w_energy_price_forecast_apply_state},
+    {"parqet_portfolio", w_parqet_portfolio_create, w_parqet_portfolio_apply_state},
+    {"stock_quotes", w_stock_quotes_create, w_stock_quotes_apply_state},
     {"energy_timeline", w_energy_timeline_create, w_energy_timeline_apply_state},
     {"binary_tile", w_binary_create, w_binary_apply_state},
     {"room_tile", w_room_create, w_room_apply_state},
@@ -238,16 +251,26 @@ static void parse_widget_def(const cJSON *json, ui_widget_def_t *def)
     copy_field(def->forecast_day_3_entity_id, sizeof(def->forecast_day_3_entity_id), json, "forecast_day_3_entity_id");
     copy_field(def->forecast_day_4_entity_id, sizeof(def->forecast_day_4_entity_id), json, "forecast_day_4_entity_id");
     copy_field(def->forecast_day_5_entity_id, sizeof(def->forecast_day_5_entity_id), json, "forecast_day_5_entity_id");
+    copy_field(def->forecast_day_6_entity_id, sizeof(def->forecast_day_6_entity_id), json, "forecast_day_6_entity_id");
+    copy_field(def->forecast_day_7_entity_id, sizeof(def->forecast_day_7_entity_id), json, "forecast_day_7_entity_id");
     copy_field(def->slider_direction, sizeof(def->slider_direction), json, "slider_direction");
     copy_field(def->slider_accent_color, sizeof(def->slider_accent_color), json, "slider_accent_color");
     copy_field(def->button_accent_color, sizeof(def->button_accent_color), json, "button_accent_color");
     copy_field(def->button_mode, sizeof(def->button_mode), json, "button_mode");
     copy_field(def->graph_line_color, sizeof(def->graph_line_color), json, "graph_line_color");
+    /* As ui_runtime_widget_from_json(): the sensor's value format and unit style (missing here, the formats rendered raw). */
+    copy_field(def->sensor_format, sizeof(def->sensor_format), json, "sensor_format");
+    copy_field(def->sensor_unit, sizeof(def->sensor_unit), json, "sensor_unit");
+    copy_field(def->camera_source, sizeof(def->camera_source), json, "camera_source");
     if (strcmp(def->type, "energy_timeline") == 0) def->energy_palette = etl_palette_from_json(json);
     copy_field(def->graph_display_mode, sizeof(def->graph_display_mode), json, "graph_display_mode");
     copy_field(def->style_variant, sizeof(def->style_variant), json, "style_variant");
     copy_field(def->arc_opening, sizeof(def->arc_opening), json, "arc_opening");
     copy_field(def->display_mode, sizeof(def->display_mode), json, "display_mode");
+    /* As ui_runtime_widget_from_json(): a binary tile in the "door" look is drawn by the contact renderer. */
+    if (strcmp(def->type, "binary_tile") == 0 && strcmp(def->display_mode, "door") == 0) {
+        snprintf(def->type, sizeof(def->type), "%s", "contact_tile");
+    }
     copy_field(def->default_mode, sizeof(def->default_mode), json, "default_mode");
     copy_field(def->gauge_bar_style, sizeof(def->gauge_bar_style), json, "gauge_bar_style");
     def->gauge_segment_count = json_int(json, "gauge_segment_count", 0);
@@ -269,12 +292,21 @@ static void parse_widget_def(const cJSON *json, ui_widget_def_t *def)
     def->hide_name = !widget_show_name(json);
     def->sensor_show_age = json_bool(json, "sensor_show_age", true);
     def->lock_confirm = json_bool(json, "lock_confirm", false);
+    def->price_selector = json_bool(json, "price_selector", false);
+    def->price_cheap_times = json_bool(json, "price_cheap_times", false);
+    def->price_line = json_bool(json, "price_line", false);
+    def->price_average = json_float(json, "price_average", 0.0f);
+    def->parqet_hide_amounts = json_bool(json, "parqet_hide_amounts", false);
+    def->parqet_selector = json_bool(json, "parqet_selector", true);
+    copy_field(def->parqet_view, sizeof(def->parqet_view), json, "parqet_view");
+    copy_field(def->parqet_interval, sizeof(def->parqet_interval), json, "parqet_interval");
     def->camera_live = json_bool(json, "camera_live", false);
     def->alarm_actions = ha_alarm_action_mask_parse(cJSON_GetObjectItemCaseSensitive(json, "alarm_actions"));
     def->history_popup = json_bool(json, "history_popup", false);
     def->forecast_days = json_int(json, "forecast_days", -1);
     def->align_forecast = json_bool(json, "align_forecast", false);
     def->show_precipitation = json_bool(json, "show_precipitation", true);
+    def->weather_hourly = json_bool(json, "weather_hourly", false);
     def->room_controls = json_bool(json, "room_controls", false);
     const cJSON *room_entities = cJSON_GetObjectItemCaseSensitive(json, "room_entities");
     for (int i = 0; i < UI_WIDGET_EXTRA_ENTITIES; i++) {
@@ -285,6 +317,12 @@ static void parse_widget_def(const cJSON *json, ui_widget_def_t *def)
     }
     if (!strcmp(def->type, "wallbox_evcc")) {
         evcc_slots_from_json(json, def->entity_id, def->secondary_entity_id, def->tertiary_entity_id, def->extra_entity_id, UI_WIDGET_EXTRA_ENTITIES);
+        char *const site[EVCC_SITE_COUNT] = {def->forecast_today_entity_id, def->forecast_tomorrow_entity_id,
+                                             def->forecast_day_3_entity_id, def->forecast_day_4_entity_id};
+        def->forecast_day_5_entity_id[0] = '\0';
+        def->forecast_day_6_entity_id[0] = '\0';
+        def->forecast_day_7_entity_id[0] = '\0';
+        evcc_header_from_json(json, def->style_variant, sizeof(def->style_variant), &def->gauge_max, site);
     }
     if (strcmp(def->type, "bambu_printer") == 0) {
         bambu_printer_slots_from_json(json, def->entity_id, def->secondary_entity_id, def->tertiary_entity_id,
@@ -297,6 +335,31 @@ static void parse_widget_def(const cJSON *json, ui_widget_def_t *def)
     }
     if (strcmp(def->type, "vacuum_tile") == 0 || strcmp(def->type, "roborock_tile") == 0) {
         copy_field(def->extra_entity_id[UI_VACUUM_EXTRA_BATTERY], APP_MAX_ENTITY_ID_LEN, json, "battery_entity_id");
+    }
+    if (strcmp(def->type, "parqet_portfolio") == 0) {
+        copy_field(def->extra_entity_id[UI_PARQET_EXTRA_DIVIDENDS], APP_MAX_ENTITY_ID_LEN, json, "dividends_entity_id");
+        copy_field(def->extra_entity_id[UI_PARQET_EXTRA_RETURN], APP_MAX_ENTITY_ID_LEN, json, "return_entity_id");
+    }
+    if (strcmp(def->type, "sensor") == 0) {
+        const cJSON *more = cJSON_GetObjectItemCaseSensitive(json, "sensor_entities");
+        for (int i = 0; i < 7; i++) {
+            const cJSON *item = cJSON_GetArrayItem(more, i);
+            if (cJSON_IsString(item)) snprintf(def->extra_entity_id[i], APP_MAX_ENTITY_ID_LEN, "%s", item->valuestring);
+        }
+        copy_field(def->display_mode, sizeof(def->display_mode), json, "sensor_view");
+    }
+    if (strcmp(def->type, "stock_quotes") == 0) {
+        const cJSON *more = cJSON_GetObjectItemCaseSensitive(json, "stock_entities");
+        for (int i = 0; i < UI_WIDGET_EXTRA_ENTITIES; i++) def->extra_entity_id[i][0] = '\0';
+        for (int i = 0; i < UI_STOCK_MAX_QUOTES - 1; i++) {
+            const cJSON *id = cJSON_GetArrayItem(more, i);
+            if (cJSON_IsString(id)) snprintf(def->extra_entity_id[i], sizeof(def->extra_entity_id[i]), "%s", id->valuestring);
+        }
+        copy_field(def->display_mode, sizeof(def->display_mode), json, "stock_view");
+        copy_field(def->stock_period, sizeof(def->stock_period), json, "stock_period");
+        copy_field(def->stock_delta, sizeof(def->stock_delta), json, "stock_delta");
+        def->stock_ticker = json_bool(json, "stock_ticker", false);
+        def->stock_selector = json_bool(json, "stock_selector", true);
     }
     if (strcmp(def->type, "room_tile") == 0) {
         copy_field(def->display_mode, sizeof(def->display_mode), json, "room_extra_mode");
@@ -340,6 +403,8 @@ static void init_instance(const ui_widget_def_t *def, ui_widget_instance_t *out)
     COPY(forecast_day_3_entity_id);
     COPY(forecast_day_4_entity_id);
     COPY(forecast_day_5_entity_id);
+    COPY(forecast_day_6_entity_id);
+    COPY(forecast_day_7_entity_id);
     COPY(solar_forecast_bar_orientation);
     COPY(slider_direction);
     COPY(slider_accent_color);
@@ -377,6 +442,7 @@ static bool widget_uses_entity(const ui_widget_def_t *def, const char *entity_id
         def->entity_id, def->secondary_entity_id, def->tertiary_entity_id,
         def->forecast_today_entity_id, def->forecast_tomorrow_entity_id,
         def->forecast_day_3_entity_id, def->forecast_day_4_entity_id, def->forecast_day_5_entity_id,
+        def->forecast_day_6_entity_id, def->forecast_day_7_entity_id,
     };
     for (size_t i = 0; i < sizeof(ids) / sizeof(ids[0]); i++) {
         if (ids[i][0] != '\0' && strcmp(ids[i], entity_id) == 0) {
@@ -418,6 +484,149 @@ static char *read_text_file(const char *path)
     return data;
 }
 
+/* A fixture states a price list as {"price_series": {"shape": "epex"|"dao"|"raw", "interval_min": 60, "today": [...], "tomorrow": [...]}}: the prices of
+ * the local calendar days around the moment the simulator runs, expanded to the `data` attribute a price sensor has in Home Assistant. */
+/* The answers the portfolio tile would get from the integration for an interval (see parqet_request_sim.c). */
+extern void sim_parqet_set(const char *portfolio_id, const char *interval, const parqet_perf_t *perf);
+
+static void load_parqet_perf(const cJSON *root)
+{
+    const cJSON *item = NULL;
+    cJSON_ArrayForEach(item, cJSON_GetObjectItemCaseSensitive(root, "parqet_perf")) {
+        parqet_perf_t perf;
+        memset(&perf, 0, sizeof(perf));
+        perf.value_start = json_float(item, "value_start", 0.0f);
+        perf.value_end = json_float(item, "value_end", 0.0f);
+        perf.unrealized_gain = json_float(item, "unrealized_gain", 0.0f);
+        perf.unrealized_return = json_float(item, "unrealized_return", 0.0f);
+        perf.realized_gain = json_float(item, "realized_gain", 0.0f);
+        perf.dividends = json_float(item, "dividends", 0.0f);
+        perf.xirr = json_float(item, "xirr", 0.0f);
+        perf.ttwror = json_float(item, "ttwror", 0.0f);
+        /* the holdings of the fixture fill the three rankings like parqet_perf_parse(): by value, best return, worst return */
+        parqet_perf_holding_t all[16];
+        int all_count = 0;
+        const cJSON *holding = NULL;
+        cJSON_ArrayForEach(holding, cJSON_GetObjectItemCaseSensitive(item, "holdings")) {
+            if (all_count >= 16) break;
+            parqet_perf_holding_t *h = &all[all_count++];
+            memset(h, 0, sizeof(*h));
+            snprintf(h->name, sizeof(h->name), "%s", json_string(holding, "name"));
+            h->value = json_float(holding, "value", 0.0f);
+            h->weight = json_float(holding, "weight", 0.0f);
+            h->gain = json_float(holding, "gain", 0.0f);
+            h->ret = json_float(holding, "ret", 0.0f);
+            h->has_return = cJSON_GetObjectItemCaseSensitive(holding, "ret") != NULL;
+        }
+        for (int mode = 0; mode < 3; mode++) {
+            parqet_perf_holding_t *list = mode == 0 ? perf.largest : mode == 1 ? perf.top : perf.flop;
+            int *count = mode == 0 ? &perf.largest_count : mode == 1 ? &perf.top_count : &perf.flop_count;
+            bool used[16] = {false};
+            while (*count < PARQET_PERF_RANK) {
+                int pick = -1;
+                for (int i = 0; i < all_count; i++) {
+                    if (used[i] || (mode > 0 && !all[i].has_return)) continue;
+                    if (mode == 2 && perf.top_count + *count >= all_count) break;
+                    const double a = mode == 0 ? all[i].value : mode == 1 ? all[i].ret : -all[i].ret;
+                    const double b = pick < 0 ? 0.0 : mode == 0 ? all[pick].value : mode == 1 ? all[pick].ret : -all[pick].ret;
+                    if (pick < 0 || a > b) pick = i;
+                }
+                if (pick < 0) break;
+                used[pick] = true;
+                list[(*count)++] = all[pick];
+            }
+        }
+        const cJSON *point = NULL;
+        cJSON_ArrayForEach(point, cJSON_GetObjectItemCaseSensitive(item, "points")) {
+            if (perf.point_count < PARQET_PERF_POINTS && cJSON_IsNumber(point)) perf.point[perf.point_count++] = (float)point->valuedouble;
+        }
+        sim_parqet_set(json_string(item, "portfolio_id"), json_string(item, "interval"), &perf);
+    }
+}
+
+static void expand_price_series(cJSON *attrs)
+{
+    const cJSON *spec = cJSON_GetObjectItemCaseSensitive(attrs, "price_series");
+    if (!cJSON_IsObject(spec)) return;
+    const cJSON *shape = cJSON_GetObjectItemCaseSensitive(spec, "shape");
+    const bool dao = cJSON_IsString(shape) && shape->valuestring != NULL && strcmp(shape->valuestring, "dao") == 0;
+    /* "raw": the Nord Pool / Energy Price Forecast shape, raw_today (only the slots from now on) and raw_tomorrow with {start (UTC), value} */
+    const bool raw = cJSON_IsString(shape) && shape->valuestring != NULL && strcmp(shape->valuestring, "raw") == 0;
+    const int interval_min = json_int(spec, "interval_min", 60);
+    time_t now = time(NULL);
+    struct tm tm;
+    localtime_r(&now, &tm);
+    tm.tm_hour = 0;
+    tm.tm_min = 0;
+    tm.tm_sec = 0;
+    tm.tm_isdst = -1;
+    const time_t midnight = mktime(&tm);
+    cJSON *data = cJSON_CreateArray();
+    cJSON *raw_days[2] = {cJSON_CreateArray(), cJSON_CreateArray()};
+    int slot = 0;
+    const char *days[2] = {"today", "tomorrow"};
+    for (int d = 0; d < 2; d++) {
+        const cJSON *list = cJSON_GetObjectItemCaseSensitive(spec, days[d]);
+        const cJSON *price;
+        cJSON_ArrayForEach(price, list) {
+            cJSON *item = cJSON_CreateObject();
+            const time_t start = midnight + (time_t)slot * interval_min * 60;
+            struct tm lt;
+            localtime_r(&start, &lt);
+            if (raw) {
+                struct tm ut;
+                char text[24];
+                gmtime_r(&start, &ut);
+                strftime(text, sizeof(text), "%Y-%m-%dT%H:%M:%SZ", &ut);
+                cJSON_AddStringToObject(item, "start", text);
+                cJSON_AddNumberToObject(item, "value", price->valuedouble);
+                if (d == 1 || start + interval_min * 60 > now) {
+                    cJSON_AddItemToArray(raw_days[d], item);
+                } else {
+                    cJSON_Delete(item);
+                }
+                slot++;
+                continue;
+            }
+            if (dao) {
+                cJSON_AddNumberToObject(item, "time_ts", (double)start * 1000.0);
+                char local[20];
+                strftime(local, sizeof(local), "%Y-%m-%d %H:%M", &lt);
+                cJSON_AddStringToObject(item, "time", local);
+                cJSON_AddNumberToObject(item, "da_ex", price->valuedouble * 0.6);
+                cJSON_AddNumberToObject(item, "da_cons", price->valuedouble);
+                cJSON_AddNumberToObject(item, "da_prod", price->valuedouble);
+                cJSON_AddStringToObject(item, "datatype", start < now ? "recorded" : "expected");
+            } else {
+                char text[40];
+                struct tm utc;
+                gmtime_r(&start, &utc);
+                utc.tm_isdst = lt.tm_isdst;
+                const int offset = (int)difftime(start, mktime(&utc)) / 60;
+                char local[24];
+                strftime(local, sizeof(local), "%Y-%m-%dT%H:%M:%S", &lt);
+                snprintf(text, sizeof(text), "%s%c%02d:%02d", local,
+                         offset < 0 ? '-' : '+', abs(offset) / 60, abs(offset) % 60);
+                cJSON_AddStringToObject(item, "start_time", text);
+                cJSON_AddNumberToObject(item, "price_per_kwh", price->valuedouble);
+            }
+            cJSON_AddItemToArray(data, item);
+            slot++;
+        }
+    }
+    cJSON_DeleteItemFromObjectCaseSensitive(attrs, "price_series");
+    cJSON_DeleteItemFromObjectCaseSensitive(attrs, "data");
+    if (raw) {
+        cJSON_Delete(data);
+        cJSON_AddItemToObject(attrs, "raw_today", raw_days[0]);
+        cJSON_AddItemToObject(attrs, "raw_tomorrow", raw_days[1]);
+        return;
+    }
+    cJSON_Delete(raw_days[0]);
+    cJSON_Delete(raw_days[1]);
+    cJSON_AddItemToObject(attrs, "data", data);
+}
+
 static bool parse_state(const cJSON *json, ha_state_t *state)
 {
     memset(state, 0, sizeof(*state));
@@ -440,14 +649,25 @@ static bool parse_state(const cJSON *json, ha_state_t *state)
                 cJSON_DeleteItemFromObjectCaseSensitive(day, "day_offset");
             }
         }
-        char *serialized = cJSON_PrintUnformatted(resolved); cJSON_Delete(resolved);
-        if (serialized == NULL || strlen(serialized) >= sizeof(state->attributes_json)) {
-            fprintf(stderr, "Attributes too long for %s\n", state->entity_id);
+        expand_price_series(resolved);
+        if (ha_client_attrs_is_price_series(resolved)) {
+            /* the firmware's own compaction, so the widget is fed exactly what it gets from Home Assistant */
+            const bool ok = ha_client_serialize_price_series_compact(resolved, state->attributes_json, sizeof(state->attributes_json));
+            cJSON_Delete(resolved);
+            if (!ok) {
+                fprintf(stderr, "Price list of %s is not representable\n", state->entity_id);
+                return false;
+            }
+        } else {
+            char *serialized = cJSON_PrintUnformatted(resolved); cJSON_Delete(resolved);
+            if (serialized == NULL || strlen(serialized) >= sizeof(state->attributes_json)) {
+                fprintf(stderr, "Attributes too long for %s\n", state->entity_id);
+                cJSON_free(serialized);
+                return false;
+            }
+            snprintf(state->attributes_json, sizeof(state->attributes_json), "%s", serialized);
             cJSON_free(serialized);
-            return false;
         }
-        snprintf(state->attributes_json, sizeof(state->attributes_json), "%s", serialized);
-        cJSON_free(serialized);
     } else if (cJSON_IsString(attrs)) {
         snprintf(state->attributes_json, sizeof(state->attributes_json), "%s", attrs->valuestring);
     } else {
@@ -470,8 +690,10 @@ static bool load_display_precisions(const cJSON *states)
     size_t wanted = 0;
     const cJSON *state = NULL;
     cJSON_ArrayForEach(state, states) {
+        /* a registry entry: the precision and/or the integration ("platform": "easy_stock", ...) */
         const cJSON *digits = cJSON_GetObjectItemCaseSensitive(state, "display_precision");
-        if (cJSON_IsNumber(digits) && digits->valueint >= 0 && digits->valueint <= 6) {
+        const cJSON *platform = cJSON_GetObjectItemCaseSensitive(state, "platform");
+        if ((cJSON_IsNumber(digits) && digits->valueint >= 0 && digits->valueint <= 6) || cJSON_IsString(platform)) {
             snprintf(ids + wanted * APP_MAX_ENTITY_ID_LEN, APP_MAX_ENTITY_ID_LEN,
                      "%s", json_string(state, "entity_id"));
             wanted++;
@@ -494,10 +716,12 @@ static bool load_display_precisions(const cJSON *states)
             cJSON_ArrayForEach(state, states) {
                 if (strcmp(id->valuestring, json_string(state, "entity_id")) != 0) continue;
                 cJSON *entry = cJSON_AddObjectToObject(result, id->valuestring);
-                cJSON *options = cJSON_AddObjectToObject(entry, "options");
-                cJSON *sensor = cJSON_AddObjectToObject(options, "sensor");
-                cJSON_AddNumberToObject(sensor, "display_precision",
-                    json_int(state, "display_precision", 0));
+                if (cJSON_IsNumber(cJSON_GetObjectItemCaseSensitive(state, "display_precision"))) {
+                    cJSON *options = cJSON_AddObjectToObject(entry, "options");
+                    cJSON *sensor = cJSON_AddObjectToObject(options, "sensor");
+                    cJSON_AddNumberToObject(sensor, "display_precision", json_int(state, "display_precision", 0));
+                }
+                if (json_string(state, "platform")[0] != '\0') cJSON_AddStringToObject(entry, "platform", json_string(state, "platform"));
                 break;
             }
         }
@@ -517,8 +741,8 @@ static void print_usage(const char *program)
         fprintf(stderr, "%s%s", i > 0 ? "|" : "", ui_style_name(kind));
     }
     fprintf(stderr,
-            "] [--language de|en|zh-cn|zh-tw] [--exit-after-ms duration] [--screenshot path.bmp] "
-            "[--dump-layout path.jsonl] [--tap x,y]... [--regression wallbox|bambu|history|energy|controls|fonts]\n");
+            "] [--language de|en|es|fr|pl|zh-cn|zh-tw] [--exit-after-ms duration] [--screenshot path.bmp] "
+            "[--dump-layout path.jsonl] [--tap x,y]... [--regression wallbox|bambu|history|energy|controls|fonts|notification|price]\n");
 }
 
 static bool save_screenshot(lv_display_t *display, const char *path)
@@ -647,10 +871,10 @@ static bool dump_layout(const char *path, const sim_widget_t *widgets, int count
         dump_object(out, &widgets[i].def, card, 1, NULL);
     }
     if (energy_page != NULL) {
-        /* The energy page is checked like one large widget (the 16-byte type field keeps "energy_dashboar"). */
+        /* The energy page is checked like one large widget. */
         ui_widget_def_t def = {0};
         snprintf(def.id, sizeof(def.id), "%s", "energy_page");
-        memcpy(def.type, "energy_dashboard", sizeof(def.type) - 1);
+        snprintf(def.type, sizeof(def.type), "%s", "energy_dashboard");
         lv_area_t a;
         lv_obj_get_coords(energy_page, &a);
         fprintf(out, "{\"widget\":\"energy_page\",\"type\":\"energy_dashboard\",\"depth\":0,\"kind\":\"card\",\"x1\":%d,\"y1\":%d,\"x2\":%d,\"y2\":%d}\n",
@@ -728,6 +952,10 @@ static void show_fixture_notification(const cJSON *json)
 static void show_fixture_history(const cJSON *json)
 {
     if (!cJSON_IsObject(json)) return;
+    if (cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(json, "range"))) { /* the stock chip's popup: 30 days, a tap on "12 m" shows the year */
+        ui_history_popup_open_range(json_string(json, "entity_id"), json_string(json, "title"), json_string(json, "current"));
+        return;
+    }
     ui_history_popup_open(json_string(json, "entity_id"), json_string(json, "title"),
                           json_string(json, "current"),
                           cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(json, "numeric")),
@@ -753,7 +981,12 @@ int main(int argc, char **argv)
     extern int sim_energy_regression(void);
     extern int sim_font_budget_regression(void);
     extern int sim_notification_regression(void);
-    bool notification_regression = false; bool screen_settings_regression = false; bool alerts_regression = false;
+    bool notification_regression = false;
+    extern int sim_price_regression(void);
+    extern int sim_parqet_regression(void);
+    bool parqet_regression = false;
+    bool price_regression = false;
+    bool screen_settings_regression = false; bool alerts_regression = false;
     bool font_budget_regression = false;
     bool energy_regression = false;
     bool bambu_regression = false;
@@ -789,6 +1022,8 @@ int main(int argc, char **argv)
         else if (strcmp(argv[i - 1], "--regression") == 0 && strcmp(value, "alerts") == 0) alerts_regression = true;
         else if (strcmp(argv[i - 1], "--regression") == 0 && strcmp(value, "screen-settings") == 0) screen_settings_regression = true;
         else if (strcmp(argv[i - 1], "--regression") == 0 && strcmp(value, "notification") == 0) notification_regression = true;
+        else if (strcmp(argv[i - 1], "--regression") == 0 && strcmp(value, "price") == 0) price_regression = true;
+        else if (strcmp(argv[i - 1], "--regression") == 0 && strcmp(value, "parqet") == 0) parqet_regression = true;
         else if (strcmp(argv[i - 1], "--regression") == 0 && strcmp(value, "fonts") == 0) font_budget_regression = true;
         else if (strcmp(argv[i - 1], "--fixture") == 0) fixture_path = value;
         else if (strcmp(argv[i - 1], "--page") == 0) page_id = value;
@@ -911,6 +1146,11 @@ int main(int argc, char **argv)
         cJSON_Delete(root);
         return 1;
     }
+    if (sim_clock_fixed()) {
+        /* after lv_sdl_window_create(), which sets SDL's real tick: animations follow the virtual time (sim_clock.h) */
+        lv_tick_set_cb(sim_virtual_tick);
+        lv_delay_set_cb(sim_virtual_delay);
+    }
     lv_display_set_color_format(display, LV_COLOR_FORMAT_RGB565);
     lv_sdl_window_set_title(display, "BETTA widget simulator");
     lv_sdl_mouse_create();
@@ -939,6 +1179,14 @@ int main(int argc, char **argv)
     if (notification_regression) {
         cJSON_Delete(root);
         return sim_notification_regression();
+    }
+    if (price_regression) {
+        cJSON_Delete(root);
+        return sim_price_regression();
+    }
+    if (parqet_regression) {
+        cJSON_Delete(root);
+        return sim_parqet_regression();
     }
     if (font_budget_regression) {
         cJSON_Delete(root);
@@ -1031,6 +1279,7 @@ int main(int argc, char **argv)
         }
     }
 
+    load_parqet_perf(root);
     const cJSON *states = cJSON_GetObjectItemCaseSensitive(root, "states");
     if (!load_display_precisions(states)) {
         fprintf(stderr, "Cannot load display precision metadata\n");
@@ -1057,6 +1306,12 @@ int main(int argc, char **argv)
                 sim_style_card(&widgets[i].instance);
             }
         }
+    }
+    const cJSON *hourly = cJSON_GetObjectItemCaseSensitive(root, "weather_hourly");
+    for (int i = 0; i < created; i++) {
+        if (strcmp(widgets[i].def.type, "weather_tile") != 0 || !widgets[i].def.weather_hourly) continue;
+        w_weather_tile_simulator_set_hourly(&widgets[i].instance,
+            cJSON_GetObjectItemCaseSensitive(hourly, widgets[i].def.entity_id));
     }
     for (int i = 0; i < created; i++) {
         if (strcmp(widgets[i].def.type, "todo_list") != 0) continue;
@@ -1151,6 +1406,7 @@ int main(int argc, char **argv)
     else if (strcmp(popup, "wifi") == 0) ui_conn_popup_show_wifi();
     else if (strcmp(popup, "ha") == 0) ui_conn_popup_show_ha();
     else if (strcmp(popup, "mqtt") == 0) ui_conn_popup_show_mqtt();
+    sim_popup_contract_check();
     /* Public demo credentials render the real boot splash, matching app_show_wifi_setup_screen(). */
     const cJSON *setup = cJSON_GetObjectItemCaseSensitive(root, "setup_screen");
     if (cJSON_IsObject(setup)) {
@@ -1191,7 +1447,7 @@ int main(int argc, char **argv)
     }
     if (screenshot_path != NULL && exit_after_ms == 0) exit_after_ms = 250;
     int64_t deadline_us = exit_after_ms > 0 ? esp_timer_get_time() + (int64_t)exit_after_ms * 1000 : INT64_MAX;
-    while (esp_timer_get_time() < deadline_us) {
+    while (esp_timer_get_time() < deadline_us) { /* virtual time on the fixed clock: lv_delay_ms() advances it */
         lv_timer_handler();
         lv_delay_ms(5);
     }

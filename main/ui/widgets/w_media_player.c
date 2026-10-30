@@ -404,7 +404,7 @@ static void mp_apply_visual(w_mp_ctx_t *ctx)
     }
 
     lv_color_t accent = ctx->unavailable ? lv_color_hex(APP_UI_COLOR_CARD_BORDER) : ctx->accent_color;
-    lv_color_t control_surface = mp_theme_surface_fill(224);
+    lv_color_t control_surface = ui_style_control_color(UI_CONTROL_ACTION, !ctx->unavailable);
     lv_color_t track_surface = mp_theme_surface_fill(196);
     lv_color_t control_border = lv_color_hex(APP_UI_COLOR_TOPBAR_CHIP_BORDER);
     /* Auto-contrast from the actual button surface (ui_style_button_icon_color()), not a fixed
@@ -412,8 +412,8 @@ static void mp_apply_visual(w_mp_ctx_t *ctx)
      * dark control_surface's theme mix came out, unlike the play button below (already correct,
      * via this same formula under its own local name). */
     lv_color_t control_text = ctx->unavailable ? lv_color_hex(APP_UI_COLOR_TEXT_MUTED) : ui_style_button_icon_color(control_surface);
-    lv_color_t play_bg = ctx->unavailable ? control_surface : lv_color_mix(accent, lv_color_hex(APP_UI_COLOR_NAV_BTN_BG_ACTIVE), 224);
-    lv_color_t play_border = ctx->unavailable ? control_border : lv_color_mix(accent, control_border, 168);
+    lv_color_t play_bg = ui_style_control_fill(UI_CONTROL_PRIMARY, !ctx->unavailable, accent);
+    lv_color_t play_border = control_border;
     lv_color_t play_text = ctx->unavailable ? lv_color_hex(APP_UI_COLOR_TEXT_MUTED) : ui_style_button_icon_color(play_bg);
     lv_color_t slider_knob = ctx->unavailable
                                  ? lv_color_hex(APP_UI_COLOR_TEXT_MUTED)
@@ -863,13 +863,9 @@ esp_err_t w_media_player_create(const ui_widget_def_t *def, lv_obj_t *parent, ui
     lv_obj_set_size(card, def->w, def->h);
     lv_obj_set_scrollable(card, false);
     lv_obj_set_style_radius(card, APP_UI_CARD_RADIUS, LV_PART_MAIN);
-#if APP_UI_REWORK_V2
     lv_obj_set_style_border_width(card, 1, LV_PART_MAIN);
     lv_obj_set_style_border_color(card, lv_color_hex(APP_UI_COLOR_CARD_BORDER), LV_PART_MAIN);
     lv_obj_set_style_border_opa(card, LV_OPA_70, LV_PART_MAIN);
-#else
-    lv_obj_set_style_border_width(card, 0, LV_PART_MAIN);
-#endif
     lv_obj_set_style_pad_all(card, 14, LV_PART_MAIN);
 
     w_mp_ctx_t *ctx = (w_mp_ctx_t *)mp_calloc(1, sizeof(w_mp_ctx_t));
@@ -879,7 +875,7 @@ esp_err_t w_media_player_create(const ui_widget_def_t *def, lv_obj_t *parent, ui
     }
     snprintf(ctx->entity_id, sizeof(ctx->entity_id), "%s", def->entity_id);
     ctx->card = card;
-    ctx->accent_color = lv_color_hex(APP_UI_COLOR_CARD_ICON_ON);
+    ctx->accent_color = lv_color_hex(APP_UI_COLOR_STATE_ON);
     lv_color_t parsed_color;
     if (mp_parse_hex_color(def->button_accent_color, &parsed_color) ||
         mp_parse_hex_color(def->slider_accent_color, &parsed_color)) {
@@ -900,7 +896,7 @@ esp_err_t w_media_player_create(const ui_widget_def_t *def, lv_obj_t *parent, ui
     bool landscape = (content_w >= content_h * 3 / 2 && content_w >= 260 && content_h >= 130);
 
     bool has_widget_title = !def->hide_name && (def->title[0] != '\0');
-    const lv_coord_t widget_title_h = has_widget_title ? 22 : 0;
+    const lv_coord_t widget_title_h = has_widget_title ? lv_font_get_line_height(ui_font_role(UI_TEXT_META)) : 0;
     /* Line heights of the real fonts (20 px text is the floor on the 4-inch class and has taller lines than 16 px). */
     const lv_coord_t now_title_line = lv_font_get_line_height(ui_font_role(UI_TEXT_META));
     const lv_coord_t now_artist_line = lv_font_get_line_height(ui_font_role(UI_TEXT_META));
@@ -1013,7 +1009,7 @@ esp_err_t w_media_player_create(const ui_widget_def_t *def, lv_obj_t *parent, ui
         lv_obj_set_width(title, content_w);
         lv_obj_set_style_text_font(title, ui_font_role(UI_TEXT_META), LV_PART_MAIN);
         lv_obj_set_style_text_align(title, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN);
-        lv_label_set_long_mode(title, LV_LABEL_LONG_DOT);
+        ui_widget_name_one_line(title);
         lv_obj_align(title, LV_ALIGN_TOP_LEFT, 0, 0);
         ctx->title_label = title;
     }

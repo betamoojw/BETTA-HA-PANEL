@@ -322,11 +322,20 @@ static void slider_layout_split_info(w_slider_ctx_t *ctx, lv_coord_t content_w, 
     lv_obj_set_align(ctx->title_label, LV_ALIGN_TOP_LEFT);
     lv_obj_set_style_text_align(ctx->title_label, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN);
     lv_obj_set_width(ctx->title_label, info_w);
-    lv_obj_set_pos(ctx->title_label, 0, content_h / 2 - 25);
+    ui_widget_name_one_line(ctx->title_label);
     lv_obj_set_align(ctx->state_label, LV_ALIGN_TOP_LEFT);
     lv_obj_set_style_text_font(ctx->state_label, ui_font_role(UI_TEXT_META), LV_PART_MAIN);
     lv_obj_set_width(ctx->state_label, info_w);
-    lv_obj_set_pos(ctx->state_label, 0, ui_widget_name_enabled(ctx->title_label) ? content_h / 2 + 5 : (content_h - lv_font_get_line_height(ui_font_role(UI_TEXT_META))) / 2);
+    /* name and state stacked by their line heights around the middle */
+    const lv_coord_t title_h = lv_obj_get_height(ctx->title_label);
+    const lv_coord_t state_h = lv_font_get_line_height(ui_font_role(UI_TEXT_META));
+    if (ui_widget_name_enabled(ctx->title_label)) {
+        const lv_coord_t top = (content_h - title_h - 4 - state_h) / 2;
+        lv_obj_set_pos(ctx->title_label, 0, top);
+        lv_obj_set_pos(ctx->state_label, 0, top + title_h + 4);
+    } else {
+        lv_obj_set_pos(ctx->state_label, 0, (content_h - state_h) / 2);
+    }
 }
 
 static void slider_apply_layout(lv_obj_t *card, w_slider_ctx_t *ctx)
@@ -347,10 +356,10 @@ static void slider_apply_layout(lv_obj_t *card, w_slider_ctx_t *ctx)
     /* A short tile (near the 100 px minimum) cannot spare the margins sized for a large one. */
     lv_obj_update_layout(card);
     const bool compact = lv_obj_get_content_height(card) < 120;
-    lv_obj_align(ctx->title_label, LV_ALIGN_BOTTOM_MID, 0, compact ? 0 : (APP_UI_TILE_LAYOUT_TUNED ? -12 : -10));
+    lv_obj_align(ctx->title_label, LV_ALIGN_BOTTOM_MID, 0, compact ? 0 : -12);
 
-    const lv_coord_t top_gap = compact ? 2 : (APP_UI_TILE_LAYOUT_TUNED ? 10 : 8);
-    const lv_coord_t bottom_gap = compact ? 4 : (APP_UI_TILE_LAYOUT_TUNED ? 12 : 10);
+    const lv_coord_t top_gap = compact ? 2 : 10;
+    const lv_coord_t bottom_gap = compact ? 4 : 12;
     ctx->direction_effective = slider_effective_direction(ctx, card);
     const bool vertical = slider_direction_is_vertical(ctx->direction_effective);
     /* The area above the title the track may use at least. A vertical track needs real length; a
@@ -537,6 +546,12 @@ static void slider_apply_visual(w_slider_ctx_t *ctx)
     lv_obj_set_style_bg_color(card, card_bg, LV_PART_MAIN);
     lv_obj_set_style_bg_opa(card, LV_OPA_COVER, LV_PART_MAIN);
     ui_style_card_set_active(card, ctx->is_on && !ctx->unavailable);
+    /* An unavailable entity cannot take a value: the slider stops answering touch until HA reports a state again. */
+    if (ctx->unavailable) {
+        lv_obj_add_state(ctx->slider, LV_STATE_DISABLED);
+    } else {
+        lv_obj_clear_state(ctx->slider, LV_STATE_DISABLED);
+    }
     lv_obj_set_style_text_color(ctx->title_label, lv_color_hex(APP_UI_COLOR_TEXT_PRIMARY), LV_PART_MAIN);
     lv_obj_set_style_text_color(ctx->state_label, state_color, LV_PART_MAIN);
     lv_obj_set_style_text_color(ctx->value_label, value_color, LV_PART_MAIN);
@@ -628,6 +643,13 @@ static void w_slider_event_cb(lv_event_t *event)
         return;
     }
 
+    if (ctx->unavailable) {
+        /* The entity went unavailable (also mid-drag): send nothing, keep the flag until HA reports a state, and put the knob back. */
+        ctx->dragging = false;
+        slider_apply_visual(ctx);
+        return;
+    }
+
     if (code == LV_EVENT_PRESSED) {
         ctx->dragging = true;
         slider_apply_visual(ctx);
@@ -676,13 +698,9 @@ esp_err_t w_slider_create(const ui_widget_def_t *def, lv_obj_t *parent, ui_widge
     lv_obj_set_size(card, def->w, def->h);
     lv_obj_set_scrollable(card, false);
     lv_obj_set_style_radius(card, APP_UI_CARD_RADIUS, LV_PART_MAIN);
-#if APP_UI_REWORK_V2
     lv_obj_set_style_border_width(card, 1, LV_PART_MAIN);
     lv_obj_set_style_border_color(card, lv_color_hex(APP_UI_COLOR_CARD_BORDER), LV_PART_MAIN);
     lv_obj_set_style_border_opa(card, LV_OPA_70, LV_PART_MAIN);
-#else
-    lv_obj_set_style_border_width(card, 0, LV_PART_MAIN);
-#endif
     lv_obj_set_style_pad_all(card, 16, LV_PART_MAIN);
 
     lv_obj_t *title = ui_widget_name_create(card, !def->hide_name);
@@ -693,13 +711,13 @@ esp_err_t w_slider_create(const ui_widget_def_t *def, lv_obj_t *parent, ui_widge
     lv_label_set_long_mode(title, LV_LABEL_LONG_DOT);
     lv_obj_set_style_text_font(title, ui_font_role(UI_TEXT_META), LV_PART_MAIN);
     lv_obj_set_style_text_align(title, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
-    lv_obj_align(title, LV_ALIGN_BOTTOM_MID, 0, APP_UI_TILE_LAYOUT_TUNED ? -12 : -10);
+    lv_obj_align(title, LV_ALIGN_BOTTOM_MID, 0, -12);
 
     lv_obj_t *state = lv_label_create(card);
     lv_label_set_text(state, ui_i18n_get("common.off", "OFF"));
     lv_obj_set_style_text_font(state, ui_font_role(UI_TEXT_META), LV_PART_MAIN);
     lv_label_set_long_mode(state, LV_LABEL_LONG_DOT);
-    lv_obj_align(state, LV_ALIGN_TOP_LEFT, 0, APP_UI_TILE_LAYOUT_TUNED ? 2 : 0);
+    lv_obj_align(state, LV_ALIGN_TOP_LEFT, 0, 2);
 
     lv_obj_t *value = lv_label_create(card);
     slider_set_value_label(value, 0);

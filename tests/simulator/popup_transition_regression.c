@@ -124,7 +124,7 @@ int sim_popup_transition_regression(void)
         phase = "Alerts"; ui_alert_center_open(); dismiss();
         phase = "History"; ui_history_popup_open("sensor.synthetic", "History", "20 C", true, ""); dismiss();
         const char *ids[] = {"sensor.synthetic"};
-        phase = "Daily energy"; ui_history_popup_open_days("Days", 0xffffff, ids, 1); dismiss();
+        phase = "Daily energy"; ui_history_popup_open_days("Days", 0xffffff, ids, 1, false); dismiss();
         phase = "EVCC sessions"; ui_history_popup_open_evcc("select.synthetic"); dismiss();
         phase = "Energy timeline";
         ui_energy_timeline_popup_info_t info = {0};

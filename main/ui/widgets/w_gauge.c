@@ -489,15 +489,22 @@ static void gauge_apply_layout_radial(w_gauge_ctx_t *ctx, lv_coord_t content_w, 
     const lv_coord_t value_h = lv_font_get_line_height(lv_obj_get_style_text_font(ctx->value_label, LV_PART_MAIN));
     lv_obj_set_width(ctx->value_label, arc_size - 16);
     lv_obj_set_height(ctx->value_label, value_h);
-    lv_obj_align(ctx->value_label, LV_ALIGN_TOP_LEFT, arc_x + 8, center_y - value_h / 2 - (info_1 || info_2 ? 12 : 0));
+    /* The reading and the extra readouts (META, one line each) as one block centred in the ring; the readouts used a
+     * 20 px step from the 16 px text and overlapped at today's sizes. */
+    const lv_coord_t info_step = lv_font_get_line_height(ui_font_role(UI_TEXT_META));
+    const int info_count = (info_1 ? 1 : 0) + (info_2 ? 1 : 0);
+    const lv_coord_t value_y = center_y - (value_h + info_count * info_step) / 2;
+    lv_obj_align(ctx->value_label, LV_ALIGN_TOP_LEFT, arc_x + 8, value_y);
 
-    for (int i = 0; i < 2; i++) {
+    for (int i = 0, row = 0; i < 2; i++) {
         lv_obj_t *label = ctx->info_label[i];
         bool has = ctx->extra_entity_id[i][0] != '\0';
         lv_obj_set_hidden(label, !has);
         if (has) {
-            lv_obj_set_width(label, arc_size - 16);
-            lv_obj_align(label, LV_ALIGN_TOP_LEFT, arc_x + 8, center_y + value_h / 2 - 8 + i * 20);
+            ui_text_set(label, UI_TEXT_META, true);
+            lv_obj_set_size(label, arc_size - 16, info_step);
+            lv_obj_align(label, LV_ALIGN_TOP_LEFT, arc_x + 8, value_y + value_h + row * info_step);
+            row++;
         }
     }
     if (title_below) {
@@ -505,6 +512,7 @@ static void gauge_apply_layout_radial(w_gauge_ctx_t *ctx, lv_coord_t content_w, 
         lv_obj_set_height(ctx->title_label, title_line_h);
         lv_obj_set_width(ctx->title_label, content_w);
         lv_obj_align(ctx->title_label, LV_ALIGN_TOP_MID, 0, arc_y + arc_size + 4);
+        ui_widget_name_set_hidden(ctx->title_label, false);
         return;
     }
     /* The open segment is about 1.3 r wide at 0.74 r below the centre; below the info lines. */
@@ -512,13 +520,15 @@ static void gauge_apply_layout_radial(w_gauge_ctx_t *ctx, lv_coord_t content_w, 
     lv_obj_set_style_text_font(ctx->title_label, ui_font_role(UI_TEXT_LABEL), LV_PART_MAIN);
     title_h = lv_font_get_line_height(lv_obj_get_style_text_font(ctx->title_label, LV_PART_MAIN));
     lv_coord_t title_y = center_y + r * 37 / 50 - title_h / 2;
-    const lv_coord_t info_bottom = center_y + value_h / 2 - 8 + (info_2 ? 40 : (info_1 ? 20 : 0));
+    const lv_coord_t info_bottom = value_y + value_h + info_count * info_step;
     if ((info_1 || info_2) && title_y < info_bottom) {
         title_y = info_bottom;
     }
     if (title_y > content_h - title_h) {
         title_y = content_h - title_h;
     }
+    /* a ring filled by the reading and its extras (larger text) leaves the name out rather than over the extras */
+    ui_widget_name_set_hidden(ctx->title_label, (info_1 || info_2) && title_y < info_bottom);
     lv_obj_set_width(ctx->title_label, r * 13 / 10);
     lv_obj_align(ctx->title_label, LV_ALIGN_TOP_MID, 0, title_y);
 }
@@ -667,7 +677,8 @@ static void gauge_apply_layout(w_gauge_ctx_t *ctx)
     }
 
     lv_obj_set_width(ctx->title_label, content_w);
-#if UI_TEXT_ADAPTIVE
+    /* A reading wider than the narrow bar column puts its unit on a second line, on every board ("1142.0 W" was cut on
+     * the 10-inch boards). */
     lv_label_set_text(ctx->value_label, ctx->value_text);
     if (ctx->style == GAUGE_STYLE_LINEAR) {
         lv_point_t natural; lv_text_get_size(&natural, ctx->value_text, ui_font_role(UI_TEXT_META), 0, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
@@ -679,7 +690,6 @@ static void gauge_apply_layout(w_gauge_ctx_t *ctx)
         lv_label_set_long_mode(ctx->value_label, LV_LABEL_LONG_WRAP);
         lv_obj_set_height(ctx->value_label, LV_SIZE_CONTENT);
     }
-#endif
 #if UI_TEXT_ADAPTIVE
     const lv_font_t *preferred = ui_font_role(UI_TEXT_KEY);
     lv_coord_t value_room = ctx->style == GAUGE_STYLE_HORIZONTAL && content_h < 80 ? content_h - 14 : (content_h < 80 ? 25 : content_h / 2);

@@ -23,8 +23,9 @@
 #include "ui/ui_i18n.h"
 #include "ui/ui_memory.h"
 
-#define SOLAR_FORECAST_ROWS 6
-#define SOLAR_FORECAST_DAY_ROWS 5
+#define SOLAR_FORECAST_ROWS 8
+#define SOLAR_FORECAST_DAY_ROWS 7
+#define SOLAR_MIN_COLUMN_W 34 /* the narrowest vertical-bar column */
 
 #define SOLAR_TITLE_FONT ui_font_role(UI_TEXT_LABEL)
 #define SOLAR_ROW_FONT ui_font_role(UI_TEXT_LABEL)
@@ -53,8 +54,11 @@ typedef struct {
     bool vertical_bars;
     bool aligned;
     int forecast_days;
+    int rendered_day;
     lv_obj_t *summary;
+    lv_obj_t *today_hit;
     lv_obj_t *popup;
+    lv_obj_t *popup_readings[2];
     lv_timer_t *popup_timer;
 } w_solar_forecast_ctx_t;
 
@@ -140,6 +144,16 @@ static void solar_format_number(char *dst, size_t dst_size, float value)
     }
 }
 
+#if !UI_TEXT_ADAPTIVE
+/* A row of the 10-inch layout: 30 px, or the line height of the row font when that is taller (32 px at the standard
+ * step), so the day and value are never cut at the bottom. */
+static lv_coord_t solar_fixed_row_h(void)
+{
+    const lv_coord_t line = lv_font_get_line_height(SOLAR_ROW_FONT);
+    return line > 30 ? line : 30;
+}
+#endif
+
 static int solar_visible_rows(lv_obj_t *card)
 {
     if (card == NULL) {
@@ -147,7 +161,11 @@ static int solar_visible_rows(lv_obj_t *card)
     }
     lv_coord_t h = lv_obj_get_height(card);
     const lv_coord_t rows_top = 54;
-    const lv_coord_t row_h = 30;
+#if UI_TEXT_ADAPTIVE
+    const lv_coord_t row_h = 30; /* the adaptive rows shrink to the tile themselves */
+#else
+    const lv_coord_t row_h = solar_fixed_row_h();
+#endif
     const lv_coord_t row_gap = 3;
     lv_coord_t avail = h - rows_top - 14;
     int rows = 5;
@@ -181,9 +199,9 @@ static void solar_day_label(int forecast_index, char *dst, size_t dst_size)
     }
 
     static const char *const fallback_keys[] = {
-        "solar.today", "solar.tomorrow", "solar.day_3", "solar.day_4", "solar.day_5",
+        "solar.today", "solar.tomorrow", "solar.day_3", "solar.day_4", "solar.day_5", "solar.day_6", "solar.day_7",
     };
-    static const char *const fallback_texts[] = {"Heute", "Morgen", "Tag 3", "Tag 4", "Tag 5"};
+    static const char *const fallback_texts[] = {"Heute", "Morgen", "Tag 3", "Tag 4", "Tag 5", "Tag 6", "Tag 7"};
     if (forecast_index >= 0 && forecast_index < SOLAR_FORECAST_DAY_ROWS) {
         snprintf(dst, dst_size, "%s", ui_i18n_get(fallback_keys[forecast_index], fallback_texts[forecast_index]));
     } else {
@@ -241,7 +259,7 @@ static void solar_place_rest_bar(w_solar_forecast_ctx_t *ctx, int index, bool ve
     }
     lv_obj_set_hidden(row->rest_bar, false);
     lv_bar_set_orientation(row->rest_bar, vertical ? LV_BAR_ORIENTATION_VERTICAL : LV_BAR_ORIENTATION_HORIZONTAL);
-    lv_bar_set_range(row->rest_bar, 100, 0); /* fills from the end of the total */
+    lv_bar_set_range(row->rest_bar, 0, 100); /* fills from the start of the total: what is still to come is the bright start */
     lv_obj_set_style_bg_grad_dir(row->rest_bar, vertical ? LV_GRAD_DIR_VER : LV_GRAD_DIR_HOR, LV_PART_INDICATOR);
     lv_obj_set_size(row->rest_bar, vertical ? thickness : len, vertical ? len : thickness);
     lv_obj_align(row->rest_bar, LV_ALIGN_TOP_LEFT, x, vertical ? y + bar_h - len : y);
@@ -270,11 +288,20 @@ static void solar_set_row_hidden(solar_forecast_row_t *row, bool hidden)
     }
 }
 
+static int solar_calendar_day(void)
+{
+    const time_t now = time(NULL);
+    struct tm local;
+    return now > 1600000000 && localtime_r(&now, &local) != NULL
+        ? local.tm_year * 366 + local.tm_yday + 1 : 0;
+}
+
 static void solar_render(w_solar_forecast_ctx_t *ctx)
 {
     if (ctx == NULL || ctx->card == NULL) {
         return;
     }
+    ctx->rendered_day = solar_calendar_day();
     lv_obj_update_layout(ctx->card);
 
     float max_value = 0.0f;
@@ -295,7 +322,7 @@ static void solar_render(w_solar_forecast_ctx_t *ctx)
     bool common_unit = true;
     for (int i = 1; i < SOLAR_FORECAST_ROWS; i++)
         if (strcmp(ctx->units[0], ctx->units[i])) common_unit = false;
-    const int visible_rows = ctx->vertical_bars && ctx->aligned ? ui_day_grid_count(lv_obj_get_content_width(ctx->card) - 28, ctx->forecast_days, 5) : solar_visible_rows(ctx->card);
+    int visible_rows = ctx->vertical_bars && ctx->aligned ? ui_day_grid_count(lv_obj_get_content_width(ctx->card) - 28, ctx->forecast_days, SOLAR_FORECAST_DAY_ROWS) : solar_visible_rows(ctx->card);
     lv_coord_t card_w = lv_obj_get_width(ctx->card);
     lv_coord_t content_w = card_w - 28;
 #if UI_TEXT_ADAPTIVE
@@ -303,6 +330,14 @@ static void solar_render(w_solar_forecast_ctx_t *ctx)
 #endif
     if (content_w < 120) {
         content_w = 120;
+    }
+    /* Without sensors for days 6 and 7 an automatic tile keeps the five days it always showed instead of adding empty rows. */
+    if (ctx->forecast_days <= 0 && ctx->entity_ids[6][0] == '\0' && ctx->entity_ids[7][0] == '\0' && visible_rows > 5) {
+        visible_rows = 5;
+    }
+    /* More columns than fit at the narrowest column width would run over the card (aligned grids follow the weather tile). */
+    if (ctx->vertical_bars && !ctx->aligned && visible_rows > content_w / SOLAR_MIN_COLUMN_W) {
+        visible_rows = content_w / SOLAR_MIN_COLUMN_W > 0 ? content_w / SOLAR_MIN_COLUMN_W : 1;
     }
     lv_coord_t label_w = content_w / 5;
     if (label_w < 50) {
@@ -326,17 +361,12 @@ static void solar_render(w_solar_forecast_ctx_t *ctx)
 #if UI_TEXT_ADAPTIVE
     lv_obj_set_width(ctx->title_label, content_w - 82);
     char summary[64];
-    if (ctx->aligned) {
-        char number[32];
-        if (ctx->valid[0]) solar_format_value(number, sizeof(number), ctx->values[0], ctx->units[0]);
-        else snprintf(number, sizeof(number), "-- kWh");
-        snprintf(summary, sizeof(summary), "%s %s", ui_i18n_get("solar.rest", "Rest"), number);
-    } else snprintf(summary, sizeof(summary), "%s", common_unit ? (ctx->units[0][0] ? ctx->units[0] : "kWh") : "");
+    snprintf(summary, sizeof(summary), "%s", common_unit ? (ctx->units[0][0] ? ctx->units[0] : "kWh") : "");
     lv_label_set_text(ctx->summary, summary);
-    const lv_font_t *summary_font = ui_text_fit(summary, ui_font_role(UI_TEXT_LABEL), ctx->aligned ? content_w : 78, 35);
+    const lv_font_t *summary_font = ui_text_fit(summary, ui_font_role(UI_TEXT_LABEL), 78, 35);
     lv_obj_set_style_text_font(ctx->summary, summary_font, LV_PART_MAIN);
-    lv_obj_set_width(ctx->summary, ctx->aligned ? content_w : 78);
-    lv_obj_align(ctx->summary, LV_ALIGN_TOP_RIGHT, -14, ctx->aligned && ui_widget_name_enabled(ctx->title_label) ? 42 : 10);
+    lv_obj_set_width(ctx->summary, 78);
+    lv_obj_align(ctx->summary, LV_ALIGN_TOP_RIGHT, -14, 10);
 #else
     lv_obj_set_width(ctx->title_label, content_w);
     lv_obj_set_hidden(ctx->summary, true);
@@ -345,7 +375,7 @@ static void solar_render(w_solar_forecast_ctx_t *ctx)
 
     if (ctx->vertical_bars) {
 #if UI_TEXT_ADAPTIVE
-        const lv_coord_t chart_top = ctx->aligned && ui_widget_name_enabled(ctx->title_label) ? 80 : (ui_widget_name_enabled(ctx->title_label) ? 54 : 52);
+        const lv_coord_t chart_top = ui_widget_name_enabled(ctx->title_label) ? 54 : 52;
         const lv_coord_t value_h = lv_font_get_line_height(ui_font_role(UI_TEXT_VALUE));
         const lv_coord_t day_h = lv_font_get_line_height(SOLAR_ROW_FONT);
         const lv_coord_t bottom_pad = 10;
@@ -360,15 +390,23 @@ static void solar_render(w_solar_forecast_ctx_t *ctx)
         lv_coord_t chart_h = card_h - chart_top - day_h - value_h - bottom_pad;
         if (chart_h < 20) chart_h = 20;
         lv_coord_t slot_w = ctx->aligned ? ui_day_grid_width(content_w, visible_rows) : content_w / visible_rows;
-        if (slot_w < 34) {
-            slot_w = 34;
+        if (slot_w < SOLAR_MIN_COLUMN_W) {
+            slot_w = SOLAR_MIN_COLUMN_W;
         }
+#if UI_TEXT_ADAPTIVE
+        /* The compact boards' columns are narrow: the bar takes about two thirds of its column, up to 72 px, so the margins
+         * beside it stay small. */
+        lv_coord_t bar_w = slot_w * 62 / 100;
+        const lv_coord_t bar_w_max = 72;
+#else
         lv_coord_t bar_w = slot_w / 2;
+        const lv_coord_t bar_w_max = 42;
+#endif
         if (bar_w < 16) {
             bar_w = 16;
         }
-        if (bar_w > 42) {
-            bar_w = 42;
+        if (bar_w > bar_w_max) {
+            bar_w = bar_w_max;
         }
 
         for (int i = 0; i < SOLAR_FORECAST_ROWS; i++) {
@@ -415,6 +453,10 @@ static void solar_render(w_solar_forecast_ctx_t *ctx)
             lv_coord_t slot_x = 14 + (ctx->aligned ? ui_day_grid_x(content_w, visible_rows, column) : column * slot_w);
             lv_obj_set_size(row->plate, slot_w - 4, chart_h + day_h + value_h + 12);
             lv_obj_align(row->plate, LV_ALIGN_TOP_LEFT, slot_x + 2, chart_top - 6);
+            if (i == 1) {
+                lv_obj_set_size(ctx->today_hit, slot_w, chart_h + day_h + value_h + 12);
+                lv_obj_set_pos(ctx->today_hit, slot_x, chart_top - 6);
+            }
             lv_obj_align(row->bar, LV_ALIGN_TOP_LEFT, slot_x + ((slot_w - bar_w) / 2), chart_top);
             solar_place_rest_bar(ctx, i, true, slot_x + ((slot_w - bar_w) / 2), chart_top, bar_w, chart_h, max_value);
             lv_obj_align(row->day_label, LV_ALIGN_TOP_LEFT, slot_x, chart_top + chart_h + 2);
@@ -437,7 +479,7 @@ static void solar_render(w_solar_forecast_ctx_t *ctx)
     if (row_h < 20) row_h = 20;
 #else
     lv_coord_t row_y = ui_widget_name_enabled(ctx->title_label) ? 54 : 16;
-    const lv_coord_t row_h = 30, row_gap = 3, bar_h = 16;
+    const lv_coord_t row_h = solar_fixed_row_h(), row_gap = 3, bar_h = 16;
 #endif
 
     const lv_coord_t row_y_first = row_y;
@@ -469,6 +511,10 @@ static void solar_render(w_solar_forecast_ctx_t *ctx)
         lv_obj_set_style_bg_grad_dir(row->bar, LV_GRAD_DIR_HOR, LV_PART_INDICATOR);
         lv_obj_set_size(row->plate, card_w - 16, row_h);
         lv_obj_align(row->plate, LV_ALIGN_TOP_LEFT, 8, row_y);
+        if (i == 1) {
+            lv_obj_set_size(ctx->today_hit, card_w - 16, row_h);
+            lv_obj_set_pos(ctx->today_hit, 8, row_y);
+        }
         lv_obj_set_size(row->bar, bar_w, bar_h);
         lv_obj_align(row->bar, LV_ALIGN_TOP_LEFT, 14 + label_w + 8, row_y + (row_h / 2) - (bar_h / 2));
         lv_bar_set_value(row->bar, solar_bar_percent(ctx, i, max_value), LV_ANIM_OFF);
@@ -492,7 +538,18 @@ static void solar_render(w_solar_forecast_ctx_t *ctx)
     }
 }
 
-/* A reduced aligned preview keeps every configured daily reading in detail. */
+/* Today's details add the remaining forecast to the daily total shown on the tile. */
+static void solar_popup_refresh(w_solar_forecast_ctx_t *ctx)
+{
+    if (ctx->popup == NULL) return;
+    for (int row = 0; row < 2; row++) {
+        const int i = row == 0 ? 1 : 0;
+        char value[48];
+        if (ctx->valid[i]) solar_format_value(value, sizeof(value), ctx->values[i], ctx->units[i]);
+        else snprintf(value, sizeof(value), "-- %s", ctx->units[i]);
+        lv_label_set_text(ctx->popup_readings[row], value);
+    }
+}
 static void solar_popup_close(w_solar_forecast_ctx_t *ctx)
 {
     if (ctx->popup_timer) { lv_timer_delete(ctx->popup_timer); ctx->popup_timer = NULL; }
@@ -503,6 +560,7 @@ static void solar_popup_deleted(lv_event_t *event)
     w_solar_forecast_ctx_t *ctx = lv_event_get_user_data(event);
     ctx->popup = NULL;
     if (ctx->popup_timer) { lv_timer_delete(ctx->popup_timer); ctx->popup_timer = NULL; }
+    memset(ctx->popup_readings, 0, sizeof(ctx->popup_readings));
 }
 static void solar_popup_timeout(lv_timer_t *timer) { solar_popup_close(lv_timer_get_user_data(timer)); }
 static void solar_popup_close_clicked(lv_event_t *event) { solar_popup_close(lv_event_get_user_data(event)); }
@@ -510,38 +568,35 @@ static void solar_popup_open(lv_event_t *event)
 {
     w_solar_forecast_ctx_t *ctx = lv_event_get_user_data(event);
     if (ctx->popup) return;
-    ctx->popup = lv_obj_create(lv_layer_top());
+    const char *title = ui_i18n_get("solar.details_title", "Solar forecast today");
+    lv_point_t title_size;
+    lv_text_get_size(&title_size, title, ui_font_role(UI_TEXT_LABEL), 0, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
+    int width = title_size.x + 128 > 460 ? title_size.x + 128 : 460;
+    if (width > APP_VIEW_WIDTH - 32) width = APP_VIEW_WIDTH - 32;
+    const int label_h = lv_font_get_line_height(ui_font_role(UI_TEXT_LABEL));
+    const int value_h = lv_font_get_line_height(ui_font_role(UI_TEXT_VALUE));
+    const int row_h = (label_h > value_h ? label_h : value_h) + 20;
+    const int body_y = UI_POPUP_CLOSE_SIZE + 16;
+    ctx->popup = ui_popup_card_create(lv_layer_top());
     lv_obj_add_event_cb(ctx->popup, solar_popup_deleted, LV_EVENT_DELETE, ctx);
-    lv_obj_set_size(ctx->popup, APP_VIEW_WIDTH - 32, APP_VIEW_HEIGHT - 80);
-    lv_obj_center(ctx->popup); theme_default_style_card(ctx->popup);
-    lv_obj_set_style_text_color(ctx->popup, theme_default_color_text_primary(), LV_PART_MAIN);
-    lv_obj_set_style_bg_opa(ctx->popup, LV_OPA_COVER, LV_PART_MAIN);
-    lv_obj_set_scrollable(ctx->popup, false);
-    lv_obj_t *heading = lv_label_create(ctx->popup);
-    lv_label_set_text(heading, lv_label_get_text(ctx->title_label));
-    ui_text_set(heading, UI_TEXT_LABEL, false);
-    lv_obj_set_width(heading, APP_VIEW_WIDTH - 140);
-    lv_obj_set_height(heading, ui_font_role(UI_TEXT_LABEL)->line_height);
-    lv_label_set_long_mode(heading, LV_LABEL_LONG_DOT);
-    lv_obj_align(heading, LV_ALIGN_TOP_LEFT, 12, 8);
+    lv_obj_set_size(ctx->popup, width, body_y + 2 * row_h + 32);
+    lv_obj_center(ctx->popup);
+    lv_obj_set_style_radius(ctx->popup, ui_style_radius(18), LV_PART_MAIN);
+    lv_obj_set_style_pad_all(ctx->popup, 16, LV_PART_MAIN);
+    lv_obj_t *heading = ui_popup_label_create(ctx->popup, title, UI_POPUP_LABEL_TITLE);
+    lv_obj_set_width(heading, width - 120);
+    lv_obj_align(heading, LV_ALIGN_TOP_LEFT, 0, (UI_POPUP_CLOSE_SIZE - label_h) / 2);
     lv_obj_t *close = ui_popup_close_button(ctx->popup, lv_color_hex(APP_UI_COLOR_NAV_BTN_BG_IDLE), solar_popup_close_clicked, ctx);
-    lv_obj_align(close, LV_ALIGN_TOP_RIGHT, -8, 0);
-    lv_obj_update_layout(ctx->popup);
-    int row_step = (lv_obj_get_content_height(ctx->popup) - 72) / SOLAR_FORECAST_ROWS;
-    if (row_step > 55) row_step = 55;
-    for (int i = 0; i < SOLAR_FORECAST_ROWS; i++) {
-        char day[24], value[48];
-        if (!i) snprintf(day, sizeof(day), "%s", ui_i18n_get("solar.rest", "Rest"));
-        else solar_day_label(i - 1, day, sizeof(day));
-        if (ctx->valid[i]) solar_format_value(value, sizeof(value), ctx->values[i], ctx->units[i]);
-        else snprintf(value, sizeof(value), "-- %s", ctx->units[i]);
-        lv_obj_t *label = lv_label_create(ctx->popup); lv_label_set_text(label, day);
-        ui_text_set(label, UI_TEXT_LABEL, true);
-        lv_obj_align(label, LV_ALIGN_TOP_LEFT, 16, 72 + i * row_step);
-        lv_obj_t *reading = lv_label_create(ctx->popup); lv_label_set_text(reading, value);
-        ui_text_set(reading, UI_TEXT_VALUE, true);
-        lv_obj_align(reading, LV_ALIGN_TOP_RIGHT, -16, 70 + i * row_step);
+    lv_obj_align(close, LV_ALIGN_TOP_RIGHT, 0, 0);
+    const char *captions[] = {ui_i18n_get("solar.total", "Total"), ui_i18n_get("solar.remaining", "Remaining")};
+    for (int row = 0; row < 2; row++) {
+        lv_obj_t *label = ui_popup_label_create(ctx->popup, captions[row], UI_POPUP_LABEL_CAPTION);
+        lv_obj_set_width(label, (width - 40) * 52 / 100);
+        lv_obj_align(label, LV_ALIGN_TOP_LEFT, 0, body_y + row * row_h + (value_h - label_h) / 2);
+        ctx->popup_readings[row] = ui_popup_label_create(ctx->popup, "", UI_POPUP_LABEL_VALUE);
+        lv_obj_align(ctx->popup_readings[row], LV_ALIGN_TOP_RIGHT, 0, body_y + row * row_h);
     }
+    solar_popup_refresh(ctx);
     ctx->popup_timer = lv_timer_create(solar_popup_timeout, 60000, ctx);
     ui_transition_fade_in(ctx->popup);
 }
@@ -575,6 +630,8 @@ esp_err_t w_solar_forecast_create(const ui_widget_def_t *def, lv_obj_t *parent, 
     snprintf(ctx->entity_ids[3], sizeof(ctx->entity_ids[3]), "%s", def->forecast_day_3_entity_id);
     snprintf(ctx->entity_ids[4], sizeof(ctx->entity_ids[4]), "%s", def->forecast_day_4_entity_id);
     snprintf(ctx->entity_ids[5], sizeof(ctx->entity_ids[5]), "%s", def->forecast_day_5_entity_id);
+    snprintf(ctx->entity_ids[6], sizeof(ctx->entity_ids[6]), "%s", def->forecast_day_6_entity_id);
+    snprintf(ctx->entity_ids[7], sizeof(ctx->entity_ids[7]), "%s", def->forecast_day_7_entity_id);
     for (int i = 0; i < SOLAR_FORECAST_ROWS; i++) {
         snprintf(ctx->units[i], sizeof(ctx->units[i]), "%s", "kWh");
     }
@@ -592,8 +649,9 @@ esp_err_t w_solar_forecast_create(const ui_widget_def_t *def, lv_obj_t *parent, 
     lv_obj_set_style_border_color(card, lv_color_hex(APP_UI_COLOR_CARD_BORDER), LV_PART_MAIN);
     lv_obj_set_style_pad_all(card, 0, LV_PART_MAIN);
     lv_obj_set_scrollable(card, false);
+    lv_obj_set_clickable(card, false);
 
-    ctx->aligned = def->align_forecast;
+    ctx->aligned = def->align_forecast && ctx->vertical_bars; /* the day grid exists only for columns */
     ctx->forecast_days = def->forecast_days < 0 ? 0 : def->forecast_days;
     ctx->summary = lv_label_create(card);
     ui_text_record(ctx->summary, UI_TEXT_LABEL, true);
@@ -621,6 +679,7 @@ esp_err_t w_solar_forecast_create(const ui_widget_def_t *def, lv_obj_t *parent, 
         lv_label_set_long_mode(row->day_label, LV_LABEL_LONG_DOT);
 
         row->bar = lv_bar_create(card);
+        lv_obj_set_clickable(row->bar, false);
         lv_bar_set_range(row->bar, 0, 100);
         ui_style_inset_track(row->bar, lv_color_mix(lv_color_hex(APP_UI_COLOR_TEXT_PRIMARY),
                                                     lv_color_hex(APP_UI_COLOR_CARD_BG_OFF), 26));
@@ -651,6 +710,13 @@ esp_err_t w_solar_forecast_create(const ui_widget_def_t *def, lv_obj_t *parent, 
         lv_label_set_long_mode(row->value_label, LV_LABEL_LONG_DOT);
     }
 
+    ctx->today_hit = lv_obj_create(card);
+    lv_obj_remove_style_all(ctx->today_hit);
+    lv_obj_set_scrollable(ctx->today_hit, false);
+    lv_obj_set_event_bubble(ctx->today_hit, false);
+    lv_obj_set_clickable(ctx->today_hit, true);
+    lv_obj_add_event_cb(ctx->today_hit, solar_popup_open, LV_EVENT_CLICKED, ctx);
+    /* Keep the read-only diagnostic tap API usable without a physical pointer. */
     lv_obj_add_event_cb(card, solar_popup_open, LV_EVENT_CLICKED, ctx);
     lv_obj_add_event_cb(card, w_solar_forecast_event_cb, LV_EVENT_DELETE, ctx);
     lv_obj_add_event_cb(card, w_solar_forecast_event_cb, LV_EVENT_SIZE_CHANGED, ctx);
@@ -670,10 +736,18 @@ void w_solar_forecast_apply_state(ui_widget_instance_t *instance, const ha_state
     }
 
     float value = 0.0f;
-    ctx->valid[index] = solar_parse_value(state, &value);
-    ctx->values[index] = ctx->valid[index] ? value : 0.0f;
-    solar_extract_unit(state->attributes_json, ctx->units[index], sizeof(ctx->units[index]));
+    const bool valid = solar_parse_value(state, &value);
+    if (!valid) value = 0.0f;
+    char unit[APP_MAX_UNIT_LEN];
+    strlcpy(unit, ctx->units[index], sizeof(unit));
+    solar_extract_unit(state->attributes_json, unit, sizeof(unit));
+    if (ctx->valid[index] == valid && ctx->values[index] == value && strcmp(ctx->units[index], unit) == 0 &&
+        ctx->rendered_day == solar_calendar_day()) return;
+    ctx->valid[index] = valid;
+    ctx->values[index] = value;
+    strlcpy(ctx->units[index], unit, sizeof(ctx->units[index]));
     solar_render(ctx);
+    solar_popup_refresh(ctx);
 }
 
 void w_solar_forecast_mark_unavailable(ui_widget_instance_t *instance)
@@ -687,4 +761,5 @@ void w_solar_forecast_mark_unavailable(ui_widget_instance_t *instance)
         ctx->values[i] = 0.0f;
     }
     solar_render(ctx);
+    solar_popup_refresh(ctx);
 }

@@ -23,9 +23,15 @@ How many slots there are depends on the display: **two** on the 4-inch panel and
 the 10-inch panels (the third is **Left item 3**). A choice that is used twice appears once, and weather or stock
 disappear while their entity has no usable value. New panels show only the date.
 
+**Quote history:** a tap on the stock item opens its history: the daily means of the last 30 days, and with the second
+button the weekly means of the last 12 months, with the change over the range. The data comes from the Home Assistant
+statistics of the sensor, so it needs a numeric sensor with a `state_class` (Easy Stock sensors have `measurement`);
+a sensor that Home Assistant has recorded for a short time shows less.
+Missing days or weeks leave gaps in the line. Dates keep their elapsed-time positions, including across clock changes.
+
 !!! tip "Example: an ETF quote"
 
-    A **Yahoo Finance** sensor such as `sensor.yahoofinance_vwce_de` works: the bar takes the value and currency
+    An **Easy Stock** sensor such as `sensor.vwce_de` works: the bar takes the value and currency
     from the sensor and the symbol from its attributes (or from the entity ID, here `VWCE.DE`). The price in the
     pictures is a demo value.
 
@@ -74,7 +80,12 @@ The editor's **Settings → Display** has the same clock options. Disabling the 
 
 === "Home Assistant"
 
-    ![Home Assistant card with status, host, firmware version and build time](img/examples/popup-ha.png)
+    ![Home Assistant card with status, host, access information, firmware version and Reconnect button](img/examples/popup-ha.png)
+
+    **Reconnect** retries the HA connection without restarting the panel. It is
+    available while disconnected, with at least 15 seconds between attempts.
+    Fix an invalid token or remove an IP ban in HA first; the popup shows rejected
+    access and stays disconnected if HA still refuses the request.
 
     Connection and sync state, the host, and this panel's firmware: version, build and an available update.
 

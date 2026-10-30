@@ -4,7 +4,58 @@
 
 Changes of **this fork**, compared with upstream v0.8.2. The release notes of the original project (v0.8.2 and earlier, by Cpt_Kirk) are kept unchanged in [Upstream release notes](release-notes-upstream.md).
 
-## v0.9.0 (fork)
+## v0.9.1
+
+Changes since [v0.9.0](#v090).
+
+The development branch combines these updates with its existing S3/LCD-X support, seven-language catalogs,
+Live Display, native settings, clocks and animations, Xiaozhi, KNX and saved camera sources. Existing translations
+are retained; new upstream labels fall back to English until their additional-language translations are supplied.
+Late weather detail responses are discarded safely after their popup closes, including responses already queued for the UI task.
+The combined `panel10` build with the bundled C6 updater exceeds its existing 6.5 MiB OTA slot; the partition layout is unchanged.
+
+### Widgets: new and changed
+
+**New** means a type added since v0.9.0; **Changed** means an existing type was updated. The Parqet portfolio, Stocks & ETFs and
+Energy price forecast tiles share one option, **Show selector buttons on the tile**. It is on by default for Parqet and Stocks; the price
+forecast keeps it off, so it shows the running 24 hours until the buttons are switched on.
+
+| Widget | Status | What is new or changed |
+| --- | --- | --- |
+| [Energy price forecast](widgets/energy_price_forecast.md) | <span class="release-status release-status--new">New</span> | A day of electricity prices as hourly or 15-minute bars from a price sensor (EPEX Spot, Nord Pool, Tibber). The price now, Today/Tomorrow buttons, the day's minimum and maximum and the next cheap window. |
+| [Parqet portfolio](widgets/parqet_portfolio.md) | <span class="release-status release-status--new">New</span> | Value, gain, return, XIRR, dividends and the largest holdings from the Parqet Companion sensors, with tabs and interval buttons on the tile; an option hides amounts. |
+| [Stocks & ETFs](widgets/stock_quotes.md) | <span class="release-status release-status--new">New</span> | Up to eight Easy Stock quotes as a list, as charts or as tiles (a card per quote with price, change and chart, two columns on wide tiles, one on narrow ones) with period buttons (1D to 1Y). A tap opens the details with a chart; the top bar's stock item opens its price history. |
+| [Sensor](widgets/sensor.md) | <span class="release-status release-status--changed">Changed</span> | The value follows the device class: local time, dates, durations, scaled units, currency with the entity's display precision, readable states and the decimal comma. A new **List** view shows up to eight sensor and binary-sensor entities, each with its own formatting, availability and history on tap; the Inspector adds, orders (↑) and removes (×) the rows. |
+| [Wallbox](widgets/wallbox.md) | <span class="release-status release-status--changed">Changed</span> | An optional header shows charging power or the site's energy flow; loadpoint discovery fills the site sensors. |
+| [Media player](widgets/media_player.md), [Vacuum](widgets/vacuum_tile.md), [Bambu printer](widgets/bambu_printer.md) | <span class="release-status release-status--changed">Changed</span> | Media Play/Pause stays accented while available, including when paused or stopped. Other controls highlight active states or selections; unavailable entities block stale actions, and the printer's Stop is labelled Abort. |
+| [Room card](widgets/room_tile.md) | <span class="release-status release-status--changed">Changed</span> | The additional entities are an ordered list of up to seven rows: add, change, reorder (↑) and remove (×) in the Inspector. |
+| [Car](widgets/car_widget.md), [Gauge](widgets/gauge.md), [Energy timeline](widgets/energy_timeline.md), [Solar forecast](widgets/solar_forecast.md) | <span class="release-status release-status--changed">Changed</span> | The Inspector shows only configured entity roles; free ones are added through **Add assignment** and removed with ×. Solar forecast days are added in order, each entity once. Car, Gauge and Solar forecast also have layout fixes for larger text and narrow tiles. |
+| [Contact](widgets/contact_tile.md) | <span class="release-status release-status--changed">Changed</span> | Layout fixes for larger text and narrow tiles. |
+
+### Fixes
+
+- **Weather and solar:** Weather shows up to 24 hourly forecasts and tap-to-open details from an optional DWD report sensor. Weather and Solar forecast show up to seven days (layouts saved before keep their six and five). Solar's bright bar start is today's remaining part; a tap opens a compact total/remaining popup. Vertical bars are wider on the 4-inch and Tab5 boards.
+- **Stocks & ETFs:** quotes come from Easy Stock only. Small quotes keep their precision; the 1D chart covers today from local midnight and stays flat at 0 % when Easy Stock reports no trading.
+- **Price forecast:** the 24-hour window starts at the first price when yesterday has dropped out (issue #1); the Inspector restores the saved Today/Tomorrow checkbox.
+- **Parqet:** a total sensor with long fund names keeps its holdings, interval and portfolio ids; a sensor in another unit than the total shows **Unit differs**.
+- **Car and Vacuum:** preconditioning shows **Sending...** until the climate state changes (60 s limit); a Vacuum press that cannot be sent says so for three seconds.
+- **Redraws:** unchanged readings no longer redraw Car, Solar, Stocks, Graph, Price and Wallbox tiles or the Flat, Glass and Matte card styles.
+- **Popups and larger text:** dialogs share an opaque themed surface; Room details and history axes fit larger text; light, lock, sensor, car, gauge, to-do, slider and weather tiles keep names on one line and drop elements instead of overlapping.
+- **Energy:** daylight-saving days use the full local day; Solar statistics read **Daily production**; the energy nodes follow the card style (Glow halos, Glass translucent, Matte opaque, Flat outlined), also in the editor preview.
+- **Wallbox:** unchanged refreshes keep popups open, a missing vehicle shows **Guest vehicle**, and choosing the energy flow fills its site sensors.
+- **Entity search:** every widget field shares explicit domain and source rules with matching hints, in creation and in the Inspector.
+- **Reliability:** a failed C6 incident write is retried, JC touch scanning starts after the display binding, and large stock layouts keep all history requests.
+
+### Panel and editor
+
+- **Home Assistant connection:** the HA popup shows rejected access and offers **Reconnect**. Camera snapshots use the panel credential.
+- **ESP-Hosted 3.0.10:** a C6 on another firmware version is updated once after the first boot of this image, with one extra restart. Settings → Firmware lists the version the C6 reports; Device status hides the C6 memory row when its firmware has no memory monitor.
+- **10-inch JC panel:** short taps are no longer lost, and the screen rotates with the PPA again (an ESP-IDF driver bug is fixed in the firmware), freeing 17-34 % of one core.
+- **Inspector and preview:** one section order for every widget (Entities, Display, Controls, Placement), entity rows that open the search, explanations behind info icons and device classes next to the entity. Previews follow the panel's text roles and 10-inch layouts and mark overlapping tiles.
+- **Entity names:** search, Room details and stock rows share discovered names; a missing `friendly_name` no longer replaces them with the entity ID.
+- **Language:** the theme editor, time-zone choices, setup hints, vacuum states and firmware-update progress follow the selected language.
+
+## v0.9.0
 
 Optional [KNXnet/IP Routing](knx.md) is shared by all profiles: default-off editor switch, knxConfig.json edit/import/export, atomic saves, permission-checked objects, cached feedback and backup integration. Xiaozhi exposes configured objects through MCP and preserves tool discovery when microphone capture starts. On audio-capable `panel10`, MCP also advertises capability-gated Common Tools for status, read-only network information (SSID, signal, LAN IPv4, gateway, DNS and MAC), volume, brightness and themes, plus HA discovery/state queries and capability-checked controls restricted to current layout bindings. Controls validate single-entity targets, ranges and choices, reuse the HA service path and distinguish submission from confirmed feedback. Invalid or unallocatable service data cannot become an untargeted request. HA updates flow through the existing cache; layout edits change query/control scope, offline/unknown values are flagged, and fallback deletion events clear stale states. COM24 voice acceptance passed HA WLED power control with feedback and restored color/brightness; other actions have local test coverage. COM24 voice checks passed layout discovery and updated on/off readings; this remains a bounded trial. Annotated User Only Tools provide system information, restart, HTTPS OTA and screen geometry. User tools require an explicit `withUserTools` discovery in the initialized connection; unsupported upstream camera, snapshot, preview and asset tools stay absent. Reference: feat/knx_ip at 61fc9d0b and `betamoojw/xiaozhi-esp32` at `c435f99a`; Tunneling/KNX Secure are excluded. The Waveshare P4 trial verified real WLED power control and restoration; scope and voice-validation results are in [KNX development](development/knx.md). The device-tool adapter is linked explicitly; a static-library regression test covers the missing-tool failure caused by fallback weak symbols.
 
@@ -93,7 +144,7 @@ stable idle, saves/page changes and aligned touch on the COM18 S3.
 
 | Area | What changes in this fork |
 | --- | --- |
-| [Toolchain](#toolchain-and-dependencies) | **ESP-IDF 5.5.2 → 6.1**, **LVGL 9.5.0 → 9.6.0**, updated and pinned shared dependencies |
+| [Toolchain](release-notes-architecture.md#toolchain-and-dependencies) | **ESP-IDF 5.5.2 → 6.1**, **LVGL 9.5.0 → 9.6.0**, updated and pinned shared dependencies |
 | [Display devices](choose-display.md) | Guition 10.1-inch and M5Stack Tab5 profiles join the Waveshare P4 devices; hardware validation is tracked per device |
 | [Widgets](#widgets-new-and-changed) | **19 new types**, **11 updated types**, plus the existing Empty spacer |
 | [Appearance](appearance.md) | Flat, Glow, Glass and Matte, independent color themes, larger text and consistent icons |
@@ -422,7 +473,7 @@ style; text and symbols use the same fonts throughout. See
 
 - **Text size setting:** Text size in the Layout header (Standard, Larger, Largest) applies and saves at once without a restart. Text asks for a role (small notes, names, values,
   prominent and large readings); the size follows the role, the board (the Tab5 starts one step above the Panel4, the 10-inch boards use the Panel4's sizes) and the user's step.
-  A tile too small for larger text keeps a smaller one (calibrated from the layout fixtures), and `tools/check.sh` renders every variant at all three steps.
+  A tile too small for larger text keeps a smaller one (calibrated from the layout fixtures), and `scripts/check.sh` renders every variant at all three steps.
 
 - **Notification emoji:** notification titles, messages and action labels show supported monochrome emoji (about 180 faces, reactions, weather, alerts, device states and arrows);
   joined emoji, flags, keycaps and unsupported emoji appear as `[Emoji]`, and the text always fits its buffer without splitting a character or an emoji sequence (a text that is too long is cut before the whole emoji). The notification card draws a selected set of 37 emoji in color (list in [Notifications](notifications.md#emoji)); every other emoji stays monochrome.
@@ -594,7 +645,7 @@ style; text and symbols use the same fonts throughout. See
     **OTA rollback protection:** a freshly installed image must run 60 s with the panel's own HTTP server answering
       and Wi-Fi (or the setup access point) up before it is marked valid; a reset earlier returns to the previous image
       (`ota_image_state` in `/api/version`). It needs a bootloader built with the option, so flash the bootloader over USB
-      once per panel. NVS credentials survive `tools/build.sh <variant> -p <port> flash`;
+      once per panel. NVS credentials survive `scripts/build.sh <variant> -p <port> flash`;
       layout/settings files survive only if LittleFS stays in place or is migrated
       as described above. A panel with an
       older bootloader installs new images by OTA exactly as before, without rollback protection.
@@ -660,141 +711,4 @@ editor uses plain HTTP ([Security](SECURITY.md)).
 
 ### Under the hood
 
-The sections below matter to developers and maintainers: toolchain, memory, test coverage and the flash layout.
-
-#### Toolchain and dependencies
-
-The fork moves the firmware build from **ESP-IDF 5.5.2 to 6.1** and the UI
-from **LVGL 9.5.0 to 9.6.0**. This updates the framework and rendering stack,
-alongside the individual components:
-
-| Component | Upstream v0.8.2 | Fork v0.9.0 |
-| --- | --- | --- |
-| **ESP-IDF** | **5.5.2** | **6.1** |
-| **LVGL** | **9.5.0** | **9.6.0** (registry package `9.6.0~1`) |
-| ESP-Hosted | 2.11.7 | 2.12.13 |
-| Wi-Fi Remote | 1.5.1 | 1.6.5 |
-| WebSocket client | 1.7.0 | 1.8.0 |
-| LittleFS | 1.21.1 | 1.23.0 |
-
-The upstream column comes from the README and committed lock file at
-`420df764`; it describes the existing Waveshare build, not a previous JC or
-Tab5 release. Shared component versions are pinned across profiles, and the
-LVGL/SDL simulator uses the same 9.6 rendering sources.
-
-ESP-IDF 6 integration includes explicit managed cJSON, MQTT and USB components,
-updated component requirements and LCD API names in the Waveshare BSPs. Required
-patches are reapplied automatically during CMake configuration so a component
-refetch retains them. Use [the ESP-IDF 6.1 build instructions](development/build.md#set-up).
-
-??? info "ESP-Hosted and C6 firmware"
-
-    P4 builds use ESP-Hosted 2.12.13 and its matching C6 adapter firmware. The
-    dependency includes locked RPC response tables, correct failure reporting
-    and receive-path handling for slow RPCs. A required C6 update runs once and
-    restarts the panel; with OTA rollback enabled it waits until the P4 app has
-    passed validation. The newly added JC and Tab5 profiles use the same stack.
-
-??? info "Dependencies for the new camera and audio profiles"
-
-    JC support uses `esp_codec_dev` 1.6.2. JC and Tab5 cameras use `esp_video`
-    2.3.0, `esp_cam_sensor` 2.3.0 and `esp_ipa` 2.2.0. The local sensor component
-    includes the SC202CS/SC2356 driver from the same upstream release for Tab5.
-    These are dependencies of new fork profiles. Newer video/IPA combinations
-    require instructions unsupported by the targeted P4 v1.x silicon; see
-    [the component version caps](development/components.md#vendored-camera-component-and-the-p4-silicon-cap).
-
-#### Performance and memory
-
-??? info "LVGL allocation and measured fork headroom"
-
-    All P4 profiles allocate LVGL objects from PSRAM first, reserving scarce
-    internal RAM for Wi-Fi/SDIO, TLS and task stacks. The measurements below
-    were recorded on **2026-10-01 with fork development builds**. They are
-    snapshots of those test builds, rather than upstream-versus-fork benchmarks.
-
-    | Display device | Free internal heap after boot | Largest free internal block | Lowest free internal heap in stress runs |
-    | --- | --- | --- | --- |
-    | Waveshare `panel4` | 329 KB | 152 KB | 165–226 KB across separate runs |
-    | Newly added Guition `paneljc` | 321 KB | 163.8 KB | 184 KB |
-
-    Other profiles use the same allocation policy without their own confirmed
-    measurements here. Earlier/later fork comparisons and workload details
-    remain in [Memory and heap](development/learnings.md).
-
-- **Layout initialization:** the shared state pass visits each widget once,
-  avoiding repeated per-entity scans. A fork development test on the newly
-  supported paneljc rendered 168 widgets in about 2.2 s and 224 in 3.6 s.
-  See [layout measurements](development/learnings.md) for test conditions.
-
-#### Development and verification
-
-??? info "Documentation, examples and GitHub Pages"
-
-    **Documentation:** the site is organised for two audiences: a feature tour, a Pages and layouts guide and a
-      grouped widget library with thumbnails for Home Assistant users, and the build, hardware and device notes for
-      developers; the release notes list user-facing changes before the developer sections.
-      The README now highlights selected current dashboard and
-      editor examples, with detailed installation, feature and editor guides in `docs/`.
-      The hardware overview includes M5Stack Tab5 in one comparison ordered by display size,
-      with audio and camera functions and their validation status.
-      Device guides share manufacturer references and labelled illustrations with a short flashing-connector instruction. Public demo
-      screenshots come from the LVGL simulator and the current editor against an offline
-      API. `tools/editor_local.py` serves the current editor with synthetic data and local saves, without flashing. Zensical builds the documentation with uv and locked dependencies; CI validates
-      pull requests and publishes `main` to GitHub Pages in the maintainer's fork.
-      The unused upstream screenshots are retired from the published tree; the
-      unchanged original BETTA OS logo lives in `docs/img/brand/` with attribution.
-      Direct `.html` navigation supports opening the built pages from the filesystem;
-      the wider content area and scrollable gallery tables keep widget previews readable.
-      Hardware documentation separates device selection and display device guides from CPU/memory,
-      partition/storage and peripheral references. Display controls have their own guide;
-      Appearance compares the same dashboard side by side in all four styles.
-      Each widget has a guide under Get started, followed by a [Top bar](top-bar.md) guide
-      for date/weather/stock slots, the clock and connection detail cards, with cropped
-      4-, 5- and 10-inch examples explaining the available space, including Date + Weather + Stock
-      on wide displays with a demo VWCE.DE ETF quote. Gallery previews preserve relative
-      pixel sizes, detailed widgets use wider comparisons, and documentation images
-      open in a local enlarged viewer with Close/Escape controls.
-      Installation documents published GitHub images and source builds as separate
-      paths, including display device/revision selection, factory versus OTA images, adapter
-      firmware and first-run setup. Published images cover Waveshare 4-inch and Guition original 10-inch.
-      Setup examples show the real boot splash with demo AP credentials and the WebUI's
-      Wi-Fi/Home Assistant stages. The Select example is wider and includes its option
-      picker; Recorder history has a user guide and widget-level popup comparisons.
-      Notifications include finished overlay previews and separate MQTT and REST setup
-      paths. Gallery generators write Markdown and images; Zensical produces the HTML pages,
-      replacing the separate standalone gallery exports. The documentation search indexes pages and sections and works from
-      `file://` with Zensical's offline mode and a locally bundled worker shim.
-      README and site invite forks, personal adaptations, issues and pull requests,
-      with a short [Contributing](contributing.md) guide and links to this fork.
-      Appearance and notification user guides link to separate implementation
-      references. Widget guides use readable option tables; installation, backups,
-      night shutoff and the local/Recorder graph sources have explicit instructions.
-
-- Variant build wrappers, pinned shared dependencies, host tests, editor tests,
-  source checks and SDL layout checks support panel4 and paneljc; CI installs pinned FontTools, Brotli and Pillow.
-  The simulator renders firmware widgets and page chrome; the
-  [dashboard examples](features.md) and [10-inch gallery](gallery-sim-paneljc.md) use public synthetic data.
-  Household captures stay local; vendored camera build files carry Apache-2.0 modification notices. See [development](development.md) for commands and limits.
-
-#### Why this fork changes flash and boot behaviour
-
-??? info "OTA placement, crash evidence and bootloader recovery"
-
-    - **Bootable OTA locations:** upstream v0.8.2's 32 MiB table places the second
-      OTA slot above the ESP32-P4's current 16 MiB quad-flash cache mapping range.
-      The fork uses two app slots below that boundary so an update can boot from
-      either location. The current fork uses two 6.5 MiB slots on all P4 profiles,
-      including the newly introduced 16 MiB JC and Tab5 targets. This corrects the
-      inherited 32 MiB mapping issue and defines storage for the new profiles;
-      LittleFS data can still be accessed above 16 MiB through the SPI flash API.
-    - **Crash evidence after restart:** dedicated panic-dump partitions retain
-      the failing task and execution state so a crash can be investigated after
-      the panel reboots. They are separate from the eight-entry restart history
-      in NVS and the running text log in PSRAM. See [coredumps](coredump.md).
-    - **Recovery from a failed update:** with the rollback-capable bootloader,
-      the new app must pass its uptime, HTTP and network checks before it is
-      accepted. A reset before validation returns to the preceding firmware,
-      reducing the need for USB
-      recovery after a bad OTA update. Installing this bootloader needs USB once.
-      This is OTA recovery, not ESP Secure Boot or signed-image enforcement.
+Build, memory and development changes are preserved in [Release notes architecture](release-notes-architecture.md).

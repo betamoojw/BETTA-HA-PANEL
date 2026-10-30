@@ -43,6 +43,10 @@ static int compare_leaves(const char *path, const cJSON *a, const cJSON *b, cons
 {
     int count = 0;
     for (const cJSON *item = a->child; item != NULL; item = item->next) {
+        for (const cJSON *previous = a->child; previous != item; previous = previous->next) {
+            CHECK(strcmp(previous->string, item->string) != 0, "%s.%s: duplicate JSON member in %s",
+                  path, item->string, a_name);
+        }
         char next[160];
         snprintf(next, sizeof(next), "%s%s%s", path, path[0] != '\0' ? "." : "", item->string);
         const cJSON *other = cJSON_GetObjectItemCaseSensitive((cJSON *)b, item->string);
@@ -105,6 +109,21 @@ static void test_lookup(void)
         {"zh-tw", "energy.grid", "電網"},
         {"zh-cn", "boot.initializing_system", "正在初始化系统"},
         {"zh-tw", "boot.initializing_system", "正在初始化系統"},
+        {"de", "roborock.state.cleaning", "Reinigt"},
+        {"de", "roborock.state.returning", "Kehrt zurück"},
+        {"de", "roborock.state.paused", "Pausiert"},
+        {"en", "roborock.state.cleaning", "Cleaning"},
+        {"en", "roborock.state.docked", "Docked"},
+        {"de", "ota.receiving", "Firmware wird empfangen ..."},
+        {"en", "ota.receiving", "Receiving firmware..."},
+        {"de", "solar.details_title", "Solarprognose heute"},
+        {"en", "solar.details_title", "Solar forecast today"},
+        {"de", "solar.remaining", "Verbleibend"},
+        {"en", "solar.remaining", "Remaining"},
+        {"de", "solar.total", "Gesamt"},
+        {"en", "solar.total", "Total"},
+        {"de", "solar.rest", "Rest"},
+        {"en", "solar.rest", "Remaining"},
     };
     for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
         CHECK(ui_i18n_init(cases[i].lang) == ESP_OK, "init %s", cases[i].lang);

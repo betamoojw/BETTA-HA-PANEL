@@ -4,6 +4,7 @@
 /* The Energy page's seven-day details through the real node circles: a tap opens the popup (default) or fills the
  * right-hand panel ("side", wide pages only), nodes without a source stay informational, a new selection replaces the
  * old one, and the page can be deleted with a popup or a selection open. */
+#include "popup_contract_regression.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -12,6 +13,8 @@
 #include "host_adapters.h"
 #include "ui/display_geometry.h"
 #include "ui/ui_energy_page.h"
+#include "ui/ui_days_view.h"
+#include "ui/ui_i18n.h"
 
 /* Bytes the process has allocated right now: a leak per cycle shows up as growth over many cycles. */
 #if defined(__APPLE__)
@@ -39,6 +42,7 @@ static unsigned checks;
 static void advance(void)
 {
     for (int i = 0; i < 12; i++) lv_timer_handler();
+    sim_popup_contract_check();
 }
 
 static lv_obj_t *label(lv_obj_t *root, const char *text)
@@ -129,8 +133,43 @@ static size_t energy_cycles(bool taps, int cycles)
     return 0;
 }
 
+static void daily_labels(void)
+{
+    ha_history_days_t *result = ui_days_view_simulated(false);
+    CHECK(result != NULL);
+    for (size_t i = 0; i < result->days.count; i++) {
+        result->days.day[i].valid = result->days.day[i].complete = result->days.day[i].hours;
+    }
+    lv_obj_t *root = lv_obj_create(lv_screen_active());
+    lv_obj_set_size(root, 650, 430);
+    lv_obj_t *status = lv_label_create(root);
+    lv_obj_t *body = lv_obj_create(root);
+    lv_obj_set_size(body, 600, 360);
+    lv_obj_update_layout(root);
+    ui_days_view_t view = {.body = body, .status = status, .color = 0x4FCB7E};
+    const char *languages[] = {"en", "de"};
+    const char *consumption[] = {"Daily consumption", "Tagesverbrauch"};
+    const char *production[] = {"Daily production", "Tagesproduktion"};
+    for (int i = 0; i < 2; i++) {
+        CHECK(ui_i18n_init(languages[i]) == ESP_OK);
+        view.production = false;
+        ui_days_view_show(&view, result);
+        CHECK(strcmp(lv_label_get_text(status), consumption[i]) == 0);
+        view.production = true;
+        ui_days_view_show(&view, result);
+        CHECK(strcmp(lv_label_get_text(status), production[i]) == 0);
+    }
+    CHECK(ui_i18n_init("en") == ESP_OK);
+    result->days.day[0].complete = 0;
+    ui_days_view_show(&view, result);
+    CHECK(strcmp(lv_label_get_text(status), "Lighter bars: incomplete day") == 0);
+    free(result);
+    lv_obj_delete(root);
+}
+
 int sim_energy_regression(void)
 {
+    daily_labels();
     lv_obj_t *top = lv_layer_top();
     const int water_y = APP_VIEW_CONTENT_HEIGHT == 720 ? 462 : 500; /* the Tab5 sits its nodes closer together */
     const int gas_y = APP_VIEW_CONTENT_HEIGHT == 720 ? 102 : GAS_Y_TOP;

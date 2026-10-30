@@ -11,6 +11,7 @@
 set(WEBUI_JS_SOURCES
     js/config.js
     js/i18n.js
+    js/i18n-de.js
     js/i18n-camera.js
     js/i18n-knx.js
     js/i18n-es.js
@@ -28,15 +29,20 @@ set(WEBUI_JS_SOURCES
     js/settings.js
     js/brightness-test.js
     js/update-check.js
+    js/entity-search-rules.js
     js/layout-model.js
     js/pickers.js
     js/readability.js
     js/bambu-printer.js
     js/evcc-wallbox.js
+    js/stock-quotes.js
+    js/sensor-list.js
+    js/optional-entities.js
     js/energy-timeline-colors.js
     js/tile-previews.js
     js/layout-history.js
     js/widget-actions.js
+    js/energy-canvas-preview.js
     js/canvas.js
     js/inspector-layout.js
     js/room-import.js
@@ -52,6 +58,7 @@ set(WEBUI_JS_SOURCES
 # Base editor styles first, then one file per appearance style (docs/appearance.md).
 set(WEBUI_CSS_SOURCES
     styles.css
+    css/editor-refinements.css
     css/style-depth.css
     css/style-flat.css
     css/style-glow.css
@@ -64,6 +71,8 @@ set(WEBUI_CSS_SOURCES
     css/layout-toolbar.css
     css/layout-actions.css
     css/evcc-wallbox.css
+    css/stock-quotes.css
+    css/preview-roles.css
     css/inspector.css
     css/remote-display.css)
 

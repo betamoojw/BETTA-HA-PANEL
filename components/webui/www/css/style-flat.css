@@ -34,7 +34,6 @@ body[data-ui-style="flat"] #canvas .tp-bar,
 body[data-ui-style="flat"] #canvas .tp-bar i,
 body[data-ui-style="flat"] #canvas .tp-vbar,
 body[data-ui-style="flat"] #canvas .tp-vbar i,
-body[data-ui-style="flat"] #canvas .tp-chip,
 body[data-ui-style="flat"] #canvas .tp-switch,
 body[data-ui-style="flat"] #canvas .solar-preview-hbar,
 body[data-ui-style="flat"] #canvas .solar-preview-vbar,
@@ -54,5 +53,11 @@ body[data-ui-style="flat"] #canvas .tp-vol span,
 body[data-ui-style="flat"] #canvas .tp-clim-mid span,
 body[data-ui-style="flat"] #canvas .tp-clim-chips i {
   background: var(--pv-card-on);
+  box-shadow: none;
+}
+
+/* Energy nodes retain their source colours and circular flow geometry. */
+body[data-ui-style="flat"] #canvas .energy-preview-node {
+  --energy-node-surface: var(--pv-card);
   box-shadow: none;
 }

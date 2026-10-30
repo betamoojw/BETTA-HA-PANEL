@@ -87,6 +87,8 @@ add_executable(betta-widget-sim
     host_adapters.c
     camera_stream_stub.c
     controls_regression.c
+    weather_now_regression.c
+    popup_contract_regression.c
     camera_regression.c
     wallbox_regression.c
     bambu_regression.c
@@ -99,7 +101,12 @@ add_executable(betta-widget-sim
     screen_settings_regression.c
     alert_center_regression.c
     "${REPO_ROOT}/main/settings/brightness_model.c"
+    price_regression.c
+    chart_refresh_regression.c
+    car_refresh_regression.c
+    parqet_regression.c
     pages_stubs.c
+    sim_clock.c
     "${REPO_ROOT}/main/build_stamp.c"
     "${REPO_ROOT}/main/net/wifi_signal_level.c"
     "${REPO_ROOT}/main/layout/widget_types.c"
@@ -107,6 +114,7 @@ add_executable(betta-widget-sim
     "${REPO_ROOT}/main/layout/evcc_slots.c"
     "${REPO_ROOT}/main/ui/widgets/w_empty_tile.c"
     "${REPO_ROOT}/main/ui/widgets/w_sensor.c"
+    "${REPO_ROOT}/main/ui/widgets/w_sensor_list.c"
     "${REPO_ROOT}/main/ui/widgets/w_button.c"
     "${REPO_ROOT}/main/ui/widgets/w_slider.c"
     "${REPO_ROOT}/main/ui/widgets/w_gauge.c"
@@ -126,12 +134,20 @@ add_executable(betta-widget-sim
     "${REPO_ROOT}/main/ui/ui_days_view.c"
     "${REPO_ROOT}/main/ha/ha_history_reduce.c"
     "${REPO_ROOT}/main/ha/ha_history_stats.c"
+    "${REPO_ROOT}/main/ha/ha_price_series.c"
+    "${REPO_ROOT}/main/ha/parqet_portfolio.c"
+    "${REPO_ROOT}/main/ha/parqet_performance.c"
+    "${REPO_ROOT}/tests/simulator/parqet_request_sim.c"
+    "${REPO_ROOT}/main/ha/ha_attr_serialize.c"
     "${REPO_ROOT}/main/ui/ui_option_picker.c"
     "${REPO_ROOT}/main/ha/ha_select_options.c"
     "${REPO_ROOT}/main/ha/ha_evcc_value.c"
+    "${REPO_ROOT}/main/ha/ha_evcc_vehicle_names.c"
     "${REPO_ROOT}/main/ha/ha_evcc_sessions.c"
     "${REPO_ROOT}/main/ha/ha_control_options.c"
     "${REPO_ROOT}/main/ha/ha_datetime_value.c"
+    "${REPO_ROOT}/main/ha/ha_timestamp_format.c"
+    "${REPO_ROOT}/main/ha/ha_sensor_value.c"
     "${REPO_ROOT}/main/ui/widgets/w_lock.c"
     "${REPO_ROOT}/main/ui/widgets/w_alarm.c"
     "${REPO_ROOT}/main/ui/ui_pin_pad.c"
@@ -157,6 +173,7 @@ add_executable(betta-widget-sim
     "${REPO_ROOT}/main/xiaozhi/xiaozhi_dialog.c"
     "${OTTO_SOURCE}"
     "${REPO_ROOT}/main/ui/alert_policy.c"
+    "${REPO_ROOT}/main/ha/ha_auth_state.c"
     "${REPO_ROOT}/main/ui/nav_layout.c"
     "${REPO_ROOT}/main/ui/ui_house_page.c"
     "${REPO_ROOT}/main/ui/ui_energy_page.c"
@@ -178,6 +195,12 @@ add_executable(betta-widget-sim
     "${REPO_ROOT}/main/ui/widgets/w_camera.c"
     "${REPO_ROOT}/main/ui/widgets/w_vacuum.c"
     "${REPO_ROOT}/main/ui/widgets/w_solar_forecast.c"
+    "${REPO_ROOT}/main/ui/widgets/w_energy_price_forecast.c"
+    "${REPO_ROOT}/main/ui/widgets/w_parqet_portfolio.c"
+    "${REPO_ROOT}/main/ui/widgets/w_stock_quotes.c"
+    "${REPO_ROOT}/main/ui/quote_history_feed.c"
+    "${REPO_ROOT}/main/ha/ha_quote.c"
+    "${REPO_ROOT}/main/ha/ha_quote_series.c"
     "${REPO_ROOT}/main/ui/widgets/w_car_widget.c"
     "${REPO_ROOT}/main/ui/widgets/w_todo.c"
     "${REPO_ROOT}/main/ui/widgets/w_bambu_printer.c"
@@ -196,6 +219,8 @@ add_executable(betta-widget-sim
     "${REPO_ROOT}/main/ui/widgets/weather_value_parse.c"
     "${REPO_ROOT}/main/ui/widgets/weather_condition_icon.c"
     "${REPO_ROOT}/main/ui/widgets/weather_now_view.c"
+    "${REPO_ROOT}/main/ui/widgets/weather_hourly.c"
+    "${REPO_ROOT}/main/ha/ha_weather_hourly.c"
     "${REPO_ROOT}/main/ui/assets/weather/weather_icons.c"
     "${REPO_ROOT}/main/ui/theme/theme_default.c"
     "${REPO_ROOT}/main/ui/theme/theme_palette.c"
@@ -235,10 +260,12 @@ target_compile_definitions(betta-widget-sim PRIVATE
     UI_FONTS_TEST_HOOKS=1
     SIM_WEATHER_ICON_DIR="${REPO_ROOT}/main/ui/assets/weather"
     SIM_DEFAULT_FIXTURE="${CMAKE_CURRENT_LIST_DIR}/demo.json")
-target_compile_options(betta-widget-sim PRIVATE -Wall -Wextra -Werror -Wno-unused-parameter)
+target_compile_options(betta-widget-sim PRIVATE -Wall -Wextra -Werror -Wno-unused-parameter
+    # time() reads BETTA_SIM_NOW when set (stubs/sim_clock.h)
+    -include "${CMAKE_CURRENT_LIST_DIR}/stubs/sim_clock.h")
 target_link_libraries(betta-widget-sim PRIVATE lvgl SDL2::SDL2 sim_cjson m)
 
-add_executable(betta-remote-test remote_display_regression.c
+add_executable(betta-remote-test remote_display_regression.c sim_clock.c
     "${REPO_ROOT}/main/ui/ui_remote_display.c")
 target_include_directories(betta-remote-test PRIVATE "${REPO_ROOT}/main" "${CMAKE_CURRENT_LIST_DIR}/stubs")
 target_compile_definitions(betta-remote-test PRIVATE CONFIG_APP_REMOTE_DISPLAY=1)
@@ -266,7 +293,7 @@ add_test(NAME display-cpu-rotation COMMAND betta-rotation-test)
 add_test(NAME screen-settings-events-and-layout
     COMMAND betta-widget-sim --regression screen-settings --fixture "${CMAKE_CURRENT_LIST_DIR}/screen_settings.json")
 set_tests_properties(screen-settings-events-and-layout PROPERTIES ENVIRONMENT "SDL_VIDEODRIVER=dummy")
-add_executable(betta-clock-test clock_protection_regression.c
+add_executable(betta-clock-test clock_protection_regression.c sim_clock.c
     "${REPO_ROOT}/main/ui/text_font.c" "${REPO_ROOT}/main/ui/text_scale.c"
     "${REPO_ROOT}/main/ui/fonts/ttf_poppins_data.c" "${REPO_ROOT}/main/ui/fonts/ttf_poppins_bold_data.c"
     "${REPO_ROOT}/main/ui/fonts/ttf_mdi_data.c" "${REPO_ROOT}/main/ui/fonts/ttf_emoji_data.c"
@@ -308,7 +335,7 @@ target_compile_definitions(betta-reply-font-test PRIVATE XIAOZHI_FONT_TEST=1)
 target_compile_options(betta-reply-font-test PRIVATE -Wall -Wextra -Werror)
 target_link_libraries(betta-reply-font-test PRIVATE lvgl SDL2::SDL2 m)
 add_test(NAME xiaozhi-reply-font COMMAND betta-reply-font-test "${CMAKE_CURRENT_BINARY_DIR}/reply-font.ttf")
-add_executable(betta-splash-test boot_splash_regression.c "${REPO_ROOT}/main/ui/ui_boot_splash.c")
+add_executable(betta-splash-test boot_splash_regression.c sim_clock.c "${REPO_ROOT}/main/ui/ui_boot_splash.c")
 target_include_directories(betta-splash-test PRIVATE "${REPO_ROOT}/main" "${CMAKE_CURRENT_LIST_DIR}/stubs")
 target_compile_definitions(betta-splash-test PRIVATE CONFIG_APP_PANEL_VARIANT_S3_480=1)
 target_compile_options(betta-splash-test PRIVATE -Wall -Wextra -Werror -Wno-unused-parameter)

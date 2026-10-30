@@ -69,6 +69,10 @@
     {"tile": "Weather forecast", "w": 700, "h": 220},
     {"tile": "Weather forecast", "w": 260, "h": 480},
     {"tile": "Solar forecast", "w": 260, "h": 220},
+    {"tile": "Energy price forecast", "w": 240, "h": 150, "name": "Strompreis-Vorhersage", "fields": {"price_selector": false, "price_cheap_times": false}},
+    {"tile": "Energy price forecast", "w": 240, "h": 150, "name": "Strompreis-Vorhersage", "fields": {"price_selector": true, "price_cheap_times": true, "price_line": true}},
+    {"tile": "Energy price forecast", "w": 360, "h": 220, "fields": {"price_selector": true, "price_cheap_times": true}},
+    {"tile": "Energy price forecast", "w": 240, "h": 150, "name": "HIDDEN NAME SENTINEL", "fields": {"show_name": false}},
     {"tile": "Solar forecast", "w": 260, "h": 220, "fields": {"solar_forecast_bar_orientation": "vertical"}},
     {"tile": "Solar forecast", "w": 640, "h": 480, "fields": {"solar_forecast_bar_orientation": "vertical"}},
     {"tile": "Media player", "w": 260, "h": 220},
@@ -204,6 +208,8 @@
     {"tile": "Sonos favorites", "w": 280, "h": 320},
     {"tile": "Car", "w": 220, "h": 270},
     {"tile": "Car", "w": 200, "h": 200},
+    {"tile": "Car", "w": 240, "h": 370, "fields": {"lock_entity_id": "lock.demo_front_door"}},
+    {"tile": "Car", "w": 200, "h": 330, "fields": {"lock_entity_id": "lock.demo_front_door"}},
     {"tile": "Vacuum", "w": 560, "h": 220},
     {"tile": "Binary sensor", "w": 300, "h": 120},
     {"tile": "Contact", "w": 300, "h": 120},
@@ -215,6 +221,9 @@
     {"tile": "Wallbox", "w": 320, "h": 360, "fields": {}},
     {"tile": "Wallbox", "w": 360, "h": 360, "fields": {}},
     {"tile": "Wallbox", "w": 700, "h": 580, "fields": {}},
+    {"tile": "Wallbox", "w": 320, "h": 420, "fields": {"evcc_header": "power"}},
+    {"tile": "Wallbox", "w": 320, "h": 460, "fields": {"evcc_header": "flow", "evcc_pv_power_entity_id": "sensor.demo_evcc_pv_power", "evcc_battery_power_entity_id": "sensor.demo_evcc_battery_power", "evcc_grid_power_entity_id": "sensor.demo_evcc_grid_power", "evcc_home_power_entity_id": "sensor.demo_evcc_home_power"}},
+    {"tile": "Wallbox", "w": 320, "h": 360, "fields": {"evcc_header": "flow", "evcc_pv_power_entity_id": "sensor.demo_evcc_pv_power", "evcc_battery_power_entity_id": "sensor.demo_evcc_battery_power", "evcc_grid_power_entity_id": "sensor.demo_evcc_grid_power", "evcc_home_power_entity_id": "sensor.demo_evcc_home_power"}},
     {"tile": "Wallbox", "w": 320, "h": 360, "fields": {"show_name": false}}
   ]
 }

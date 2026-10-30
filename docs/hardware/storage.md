@@ -54,7 +54,7 @@ LittleFS is used for runtime configuration and persisted graph history, rather t
 
 Settings publish a new generation only after its complete secret record is committed to NVS. A failed save retains the previous endpoint/credential pair. Transient read or allocation errors leave existing settings and layouts on flash intact. During the first upgrade from upstream v0.8.2, generation zero preserves the old secret bundle, bound to its connection targets. Unchanged legacy credentials remain usable after a rollback. Changing a connection target or its credential clears that legacy key before publishing the new file; if firmware is downgraded afterwards, re-enter the affected credentials because older versions cannot read the new records. Legacy edits after rollback take precedence over a matching migration snapshot.
 
-`main/CMakeLists.txt` embeds the matching `release/network_adapter_esp32c6_<version>.bin` directly in the P4 app. The current 2.12.13 payload is 1,240,368 bytes (about 1.183 MiB), contributing to each app copy's size. The C6's running firmware lives in the coprocessor's own flash. `wifi_mgr.c` checks versions and sends the bundled update over ESP-Hosted when required, deferring it until a pending P4 OTA image passes validation.
+`main/CMakeLists.txt` embeds the matching `release/network_adapter_esp32c6_<version>.bin` directly in the P4 app. The current 3.0.10 payload is 1,377,696 bytes (about 1.314 MiB), contributing to each app copy's size. The C6's running firmware lives in the coprocessor's own flash. `wifi_mgr.c` checks versions and sends the bundled update over ESP-Hosted when required, deferring it until a pending P4 OTA image passes validation.
 
 On the 32 MiB boards **both app slots must lie inside the first 16 MiB**. The
 flash is quad flash and the cache cannot map addresses above 16 MiB (the
@@ -69,7 +69,7 @@ USB flash (bootloader, table, app). A change that moves LittleFS discards its co
 
 The 16 MiB flash holds two 6.5 MiB app slots (ota_0, ota_1), a
 256 KiB coredump partition and a 2.625 MiB LittleFS partition (`config/partitions.paneljc.csv`). Use
-`tools/build.sh <variant> size` or the `.map` file to see where the space goes.
+`scripts/build.sh <variant> size` or the `.map` file to see where the space goes.
 Approximate composition of the image (paneljc, ESP-IDF 6.1, `-Og`):
 
 | Item | Approx. size |
@@ -83,7 +83,7 @@ Approximate composition of the image (paneljc, ESP-IDF 6.1, `-Og`):
 | CA certificate bundle | 0.07 MB |
 | Wi-Fi/TLS/HTTP/MQTT stacks, libc and the rest | remainder |
 
-The local v0.9.0 build with the betta easter egg off (default) leaves about 1.9 MiB or 29 % in a `paneljc` app slot (6.5 MiB; image 4,824,944 bytes, measured 2026-10-03 on commit `e545b0d`), and `panel4` about 2.1 MiB or 33 % (4,582,784 bytes). The slot before v0.9.0-rc4 was 4.9375 MiB, where the same paneljc image left only about 7 % (358 KiB on 2026-10-01; 367 KiB on 2026-09-29; about 476 KiB or 9 % right after retiring Poppins 12 and 14); `panel4` had 47 % free in its 7.875 MiB slot. Earlier builds had about 530 KiB / 10 % (before the History popup, chime and Poppins 24) and about 720 KiB / 14 % free. The easter egg (Lottie, ThorVG, `betta.json` and the C++ runtime) is opt-in with `config/sdkconfig.defaults.easteregg` (`EXTRA_DEFAULTS=config/sdkconfig.defaults.easteregg tools/build.sh paneljc reconfigure build`); it added about 490 KiB in an earlier build, but the current overlay has not been size-checked and may no longer fit safely. Every new widget has to be weighed against this; `CONFIG_COMPILER_OPTIMIZATION_SIZE=y` (see below) is the next lever. Measured
+The local v0.9.0 build with the betta easter egg off (default) leaves about 1.9 MiB or 29 % in a `paneljc` app slot (6.5 MiB; image 4,824,944 bytes, measured 2026-10-03 on commit `e545b0d`), and `panel4` about 2.1 MiB or 33 % (4,582,784 bytes). The slot before v0.9.0-rc4 was 4.9375 MiB, where the same paneljc image left only about 7 % (358 KiB on 2026-10-01; 367 KiB on 2026-09-29; about 476 KiB or 9 % right after retiring Poppins 12 and 14); `panel4` had 47 % free in its 7.875 MiB slot. Earlier builds had about 530 KiB / 10 % (before the History popup, chime and Poppins 24) and about 720 KiB / 14 % free. The easter egg (Lottie, ThorVG, `betta.json` and the C++ runtime) is opt-in with `config/sdkconfig.defaults.easteregg` (`EXTRA_DEFAULTS=config/sdkconfig.defaults.easteregg scripts/build.sh paneljc reconfigure build`); it added about 490 KiB in an earlier build, but the current overlay has not been size-checked and may no longer fit safely. Every new widget has to be weighed against this; `CONFIG_COMPILER_OPTIMIZATION_SIZE=y` (see below) is the next lever. Measured
 and possible levers:
 
 - **Done:** the web editor is embedded gzip-compressed, which freed about

@@ -21,6 +21,9 @@
 #include "ha/ha_history_stats.h"
 #include "ha/ha_history_week.h"
 #include "ha/ha_model.h"
+#include "ha/ha_quote.h"
+#include "ha/ha_quote_series.h"
+#include "ui/quote_history_feed.h"
 #include "ui/theme/ui_typography.h"
 #include "ui/theme/theme_default.h"
 #include "ui/theme/ui_style.h"
@@ -36,6 +39,7 @@
 #define ha_history_snapshot_free free
 #define ha_history_week_free free
 #define ha_history_days_free free
+#define ha_history_range_free free
 #endif
 
 typedef struct {
@@ -63,13 +67,25 @@ typedef struct {
     int row_y;                 /* top of the selector/status row, below the title at any text size */
     /* daily consumption view (Energy page nodes): no selector, seven bars from hourly statistics */
     bool days_mode;
+    bool days_production;
     uint32_t days_generation;
+    /* range view (a quote): 30 days of daily or 12 months of weekly means; the two selector buttons switch between them */
+    bool range_mode;
+    uint32_t range_generation;
+    ha_range_kind_t range_kind;
     uint32_t bar_color;
     char ids[HA_DAYS_MAX_SOURCES][APP_MAX_ENTITY_ID_LEN];
     uint8_t id_count;
     lv_timer_t *sessions_timer;
     evcc_sessions_t *sessions;
     uint32_t sessions_version;
+    /* quote view (Stocks & ETFs): five periods from ui/quote_history_feed.c */
+    bool quote_mode;
+    ha_quote_provider_t provider;
+    ha_quote_t quote;
+    ha_quote_period_t period;
+    void *quote_feed;
+    lv_obj_t *period_btn[HA_QUOTE_PERIOD_COUNT];
 } history_popup_t;
 
 static history_popup_t *s_popup;
@@ -80,6 +96,7 @@ static void popup_deleted(lv_event_t *event)
     history_popup_t *popup = (history_popup_t *)lv_event_get_user_data(event);
     if (s_popup == popup) s_popup = NULL;
     if (popup->sessions_timer) lv_timer_delete(popup->sessions_timer);
+    quote_history_feed_unregister(popup->quote_feed);
     free(popup->sessions);
     free(popup);
 }
@@ -119,11 +136,12 @@ typedef struct {
 
 /* A value of point i, or false for a gap. */
 typedef bool (*plot_value_fn)(const void *data, size_t i, float *out);
+typedef int64_t (*plot_time_fn)(const void *data, size_t i);
 
 /* The shared line chart: summary line, scaled axis, grid, the series with gaps, value ticks and time labels. */
 static void render_plot(history_popup_t *popup, float lowest, float highest, size_t points, uint8_t vertical_divs,
                         int label_w, plot_value_fn value_at, const void *data, const axis_label_t *labels,
-                        size_t label_count)
+                        size_t label_count, plot_time_fn time_at)
 {
     /* round ticks that enclose the data, with their unit: 0 .. 10000 W instead of -201.6 .. 10085.6 */
     chart_scale_t scale;
@@ -139,7 +157,14 @@ static void render_plot(history_popup_t *popup, float lowest, float highest, siz
     new_label(popup->body, summary, ui_font_role(UI_TEXT_LABEL), APP_UI_COLOR_TEXT_PRIMARY, 8, 6,
               lv_obj_get_width(popup->body) - 16);
 
-    const int axis_w = 96;          /* the value labels left of the plot */
+    const lv_font_t *meta = ui_font_role(UI_TEXT_META);
+    int axis_w = 96; /* grow for the actual ticks/units at larger text sizes */
+    for (int i = 0; i <= scale.intervals; i++) {
+        char value[24]; lv_point_t extent;
+        chart_scale_format(value, sizeof(value), scale.max - scale.step * (float)i, scale.decimals, unit);
+        lv_text_get_size(&extent, value, meta, 0, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
+        if (extent.x + 12 > axis_w) axis_w = extent.x + 12;
+    }
     /* the plot starts below the summary line and the top axis label, which grow with the text size (50 px at the reference size) */
     const int summary_h = (int)lv_font_get_line_height(ui_font_role(UI_TEXT_LABEL));
     const int axis_h = (int)lv_font_get_line_height(ui_font_role(UI_TEXT_META));
@@ -155,11 +180,16 @@ static void render_plot(history_popup_t *popup, float lowest, float highest, siz
     lv_obj_set_style_border_width(chart, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_all(chart, 4, LV_PART_MAIN);
     lv_obj_set_style_line_width(chart, 2, LV_PART_ITEMS);
-    lv_obj_set_style_size(chart, 0, 0, LV_PART_INDICATOR); /* a line, not a dot per bucket */
+    lv_obj_set_style_size(chart, time_at != NULL ? 4 : 0, time_at != NULL ? 4 : 0, LV_PART_INDICATOR);
     lv_obj_set_style_line_color(chart, lv_color_hex(APP_UI_COLOR_TEXT_MUTED), LV_PART_MAIN);
     lv_obj_set_style_line_opa(chart, LV_OPA_30, LV_PART_MAIN);
-    lv_chart_set_type(chart, LV_CHART_TYPE_LINE);
+    lv_chart_set_type(chart, time_at != NULL ? LV_CHART_TYPE_SCATTER : LV_CHART_TYPE_LINE);
     lv_chart_set_point_count(chart, (uint32_t)points);
+    const int64_t first_time = time_at != NULL ? time_at(data, 0) : 0;
+    if (time_at != NULL) {
+        /* LVGL maps X with int32 multiplication by chart width: minutes keep a full year within that budget. */
+        lv_chart_set_range(chart, LV_CHART_AXIS_PRIMARY_X, 0, (int32_t)((time_at(data, points - 1) - first_time) / 60));
+    }
     lv_chart_set_div_line_count(chart, (uint8_t)(scale.intervals + 1), vertical_divs); /* grid lines on the ticks */
 
     /* integer chart values: tenths of the step's last digit, kept far from int32 overflow */
@@ -171,12 +201,12 @@ static void render_plot(history_popup_t *popup, float lowest, float highest, siz
                                                     LV_CHART_AXIS_PRIMARY_Y);
     for (size_t i = 0; i < points; i++) {
         float value;
-        lv_chart_set_value_by_id(chart, series, i, value_at(data, i, &value) ? (int32_t)lroundf(value * mult)
-                                                                            : LV_CHART_POINT_NONE);
+        const int32_t y = value_at(data, i, &value) ? (int32_t)lroundf(value * mult) : LV_CHART_POINT_NONE;
+        if (time_at != NULL) lv_chart_set_series_value_by_id2(chart, series, i, (int32_t)((time_at(data, i) - first_time) / 60), y);
+        else lv_chart_set_value_by_id(chart, series, i, y);
     }
     lv_chart_refresh(chart);
 
-    const lv_font_t *meta = ui_font_role(UI_TEXT_META);
     const int plot_top = chart_top + 4, plot_h = chart_h - 8; /* inside the chart's padding */
     for (int i = 0; i <= scale.intervals; i++) {
         char value[24];
@@ -185,7 +215,12 @@ static void render_plot(history_popup_t *popup, float lowest, float highest, siz
         lv_obj_t *label = new_label(popup->body, value, meta, APP_UI_COLOR_TEXT_MUTED, 0, y, axis_w - 8);
         lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_RIGHT, LV_PART_MAIN);
     }
-    const int time_w = label_w > (int)(2.4f * (float)meta->line_height) ? label_w : (int)(2.4f * (float)meta->line_height); /* "00:00" must fit at larger text sizes */
+    int time_w = label_w > (int)(2.4f * (float)meta->line_height) ? label_w : (int)(2.4f * (float)meta->line_height);
+    for (size_t i = 0; i < label_count; i++) {
+        lv_point_t extent;
+        lv_text_get_size(&extent, labels[i].text, meta, 0, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
+        if (extent.x + 4 > time_w) time_w = extent.x + 4;
+    }
     int last_x = -10000;
     for (size_t i = 0; i < label_count; i++) {
         int x = axis_w + 4 + (int)((float)(chart_w - 8) * labels[i].frac) - time_w / 2;
@@ -225,7 +260,7 @@ static void render_numeric(history_popup_t *popup, const ha_history_snapshot_t *
         if (localtime_r(&at, &local)) strftime(labels[i].text, sizeof(labels[i].text), "%H:%M", &local);
         labels[i].frac = (float)i / 4.0f;
     }
-    render_plot(popup, lowest, highest, HA_HISTORY_BUCKETS, 5, 80, day_value_at, snapshot, labels, 5); /* grid every 6 h */
+    render_plot(popup, lowest, highest, HA_HISTORY_BUCKETS, 5, 80, day_value_at, snapshot, labels, 5, NULL); /* grid every 6 h */
 }
 
 static bool week_value_at(const void *data, size_t i, float *out)
@@ -268,7 +303,125 @@ static void render_week(history_popup_t *popup, const ha_history_week_t *week)
         count++;
     }
     /* no vertical grid: its lines would not meet the day labels, which sit at local midnights */
-    render_plot(popup, lowest, highest, series->slots, 0, 60, week_value_at, series, labels, count);
+    render_plot(popup, lowest, highest, series->slots, 0, 60, week_value_at, series, labels, count, NULL);
+}
+
+/* ---- Range view: 30 days of daily means or 12 months of weekly means (a quote) ---- */
+
+static bool range_value_at(const void *data, size_t i, float *out)
+{
+    const ha_range_series_t *series = (const ha_range_series_t *)data;
+    if (i >= series->count || !isfinite(series->point[i].mean)) return false;
+    *out = series->point[i].mean;
+    return true;
+}
+
+static int64_t range_time_at(const void *data, size_t i)
+{
+    return ((const ha_range_series_t *)data)->point[i].start;
+}
+
+static void render_range(history_popup_t *popup, const ha_range_series_t *series)
+{
+    float lowest = INFINITY, highest = -INFINITY;
+    for (size_t i = 0; i < series->count; i++) {
+        if (series->point[i].min < lowest) lowest = series->point[i].min;
+        if (series->point[i].max > highest) highest = series->point[i].max;
+    }
+    if (!isfinite(lowest) || !isfinite(highest)) return;
+    axis_label_t labels[5];
+    size_t count = 0;
+    const bool months = series->kind == HA_RANGE_12_MONTHS;
+    for (size_t k = 0; k < 5 && series->count > 1; k++) {
+        const size_t index = k * (series->count - 1) / 4;
+        time_t at = (time_t)series->point[index].start;
+        struct tm local;
+        if (localtime_r(&at, &local) == NULL) continue;
+        if (months) snprintf(labels[count].text, sizeof(labels[count].text), "%02d/%02d", local.tm_mon + 1, local.tm_year % 100);
+        else snprintf(labels[count].text, sizeof(labels[count].text), "%02d.%02d.", local.tm_mday, local.tm_mon + 1);
+        labels[count].frac = (float)(at - series->point[0].start) /
+                             (float)(series->point[series->count - 1].start - series->point[0].start);
+        count++;
+    }
+    render_plot(popup, lowest, highest, series->count, 0, 72, range_value_at, series, labels, count, range_time_at);
+}
+
+static void range_received(uint32_t generation, ha_history_range_t *range)
+{
+    history_popup_t *popup = s_popup;
+    if (popup == NULL || popup->range_generation != generation || !popup->range_mode || range == NULL) {
+        ha_history_range_free(range);
+        return;
+    }
+    lv_obj_clean(popup->body);
+    if (range->status != ESP_OK) {
+        lv_label_set_text(popup->status, ui_i18n_get("history.week_error", "Could not load statistics"));
+    } else if (range->outcome != HA_STATS_OUTCOME_OK || range->series.count < 2) {
+        lv_label_set_text(popup->status, ui_i18n_get(range->series.kind == HA_RANGE_12_MONTHS ? "history.range_empty_12m"
+                                                                                          : "history.range_empty_30d",
+                                                     range->series.kind == HA_RANGE_12_MONTHS ? "No statistics for 12 months yet"
+                                                                                          : "No statistics for 30 days yet"));
+    } else {
+        /* the change from the first to the last mean of the range */
+        const float first = range->series.point[0].mean, last = range->series.point[range->series.count - 1].mean;
+        char text[64];
+        const char *what = ui_i18n_get(range->series.kind == HA_RANGE_12_MONTHS ? "history.weekly_mean" : "history.daily_mean",
+                                       range->series.kind == HA_RANGE_12_MONTHS ? "Weekly means" : "Daily means");
+        if (first != 0.0f) snprintf(text, sizeof(text), "%s  ·  %+.1f %%", what, (double)((last - first) / fabsf(first) * 100.0f));
+        else snprintf(text, sizeof(text), "%s", what);
+        lv_label_set_text(popup->status, text);
+        render_range(popup, &range->series);
+    }
+    ha_history_range_free(range);
+}
+
+#ifdef BETTA_SIMULATOR
+void ui_history_popup_simulator_set_range(const ha_range_series_t *series)
+{
+    if (s_popup == NULL || !s_popup->range_mode || series == NULL) return;
+    ha_history_range_t *range = calloc(1, sizeof(*range));
+    if (range == NULL) return;
+    range->status = ESP_OK;
+    range->outcome = series->count > 0 ? HA_STATS_OUTCOME_OK : HA_STATS_OUTCOME_EMPTY;
+    range->series = *series;
+    range_received(s_popup->range_generation, range);
+}
+
+/* A synthetic quote for the layout screenshots: a drifting wave over the range, ending at the value the chip shows. */
+static void simulator_show_range(history_popup_t *popup)
+{
+    ha_history_range_t *range = calloc(1, sizeof(*range));
+    if (range == NULL) return;
+    const time_t now = time(NULL);
+    range->status = ESP_OK;
+    const char *period = "day";
+    if (!ha_stats_range_window((int64_t)now, popup->range_kind, &range->window, &period)) { free(range); return; }
+    const bool year = popup->range_kind == HA_RANGE_12_MONTHS;
+    range->series.kind = popup->range_kind;
+    range->series.count = year ? 53 : 30;
+    for (uint16_t i = 0; i < range->series.count; i++) {
+        const float t = (float)i / (float)(range->series.count - 1);
+        const float mean = 190.0f + 14.0f * sinf(t * (year ? 9.0f : 5.5f)) + 22.0f * t;
+        range->series.point[i] = (ha_range_point_t){.start = ha_stats_local_day_start(range->window.start_epoch, i * (year ? 7 : 1)),
+                                                    .mean = mean, .min = mean - 3.0f, .max = mean + 3.5f, .has_range = true};
+    }
+    range->outcome = HA_STATS_OUTCOME_OK;
+    range_received(popup->range_generation, range);
+}
+#endif
+
+static void request_range(history_popup_t *popup)
+{
+    popup->range_generation = ++s_generation;
+    popup->week_active = popup->range_kind == HA_RANGE_12_MONTHS;
+    lv_obj_clean(popup->body);
+    lv_label_set_text(popup->status, ui_i18n_get("history.loading", "Loading history..."));
+#ifndef BETTA_SIMULATOR
+    if (ha_history_request_range(popup->entity_id, popup->range_kind, popup->range_generation, range_received) != ESP_OK)
+        lv_label_set_text(popup->status, ui_i18n_get("history.week_error", "Could not load statistics"));
+#else
+    simulator_show_range(popup);
+#endif
 }
 
 static uint32_t state_color(const char *state)
@@ -505,10 +658,8 @@ static void style_range_button(history_popup_t *popup)
     for (int i = 0; i < 2; i++) {
         if (buttons[i] == NULL) continue;
         const bool active = (i == 1) == popup->week_active;
-        lv_obj_set_style_bg_color(buttons[i], lv_color_hex(active ? APP_UI_COLOR_STATE_ON : APP_UI_COLOR_NAV_BTN_BG_IDLE),
-                                  LV_PART_MAIN);
-        lv_obj_set_style_text_color(buttons[i], lv_color_hex(active ? APP_UI_COLOR_CONTENT_BG : APP_UI_COLOR_TEXT_PRIMARY),
-                                    LV_PART_MAIN);
+        const ui_control_role_t role = active ? UI_CONTROL_SELECTED : UI_CONTROL_ACTION;
+        ui_style_action_button(buttons[i], lv_obj_get_child(buttons[i], 0), role, true);
     }
 }
 
@@ -517,6 +668,14 @@ static void range_clicked(lv_event_t *event)
     history_popup_t *popup = (history_popup_t *)lv_event_get_user_data(event);
     if (popup == NULL || popup != s_popup || !popup->week_offered) return;
     const bool want_week = lv_event_get_target(event) == popup->btn_week;
+    if (popup->range_mode) {
+        const ha_range_kind_t kind = want_week ? HA_RANGE_12_MONTHS : HA_RANGE_30_DAYS;
+        if (kind == popup->range_kind) return;
+        popup->range_kind = kind;
+        request_range(popup);
+        style_range_button(popup);
+        return;
+    }
     if (want_week == popup->week_active) return;
     if (want_week) request_week(popup);
     else request_day(popup);
@@ -595,7 +754,8 @@ static void days_received(uint32_t generation, ha_history_days_t *result)
         ha_history_days_free(result);
         return;
     }
-    const ui_days_view_t view = {.body = popup->body, .status = popup->status, .color = popup->bar_color};
+    const ui_days_view_t view = {.body = popup->body, .status = popup->status, .color = popup->bar_color,
+        .production = popup->days_production};
     ui_days_view_show(&view, result);
     ha_history_days_free(result);
 }
@@ -622,15 +782,11 @@ static void create_frame(history_popup_t *popup, const char *title, const char *
     if (cw > 680) cw = 680;
     int ch = sh - 48;
     if (ch > 560) ch = 560;
-    popup->card = lv_obj_create(popup->overlay);
+    popup->card = ui_popup_card_create(popup->overlay);
     lv_obj_set_size(popup->card, cw, ch);
     lv_obj_center(popup->card);
-    lv_obj_set_scrollable(popup->card, false);
-    lv_obj_set_event_bubble(popup->card, false);
-    lv_obj_set_style_bg_color(popup->card, lv_color_hex(APP_UI_COLOR_CONTENT_BG), LV_PART_MAIN);
-    lv_obj_set_style_bg_opa(popup->card, LV_OPA_COVER, LV_PART_MAIN);
     lv_obj_set_style_radius(popup->card, ui_style_radius(18), LV_PART_MAIN);
-    ui_popup_style_frame(popup->card);
+
     lv_obj_set_style_pad_all(popup->card, 14, LV_PART_MAIN);
     char title_buf[APP_MAX_NAME_LEN * 2];
     const char *shown_title = ui_style_title(title_buf, sizeof(title_buf), title ? title : fallback_title);
@@ -706,6 +862,54 @@ void ui_history_popup_open(const char *entity_id, const char *title, const char 
     ui_transition_fade_in(popup->overlay);
 }
 
+void ui_history_popup_open_range(const char *entity_id, const char *title, const char *current)
+{
+    if (entity_id == NULL || entity_id[0] == '\0') return;
+    if (s_popup != NULL) lv_obj_delete(s_popup->overlay);
+    history_popup_t *popup = calloc(1, sizeof(*popup));
+    if (popup == NULL) return;
+    popup->numeric = true;
+    popup->range_mode = true;
+    popup->week_offered = true;
+    popup->range_kind = HA_RANGE_30_DAYS;
+    strlcpy(popup->entity_id, entity_id, sizeof(popup->entity_id));
+    strlcpy(popup->current, current ? current : "", sizeof(popup->current));
+    s_popup = popup;
+    int cw, ch;
+    create_frame(popup, title, entity_id, &cw, &ch);
+    const int selector_w = 2 * range_button_width() + 8 + 12;
+    const int row_h = range_button_height();
+    const int status_h = (int)lv_font_get_line_height(ui_font_role(UI_TEXT_META));
+    const int title_h = (int)lv_font_get_line_height(ui_font_role(UI_TEXT_LABEL));
+    popup->row_y = title_h + 2 > 32 ? title_h + 2 : 32;
+    popup->status = new_label(popup->card, ui_i18n_get("history.loading", "Loading history..."), ui_font_role(UI_TEXT_META),
+                              APP_UI_COLOR_TEXT_MUTED, selector_w, popup->row_y + (row_h > status_h ? (row_h - status_h) / 2 : 0),
+                              cw - 70 - selector_w);
+    popup->body = lv_obj_create(popup->card);
+    lv_obj_remove_style_all(popup->body);
+    const int body_y = popup->row_y + row_h + 4;
+    lv_obj_set_pos(popup->body, 0, body_y);
+    lv_obj_set_size(popup->body, cw - 28, ch - body_y - 28);
+    lv_obj_set_scrollable(popup->body, false);
+    lv_obj_update_layout(popup->card);
+    const int w = range_button_width(), h = range_button_height();
+    popup->btn_day = range_button(popup, ui_i18n_get("history.range_30d", "30 d"), 0, w, h, popup->row_y);
+    popup->btn_week = range_button(popup, ui_i18n_get("history.range_12m", "12 m"), w + 8, w, h, popup->row_y);
+    request_range(popup);
+    style_range_button(popup);
+}
+
+void ui_history_popup_range_select(bool year)
+{
+    history_popup_t *popup = s_popup;
+    if (popup == NULL || !popup->range_mode) return;
+    const ha_range_kind_t kind = year ? HA_RANGE_12_MONTHS : HA_RANGE_30_DAYS;
+    if (kind == popup->range_kind) return;
+    popup->range_kind = kind;
+    request_range(popup);
+    style_range_button(popup);
+}
+
 #ifdef BETTA_SIMULATOR
 static void simulator_show_days(history_popup_t *popup)
 {
@@ -714,13 +918,14 @@ static void simulator_show_days(history_popup_t *popup)
 }
 #endif
 
-void ui_history_popup_open_days(const char *title, uint32_t bar_color, const char *const *ids, size_t count)
+void ui_history_popup_open_days(const char *title, uint32_t bar_color, const char *const *ids, size_t count, bool production)
 {
     if (ids == NULL || count == 0 || count > HA_DAYS_MAX_SOURCES || ids[0] == NULL || ids[0][0] == '\0') return;
     if (s_popup != NULL) lv_obj_delete(s_popup->overlay);
     history_popup_t *popup = calloc(1, sizeof(*popup));
     if (popup == NULL) return;
     popup->days_mode = true;
+    popup->days_production = production;
     popup->numeric = true;
     popup->bar_color = bar_color;
     popup->id_count = (uint8_t)count;
@@ -788,4 +993,305 @@ void ui_history_popup_open_evcc(const char *entity)
     if (!popup->sessions_timer) { lv_obj_delete(popup->overlay); return; }
     lv_obj_update_layout(popup->card); sessions_tick(popup->sessions_timer);
     ui_transition_fade_in(popup->overlay);
+}
+
+/* ---- Quote view (Stocks & ETFs): price, the session's change, five periods with their source and reference ---- */
+
+#define QUOTE_PLOT_MAX 200
+
+static const char *const QUOTE_PERIOD_KEY[HA_QUOTE_PERIOD_COUNT] = {
+    "stock.period.1d", "stock.period.1w", "stock.period.30d", "stock.period.ytd", "stock.period.1y"};
+static const char *const QUOTE_PERIOD_TEXT[HA_QUOTE_PERIOD_COUNT] = {"1D", "1W", "30D", "YTD", "1Y"};
+
+static bool quote_german(void)
+{
+    const char *lang = ui_i18n_get_language();
+    return lang != NULL && strncmp(lang, "de", 2) == 0;
+}
+
+static void quote_amount(const ha_quote_t *q, double value, bool plus, char *out, size_t cap)
+{
+    char num[40];
+    ha_quote_format_number(num, sizeof(num), value, ha_quote_price_decimals(q), quote_german(), plus);
+    const char *sign = ha_quote_currency_sign(q->currency);
+    snprintf(out, cap, sign[0] != '\0' ? "%s %s" : "%s", num, sign);
+}
+
+static void quote_percent(double value, char *out, size_t cap)
+{
+    char num[32];
+    ha_quote_format_number(num, sizeof(num), value, 2, quote_german(), true);
+    snprintf(out, cap, "%s %%", num);
+}
+
+static void quote_time_text(int64_t epoch, bool with_date, char *out, size_t cap)
+{
+    const time_t at = (time_t)epoch;
+    struct tm local;
+    if (localtime_r(&at, &local) == NULL) {
+        snprintf(out, cap, "?");
+        return;
+    }
+    if (!with_date) snprintf(out, cap, "%02d:%02d", local.tm_hour, local.tm_min);
+    else if (quote_german()) snprintf(out, cap, "%d.%d. %02d:%02d", local.tm_mday, local.tm_mon + 1, local.tm_hour, local.tm_min);
+    else snprintf(out, cap, "%d/%d %02d:%02d", local.tm_mon + 1, local.tm_mday, local.tm_hour, local.tm_min);
+}
+
+static const char *quote_market_text(ha_quote_market_t market)
+{
+    switch (market) {
+    case HA_QUOTE_MARKET_OPEN: return ui_i18n_get("stock.market.open", "Market open");
+    case HA_QUOTE_MARKET_PRE: return ui_i18n_get("stock.market.pre", "Pre-market");
+    case HA_QUOTE_MARKET_POST: return ui_i18n_get("stock.market.post", "After hours");
+    case HA_QUOTE_MARKET_CLOSED: return ui_i18n_get("stock.market.closed", "Market closed");
+    default: return "";
+    }
+}
+
+static const char *quote_kind_text(ha_quote_series_kind_t kind)
+{
+    switch (kind) {
+    case HA_QUOTE_SERIES_CLOSES: return ui_i18n_get("stock.source.closes", "Closes");
+    case HA_QUOTE_SERIES_STATES: return ui_i18n_get("stock.source.recorded", "Recorded");
+    case HA_QUOTE_SERIES_HOURLY_MEANS: return ui_i18n_get("history.hourly_mean", "Hourly means");
+    case HA_QUOTE_SERIES_DAILY_MEANS: return ui_i18n_get("history.daily_mean", "Daily means");
+    default: return ui_i18n_get("history.weekly_mean", "Weekly means");
+    }
+}
+
+typedef struct {
+    ha_quote_point_t point[QUOTE_PLOT_MAX + 3];
+    size_t count;
+} quote_plot_t;
+
+static bool quote_value_at(const void *data, size_t i, float *out)
+{
+    const quote_plot_t *plot = (const quote_plot_t *)data;
+    if (i >= plot->count || !isfinite(plot->point[i].v)) return false;
+    *out = plot->point[i].v;
+    return true;
+}
+
+static int64_t quote_time_at(const void *data, size_t i)
+{
+    return ((const quote_plot_t *)data)->point[i].t;
+}
+
+static void quote_style_buttons(history_popup_t *popup)
+{
+    for (int p = 0; p < HA_QUOTE_PERIOD_COUNT; p++) {
+        if (popup->period_btn[p] == NULL) continue;
+        const bool active = p == (int)popup->period;
+        const ui_control_role_t role = active ? UI_CONTROL_SELECTED : UI_CONTROL_ACTION;
+        ui_style_action_button(popup->period_btn[p], lv_obj_get_child(popup->period_btn[p], 0), role, true);
+    }
+}
+
+static void quote_received(void *user, quote_feed_status_t status, const ha_quote_series_t *series)
+{
+    history_popup_t *popup = (history_popup_t *)user;
+    if (popup == NULL || popup != s_popup || !popup->quote_mode) return;
+    lv_obj_clean(popup->body);
+    if (status == QUOTE_FEED_LOADING) {
+        lv_label_set_text(popup->status, ui_i18n_get("history.loading", "Loading history..."));
+        return;
+    }
+    if (status == QUOTE_FEED_FAILED || series == NULL) {
+        lv_label_set_text(popup->status, ui_i18n_get(status == QUOTE_FEED_FAILED ? "stock.history_failed" : "stock.history_empty",
+                                                     status == QUOTE_FEED_FAILED ? "History not available" : "No history for this period"));
+        return;
+    }
+    if (status == QUOTE_FEED_EMPTY && (popup->period != HA_QUOTE_PERIOD_1D || !popup->quote.available)) {
+        lv_label_set_text(popup->status, ui_i18n_get("stock.history_empty", "No history for this period"));
+        return;
+    }
+    /* the source and, for closes, the reference the change starts at; a shorter history says from when */
+    char line[320], change[200] = "";
+    ha_quote_change_t c;
+    if (ha_quote_series_period_change(series, &popup->quote, &c)) {
+        char pct[40], amount[48], base[48], when[24];
+        quote_percent(c.change_pct, pct, sizeof(pct));
+        quote_amount(&popup->quote, c.change, true, amount, sizeof(amount));
+        if (c.from_reference) {
+            quote_amount(&popup->quote, c.base, false, base, sizeof(base));
+            if (c.base_t != 0) quote_time_text(c.base_t, true, when, sizeof(when));
+            else snprintf(when, sizeof(when), "%s", ui_i18n_get("stock.prev_close", "prev. close"));
+            if (c.base_t != 0 && strchr(when, ' ') != NULL) *strchr(when, ' ') = '\0'; /* a close is a day */
+            snprintf(change, sizeof(change), "  \xC2\xB7  %s  %s  %s %s (%s)", amount, pct, ui_i18n_get("stock.since", "since"), base, when);
+        } else if (series->kind == HA_QUOTE_SERIES_STATES) {
+            snprintf(change, sizeof(change), "  \xC2\xB7  %s  %s", amount, pct);
+        } else {
+            snprintf(change, sizeof(change), "  \xC2\xB7  %s %s", ui_i18n_get("stock.trend", "trend"), pct);
+        }
+    }
+    char from[40] = "";
+    if (series->partial && series->count > 0) {
+        char date[24];
+        quote_time_text(series->point[0].t, true, date, sizeof(date));
+        if (strchr(date, ' ') != NULL) *strchr(date, ' ') = '\0';
+        snprintf(from, sizeof(from), "  \xC2\xB7  %s %s", ui_i18n_get("stock.from", "from"), date);
+    }
+    snprintf(line, sizeof(line), "%s%s%s", quote_kind_text(series->kind), from, change);
+    lv_label_set_text(popup->status, line);
+
+    quote_plot_t *plot = ui_calloc_prefer_psram(1, sizeof(*plot));
+    if (plot == NULL) return;
+    plot->count = ha_quote_series_reduce(series, plot->point, QUOTE_PLOT_MAX);
+    if (series->period == HA_QUOTE_PERIOD_1D) {
+        plot->count = ha_quote_day_plot(plot->point, plot->count, QUOTE_PLOT_MAX + 3,
+                                        (int64_t)time(NULL), &popup->quote);
+    }
+    float lowest = INFINITY, highest = -INFINITY;
+    for (size_t i = 0; i < plot->count; i++) {
+        if (!isfinite(plot->point[i].v)) continue;
+        lowest = fminf(lowest, plot->point[i].v);
+        highest = fmaxf(highest, plot->point[i].v);
+    }
+    if (plot->count >= 2 && isfinite(lowest)) {
+        axis_label_t labels[5];
+        size_t count = 0;
+        const int64_t t0 = plot->point[0].t, t1 = plot->point[plot->count - 1].t;
+        for (size_t k = 0; k < 5 && t1 > t0; k++) {
+            const int64_t at = t0 + (t1 - t0) * (int64_t)k / 4;
+            const time_t when = (time_t)at;
+            struct tm local;
+            if (localtime_r(&when, &local) == NULL) continue;
+            if (series->period == HA_QUOTE_PERIOD_1D) snprintf(labels[count].text, sizeof(labels[count].text), "%02d:%02d", local.tm_hour, local.tm_min);
+            else if (series->period >= HA_QUOTE_PERIOD_YTD) snprintf(labels[count].text, sizeof(labels[count].text), "%02d/%02d", local.tm_mon + 1, local.tm_year % 100);
+            else snprintf(labels[count].text, sizeof(labels[count].text), "%02d.%02d.", local.tm_mday, local.tm_mon + 1);
+            labels[count].frac = (float)k / 4.0f;
+            count++;
+        }
+        render_plot(popup, lowest, highest, plot->count, 0, 72, quote_value_at, plot, labels, count, quote_time_at);
+    }
+    free(plot);
+}
+
+static void quote_request(history_popup_t *popup)
+{
+    lv_obj_clean(popup->body);
+    lv_label_set_text(popup->status, ui_i18n_get("history.loading", "Loading history..."));
+    quote_history_feed_set(popup->quote_feed, popup->entity_id, popup->provider, popup->quote.symbol, popup->period,
+                           popup->quote.price);
+}
+
+static void quote_period_clicked(lv_event_t *event)
+{
+    history_popup_t *popup = (history_popup_t *)lv_event_get_user_data(event);
+    lv_obj_t *target = lv_event_get_target(event);
+    if (popup == NULL || popup != s_popup) return;
+    for (int p = 0; p < HA_QUOTE_PERIOD_COUNT; p++) {
+        if (target != popup->period_btn[p] || (int)popup->period == p) continue;
+        popup->period = (ha_quote_period_t)p;
+        quote_style_buttons(popup);
+        quote_request(popup);
+        break;
+    }
+}
+
+void ui_history_popup_quote_select(ha_quote_period_t period)
+{
+    history_popup_t *popup = s_popup;
+    if (popup == NULL || !popup->quote_mode || period >= HA_QUOTE_PERIOD_COUNT || period == popup->period) return;
+    popup->period = period;
+    quote_style_buttons(popup);
+    quote_request(popup);
+}
+
+void ui_history_popup_open_quote(const char *entity_id, ha_quote_provider_t provider, const ha_quote_t *quote,
+                                 ha_quote_period_t period)
+{
+    if (entity_id == NULL || entity_id[0] == '\0' || quote == NULL) return;
+    if (s_popup != NULL) lv_obj_delete(s_popup->overlay);
+    history_popup_t *popup = ui_calloc_prefer_psram(1, sizeof(*popup));
+    if (popup == NULL) return;
+    popup->numeric = true;
+    popup->quote_mode = true;
+    popup->provider = provider;
+    popup->quote = *quote;
+    popup->period = period < HA_QUOTE_PERIOD_COUNT ? period : HA_QUOTE_PERIOD_30D;
+    strlcpy(popup->entity_id, entity_id, sizeof(popup->entity_id));
+    s_popup = popup;
+    const char *name = quote->long_name[0] != '\0' ? quote->long_name : quote->name[0] != '\0' ? quote->name : entity_id;
+    int cw, ch;
+    create_frame(popup, name, entity_id, &cw, &ch);
+    const ha_quote_t *q = &popup->quote;
+    const lv_font_t *label = ui_font_role(UI_TEXT_LABEL), *meta = ui_font_role(UI_TEXT_META), *value = ui_font_role(UI_TEXT_VALUE);
+    const int label_h = (int)lv_font_get_line_height(label), meta_h = (int)lv_font_get_line_height(meta);
+    const int value_h = (int)lv_font_get_line_height(value);
+    int y = label_h + 6;
+
+    /* price and the last session's change */
+    char price[48] = "--", session[96] = "";
+    if (q->available) quote_amount(q, q->price, false, price, sizeof(price));
+    strlcpy(popup->current, price, sizeof(popup->current));
+    lv_obj_t *price_label = new_label(popup->card, price, value, APP_UI_COLOR_TEXT_PRIMARY, 0, y, cw / 2);
+    lv_obj_set_height(price_label, value_h);
+    lv_obj_update_layout(price_label);
+    if (q->available && (q->has_change || q->has_change_pct)) {
+        char amount[48] = "", pct[40] = "";
+        if (q->has_change) quote_amount(q, q->change, true, amount, sizeof(amount));
+        if (q->has_change_pct) quote_percent(q->change_pct, pct, sizeof(pct));
+        snprintf(session, sizeof(session), "%s  %s", amount, pct);
+    } else if (q->available) {
+        snprintf(session, sizeof(session), "--");
+    }
+    lv_point_t size;
+    lv_text_get_size(&size, price, value, 0, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
+    const double sign = q->has_change ? q->change : q->change_pct;
+    new_label(popup->card, session, label, sign > 0 ? APP_UI_COLOR_OK : sign < 0 ? APP_UI_COLOR_ERROR : APP_UI_COLOR_TEXT_SOFT,
+              size.x + 16, y + value_h - label_h - 2, cw - size.x - 60);
+    y += value_h + 2;
+
+    /* symbol, market and the two times: when the price was set at the exchange and when Home Assistant last updated */
+    char info[200];
+    size_t n = (size_t)snprintf(info, sizeof(info), "%s", q->symbol);
+    const char *market = quote_market_text(q->market);
+    if (market[0] != '\0') n += (size_t)snprintf(info + n, sizeof(info) - n, "%s%s", n ? "  \xC2\xB7  " : "", market);
+    ha_state_t *state = ui_calloc_prefer_psram(1, sizeof(*state));
+    if (state != NULL && ha_model_get_state(entity_id, state) && state->ha_changed_s > 0 && n < sizeof(info)) {
+        char when[24];
+        quote_time_text(state->ha_changed_s, true, when, sizeof(when));
+        n += (size_t)snprintf(info + n, sizeof(info) - n, "  \xC2\xB7  %s %s", ui_i18n_get("stock.updated", "updated"), when);
+    }
+    free(state);
+    if (q->has_live && !q->price_is_live && n < sizeof(info)) {
+        snprintf(info + n, sizeof(info) - n, "  \xC2\xB7  %s", ui_i18n_get("stock.last_price", "last price"));
+    }
+    new_label(popup->card, info, meta, APP_UI_COLOR_TEXT_MUTED, 0, y, cw - 28);
+    y += meta_h + 8;
+
+    /* the five periods and, beside them, what the chart shows */
+    const int w = range_button_width() * 3 / 4, h = range_button_height();
+    for (int p = 0; p < HA_QUOTE_PERIOD_COUNT; p++) {
+        lv_obj_t *button = lv_btn_create(popup->card);
+        lv_obj_remove_style_all(button);
+        lv_obj_set_pos(button, p * (w + 6), y);
+        lv_obj_set_size(button, w, h);
+        lv_obj_set_style_bg_opa(button, LV_OPA_COVER, LV_PART_MAIN);
+        lv_obj_set_style_radius(button, ui_style_radius(10), LV_PART_MAIN);
+        lv_obj_add_event_cb(button, quote_period_clicked, LV_EVENT_CLICKED, popup);
+        lv_obj_t *text = lv_label_create(button);
+        lv_label_set_text(text, ui_i18n_get(QUOTE_PERIOD_KEY[p], QUOTE_PERIOD_TEXT[p]));
+        lv_obj_set_style_text_font(text, meta, LV_PART_MAIN);
+        lv_obj_center(text);
+        popup->period_btn[p] = button;
+    }
+    y += h + 4;
+    popup->status = new_label(popup->card, "", meta, APP_UI_COLOR_TEXT_MUTED, 0, y, cw - 28);
+    lv_label_set_long_mode(popup->status, LV_LABEL_LONG_DOT);
+    y += meta_h + 4;
+    popup->body = lv_obj_create(popup->card);
+    lv_obj_remove_style_all(popup->body);
+    lv_obj_set_pos(popup->body, 0, y);
+    lv_obj_set_size(popup->body, cw - 28, ch - y - 28);
+    lv_obj_set_scrollable(popup->body, false);
+    lv_obj_update_layout(popup->card);
+    quote_style_buttons(popup);
+    popup->quote_feed = quote_history_feed_register(popup->card, true, quote_received, popup);
+    if (popup->quote_feed == NULL) {
+        lv_label_set_text(popup->status, ui_i18n_get("stock.history_failed", "History not available"));
+        return;
+    }
+    quote_request(popup);
 }

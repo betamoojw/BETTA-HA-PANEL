@@ -63,7 +63,7 @@ cmake --build .local/knx-host
 ctest --test-dir .local/knx-host --output-on-failure
 node --test tests/webui/knx.test.mjs
 python tools/check_web.py
-tools/build.sh panel10 build
+scripts/build.sh panel10 build
 ~~~
 
 Override ESP_KNX_IP_DIR and CJSON_DIR for standalone host checkouts.

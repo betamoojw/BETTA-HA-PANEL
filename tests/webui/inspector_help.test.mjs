@@ -2,6 +2,7 @@
 // Copyright (c) 2026 andre68723
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { existsSync } from "node:fs";
 import { loadEditor } from "./load_editor.mjs";
 
 function setup() {
@@ -87,6 +88,53 @@ test("Grouped help has one popup with complete paragraphs and no nested info but
   assert.equal(run("dialog.querySelectorAll('p').map(p=>p.textContent).join(' ')"), run("full") + " Second complete explanation.");
 });
 
+test("help excludes explanations inside a hidden optional group and includes them after enabling it", () => {
+  const run = setup();
+  run(`globalThis.source=node('div'); source.append(hint);
+    globalThis.optional=node('div'); optional.className='hidden';
+    globalThis.extra=node('div'); extra.className='meta'; extra.textContent='Optional enabled explanation.';
+    optional.append(extra); source.append(optional);
+    openInspectorHelp('Options',source,{topic:{}}); globalThis.dialog=document.body.querySelector('dialog');`);
+  assert.equal(run("dialog.textContent.includes('Optional enabled explanation.')"), false);
+  run(`dialog.close(); optional.className=''; openInspectorHelp('Options',source,{topic:{}});
+    globalThis.dialog=document.body.querySelector('dialog');`);
+  assert.equal(run("dialog.textContent.includes('Optional enabled explanation.')"), true);
+});
+
+test("wallbox height warning remains directly visible rather than moving into a help popup", () => {
+  const run = setup();
+  run(`hint.id='evccHeaderHint'; hint.className='meta warn no-shorten';
+    hint.textContent=t('evcc.header_size',{h:440,current:410}); shortenHint(hint);`);
+  assert.equal(run("hint.parentElement"), run("root"));
+  assert.match(run("hint.textContent"), /410/);
+  assert.equal(run("root.querySelector('button')"), null);
+});
+
+test("room extra explanation opens in help while missing-entity warnings stay visible", () => {
+  const run = setup();
+  run(`const originalClosest=hint.closest.bind(hint);
+    hint.closest=selector=>selector==='#inspectorSection .inspector-sec' ? root : originalClosest(selector);
+    hint.id='fRoomExtraHint'; hint.className='meta';
+    hint.textContent=t('layout.inspector.room_extra_hint'); shortenHint(hint);
+    globalThis.helpRow=hint.parentElement; helpRow.querySelector('button').onclick(click);
+    globalThis.dialog=document.body.querySelector('dialog');`);
+  assert.equal(run("helpRow.dataset.genericHint"), "true");
+  assert.equal(run("hint.classList.contains('inspector-help-content')"), true);
+  assert.equal(run("dialog.textContent.includes('**')"), false);
+  run(`globalThis.warning=node('div'); warning.id='fRoomExtraWarning'; warning.className='meta warn no-shorten';
+    root.append(warning); warning.textContent=t('layout.inspector.room_extra_none_humidity'); shortenHint(warning);`);
+  assert.equal(run("warning.parentElement"), run("root"));
+});
+
+test("wrapping dynamic hints refreshes section info buttons without another widget edit", () => {
+  const run = setup();
+  run(`document.querySelector=()=>root;
+    globalThis.sectionRefreshes=0;refreshInspectorSectionHelp=()=>{sectionRefreshes++;};
+    hint.textContent=full;shortenInspectorHints();`);
+  assert.equal(run("sectionRefreshes"), 1);
+  assert.equal(run("hint.parentElement.dataset.genericHint"), "true");
+});
+
 test("Popup paragraphs preserve authored line breaks and complete entity IDs", () => {
   const run = setup();
   assert.deepEqual(Array.from(run(`inspectorHelpParagraphs("First line.\\nSecond line.\\n\\nNext paragraph.")`)), ["First line.\nSecond line.", "Next paragraph."]);
@@ -122,11 +170,14 @@ test("Every widget has translated top-level help and its own documentation secti
     run(`editor.layout={pages:[{id:'page', widgets:[{id:'widget',type:'${type}',title:'Demo'}]}]};
       editor.selectedPageId='page'; editor.selectedWidgetId='widget';`);
     for (const lang of ["en", "de"]) {
-      run(`editor.i18nLanguage='${lang}'`);
+      run(`editor.i18nLanguage='${lang}'; editor.i18nMap=WEB_I18N_BUILTIN['${lang}'];`);
       const helpType = run("inspectorHelpTopic().type");
       const key = `inspector.help.widget_${helpType}`;
       assert.notEqual(run(`t('${key}')`), key, `${lang} ${type}`);
-      assert.equal(run("inspectorHelpTopic().url"), `https://andre68723.github.io/BETTA-HA-PANEL/widgets/${helpType}.html#configure-in-the-editor`);
+      // The popup repeats the guide's summary and links to the guide, which must exist.
+      const guide = helpType === "wallbox_evcc" ? "wallbox" : helpType;
+      assert.ok(existsSync(new URL(`../../docs/widgets/${guide}.md`, import.meta.url)), guide);
+      assert.equal(run("inspectorHelpTopic().url"), `https://andre68723.github.io/BETTA-HA-PANEL/widgets/${guide}.html`);
     }
   }
 });
@@ -139,3 +190,59 @@ test("Text-size info renders role sizes as a list and a separate explanation", (
   assert.equal(run("dialog.querySelectorAll('dd').every(node=>node.textContent.endsWith(' px'))"), true);
   assert.equal(run("dialog.querySelectorAll('h3').length"), 2);
 });
+
+test("solar alignment help has separate bold headings and paragraphs in both languages", () => {
+  const run = setup();
+  for (const language of ["en", "de"]) {
+    run(`editor.i18nLanguage='${language}'; editor.i18nMap=WEB_I18N_BUILTIN['${language}']; hint.textContent=t('layout.inspector.readability_hint');
+      openInspectorHelp('Solar',hint,{topic:{}}); globalThis.dialog=document.body.querySelector('dialog');`);
+    const headings = Array.from(run("dialog.querySelectorAll('h4').map(n=>n.textContent)"));
+    assert.equal(headings.length, 3);
+    assert.ok(headings.every(text => !text.endsWith(":")));
+    assert.equal(headings[1], language === "de" ? "Tage am Wetter ausrichten" : "Line up days with the weather tile");
+    assert.equal(run("dialog.querySelectorAll('p').length"), 4);
+    assert.ok(run("dialog.querySelectorAll('strong').length") >= 3);
+    run("dialog.close()");
+  }
+});
+
+test("every built-in widget overview contains emphasis and preserves its documentation link", () => {
+  const run = setup();
+  for (const type of Array.from(run("WIDGET_NAME_TYPES"))) {
+    run(`editor.layout={pages:[{id:'page',widgets:[{id:'widget',type:'${type}',title:'Demo'}]}]};
+      editor.selectedPageId='page';editor.selectedWidgetId='widget';`);
+    for (const language of ["en", "de"]) {
+      run(`editor.i18nLanguage='${language}'; editor.i18nMap=WEB_I18N_BUILTIN['${language}']; openInspectorHelp('Demo',null,{overview:true});
+        globalThis.dialog=document.body.querySelector('dialog');`);
+      assert.ok(run("dialog.querySelectorAll('strong').length") > 0, `${language} ${type}`);
+      assert.equal(run("dialog.querySelector('a').href"), run("inspectorHelpTopic().url"));
+      run("dialog.close()");
+    }
+  }
+});
+
+for (const language of ['en', 'de']) for (const type of ['energy_timeline', 'energy_price_forecast', 'parqet_portfolio']) {
+  test(`${type} source requirements open behind info with practical context (${language})`, () => {
+    const run = setup();
+    run(`editor.i18nLanguage=${JSON.stringify(language)};editor.i18nMap=WEB_I18N_BUILTIN[${JSON.stringify(language)}];
+      el.entitySourceWarning=node('div');el.entitySourceWarning.className='meta warn no-shorten';
+      el.entitySourceWarning.classList.toggle=(name,hidden)=>{el.entitySourceWarning.hidden=hidden};
+      el.entitySourceHint=hint;hint.id='entitySourceHint';
+      el.entitySourceHint.classList.toggle=()=>{};
+      el.energyTimelineHint=hint;
+      refreshEntitySourceWarning({type:${JSON.stringify(type)}});
+      shortenHint(hint);globalThis.row=hint.parentElement;row.querySelector('button').onclick(click);
+      globalThis.dialog=document.body.querySelector('dialog');`);
+    assert.equal(run("dialog.open"), true);
+    assert.ok(run("dialog.querySelectorAll('h4').length") >= 3, "structured context rather than an unexplained attribute list");
+    assert.equal(run("el.entitySourceWarning.textContent"), "", "requirements do not become an inline warning");
+    const text = run("dialog.textContent");
+    if (type === 'energy_timeline') {
+      assert.match(text, /Recorder/); assert.match(text, /total_increasing/); assert.match(text, /detailedForecast/);
+      assert.match(text, /state-of-charge|Ladestand/);
+    } else if (type === 'energy_price_forecast') {
+      assert.match(text, /CO₂/); assert.match(text, /EUR\/kWh/); assert.match(text, /raw_today/);
+      assert.match(text, /If no prices|Wenn keine Preise/);
+    } else { assert.match(text, /Monetary|Geldbetrag/); assert.match(text, /fees|Gebühren/); assert.match(text, /XIRR/); }
+  });
+}

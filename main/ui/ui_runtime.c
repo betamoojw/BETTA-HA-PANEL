@@ -26,6 +26,8 @@
 #include "drivers/display_init.h"
 #include "ha/ha_client.h"
 #include "ha/ha_model.h"
+#include "ha/ha_display_precision.h"
+#include "ha/ha_quote.h"
 #include "layout/layout_store.h"
 #include "net/wifi_mgr.h"
 #include "util/coredump_archive.h"
@@ -42,6 +44,7 @@
 #include "ui/ui_memory.h"
 #include "ui/notification_text.h"
 #include "ui/ui_notification_popup.h"
+#include "ui/ui_history_popup.h"
 #include "ui/ui_pages.h"
 #include "ui/ui_display_protection.h"
 #include "settings/screen_settings_service.h"
@@ -361,10 +364,7 @@ static void ui_runtime_stock_symbol_from_entity(const char *entity_id, char *out
     }
     out[0] = '\0';
     const char *src = entity_id != NULL ? entity_id : "";
-    const char *prefix = "sensor.yahoofinance_";
-    if (strncmp(src, prefix, strlen(prefix)) == 0) {
-        src += strlen(prefix);
-    } else if (strncmp(src, "sensor.", 7) == 0) {
+    if (strncmp(src, "sensor.", 7) == 0) {
         src += 7;
     }
 
@@ -430,10 +430,26 @@ static void ui_runtime_refresh_topbar_stocks(void)
         }
 
         char unit[8] = {0};
-        char currency_symbol[8] = {0};
-        float price = 0.0f;
-        bool has_price = false;
         ui_runtime_stock_symbol_from_entity(entity_id, items[count].symbol, sizeof(items[count].symbol));
+
+        /* An Easy Stock sensor (by its registry entry) is read like the Stocks & ETFs widget reads it: the
+         * state is the price. Any other sensor keeps the reading below. */
+        ha_quote_t quote;
+        if (ha_quote_parse(ha_quote_provider_from_platform(ha_display_precision_platform(entity_id)), state.state,
+                           state.attributes_json, &quote)) {
+            if (!quote.available) {
+                continue;
+            }
+            if (quote.symbol[0] != '\0') {
+                ui_runtime_stock_symbol_from_entity(quote.symbol, items[count].symbol, sizeof(items[count].symbol));
+            }
+            const bool euro = strcmp(quote.currency, "EUR") == 0;
+            snprintf(items[count].value, sizeof(items[count].value), "%.2f%s", quote.price,
+                     euro ? "" : ha_quote_currency_sign(quote.currency));
+            items[count].value_is_euro = euro;
+            count++;
+            continue;
+        }
 
         cJSON *attrs = cJSON_Parse(state.attributes_json);
         if (attrs != NULL) {
@@ -442,29 +458,20 @@ static void ui_runtime_refresh_topbar_stocks(void)
                 ui_runtime_stock_symbol_from_entity(symbol_item->valuestring, items[count].symbol, sizeof(items[count].symbol));
             }
 
-            cJSON *price_item = cJSON_GetObjectItemCaseSensitive(attrs, "regularMarketPrice");
-            has_price = ui_runtime_json_item_to_float(price_item, &price);
-
-            cJSON *currency_item = cJSON_GetObjectItemCaseSensitive(attrs, "currencySymbol");
-            if (cJSON_IsString(currency_item) && currency_item->valuestring != NULL) {
-                snprintf(currency_symbol, sizeof(currency_symbol), "%s", currency_item->valuestring);
-            }
-
             cJSON *unit_item = cJSON_GetObjectItemCaseSensitive(attrs, "unit_of_measurement");
             if (cJSON_IsString(unit_item) && unit_item->valuestring != NULL) {
                 snprintf(unit, sizeof(unit), "%s", unit_item->valuestring);
             }
             cJSON_Delete(attrs);
         }
-        bool is_euro = ui_runtime_stock_currency_is_euro(currency_symbol) ||
-                       (currency_symbol[0] == '\0' && ui_runtime_stock_currency_is_euro(unit));
+        bool is_euro = ui_runtime_stock_currency_is_euro(unit);
 
         char *end = NULL;
-        float numeric = has_price ? price : strtof(state.state, &end);
-        if (has_price || end != state.state) {
+        float numeric = strtof(state.state, &end);
+        if (end != state.state) {
             const char *suffix = "";
             if (!is_euro) {
-                suffix = currency_symbol[0] != '\0' ? currency_symbol : unit;
+                suffix = unit;
             }
             snprintf(items[count].value, sizeof(items[count].value), "%.2f%s", (double)numeric, suffix);
             items[count].value_is_euro = is_euro;
@@ -475,6 +482,45 @@ static void ui_runtime_refresh_topbar_stocks(void)
     }
 
     ui_pages_set_topbar_stocks(items, count);
+}
+
+/* A tap on the stock chip: the quote's history of the last 30 days or 12 months, from the Recorder statistics. */
+static void ui_runtime_stock_chip_tap(void)
+{
+    const char *entity_id = s_topbar_stock_entity_ids[0];
+    if (entity_id[0] == '\0') return;
+    ha_state_t *state = calloc(1, sizeof(*state));
+    if (state == NULL || !ha_model_get_state(entity_id, state)) {
+        free(state);
+        return;
+    }
+    char title[APP_MAX_NAME_LEN];
+    char current[40];
+    ui_runtime_stock_symbol_from_entity(entity_id, title, sizeof(title));
+    snprintf(current, sizeof(current), "%.20s", state->state);
+    ha_quote_t quote;
+    const bool is_quote = ha_quote_parse(ha_quote_provider_from_platform(ha_display_precision_platform(entity_id)),
+                                         state->state, state->attributes_json, &quote);
+    if (is_quote && quote.available) {
+        if (quote.symbol[0] != '\0') ui_runtime_stock_symbol_from_entity(quote.symbol, title, sizeof(title));
+        snprintf(current, sizeof(current), "%.2f %s", quote.price, ha_quote_currency_sign(quote.currency));
+    }
+    cJSON *attrs = !is_quote ? cJSON_Parse(state->attributes_json) : NULL;
+    if (attrs != NULL) {
+        const cJSON *symbol = cJSON_GetObjectItemCaseSensitive(attrs, "symbol");
+        if (cJSON_IsString(symbol) && symbol->valuestring != NULL && symbol->valuestring[0] != '\0') {
+            ui_runtime_stock_symbol_from_entity(symbol->valuestring, title, sizeof(title));
+        }
+        const cJSON *unit = cJSON_GetObjectItemCaseSensitive(attrs, "unit_of_measurement");
+        const char *suffix = cJSON_IsString(unit) ? unit->valuestring : "";
+        if (suffix[0] != '\0') {
+            const size_t used = strlen(current);
+            snprintf(current + used, sizeof(current) - used, " %.8s", suffix);
+        }
+        cJSON_Delete(attrs);
+    }
+    free(state);
+    ui_history_popup_open_range(entity_id, title, current);
 }
 
 static void ui_runtime_clamp_widget_rect(ui_widget_def_t *def)
@@ -629,7 +675,7 @@ static ui_widget_def_t *ui_runtime_def_scratch(void)
 /* Every entity a widget shows, once each, primary first: primary, secondary, tertiary, the extras
  * (room card list, car tile) and the forecast slots (solar forecast). One list for routing, the
  * initial state and the refresh, so a new entity slot is added in one place. */
-#define UI_RUNTIME_MAX_WIDGET_ENTITIES (3 + UI_WIDGET_EXTRA_ENTITIES + 5)
+#define UI_RUNTIME_MAX_WIDGET_ENTITIES (3 + UI_WIDGET_EXTRA_ENTITIES + 7)
 
 static size_t ui_runtime_widget_entity_ids(const ui_widget_instance_t *w, const char **out, size_t max_out)
 {
@@ -645,6 +691,8 @@ static size_t ui_runtime_widget_entity_ids(const ui_widget_instance_t *w, const 
     candidates[n++] = w->forecast_day_3_entity_id;
     candidates[n++] = w->forecast_day_4_entity_id;
     candidates[n++] = w->forecast_day_5_entity_id;
+    candidates[n++] = w->forecast_day_6_entity_id;
+    candidates[n++] = w->forecast_day_7_entity_id;
     size_t count = 0;
     for (size_t i = 0; i < n && count < max_out; i++) {
         if (candidates[i][0] == '\0') {
@@ -690,6 +738,10 @@ static void ui_runtime_apply_entity_state_ex(const char *entity_id, bool mark_un
             continue;
         }
         if (found) {
+            ui_widget_factory_apply_state(&s_widgets[i], &s_state_scratch);
+        } else if (mark_unavailable_if_missing && !strcmp(s_widgets[i].type, "sensor") && !strcmp(s_widgets[i].display_mode, "list")) {
+            snprintf(s_state_scratch.entity_id, sizeof(s_state_scratch.entity_id), "%s", entity_id);
+            snprintf(s_state_scratch.state, sizeof(s_state_scratch.state), "unavailable");
             ui_widget_factory_apply_state(&s_widgets[i], &s_state_scratch);
         } else if (is_primary && mark_unavailable_if_missing) {
             ui_widget_factory_mark_unavailable(&s_widgets[i]);
@@ -807,10 +859,17 @@ static bool ui_runtime_widget_from_json(cJSON *widget_json, ui_widget_def_t *out
     cJSON *forecast_day_3_entity_id = cJSON_GetObjectItemCaseSensitive(widget_json, "forecast_day_3_entity_id");
     cJSON *forecast_day_4_entity_id = cJSON_GetObjectItemCaseSensitive(widget_json, "forecast_day_4_entity_id");
     cJSON *forecast_day_5_entity_id = cJSON_GetObjectItemCaseSensitive(widget_json, "forecast_day_5_entity_id");
+    cJSON *forecast_day_6_entity_id = cJSON_GetObjectItemCaseSensitive(widget_json, "forecast_day_6_entity_id");
+    cJSON *forecast_day_7_entity_id = cJSON_GetObjectItemCaseSensitive(widget_json, "forecast_day_7_entity_id");
     cJSON *solar_forecast_bar_max_kwh = cJSON_GetObjectItemCaseSensitive(widget_json, "solar_forecast_bar_max_kwh");
     cJSON *solar_forecast_bar_orientation = cJSON_GetObjectItemCaseSensitive(widget_json, "solar_forecast_bar_orientation");
     cJSON *sensor_show_age = cJSON_GetObjectItemCaseSensitive(widget_json, "sensor_show_age");
     cJSON *lock_confirm = cJSON_GetObjectItemCaseSensitive(widget_json, "lock_confirm");
+    cJSON *price_selector = cJSON_GetObjectItemCaseSensitive(widget_json, "price_selector");
+    cJSON *price_cheap_times = cJSON_GetObjectItemCaseSensitive(widget_json, "price_cheap_times");
+    cJSON *price_line = cJSON_GetObjectItemCaseSensitive(widget_json, "price_line");
+    cJSON *price_average = cJSON_GetObjectItemCaseSensitive(widget_json, "price_average");
+    cJSON *parqet_hide_amounts = cJSON_GetObjectItemCaseSensitive(widget_json, "parqet_hide_amounts");
     cJSON *history_popup = cJSON_GetObjectItemCaseSensitive(widget_json, "history_popup");
     cJSON *gauge_min = cJSON_GetObjectItemCaseSensitive(widget_json, "gauge_min");
     cJSON *gauge_max = cJSON_GetObjectItemCaseSensitive(widget_json, "gauge_max");
@@ -858,6 +917,7 @@ static bool ui_runtime_widget_from_json(cJSON *widget_json, ui_widget_def_t *out
     cJSON *forecast_days = cJSON_GetObjectItemCaseSensitive(widget_json, "forecast_days");
     out->forecast_days = cJSON_IsNumber(forecast_days) ? forecast_days->valueint : -1;
     out->align_forecast = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(widget_json, "align_forecast"));
+    out->weather_hourly = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(widget_json, "weather_hourly"));
     out->show_precipitation = true;
     cJSON *show_precip = cJSON_GetObjectItemCaseSensitive(widget_json, "show_precipitation");
     if (cJSON_IsBool(show_precip)) {
@@ -866,11 +926,21 @@ static bool ui_runtime_widget_from_json(cJSON *widget_json, ui_widget_def_t *out
     out->room_controls = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(widget_json, "room_controls"));
     out->hide_name = !widget_show_name(widget_json);
     out->lock_confirm = cJSON_IsTrue(lock_confirm);
+    out->price_selector = cJSON_IsTrue(price_selector); /* off unless the layout says true: the running 24 hours */
+    out->price_cheap_times = cJSON_IsTrue(price_cheap_times);
+    out->price_line = cJSON_IsTrue(price_line);
+    out->parqet_hide_amounts = cJSON_IsTrue(parqet_hide_amounts);
+    out->parqet_selector = !cJSON_IsFalse(cJSON_GetObjectItemCaseSensitive(widget_json, "parqet_selector"));
+    ui_runtime_copy_json_string(widget_json, "parqet_view", out->parqet_view, sizeof(out->parqet_view));
+    ui_runtime_copy_json_string(widget_json, "parqet_interval", out->parqet_interval, sizeof(out->parqet_interval));
+    out->price_average = cJSON_IsNumber(price_average) && price_average->valuedouble > 0.0 ? (float)price_average->valuedouble : 0.0f;
     out->camera_live = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(widget_json, "camera_live"));
     const cJSON *camera_source=cJSON_GetObjectItemCaseSensitive(widget_json,"camera_source");
     if(cJSON_IsString(camera_source))snprintf(out->camera_source,sizeof(out->camera_source),"%s",camera_source->valuestring);
     out->alarm_actions = ha_alarm_action_mask_parse(cJSON_GetObjectItemCaseSensitive(widget_json, "alarm_actions"));
     out->history_popup = cJSON_IsTrue(history_popup);
+    ui_runtime_copy_json_string(widget_json, "sensor_format", out->sensor_format, sizeof(out->sensor_format));
+    ui_runtime_copy_json_string(widget_json, "sensor_unit", out->sensor_unit, sizeof(out->sensor_unit));
     out->sensor_show_age = true;
     if (cJSON_IsBool(sensor_show_age)) {
         out->sensor_show_age = cJSON_IsTrue(sensor_show_age);
@@ -906,6 +976,12 @@ static bool ui_runtime_widget_from_json(cJSON *widget_json, ui_widget_def_t *out
     if (cJSON_IsString(forecast_day_5_entity_id) && forecast_day_5_entity_id->valuestring != NULL) {
         snprintf(out->forecast_day_5_entity_id, sizeof(out->forecast_day_5_entity_id), "%s", forecast_day_5_entity_id->valuestring);
     }
+    if (cJSON_IsString(forecast_day_6_entity_id) && forecast_day_6_entity_id->valuestring != NULL) {
+        snprintf(out->forecast_day_6_entity_id, sizeof(out->forecast_day_6_entity_id), "%s", forecast_day_6_entity_id->valuestring);
+    }
+    if (cJSON_IsString(forecast_day_7_entity_id) && forecast_day_7_entity_id->valuestring != NULL) {
+        snprintf(out->forecast_day_7_entity_id, sizeof(out->forecast_day_7_entity_id), "%s", forecast_day_7_entity_id->valuestring);
+    }
     if (strcmp(out->type, "car_widget") == 0) {
         /* Optional extras of the car tile: pre-conditioning, lock / door status, interior temperature
          * (extra_entity_id[UI_CAR_EXTRA_*], see ui_widget_factory.h). */
@@ -931,6 +1007,34 @@ static bool ui_runtime_widget_from_json(cJSON *widget_json, ui_widget_def_t *out
     if (strcmp(out->type, "vacuum_tile") == 0 || strcmp(out->type, "roborock_tile") == 0) {
         ui_runtime_copy_json_string(widget_json, "battery_entity_id", out->extra_entity_id[UI_VACUUM_EXTRA_BATTERY],
             sizeof(out->extra_entity_id[UI_VACUUM_EXTRA_BATTERY]));
+    }
+    if (strcmp(out->type, "parqet_portfolio") == 0) {
+        ui_runtime_copy_json_string(widget_json, "dividends_entity_id", out->extra_entity_id[UI_PARQET_EXTRA_DIVIDENDS],
+            sizeof(out->extra_entity_id[UI_PARQET_EXTRA_DIVIDENDS]));
+        ui_runtime_copy_json_string(widget_json, "return_entity_id", out->extra_entity_id[UI_PARQET_EXTRA_RETURN],
+            sizeof(out->extra_entity_id[UI_PARQET_EXTRA_RETURN]));
+    }
+    if (strcmp(out->type, "sensor") == 0) {
+        const cJSON *more = cJSON_GetObjectItemCaseSensitive(widget_json, "sensor_entities");
+        for (int i = 0; i < 7; i++) {
+            const cJSON *item = cJSON_GetArrayItem(more, i);
+            if (cJSON_IsString(item)) snprintf(out->extra_entity_id[i], APP_MAX_ENTITY_ID_LEN, "%s", item->valuestring);
+        }
+        ui_runtime_copy_json_string(widget_json, "sensor_view", out->display_mode, sizeof(out->display_mode));
+    }
+    if (strcmp(out->type, "stock_quotes") == 0) {
+        cJSON *more = cJSON_GetObjectItemCaseSensitive(widget_json, "stock_entities");
+        for (int i = 0; i < UI_STOCK_MAX_QUOTES - 1; i++) {
+            const cJSON *item = cJSON_GetArrayItem(more, i);
+            if (cJSON_IsString(item) && item->valuestring != NULL) {
+                snprintf(out->extra_entity_id[i], APP_MAX_ENTITY_ID_LEN, "%s", item->valuestring);
+            }
+        }
+        ui_runtime_copy_json_string(widget_json, "stock_view", out->display_mode, sizeof(out->display_mode));
+        ui_runtime_copy_json_string(widget_json, "stock_period", out->stock_period, sizeof(out->stock_period));
+        ui_runtime_copy_json_string(widget_json, "stock_delta", out->stock_delta, sizeof(out->stock_delta));
+        out->stock_ticker = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(widget_json, "stock_ticker"));
+        out->stock_selector = !cJSON_IsFalse(cJSON_GetObjectItemCaseSensitive(widget_json, "stock_selector"));
     }
     if (strcmp(out->type, "energy_timeline") == 0) {
         ui_runtime_copy_json_string(widget_json, "battery_charge_entity_id",
@@ -1017,6 +1121,15 @@ static bool ui_runtime_widget_from_json(cJSON *widget_json, ui_widget_def_t *out
     }
     if (cJSON_IsString(display_mode) && display_mode->valuestring != NULL) {
         snprintf(out->display_mode, sizeof(out->display_mode), "%s", display_mode->valuestring);
+    }
+    /* The wallbox header lives in fields the wallbox does not use otherwise (layout/evcc_slots.h). */
+    if (!strcmp(out->type, "wallbox_evcc")) {
+        char *const site[EVCC_SITE_COUNT] = {out->forecast_today_entity_id, out->forecast_tomorrow_entity_id,
+                                             out->forecast_day_3_entity_id, out->forecast_day_4_entity_id};
+        out->forecast_day_5_entity_id[0] = '\0';
+        out->forecast_day_6_entity_id[0] = '\0';
+        out->forecast_day_7_entity_id[0] = '\0';
+        evcc_header_from_json(widget_json, out->style_variant, sizeof(out->style_variant), &out->gauge_max, site);
     }
     /* A binary tile in the "door" look is drawn by the door / window contact renderer. */
     if (strcmp(out->type, "binary_tile") == 0 && strcmp(out->display_mode, "door") == 0) {
@@ -1425,6 +1538,16 @@ static void ui_runtime_test_tap(const app_event_tap_t *tap)
         s_test_popup = NULL;
         return;
     }
+    if (strcmp(tap->widget_id, "topbar_stock") == 0 || strcmp(tap->widget_id, "topbar_stock_12m") == 0) {
+        /* the stock chip's tap: a read-only history popup (the second id also selects its 12-month view) */
+        lv_obj_t *top = lv_layer_top();
+        const uint32_t before = lv_obj_get_child_count(top);
+        ui_runtime_stock_chip_tap();
+        if (strcmp(tap->widget_id, "topbar_stock_12m") == 0) ui_history_popup_range_select(true);
+        const uint32_t after = lv_obj_get_child_count(top);
+        if (after > before) s_test_popup = lv_obj_get_child(top, (int32_t)after - 1);
+        return;
+    }
     for (size_t i = 0; i < s_widget_count; i++) {
         if (strcmp(s_widgets[i].id, tap->widget_id) != 0) {
             continue;
@@ -1647,6 +1770,7 @@ esp_err_t ui_runtime_init(void)
     s_topbar_cache.valid = false;
     theme_default_init();
     ui_pages_init();
+    ui_pages_set_stock_chip_handler(ui_runtime_stock_chip_tap);
     ui_watchdog_attach_lvgl();
     s_pending_protection_reload = !ui_display_protection_init();
     ui_pages_set_show_callback(ui_runtime_on_page_shown);

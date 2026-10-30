@@ -95,6 +95,10 @@ function bindUi() {
   if (el.addEvccWallboxBtn) el.addEvccWallboxBtn.onclick = () => void addEvccWallboxWidget();
 if (el.fEvccDetectBtn) el.fEvccDetectBtn.onclick = () => void evccDetectLoadpoints();
 if (el.fEvccLoadpoint) el.fEvccLoadpoint.addEventListener("change", () => evccChooseLoadpoint(el.fEvccLoadpoint.value));
+for (const input of [el.fEvccHeader, el.fEvccPowerMax].filter(Boolean)) {
+  input.addEventListener("change", () => { evccHeaderChanged(); autoApplyInspector();
+    if (selectedWidget()?.type === "wallbox_evcc") evccBindingStatus(selectedWidget()); });
+}
 for (const input of evccInspectorInputs()) {
   input.addEventListener("change", () => { if (input === el.fEvccMode) el.fEntity.value = input.value; autoApplyInspector(); });
   input.addEventListener("blur", () => { if (input === el.fEvccMode) el.fEntity.value = input.value; autoApplyInspector(); });
@@ -127,6 +131,9 @@ if (el.addBambuPrinterBtn) {
   if (el.addSceneTileBtn) el.addSceneTileBtn.onclick = () => openLightEntityPicker("scene_tile");
   if (el.addSelectTileBtn) el.addSelectTileBtn.onclick = () => openLightEntityPicker("select_tile");
   if (el.addEnergyTimelineBtn) el.addEnergyTimelineBtn.onclick = () => openLightEntityPicker("energy_timeline");
+  if (el.addPriceForecastBtn) el.addPriceForecastBtn.onclick = () => openLightEntityPicker("energy_price_forecast");
+  if (el.addParqetPortfolioBtn) el.addParqetPortfolioBtn.onclick = () => openLightEntityPicker("parqet_portfolio");
+  if (el.addStockQuotesBtn) el.addStockQuotesBtn.onclick = () => openLightEntityPicker("stock_quotes");
   if (el.addDatetimeTileBtn) el.addDatetimeTileBtn.onclick = () => openLightEntityPicker("datetime_tile");
   if (el.addLockTileBtn) el.addLockTileBtn.onclick = () => openLightEntityPicker("lock_tile");
   if (el.addAlarmTileBtn) el.addAlarmTileBtn.onclick = () => openLightEntityPicker("alarm_tile");
@@ -204,6 +211,19 @@ if (el.addBambuPrinterBtn) {
       const config = entityPickerConfig();
       addWidget(config.widgetType || editor.lightPicker.widgetType || "light_tile", { displayMode: config.displayMode });
       closeLightEntityPicker();
+    };
+  }
+  if (el.lightEntityPickerRemoveBtn) {
+    el.lightEntityPickerRemoveBtn.onclick = () => {
+      if (removeInspectorEntity(editor.lightPicker.inspectorTarget)) closeLightEntityPicker();
+    };
+  }
+  if (el.lightEntityPickerUseIdBtn) {
+    el.lightEntityPickerUseIdBtn.onclick = () => {
+      const id = entityPickerSearchValue().toLowerCase();
+      if (!assignInspectorEntity(editor.lightPicker.inspectorTarget, id)) return;
+      closeLightEntityPicker();
+      setStatus(t("entity_picker.assigned", { entity: id }));
     };
   }
   if (el.lightEntityPickerOverlay) {
@@ -343,7 +363,7 @@ if (el.addBambuPrinterBtn) {
     }
   };
   if (el.fEntity) {
-    el.fEntity.oninput = () => scheduleEntityAutocomplete("primary");
+    el.fEntity.oninput = () => { scheduleEntityAutocomplete("primary"); updateSensorEntityInfo(); };
     el.fEntity.onfocus = () => scheduleEntityAutocomplete("primary", true);
     el.fEntity.onchange = () => autoApplyInspector();
     el.fEntity.onblur = () => autoApplyInspector();
@@ -389,7 +409,7 @@ if (el.addBambuPrinterBtn) {
   }
   document.querySelectorAll("[data-inspector-entity-target]").forEach((button) => {
     button.addEventListener("click", () => {
-      openInspectorEntityPicker(button.dataset.inspectorEntityTarget || "");
+      return openInspectorEntityPicker(button.dataset.inspectorEntityTarget || "");
     });
   });
   bindInspectorAutoApply(el.fTitle, ["input"], { softEntityValidation: true });
@@ -408,6 +428,8 @@ if (el.addBambuPrinterBtn) {
   bindInspectorAutoApply(el.fSolarForecastDay3, ["change", "blur"], { softEntityValidation: true });
   bindInspectorAutoApply(el.fSolarForecastDay4, ["change", "blur"], { softEntityValidation: true });
   bindInspectorAutoApply(el.fSolarForecastDay5, ["change", "blur"], { softEntityValidation: true });
+  bindInspectorAutoApply(el.fSolarForecastDay6, ["change", "blur"], { softEntityValidation: true });
+  bindInspectorAutoApply(el.fSolarForecastDay7, ["change", "blur"], { softEntityValidation: true });
   bindInspectorAutoApply(el.fRoomEntities, ["change", "blur"], { softEntityValidation: true });
   // Expand the default window before applying the Recorder selection to the model.
   el.fGraphHaHistory?.addEventListener("change", () => {
@@ -446,15 +468,35 @@ if (el.addBambuPrinterBtn) {
   }
   bindInspectorAutoApply(el.fSolarForecastBarMax, ["change", "blur"], { softEntityValidation: true });
   bindInspectorAutoApply(el.fSolarForecastBarOrientation, ["change"], { softEntityValidation: true });
+  bindInspectorAutoApply(el.fWeatherHourly, ["change"], { softEntityValidation: true });
   bindInspectorAutoApply(el.fWeatherShowPrecip, ["change"], { softEntityValidation: true });
   bindInspectorAutoApply(el.fRoomControls, ["change"], { softEntityValidation: true });
   bindInspectorAutoApply(el.fForecastDays, ["change"], { softEntityValidation: true });
   bindInspectorAutoApply(el.fAlignForecast, ["change"], { softEntityValidation: true });
   bindInspectorAutoApply(el.fShowName, ["change"], { softEntityValidation: true });
   bindInspectorAutoApply(el.fSensorShowAge, ["change"], { softEntityValidation: true });
+  bindInspectorAutoApply(el.fSensorFormat, ["change"], { softEntityValidation: true });
+  bindInspectorAutoApply(el.fSensorUnit, ["change"], { softEntityValidation: true });
   bindInspectorAutoApply(el.fCameraLive, ["change"], { softEntityValidation: true });
   bindInspectorAutoApply(el.fCameraSource, ["input", "change"], { softEntityValidation: true });
   bindInspectorAutoApply(el.fLockConfirm, ["change"], { softEntityValidation: true });
+  bindInspectorAutoApply(el.fPriceSelector, ["change"], { softEntityValidation: true });
+  bindInspectorAutoApply(el.fPriceCheapTimes, ["change"], { softEntityValidation: true });
+  bindInspectorAutoApply(el.fPriceLine, ["change"], { softEntityValidation: true });
+  bindInspectorAutoApply(el.fPriceAverage, ["change", "blur"], { softEntityValidation: true });
+  bindInspectorAutoApply(el.fParqetDividends, ["change", "blur"], { softEntityValidation: true });
+  for (const key of STOCK_FIELDS) bindInspectorAutoApply(el[key], ["change", "blur"], { refreshInspector: true, softEntityValidation: true });
+  bindInspectorAutoApply(el.fStockView, ["change"], { softEntityValidation: true });
+  el.fStockView?.addEventListener("change", stockSyncSelectorRow);
+  bindInspectorAutoApply(el.fStockPeriod, ["change"], { softEntityValidation: true });
+  bindInspectorAutoApply(el.fStockDelta, ["change"], { softEntityValidation: true });
+  bindInspectorAutoApply(el.fStockTicker, ["change"], { softEntityValidation: true });
+  bindInspectorAutoApply(el.fStockSelector, ["change"], { softEntityValidation: true });
+  bindInspectorAutoApply(el.fParqetReturn, ["change", "blur"], { softEntityValidation: true });
+  bindInspectorAutoApply(el.fParqetSelector, ["change"], { softEntityValidation: true });
+  bindInspectorAutoApply(el.fParqetView, ["change"], { softEntityValidation: true });
+  bindInspectorAutoApply(el.fParqetInterval, ["change"], { softEntityValidation: true });
+  bindInspectorAutoApply(el.fParqetHideAmounts, ["change"], { softEntityValidation: true });
   bindInspectorAutoApply(el.fAlarmDisarm, ["change"], { softEntityValidation: true });
   bindInspectorAutoApply(el.fAlarmArmHome, ["change"], { softEntityValidation: true });
   bindInspectorAutoApply(el.fAlarmArmAway, ["change"], { softEntityValidation: true });
@@ -486,11 +528,6 @@ if (el.addBambuPrinterBtn) {
   bindInspectorAutoApply(el.fY, ["change"], { refreshInspector: true, softEntityValidation: true });
   bindInspectorAutoApply(el.fW, ["change"], { refreshInspector: true, softEntityValidation: true });
   bindInspectorAutoApply(el.fH, ["change"], { refreshInspector: true, softEntityValidation: true });
-  if (el.fMovePage) {
-    el.fMovePage.onchange = () => {
-      if (el.fMovePage.value) moveSelectedWidgetToPage(el.fMovePage.value);
-    };
-  }
   el.reloadSettingsBtn.onclick = async () => {
     if (editor.settingsDirty && !window.confirm(t("settings.confirm_discard_reload"))) return;
     await loadSettings();
@@ -503,7 +540,15 @@ if (el.addBambuPrinterBtn) {
   }
   bindUpdateCheck();
   bindCrashBanner();
+  bindHaDiagnosticsBanner();
   initInspectorLayout();
+  bindStockInspector();
+  bindSensorListInspector();
+  bindOptionalEntities();
+  if (el.followPageToggle) {
+    el.followPageToggle.checked = followPageEnabled();
+    el.followPageToggle.addEventListener("change", () => setFollowPage(el.followPageToggle.checked));
+  }
   bindInspectorHints();
   if (el.uploadOtaBtn) {
     el.uploadOtaBtn.onclick = () => {

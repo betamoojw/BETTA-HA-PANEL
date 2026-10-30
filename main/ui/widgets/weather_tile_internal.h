@@ -23,6 +23,7 @@
 #endif
 
 #include "ha/ha_client.h"
+#include "ha/ha_weather_hourly.h"
 #include "ui/assets/weather/weather_icons.h"
 #include "ui/theme/ui_typography.h"
 #include "ui/theme/ui_day_grid.h"
@@ -67,7 +68,7 @@
  * big temp -> meta -> forecast rows. */
 #define WEATHER_3DAY_SUBMETA_FONT ui_font_role(UI_TEXT_META)
 
-#define WEATHER_3DAY_MAX_FORECAST 5
+#define WEATHER_3DAY_MAX_FORECAST 6
 #define WEATHER_3DAY_ROWS (1 + WEATHER_3DAY_MAX_FORECAST)
 #define WEATHER_3DAY_ROW_HEIGHT 44
 #define WEATHER_3DAY_ROW_GAP 4
@@ -158,7 +159,8 @@ typedef struct {
     int precip_prob;
 } weather_3day_row_t;
 
-#define WEATHER_COLS_MAX 6
+#define WEATHER_COLS_MAX 7
+#define WEATHER_COLS_LEGACY_MAX 6 /* layouts saved before "Visible days" keep their six columns */
 
 /* One column of the horizontal forecast view. */
 typedef struct {
@@ -170,8 +172,19 @@ typedef struct {
     lv_obj_t *rain;
 } weather_col_widgets_t;
 
-typedef struct {
+typedef struct weather_tile_ctx {
     weather_now_view_t now_view;
+    lv_obj_t *card;
+    bool available;
+    bool show_hourly;
+    lv_timer_t *hourly_timer;
+    uint32_t hourly_token;
+    int64_t hourly_attempt_ms, hourly_ok_ms, hourly_retry_after_ms, hourly_view_hour;
+    bool hourly_inflight;
+    ha_weather_hourly_t hourly;
+    struct weather_tile_ctx *hourly_next;
+    lv_obj_t *hourly_strip, *hourly_status, *hourly_icon;
+    struct { lv_obj_t *box, *time, *icon, *temp; } hours[HA_WEATHER_HOURS_MAX];
     bool show_forecast;
     bool hide_name;
     bool show_precip;
@@ -292,3 +305,12 @@ void weather_col_clicked_cb(lv_event_t *event);
 
 /* render */
 void weather_render(lv_obj_t *card, w_weather_tile_ctx_t *ctx, const weather_values_t *values, bool available);
+
+/* Current-weather interactions and optional hourly strip. */
+void weather_now_clicked_cb(lv_event_t *event);
+void weather_hourly_start(w_weather_tile_ctx_t *ctx);
+void weather_hourly_stop(w_weather_tile_ctx_t *ctx);
+bool weather_hourly_render(lv_obj_t *card, w_weather_tile_ctx_t *ctx, const weather_values_t *values);
+#ifdef BETTA_SIMULATOR
+void weather_hourly_simulator_reply(uint32_t token, const cJSON *result);
+#endif

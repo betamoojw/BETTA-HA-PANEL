@@ -3,6 +3,8 @@
  */
 #include "ui/theme/theme_store.h"
 #include "ha/ha_client.h"
+#include "ha/ha_auth_state.h"
+#include "esp_timer.h"
 #include "ha/ha_cover_fetcher.h"
 #include "ha/ha_energy_model.h"
 #include "ui/ui_bindings.h"
@@ -14,7 +16,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-static ha_state_t s_states[APP_MAX_WIDGETS_TOTAL];
+static ha_state_t s_states[APP_HA_MAX_STATES];
 static size_t s_state_count;
 
 /* Host persistence has no shared flash mapping or OTA verification window. */
@@ -29,7 +31,7 @@ void sim_host_state_add(const ha_state_t *state)
             return;
         }
     }
-    if (s_state_count < APP_MAX_WIDGETS_TOTAL) s_states[s_state_count++] = *state;
+    if (s_state_count < APP_HA_MAX_STATES) s_states[s_state_count++] = *state;
 }
 
 bool ha_model_get_state(const char *entity_id, ha_state_t *out_state)
@@ -43,11 +45,29 @@ bool ha_model_get_state(const char *entity_id, ha_state_t *out_state)
     return false;
 }
 
+bool ha_model_get_entity_name(const char *entity_id, char *out, size_t out_len)
+{
+    for (size_t i = 0; i < s_state_count; i++) {
+        if (strcmp(s_states[i].entity_id, entity_id) != 0) continue;
+        cJSON *attrs = cJSON_Parse(s_states[i].attributes_json);
+        const char *name = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(attrs, "friendly_name"));
+        bool found = name != NULL && name[0] != '\0';
+        if (found) snprintf(out, out_len, "%s", name);
+        cJSON_Delete(attrs);
+        return found;
+    }
+    return false;
+}
+
 esp_err_t ui_bindings_toggle_entity(const char *entity_id) { (void)entity_id; return ESP_OK; }
 esp_err_t ui_bindings_set_entity_power(const char *entity_id, bool on)
 { (void)entity_id; (void)on; return ESP_OK; }
+static unsigned s_slider_sets;
+static int s_slider_last = -1;
+unsigned sim_host_slider_sets(void) { return s_slider_sets; }
+int sim_host_slider_last(void) { return s_slider_last; }
 esp_err_t ui_bindings_set_slider_value(const char *entity_id, int value)
-{ (void)entity_id; (void)value; return ESP_OK; }
+{ (void)entity_id; s_slider_sets++; s_slider_last = value; return ESP_OK; }
 esp_err_t ui_bindings_set_climate_target_c(const char *entity_id, float celsius)
 { (void)entity_id; (void)celsius; return ESP_OK; }
 esp_err_t ui_bindings_set_light_color_temp_kelvin(const char *entity_id, int kelvin)
@@ -80,6 +100,14 @@ bool ha_client_is_connected(void)
 }
 
 bool ha_client_is_initial_sync_done(void) { return s_online; }
+bool ha_client_reconnect_available(void)
+{
+    return (!s_online || ha_auth_state_blocked()) && ha_auth_state_retry_available(esp_timer_get_time() / 1000);
+}
+bool ha_client_request_reconnect(void)
+{
+    return ha_client_reconnect_available() && ha_auth_state_request_retry(esp_timer_get_time() / 1000);
+}
 
 static sim_service_calls_t s_calls;
 static esp_err_t s_service_result = ESP_OK;
@@ -102,6 +130,22 @@ esp_err_t ha_client_call_service(const char *domain, const char *service, const 
     return s_service_result;
 }
 
+static bool s_response_capture, s_response_sync_failure;
+static ha_client_response_cb_t s_response_cb;
+static void *s_response_user;
+void sim_host_response_mode(bool capture, bool synchronous_failure)
+{
+    s_response_capture = capture;
+    s_response_sync_failure = synchronous_failure;
+}
+void sim_host_response_deliver(bool success, cJSON *result)
+{
+    ha_client_response_cb_t cb = s_response_cb;
+    void *user = s_response_user;
+    s_response_cb = NULL; s_response_user = NULL;
+    if (cb) cb(success, result, user);
+}
+
 esp_err_t ha_client_call_service_with_response(const char *domain, const char *service,
                                                 const char *target_entity_id, const char *json_service_data,
                                                 ha_client_response_cb_t cb, void *user)
@@ -110,8 +154,11 @@ esp_err_t ha_client_call_service_with_response(const char *domain, const char *s
     (void)service;
     (void)target_entity_id;
     (void)json_service_data;
-    (void)cb;
-    (void)user;
+    if (s_response_sync_failure) { cb(false, NULL, user); return ESP_FAIL; }
+    if (s_response_capture && s_response_cb == NULL) {
+        s_response_cb = cb; s_response_user = user;
+        return ESP_OK;
+    }
     return ESP_FAIL;
 }
 

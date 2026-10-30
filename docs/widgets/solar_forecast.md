@@ -2,48 +2,52 @@
 
 # Solar forecast
 
-Compare predicted solar production for today and the next four days.
-
-## Required Home Assistant integration
-
-The widget needs sensors that forecast the solar production per day. **[Solcast PV Forecast](https://github.com/BJReplay/ha-solcast-solar)** is one source of such sensors, but the widget does not depend on Solcast: any integration that provides them works. The editor suggests Solcast entity ids as examples; use the ids of your installation.
-
-## Configure in the editor
-
-1. Open a page in the [web editor](../editor.md#layout-workspace) and add **Solar forecast**.
-2. Use **Search** beside the entity field to choose an entity by name. Configure its options below.
-3. Resize the widget for its content, then **Save** the layout. Try its controls on the panel.
-
-Assign today's remaining production and the daily forecast sensors for the days you want to show. Today's bar shows the day's total and keeps the part still to come bright. Values use whole-number production forecasts; optional date alignment can match a weather forecast beside it.
-
-## Preview
+Compares the **predicted solar production** from `sensor.*` forecasts for today and the next six days.
 
 <div class="widget-previews">
-<figure><a href="../img/gallery/solar_forecast_glow.png"><img src="../img/gallery/solar_forecast_glow.png" alt="Solar forecast, Glow style" loading="lazy" width="350" height="310" style="width: 280px"></a>
-<figcaption>Solar forecast</figcaption></figure>
+<figure><a href="../img/gallery/solar_forecast_glow.png"><img src="../img/gallery/solar_forecast_glow.png" alt="Solar forecast, Glow style" loading="lazy" width="350" height="310" style="width: 280px"></a></figure>
+</div>
+
+## Entities
+
+| Entity | Domains |
+| --- | --- |
+| Remaining today (sensor) | `sensor.*` |
+| Today forecast *(optional)* | `sensor.*` |
+| Tomorrow, Day 3–7 forecast *(optional)* | `sensor.*` |
+
+## Requirements
+
+Sensors that forecast the solar production per day, for example from **[Solcast PV Forecast](https://github.com/BJReplay/ha-solcast-solar)**; any integration that provides them works. The editor suggests Solcast entity ids as examples.
+
+## Options
+
+| Option | Effect |
+| --- | --- |
+| Optional entities | only configured roles are shown; Add assignment offers the next free day, so days are filled in order and an entity is used once; × removes the last day |
+| Bar orientation | horizontal or vertical |
+| Bar max (kWh) | the value of a full bar |
+| Line up days with the weather tile | vertical bars only: the columns use the weather forecast's day grid, so a solar tile with the same left edge, width and day count puts each day under its weather day |
+
+## On the panel
+
+- Today's row carries two readings: its bar and value are the day's total (**Today forecast**); the part still to come (**Remaining today**) is the bright start of the bar over the dimmed total, so the dimmed end reads as already produced. This needs both sensors; in the example 25 of 55 kWh are still to come.
+- Tap today's bar to see a compact **Solar forecast today** popup with **Total** and **Remaining**. Future days do not open a popup. It closes with **×** or after a minute.
+
+## Variants
+
+<div class="widget-previews">
 <figure><a href="../img/gallery/solar_forecast_vertical_glow.png"><img src="../img/gallery/solar_forecast_vertical_glow.png" alt="Solar forecast (vertical), Glow style" loading="lazy" width="350" height="310" style="width: 280px"></a>
 <figcaption>Solar forecast (vertical)</figcaption></figure>
 </div>
 
-Glow style, LVGL simulator with synthetic data. Click to enlarge. Other styles keep the same functions.
-
-## Entities and interaction
-
-**Supported primary entities:** `sensor.*`
-
-| Setting / behaviour | What it does |
-| --- | --- |
-| Display | bar orientation: horizontal, vertical |
-| Interaction | read-only |
-
-## Layout limits
+## Size
 
 - Minimum: **260 × 220 px**.
-- Maximum: **640 px × 480 px**, capped by the selected display device's dashboard area.
-- Leave space for the value, title and touch controls; the minimum is a validation limit, not a recommended size.
+- Maximum: **640 px × 480 px**, capped by the display's dashboard area.
 
-The [display device overview](../choose-display.md) lists usable dashboard geometry. [Widget anatomy](../widget-anatomy.md) explains title/content spacing and touch targets.
+The minimum is a validation limit, not a recommended size. [Choose your display](../choose-display.md) lists the dashboard geometry; [Widget anatomy](../widget-anatomy.md) explains spacing and touch targets.
 
 ## Related guides
 
-[Widget overview](README.md) · [Appearance comparison](../appearance.md#compare-the-four-styles) · [Home Assistant requirements](../home-assistant.md)
+[Widget library](README.md) · [Web editor](../editor.md) · [Appearance](../appearance.md#compare-the-four-styles) · [Home Assistant requirements](../home-assistant.md)

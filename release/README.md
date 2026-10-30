@@ -16,7 +16,7 @@ compile-checked (the maintainer has no such hardware) and need testers.
 | `betta86-ha-panel-<version>-<variant>.ota.bin` | App update for the matching display device and installed partition layout |
 | `SHA256SUMS`, when packaged | Verify the downloaded/generated image hashes |
 
-For local packaging, run `tools/package_release.sh <built-version> <variant>...`
+For local packaging, run `scripts/package_release.sh <built-version> <variant>...`
 with ESP-IDF active. Images land in `release/out/<built-version>/`; see
 [release packaging](../docs/development/release.md#publish-a-release).
 
@@ -24,18 +24,18 @@ with ESP-IDF active. Images land in `release/out/<built-version>/`; see
 
 The current C6 adapter firmware used for this release is:
 
-- https://github.com/esphome/esp-hosted-firmware/releases/tag/v2.12.13
-  (`network_adapter_esp32c6.bin`, SHA-256 `09e4ed4ff648444ad045c1d934825af407648f58898586ce9f4275e53fdb23f6`)
+- https://github.com/esphome/esp-hosted-firmware/releases/tag/v3.0.10
+  (`network_adapter_esp32c6.bin`, SHA-256 `c552957fad9f35cf31b0273099dd3b23dc5c388bb43884c6567756ab97fd8cce`)
 
-Place it at `release/network_adapter_esp32c6_2.12.13.bin` before building (`.gitignore`d, so it
+Place it at `release/network_adapter_esp32c6_3.0.10.bin` before building (`.gitignore`d, so it
 must be downloaded locally -- see "Project policy" below).
 
-Previous versions used: v2.12.12, v2.12.11, v2.11.7 (https://github.com/esphome/esp-hosted-firmware/releases)
+Previous versions used: v2.12.13, v2.12.12, v2.12.11, v2.11.7 (https://github.com/esphome/esp-hosted-firmware/releases)
 
 Important:
 
 - The C6 `network_adapter` firmware is already embedded into the generated factory image `betta86-ha-panel-<version>.factory.bin`.
-- `tools/package_release.sh <version> <variant>...` (macOS/Linux) creates the factory and OTA images from finished builds into `release/out/<version>/` (see [Releases](../docs/development/release.md#publish-a-release)). The former PowerShell packaging script was removed; Windows is not supported.
+- `scripts/package_release.sh <version> <variant>...` (macOS/Linux) creates the factory and OTA images from finished builds into `release/out/<version>/` (see [Releases](../docs/development/release.md#publish-a-release)). The former PowerShell packaging script was removed; Windows is not supported.
 - For flashing/distribution, the factory image is sufficient.
 - For in-app OTA updates, use the packaged `release/out/<version>/betta86-ha-panel-<version>-<variant>.ota.bin`.
 - Keeping `network_adapter_esp32c6*.bin` in the repo is optional and not required for release delivery.

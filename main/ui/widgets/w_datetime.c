@@ -137,6 +137,7 @@ static void numeric_options(char *out, size_t len, int first, int last, bool pad
 static void popup_save(lv_event_t *event)
 {
     w_datetime_ctx_t *ctx = (w_datetime_ctx_t *)lv_event_get_user_data(event);
+    if (ctx == NULL || ctx->unavailable || !ha_client_is_connected()) return;
     ha_datetime_value_t edited = ctx->value;
     if (edited.has_date) {
         edited.year = ctx->first_year + (int)lv_roller_get_selected(ctx->year_roller);
@@ -191,15 +192,10 @@ static void popup_open(w_datetime_ctx_t *ctx)
     lv_obj_add_event_cb(overlay, popup_deleted, LV_EVENT_DELETE, ctx);
     lv_obj_add_event_cb(overlay, popup_backdrop, LV_EVENT_CLICKED, ctx);
 
-    lv_obj_t *card = lv_obj_create(overlay);
+    lv_obj_t *card = ui_popup_card_create(overlay);
     lv_obj_set_size(card, card_w, card_h);
     lv_obj_center(card);
-    lv_obj_set_scrollable(card, false);
-    lv_obj_set_event_bubble(card, false);
-    lv_obj_set_style_bg_color(card, lv_color_hex(APP_UI_COLOR_CONTENT_BG), LV_PART_MAIN);
-    lv_obj_set_style_bg_opa(card, LV_OPA_COVER, LV_PART_MAIN);
-    lv_obj_set_style_border_width(card, 1, LV_PART_MAIN);
-    ui_popup_style_frame(card);
+
     lv_obj_set_style_radius(card, ui_style_radius(18), LV_PART_MAIN);
     lv_obj_set_style_pad_all(card, 14, LV_PART_MAIN);
 
@@ -274,13 +270,14 @@ static void popup_open(w_datetime_ctx_t *ctx)
     lv_obj_t *save = lv_btn_create(card);
     lv_obj_set_size(save, DT_BUTTON_W, DT_BUTTON_H);
     lv_obj_align(save, LV_ALIGN_BOTTOM_RIGHT, 0, 0);
-    ui_style_button_auto(save, lv_color_hex(APP_UI_COLOR_NAV_BTN_BG_ACTIVE), lv_color_hex(APP_UI_COLOR_CONTENT_BORDER));
+    ui_style_action_button(save, NULL, UI_CONTROL_ACTION, true);
     lv_obj_add_event_cb(save, popup_save, LV_EVENT_CLICKED, ctx);
     lv_obj_t *save_label = lv_label_create(save);
     lv_label_set_text(save_label, ui_i18n_get("datetime.save", "Save"));
     lv_obj_set_style_text_font(save_label, ui_text_fit(lv_label_get_text(save_label),
         ui_font_role(UI_TEXT_VALUE), DT_BUTTON_W - 24, DT_BUTTON_H - 12), LV_PART_MAIN);
     lv_obj_center(save_label);
+    ui_style_action_button(save, save_label, UI_CONTROL_ACTION, true);
     lv_obj_t *cancel = lv_btn_create(card);
     lv_obj_set_size(cancel, DT_BUTTON_W, DT_BUTTON_H);
     lv_obj_align(cancel, LV_ALIGN_BOTTOM_RIGHT, -(DT_BUTTON_W + 10), 0);
@@ -292,6 +289,7 @@ static void popup_open(w_datetime_ctx_t *ctx)
         ui_font_role(UI_TEXT_VALUE), DT_BUTTON_W - 24, DT_BUTTON_H - 12), LV_PART_MAIN);
     lv_obj_center(cancel_label);
     ui_transition_fade_in(overlay);
+    ui_style_action_button(cancel, cancel_label, UI_CONTROL_ACTION, true);
 }
 
 static void card_clicked(lv_event_t *event)
@@ -356,6 +354,7 @@ void w_datetime_apply_state(ui_widget_instance_t *instance, const ha_state_t *st
     ha_datetime_value_t parsed;
     ctx->unavailable = !ha_datetime_parse(ctx->entity_id, state->state, state->attributes_json, &parsed);
     if (!ctx->unavailable) ctx->value = parsed;
+    else if (ctx->popup != NULL) lv_obj_delete(ctx->popup);
     datetime_render(ctx);
 }
 
@@ -364,5 +363,6 @@ void w_datetime_mark_unavailable(ui_widget_instance_t *instance)
     if (instance == NULL || instance->ctx == NULL) return;
     w_datetime_ctx_t *ctx = (w_datetime_ctx_t *)instance->ctx;
     ctx->unavailable = true;
+    if (ctx->popup != NULL) lv_obj_delete(ctx->popup);
     datetime_render(ctx);
 }

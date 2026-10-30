@@ -7,14 +7,16 @@
  */
 #include "ha/ha_attr_serialize.h"
 #include "ha/ha_control_options.h"
+#include "ha/ha_price_series.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
 #include "app_config.h"
 
-static const int HA_WEATHER_COMPACT_FORECAST_MAX_ITEMS = 6;
+static const int HA_WEATHER_COMPACT_FORECAST_MAX_ITEMS = 7;
 
 static bool ha_client_copy_attr_dup(cJSON *dst_obj, const char *dst_key, cJSON *src_obj, const char *src_key)
 {
@@ -95,6 +97,21 @@ static cJSON *ha_client_build_compact_forecast_array(cJSON *src_forecast)
     }
 
     return dst_forecast;
+}
+
+/* Seven forecast days leave little of the attribute budget: drop the detail-popup readings (least useful first)
+ * until the object fits, instead of losing the whole forecast. Caller frees with cJSON_free(). */
+static char *ha_client_print_weather_fitting(cJSON *attrs, size_t out_size)
+{
+    static const char *const droppable[] = {"visibility_unit", "visibility", "pressure_unit", "pressure",
+                                            "wind_speed_unit", "wind_bearing", "wind_speed"};
+    char *json = cJSON_PrintUnformatted(attrs);
+    for (size_t i = 0; json != NULL && strlen(json) >= out_size && i < sizeof(droppable) / sizeof(droppable[0]); i++) {
+        cJSON_free(json);
+        cJSON_DeleteItemFromObjectCaseSensitive(attrs, droppable[i]);
+        json = cJSON_PrintUnformatted(attrs);
+    }
+    return json;
 }
 
 static void ha_client_compact_weather_forecast(cJSON *dst_attrs, cJSON *src_attrs)
@@ -259,7 +276,7 @@ bool ha_client_serialize_weather_attrs_compact(cJSON *src_attrs, char *out_json,
         return false;
     }
 
-    char *compact_json = cJSON_PrintUnformatted(compact);
+    char *compact_json = ha_client_print_weather_fitting(compact, out_json_size);
     cJSON_Delete(compact);
     if (compact_json == NULL) {
         return false;
@@ -347,6 +364,7 @@ bool ha_client_serialize_media_player_attrs_compact(cJSON *src_attrs, char *out_
     }
 
     bool any = false;
+    any |= ha_client_copy_attr_dup(compact, "device_class", src_attrs, "device_class"); /* Inspector metadata */
     any |= ha_client_copy_attr_dup(compact, "supported_features", src_attrs, "supported_features"); /* the room card gates Play/Pause */
     cJSON *volume_level = cJSON_GetObjectItemCaseSensitive(src_attrs, "volume_level");
     if (cJSON_IsNumber(volume_level)) {
@@ -738,8 +756,7 @@ bool ha_client_serialize_vacuum_attrs_compact(cJSON *src_attrs, char *out_json, 
     return fits;
 }
 
-/* Only current_position and supported_features are read anywhere (w_cover.c, and w_slider.c for a
- * cover-domain slider); inventoried before adding this, see the truncation-plan development note. */
+/* Position and features drive cover controls; device_class also reaches the editor's metadata badge. */
 bool ha_client_serialize_cover_attrs_compact(cJSON *src_attrs, char *out_json, size_t out_json_size)
 {
     if (!cJSON_IsObject(src_attrs) || out_json == NULL || out_json_size == 0) {
@@ -752,6 +769,7 @@ bool ha_client_serialize_cover_attrs_compact(cJSON *src_attrs, char *out_json, s
     }
 
     bool any = false;
+    any |= ha_client_copy_attr_dup(compact, "device_class", src_attrs, "device_class");
     any |= ha_client_copy_attr_dup(compact, "current_position", src_attrs, "current_position");
     any |= ha_client_copy_attr_dup(compact, "supported_features", src_attrs, "supported_features");
 
@@ -1052,7 +1070,7 @@ bool ha_client_append_compact_forecast_to_attrs_json(char *attrs_json, size_t at
     cJSON_DeleteItemFromObjectCaseSensitive(attrs, "forecast");
     cJSON_AddItemToObject(attrs, "forecast", forecast);
 
-    char *merged_json = cJSON_PrintUnformatted(attrs);
+    char *merged_json = ha_client_print_weather_fitting(attrs, attrs_json_size);
     cJSON_Delete(attrs);
     if (merged_json == NULL) {
         return false;
@@ -1065,4 +1083,74 @@ bool ha_client_append_compact_forecast_to_attrs_json(char *attrs_json, size_t at
     }
     cJSON_free(merged_json);
     return fits;
+}
+
+bool ha_client_attrs_is_price_series(cJSON *attrs)
+{
+    return cJSON_IsObject(attrs) && ha_price_series_detect(attrs);
+}
+
+/* A price list (the attribute `data` of ha_epex_spot, the Day Ahead Optimizer and the Tibber/Nord Pool template sensors) is far larger
+ * than the model's attribute buffer: it becomes the regular grid of ha_price_series.c under "pf". If even the steps of a quarter-hour series
+ * do not fit, whole hours are averaged (nothing is invented, a gap stays a gap). The scalars other widgets of the same entity read (a Sensor
+ * tile shows the unit) follow in the order unit, device class, state class, name for as long as they fit. False when the list is not
+ * representable exactly or does not fit even hourly; the caller then keeps only the generic metadata and the widget reports
+ * "no usable prices". */
+bool ha_client_serialize_price_series_compact(cJSON *src_attrs, char *out_json, size_t out_json_size)
+{
+    static const char *const keep[] = {"unit_of_measurement", "device_class", "state_class", "friendly_name"};
+    if (!cJSON_IsObject(src_attrs) || out_json == NULL || out_json_size < 8) {
+        return false;
+    }
+    ha_price_series_t *series = (ha_price_series_t *)calloc(1, sizeof(*series));
+    ha_price_series_t *hourly = (ha_price_series_t *)calloc(1, sizeof(*hourly));
+    char *pf = (char *)malloc(out_json_size);
+    bool ok = false;
+    if (series == NULL || hourly == NULL || pf == NULL) {
+        goto done;
+    }
+    if (!ha_price_series_from_attrs(src_attrs, series)) {
+        goto done;
+    }
+    if (!ha_price_series_to_json(series, pf, out_json_size)) {
+        if (!ha_price_series_to_hourly(series, hourly) || !ha_price_series_to_json(hourly, pf, out_json_size)) {
+            goto done;
+        }
+    }
+    {
+        /* pf is {"pf":{...}}: its member opens the output object. */
+        const size_t pf_len = strlen(pf);
+        if (pf_len < 3 || 1 + (pf_len - 2) + 1 >= out_json_size) {
+            goto done;
+        }
+        size_t used = 0;
+        out_json[used++] = '{';
+        memcpy(out_json + used, pf + 1, pf_len - 2);
+        used += pf_len - 2;
+        for (size_t i = 0; i < sizeof(keep) / sizeof(keep[0]); i++) {
+            cJSON *item = cJSON_GetObjectItemCaseSensitive(src_attrs, keep[i]);
+            if (!cJSON_IsString(item) || item->valuestring == NULL || strlen(item->valuestring) > 48) {
+                continue;
+            }
+            cJSON *quoted = cJSON_CreateString(item->valuestring);
+            char *text = quoted != NULL ? cJSON_PrintUnformatted(quoted) : NULL;
+            cJSON_Delete(quoted);
+            if (text == NULL) {
+                continue;
+            }
+            const size_t need = 1 + strlen(keep[i]) + 3 + strlen(text); /* ,"key":"value" */
+            if (used + need + 2 <= out_json_size) {
+                used += (size_t)snprintf(out_json + used, out_json_size - used, ",\"%s\":%s", keep[i], text);
+            }
+            cJSON_free(text);
+        }
+        out_json[used++] = '}';
+        out_json[used] = '\0';
+        ok = true;
+    }
+done:
+    free(pf);
+    free(hourly);
+    free(series);
+    return ok;
 }

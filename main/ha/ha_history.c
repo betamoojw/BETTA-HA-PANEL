@@ -27,17 +27,20 @@
 #include "app_config.h"
 #include "ha/ha_auth_state.h"
 #include "ha/ha_client.h"
+#include "util/transfer_deadline.h"
 
 #define HISTORY_MAX_RESPONSE (512U * 1024U)
 #define HISTORY_CACHE_US (60LL * 1000000LL)
 #define HISTORY_TASK_STACK 10240
 #define HISTORY_DISPATCH_LOCK_MS 2000
+#define HISTORY_QUEUE_LEN 4
 
 static const char *TAG = "ha_history";
 
 typedef struct {
     char entity_id[APP_MAX_ENTITY_ID_LEN];
     bool numeric;
+    bool today;
     uint32_t generation;
     ha_history_cb_t callback;
 } history_request_t;
@@ -73,18 +76,36 @@ static void dispatch_on_lvgl(void *user)
     free(dispatch);
 }
 
+static time_t history_window_start(time_t end, int hours, bool today)
+{
+    time_t start = end - (time_t)hours * 3600;
+    if (today) {
+        struct tm local;
+        if (localtime_r(&end, &local) == NULL) return (time_t)-1;
+        local.tm_hour = local.tm_min = local.tm_sec = 0;
+        local.tm_isdst = -1;
+        const time_t midnight = mktime(&local);
+        if (midnight == (time_t)-1) return midnight;
+        if (hours == 24 || start < midnight) start = midnight;
+    }
+    return start;
+}
+
 static esp_err_t fetch_once(const history_request_t *request, int hours, ha_history_snapshot_t *snapshot)
 {
     if (ha_auth_state_blocked()) return ESP_ERR_INVALID_STATE;
+    const int64_t gate_started = esp_timer_get_time() / 1000;
     while (ha_client_heavy_gate_is_busy()) {
         if (ha_auth_state_blocked()) return ESP_ERR_INVALID_STATE;
+        if (esp_timer_get_time() / 1000 - gate_started >= 20000) return ESP_ERR_TIMEOUT;
         vTaskDelay(pdMS_TO_TICKS(120));
     }
     ha_client_http_ctx_t ctx;
     if (!ha_client_get_http_context(&ctx)) return ESP_ERR_INVALID_STATE;
     time_t end = time(NULL);
     if (end < 1700000000) return ESP_ERR_INVALID_STATE;
-    time_t start = end - (time_t)hours * 3600;
+    const time_t start = history_window_start(end, hours, request->today);
+    if (start == (time_t)-1) return ESP_FAIL;
     struct tm start_tm, end_tm;
     if (gmtime_r(&start, &start_tm) == NULL || gmtime_r(&end, &end_tm) == NULL) return ESP_FAIL;
     char start_iso[32], end_iso[32], url[640];
@@ -116,6 +137,8 @@ static esp_err_t fetch_once(const history_request_t *request, int hours, ha_hist
     int status = 0;
     size_t received = 0;
     const int64_t started_us = esp_timer_get_time();
+    transfer_deadline_t deadline;
+    transfer_deadline_init(&deadline, started_us / 1000, 15000, 30000);
     ha_client_set_aux_http_pressure(true, 2000);
     if (esp_http_client_open(cli, 0) != ESP_OK) goto done;
     int64_t content_len = esp_http_client_fetch_headers(cli);
@@ -129,6 +152,10 @@ static esp_err_t fetch_once(const history_request_t *request, int hours, ha_hist
     ha_history_reduce_init(&reducer, snapshot, request->numeric, (int64_t)start, (int64_t)end);
     char chunk[1024];
     for (;;) {
+        if (transfer_deadline_expired(&deadline, esp_timer_get_time() / 1000)) {
+            result = ESP_ERR_TIMEOUT;
+            break;
+        }
         int n = esp_http_client_read(cli, chunk, sizeof(chunk));
         if (n < 0) { result = ESP_FAIL; break; }
         if (n == 0) {
@@ -136,6 +163,7 @@ static esp_err_t fetch_once(const history_request_t *request, int hours, ha_hist
             break;
         }
         received += (size_t)n;
+        transfer_deadline_progress(&deadline, esp_timer_get_time() / 1000);
         if (received > HISTORY_MAX_RESPONSE || ha_auth_state_blocked()) {
             result = ESP_ERR_INVALID_SIZE;
             break;
@@ -178,11 +206,12 @@ static void history_task(void *arg)
         esp_err_t status = snapshot == NULL ? ESP_ERR_NO_MEM : ESP_OK;
         if (snapshot != NULL) {
             if (s_cache != NULL && strcmp(req.entity_id, s_cache_entity) == 0 &&
-                req.numeric == s_cache_numeric && esp_timer_get_time() - s_cache_at_us < HISTORY_CACHE_US) {
+                req.numeric == s_cache_numeric && !req.today &&
+                esp_timer_get_time() - s_cache_at_us < HISTORY_CACHE_US) {
                 memcpy(snapshot, s_cache, sizeof(*snapshot));
             } else {
                 status = fetch_history(&req, snapshot);
-                if (status == ESP_OK) {
+                if (status == ESP_OK && !req.today) {
                     if (s_cache == NULL) s_cache = snapshot_new();
                     if (s_cache != NULL) {
                         memcpy(s_cache, snapshot, sizeof(*snapshot));
@@ -210,7 +239,7 @@ static void history_task(void *arg)
     }
 }
 
-esp_err_t ha_history_request(const char *entity_id, bool numeric, uint32_t generation, ha_history_cb_t callback)
+static esp_err_t request_history(const char *entity_id, bool numeric, bool today, uint32_t generation, ha_history_cb_t callback)
 {
     if (entity_id == NULL || callback == NULL || strlen(entity_id) >= APP_MAX_ENTITY_ID_LEN) return ESP_ERR_INVALID_ARG;
     const char *dot = strchr(entity_id, '.');
@@ -220,7 +249,9 @@ esp_err_t ha_history_request(const char *entity_id, bool numeric, uint32_t gener
             return ESP_ERR_INVALID_ARG;
     }
     if (s_queue == NULL) {
-        s_queue = xQueueCreate(1, sizeof(history_request_t));
+        /* One place per caller with a request outstanding (graph feed, quote feed, popup) plus a spare: a single
+         * overwritten place let a graph's request replace the waiting quote request, which then never got an answer. */
+        s_queue = xQueueCreate(HISTORY_QUEUE_LEN, sizeof(history_request_t));
         if (s_queue == NULL) return ESP_ERR_NO_MEM;
         BaseType_t created;
 /* the stack lives in PSRAM (2 KB of 8 KB were left with a 5,000-value day); the task never touches flash */
@@ -230,10 +261,24 @@ esp_err_t ha_history_request(const char *entity_id, bool numeric, uint32_t gener
 #else
         created = xTaskCreatePinnedToCore(history_task, "ha_history", HISTORY_TASK_STACK, NULL, 4, &s_task, 1);
 #endif
-        if (created != pdPASS)
+        if (created != pdPASS) {
+            vQueueDelete(s_queue);
+            s_queue = NULL;
+            s_task = NULL;
             return ESP_ERR_NO_MEM;
+        }
     }
-    history_request_t request = {.numeric = numeric, .generation = generation, .callback = callback};
+    history_request_t request = {.numeric = numeric, .today = today, .generation = generation, .callback = callback};
     strlcpy(request.entity_id, entity_id, sizeof(request.entity_id));
-    return xQueueOverwrite(s_queue, &request) == pdPASS ? ESP_OK : ESP_ERR_TIMEOUT;
+    return xQueueSend(s_queue, &request, 0) == pdPASS ? ESP_OK : ESP_ERR_TIMEOUT;
+}
+
+esp_err_t ha_history_request(const char *entity_id, bool numeric, uint32_t generation, ha_history_cb_t callback)
+{
+    return request_history(entity_id, numeric, false, generation, callback);
+}
+
+esp_err_t ha_history_request_today(const char *entity_id, uint32_t generation, ha_history_cb_t callback)
+{
+    return request_history(entity_id, true, true, generation, callback);
 }

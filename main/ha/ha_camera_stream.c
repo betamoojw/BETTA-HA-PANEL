@@ -5,6 +5,7 @@
 #include "camera/camera_source_fetch.h"
 #include "camera/camera_config.h"
 #include "ha/ha_client.h"
+#include "ha/ha_auth_state.h"
 #include "ha/mjpeg_parser.h"
 #include "esp_crt_bundle.h"
 #include "esp_heap_caps.h"
@@ -120,6 +121,7 @@ static void stream_task(void *user)
             for(int elapsed=0;elapsed<delay&&!cancelled(s);elapsed+=100)vTaskDelay(pdMS_TO_TICKS(100));
             continue;
         }
+        if (ha_auth_state_blocked()) break;
         if (!ready()) {
             status_set(s, HA_CAMERA_WAITING);
             vTaskDelay(pdMS_TO_TICKS(250));
@@ -148,6 +150,7 @@ static void stream_task(void *user)
             if (esp_http_client_open(http, 0) == ESP_OK) {
                 (void)esp_http_client_fetch_headers(http);
                 int code = esp_http_client_get_status_code(http);
+                (void)ha_auth_state_report_image_fetch(code, true);
                 if (code == 200) {
                     unsupported = !mjpeg_parser_init(&s->parser, s->content_type, jpeg, MJPEG_FRAME_MAX);
                     int64_t progress = now_ms(), last_frame = progress;

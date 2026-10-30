@@ -14,7 +14,7 @@ function renderEntityOptions() {
   const secondaryConfig = secondaryEntityConfigForWidgetType(inspectorType);
   const tertiaryConfig = tertiaryEntityConfigForWidgetType(inspectorType);
   const inspectorOptions = listEntitiesForWidgetType(inspectorType, sliderDomain, buttonMode);
-  const primaryOptions = inspectorOptions.length > 0 ? inspectorOptions : editor.entities;
+  const primaryOptions = inspectorOptions.length > 0 || strictEntitySourceType(inspectorType) ? inspectorOptions : editor.entities;
   setEntityOptionsList(el.entityOptions, primaryOptions.slice(0, ENTITY_AUTOCOMPLETE_MAX_ITEMS));
 
   setEntityOptionsList(
@@ -61,12 +61,16 @@ function renderEntityOptions() {
       ? "layout.inspector.solar_remaining_entity"
       : inspectorType === "energy_timeline"
         ? "layout.inspector.entity_energy_timeline"
-        : "layout.inspector.entity";
+        : inspectorType === "parqet_portfolio"
+          ? "layout.inspector.parqet_total_value"
+          : inspectorType === "stock_quotes"
+            ? "layout.inspector.stock_quote_first"
+            : "layout.inspector.entity";
     setTextById("fEntityLabel", primaryLabelKey);
     el.fSecondaryEntityLabel.textContent = t(secondaryConfig.labelKey, {}, secondaryConfig.labelFallback);
   }
   if (el.weatherReportHint) {
-    el.weatherReportHint.classList.toggle("hidden", inspectorType !== "weather_3day");
+    el.weatherReportHint.classList.toggle("hidden", !["weather_tile", "weather_3day"].includes(inspectorType));
     el.weatherReportHint.textContent = t("layout.inspector.weather_report_hint");
   }
   if (el.sonosFavoritesHint) {
@@ -305,6 +309,9 @@ const WIDGET_TYPE_LABEL_KEYS = {
   scene_tile: "layout.widgets.add_scene",
   select_tile: "layout.widgets.add_select",
   energy_timeline: "layout.widgets.add_energy_timeline",
+  energy_price_forecast: "layout.widgets.add_energy_price_forecast",
+  parqet_portfolio: "layout.widgets.add_parqet_portfolio",
+  stock_quotes: "layout.widgets.add_stock_quotes",
   datetime_tile: "layout.widgets.add_datetime",
   lock_tile: "layout.widgets.add_lock",
   alarm_tile: "layout.widgets.add_alarm",
@@ -356,7 +363,7 @@ function updateInspectorPanels() {
     navWarning.hidden = issue === "";
     navWarning.textContent = issue ? t(`layout.pages.nav_icon_${issue}`, { max: fullNavPages() }) : "";
   }
-  if (heading) heading.textContent = t("layout.pages.inspector_heading", { title: page ? (page.title || page.id) : "" });
+  if (heading && page) heading.textContent = t(isHousePage(page) ? "layout.pages.menu_house" : isEnergyPage(page) ? "layout.pages.menu_energy" : "layout.pages.type_normal");
   const hint = document.getElementById("pageInspectorHint");
   if (hint) hint.hidden = !!page && isFixedPage(page); /* energy and house pages have no tiles to click */
   // Kept in sync with the current selection (not just set once) and left visible while scrolling
@@ -464,6 +471,7 @@ function renderWidgets() {
     el.addWeatherTileBtn,
     el.addWeather3DayBtn,
     el.addSolarForecastBtn,
+    el.addPriceForecastBtn,
     el.addCarWidgetBtn,
     el.addBambuPrinterBtn, el.addEvccWallboxBtn,
     el.addTodoListBtn,
@@ -512,7 +520,7 @@ function renderWidgets() {
     const label = document.createElement("span");
     label.className = "list-item-label";
     label.textContent = `${widgetDisplayLabel(widget)}`;
-    label.title = `[${widget.id}] ${widget.type}`;
+    label.title = [widgetTypeLabel(widget.type), widget.entity_id].filter(Boolean).join(" \u00B7 ");
     li.appendChild(label);
     li.onclick = () => {
       editor.selectedWidgetId = widget.id;
@@ -559,10 +567,9 @@ function renderWidgets() {
   }
 }
 
+// The list names a widget by its title, or by its kind when it has none; the search still matches type and entity ID.
 function widgetDisplayLabel(widget) {
-  const title = (widget.title || "").trim();
-  if (title) return `${title} · ${widget.type}`;
-  return `${widget.type} [${widget.id}]`;
+  return (widget.title || "").trim() || widgetTypeLabel(widget.type);
 }
 
 // Widget-list search (item 6 of the WebUI polish pass): a page can hold up to 32 widgets, hard to
@@ -659,6 +666,7 @@ function attachDragAndResize(box, widget) {
         widget.rect.h = nextH;
         if (nextW !== startRect.w) autoGaugeName(widget);
         geometryStyle(box, widget.rect);
+        markOverlappingWidgets();
         renderInspector();
       }
     };
@@ -724,231 +732,31 @@ function escapeHtml(value) {
     .replace(/"/g, "&quot;");
 }
 
-function energyPreviewSensorCount(count) {
-  return t(count === 1 ? "layout.energy.sensor_count_one" : "layout.energy.sensor_count_many", { count });
+// Role sizes of the 720 px and 1280 px boards at the standard step, used until /api/version has answered.
+const PREVIEW_ROLE_FALLBACK = { meta: 20, label: 24, value: 28, key: 36, hero: 42 };
+
+// Updates the overlap marks while a tile is dragged (the canvas is not rebuilt during a drag).
+function markOverlappingWidgets() {
+  const page = selectedPage();
+  if (!page || !Array.isArray(page.widgets)) return;
+  const ids = overlappingWidgetIds(page.widgets);
+  for (const box of el.canvas.querySelectorAll(".widget-box[data-widget-id]")) box.classList.toggle("overlapping", ids.has(box.dataset.widgetId));
 }
 
-function energyPreviewEntityLabel(entityId) {
-  return escapeHtml(entityId || t("layout.energy.no_sensor"));
-}
-
-function energyPreviewNodeMarkup(id, label, value, style = "") {
-  const styleAttr = style ? ` style="${escapeHtml(style)}"` : "";
-  return `<div class="energy-preview-node ${id}"${styleAttr}><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`;
-}
-
-function energyPreviewLabelMarkup(id, title, detail) {
-  return `<div class="energy-preview-label ${id}"><strong>${escapeHtml(title)}</strong><small>${energyPreviewEntityLabel(detail)}</small></div>`;
-}
-
-function energyPreviewNumber(value) {
-  const n = Number(value);
-  return Number.isFinite(n) ? n : null;
-}
-
-function energyPreviewPositive(value) {
-  const n = energyPreviewNumber(value);
-  return n === null ? 0 : Math.max(n, 0);
-}
-
-function energyPreviewFormatValue(value, unit = "") {
-  const n = energyPreviewNumber(value);
-  const suffix = String(unit || "").trim();
-  if (n === null) return suffix ? `-- ${suffix}` : "--";
-  const abs = Math.abs(n);
-  const decimals = abs === 0 || abs >= 100 ? 0 : 1;
-  const text = n.toFixed(decimals);
-  return suffix ? `${text} ${suffix}` : text;
-}
-
-function energyPreviewFormatKwh(value) {
-  return energyPreviewFormatValue(value, "kWh");
-}
-
-function energyPreviewComputeFlows(snapshot) {
-  let fromGrid = energyPreviewPositive(snapshot?.from_grid_kwh);
-  let toGrid = energyPreviewPositive(snapshot?.to_grid_kwh);
-  let solar = energyPreviewPositive(snapshot?.solar_kwh);
-  let toBattery = energyPreviewPositive(snapshot?.to_battery_kwh);
-  let fromBattery = energyPreviewPositive(snapshot?.from_battery_kwh);
-  const out = {
-    usedSolar: 0,
-    usedGrid: 0,
-    usedBattery: 0,
-    usedTotal: fromGrid + solar + fromBattery - toGrid - toBattery,
-    gridToBattery: 0,
-    batteryToGrid: 0,
-    solarToBattery: 0,
-    solarToGrid: 0,
-  };
-  let remaining = Math.max(out.usedTotal, 0);
-
-  const gridToBattery = Math.max(0, Math.min(toBattery, fromGrid - remaining));
-  out.gridToBattery += gridToBattery;
-  toBattery -= gridToBattery;
-  fromGrid -= gridToBattery;
-
-  out.solarToBattery = Math.min(solar, toBattery);
-  toBattery -= out.solarToBattery;
-  solar -= out.solarToBattery;
-
-  out.solarToGrid = Math.min(solar, toGrid);
-  toGrid -= out.solarToGrid;
-  solar -= out.solarToGrid;
-
-  out.batteryToGrid = Math.min(fromBattery, toGrid);
-  fromBattery -= out.batteryToGrid;
-  toGrid -= out.batteryToGrid;
-
-  const secondGridToBattery = Math.min(fromGrid, toBattery);
-  out.gridToBattery += secondGridToBattery;
-  fromGrid -= secondGridToBattery;
-  toBattery -= secondGridToBattery;
-
-  out.usedSolar = Math.min(remaining, solar);
-  remaining -= out.usedSolar;
-  out.usedBattery = Math.min(fromBattery, remaining);
-  remaining -= out.usedBattery;
-  out.usedGrid = Math.min(remaining, fromGrid);
-  return out;
-}
-
-function energyPreviewHomeRingStyle(flows) {
-  const parts = [
-    { color: ENERGY_PREVIEW_COLORS.solar, value: energyPreviewPositive(flows?.usedSolar) },
-    { color: ENERGY_PREVIEW_COLORS.battery, value: energyPreviewPositive(flows?.usedBattery) },
-    { color: ENERGY_PREVIEW_COLORS.grid, value: energyPreviewPositive(flows?.usedGrid) },
-  ].filter((part) => part.value > 0.001);
-  const total = parts.reduce((sum, part) => sum + part.value, 0);
-  if (total <= 0.001 || parts.length === 0) {
-    return `--energy-home-ring: ${ENERGY_PREVIEW_COLORS.idle} 0deg 360deg;`;
-  }
-
-  let start = 0;
-  const segments = parts.map((part, index) => {
-    if (index === parts.length - 1) {
-      return `${part.color} ${start}deg 360deg`;
+// The ids of the widgets whose rectangles overlap another widget's on the same page.
+function overlappingWidgetIds(widgets) {
+  const ids = new Set();
+  const rects = widgets.map((widget) => ({ id: widget.id, r: widget.rect || {} }));
+  for (let i = 0; i < rects.length; i += 1) {
+    for (let j = i + 1; j < rects.length; j += 1) {
+      const a = rects[i].r, b = rects[j].r;
+      if (a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h) {
+        ids.add(rects[i].id);
+        ids.add(rects[j].id);
+      }
     }
-    const remainingSegments = parts.length - index - 1;
-    const maxEnd = 360 - remainingSegments;
-    let end = Math.round(start + (part.value / total) * 360);
-    end = Math.max(start + 1, Math.min(maxEnd, end));
-    const segment = `${part.color} ${start}deg ${end}deg`;
-    start = end;
-    return segment;
-  });
-  return `--energy-home-ring: ${segments.join(", ")};`;
-}
-
-function energyPreviewFlowMarkup(id, visible, path, dot) {
-  if (!visible) return "";
-  const dotMarkup = dot ? `<circle class="dot ${id}" cx="${dot[0]}" cy="${dot[1]}" r="5" />` : "";
-  return `<path class="flow ${id}" d="${path}" />${dotMarkup}`;
-}
-
-function renderEnergyCanvasPreview(page) {
-  const energy = page.energy || {};
-  const source = energy.source === ENERGY_SOURCE_MANUAL ? ENERGY_SOURCE_MANUAL : ENERGY_SOURCE_HA;
-  const isManual = source === ENERGY_SOURCE_MANUAL;
-  const configured = ENERGY_ENTITY_KEYS.filter((key) => energy[key]).length;
-  const autoLabel = t("layout.energy.preview_auto");
-  const headerBadge = isManual ? energyPreviewSensorCount(configured) : t("layout.energy.preview_source_ha");
-  const snapshot = !isManual && editor.energySnapshot?.available === true ? editor.energySnapshot : null;
-  const snapshotFlows = snapshot ? energyPreviewComputeFlows(snapshot) : null;
-  const solarEntity = isManual ? energy.solar_power_entity_id : autoLabel;
-  const gridEntity = isManual
-    ? (energy.grid_power_entity_id || energy.grid_import_power_entity_id || energy.grid_export_power_entity_id)
-    : autoLabel;
-  const homeEntity = isManual ? energy.home_power_entity_id : autoLabel;
-  const batteryEntity = isManual
-    ? (energy.battery_power_entity_id || energy.battery_charge_power_entity_id ||
-      energy.battery_discharge_power_entity_id || energy.battery_soc_entity_id)
-    : autoLabel;
-  const nodes = isManual ? {
-    lowCarbon: false,
-    solar: !!solarEntity,
-    gas: !!energy.gas_entity_id,
-    grid: !!gridEntity,
-    home: !!homeEntity || configured > 0,
-    battery: !!batteryEntity,
-    water: !!energy.water_entity_id,
-  } : {
-    lowCarbon: false,
-    solar: snapshot?.has_solar === true,
-    gas: snapshot?.has_gas === true,
-    grid: snapshot?.has_grid === true,
-    home: true,
-    battery: snapshot?.has_battery === true,
-    water: snapshot?.has_water === true,
-  };
-  if (isManual && configured === 0) {
-    nodes.home = true;
   }
-  const homeValue = snapshot ? energyPreviewFormatKwh(Math.max(snapshotFlows?.usedTotal || 0, 0)) : (isManual ? "-- W" : "-- kWh");
-  const solarValue = snapshot ? energyPreviewFormatKwh(snapshot.solar_kwh) : (isManual ? "-- W" : "-- kWh");
-  const gridImport = energyPreviewPositive(snapshot?.from_grid_kwh);
-  const gridExport = energyPreviewPositive(snapshot?.to_grid_kwh);
-  const gridValue = snapshot
-    ? `${gridExport > gridImport && gridExport > 0.01 ? "out" : "in"} ${energyPreviewFormatKwh(Math.max(gridImport, gridExport))}`
-    : (isManual ? "-- W" : "-- kWh");
-  const batteryCharge = energyPreviewPositive(snapshot?.to_battery_kwh);
-  const batteryDischarge = energyPreviewPositive(snapshot?.from_battery_kwh);
-  const batteryValue = snapshot
-    ? `${batteryCharge > batteryDischarge && batteryCharge > 0.01 ? "chg" : "out"} ${energyPreviewFormatKwh(Math.max(batteryCharge, batteryDischarge))}`
-    : (isManual ? "--%" : "-- kWh");
-  const gasValue = snapshot ? energyPreviewFormatValue(snapshot.gas_value, snapshot.gas_unit) : "--";
-  const waterValue = snapshot ? energyPreviewFormatValue(snapshot.water_value, snapshot.water_unit) : "--";
-  const homeRingStyle = energyPreviewHomeRingStyle(snapshotFlows);
-  const flows = [
-    energyPreviewFlowMarkup("low-carbon", nodes.lowCarbon && nodes.grid, "M96 190 V282", [96, 254]),
-    energyPreviewFlowMarkup("solar-return", nodes.solar && nodes.grid, "M312 190 V286 A40 40 0 0 1 272 326 H150", [250, 326]),
-    energyPreviewFlowMarkup("solar", nodes.solar && nodes.home, "M312 190 V286 A40 40 0 0 0 352 326 H522", [402, 326]),
-    energyPreviewFlowMarkup("battery-in", nodes.solar && nodes.battery, "M312 190 V452", [312, 312]),
-    energyPreviewFlowMarkup("grid", nodes.grid && nodes.home, "M150 346 H522", [244, 346]),
-    energyPreviewFlowMarkup("battery-out", nodes.battery && nodes.home, "M336 452 V386 A40 40 0 0 1 376 346 H522", [394, 346]),
-    energyPreviewFlowMarkup("return", nodes.grid && nodes.battery, "M150 368 H272 A40 40 0 0 1 312 408 V452", [216, 368]),
-    energyPreviewFlowMarkup("gas", nodes.gas && nodes.home, "M528 190 V282", [528, 254]),
-    energyPreviewFlowMarkup("water", nodes.water && nodes.home, "M528 452 V402", [528, 426]),
-  ].join("");
-  const nodeMarkup = [
-    nodes.lowCarbon ? energyPreviewNodeMarkup("low-carbon", "LC", "-- kWh") : "",
-    nodes.solar ? energyPreviewNodeMarkup("solar", "PV", solarValue) : "",
-    nodes.gas ? energyPreviewNodeMarkup("gas", "GAS", gasValue) : "",
-    nodes.grid ? energyPreviewNodeMarkup("grid", "GRID", gridValue) : "",
-    nodes.home ? energyPreviewNodeMarkup("home", "HOME", homeValue, homeRingStyle) : "",
-    nodes.battery ? energyPreviewNodeMarkup("battery", "BAT", batteryValue) : "",
-    nodes.water ? energyPreviewNodeMarkup("water", "H2O", waterValue) : "",
-  ].join("");
-  const labelMarkup = [
-    nodes.lowCarbon ? energyPreviewLabelMarkup("low-carbon", t("layout.energy.low_carbon"), autoLabel) : "",
-    nodes.solar ? energyPreviewLabelMarkup("solar", t("layout.energy.solar"), solarEntity) : "",
-    nodes.gas ? energyPreviewLabelMarkup("gas", t("layout.energy.gas"), autoLabel) : "",
-    nodes.grid ? energyPreviewLabelMarkup("grid", t("layout.energy.grid"), gridEntity) : "",
-    nodes.home ? energyPreviewLabelMarkup("home", t("layout.energy.home"), homeEntity) : "",
-    nodes.battery ? energyPreviewLabelMarkup("battery", t("layout.energy.battery"), batteryEntity) : "",
-    nodes.water ? energyPreviewLabelMarkup("water", t("layout.energy.water"), autoLabel) : "",
-  ].join("");
-  const node = document.createElement("div");
-  node.className = "energy-page-preview";
-  const previewWidth = CANVAS_WIDTH;
-  const previewHeight = CANVAS_HEIGHT;
-  node.style.setProperty("--energy-preview-width", `${previewWidth}px`);
-  node.style.setProperty("--energy-preview-height", `${previewHeight}px`);
-  const viewBox = `0 0 ${previewWidth} ${previewHeight}`;
-  node.innerHTML = `
-    <div class="energy-preview-card">
-      <div class="energy-preview-heading">
-        <strong>${escapeHtml(t("layout.energy.preview_title"))}</strong>
-        <span>${escapeHtml(headerBadge)}</span>
-      </div>
-      <svg class="energy-preview-flow" viewBox="${viewBox}" aria-hidden="true">
-        ${flows}
-      </svg>
-      ${nodeMarkup}
-      ${labelMarkup}
-    </div>
-  `;
-  el.canvas.appendChild(node);
+  return ids;
 }
 
 function renderCanvas() {
@@ -959,6 +767,12 @@ function renderCanvas() {
   }
   updateCanvasScale();
   el.canvas.classList.toggle("panel4-readable", panel4Typography());
+  el.canvas.classList.toggle("text-fixed", !previewTextAdaptive());
+  el.canvas.classList.toggle("panel-large", CANVAS_WIDTH >= 1000); // APP_VIEW_WIDTH >= 1000 in the widgets
+  // The panel's text roles at the chosen text step (css/preview-roles.css sizes the preview texts with them).
+  for (const [role, fallback] of Object.entries(PREVIEW_ROLE_FALLBACK)) {
+    el.canvas.style.setProperty(`--r-${role}`, `${textRoleSize(role, fallback)}px`);
+  }
   // While the user is actively dragging or resizing a tile we must not rebuild
   // the canvas DOM — doing so would destroy the element that owns the pointer
   // capture and cause the drag to "let go" mid-motion. Remember that a render
@@ -986,6 +800,8 @@ function renderCanvas() {
   }
   if (!page.widgets.length) renderEmptyPageHint(page);
 
+  // Tiles that overlap cover each other on the panel; mark them so a resize that runs into a neighbour is seen.
+  const overlapping = overlappingWidgetIds(page.widgets);
   for (const widget of page.widgets) {
     const box = document.createElement("div");
     const isEmptyTile = widget.type === "empty_tile";
@@ -995,6 +811,7 @@ function renderCanvas() {
     if ((Number(widget.rect && widget.rect.w) || 0) >= 260) box.classList.add("matte-wide");
     box.classList.toggle("name-hidden", !widgetShowsName(widget));
     box.dataset.widgetId = widget.id;
+    box.classList.toggle("overlapping", overlapping.has(widget.id));
     box.style.zIndex = isEmptyTile ? "1" : "10";
     const previewState = isEmptyTile ? "design" : (editor.states.get(widget.entity_id) || "unavailable");
     box.classList.toggle("matte-on", ["on", "open", "playing", "home"].includes(String(previewState).toLowerCase()));
@@ -1046,51 +863,6 @@ function renderCanvas() {
   }
 }
 
-// Widgets can be moved to any other regular (non-energy) page.
-function populateMovePageOptions() {
-  const select = el.fMovePage;
-  if (!select) return;
-  const current = selectedPage();
-  const widget = selectedWidget();
-  select.innerHTML = "";
-  const placeholder = document.createElement("option");
-  placeholder.value = "";
-  placeholder.textContent = t("layout.inspector.move_placeholder");
-  select.appendChild(placeholder);
-  const pages = editor.layout?.pages || [];
-  for (const page of pages) {
-    if (page === current || isFixedPage(page)) continue;
-    const option = document.createElement("option");
-    option.value = page.id;
-    option.textContent = page.title || page.id;
-    select.appendChild(option);
-  }
-  select.disabled = !widget || !current || isFixedPage(current) || select.options.length < 2;
-  select.value = "";
-}
-
-function moveSelectedWidgetToPage(targetPageId) {
-  const source = selectedPage();
-  const widget = selectedWidget();
-  const target = (editor.layout?.pages || []).find((p) => p.id === targetPageId);
-  if (!source || !widget || !target || target === source) return;
-  if (isFixedPage(source) || isFixedPage(target)) return;
-  source.widgets = source.widgets.filter((w) => w !== widget);
-  const used = new Set(target.widgets.map((w) => w.id));
-  let id = widget.id;
-  let n = 2;
-  while (used.has(id)) {
-    id = `${widget.id}_${n++}`;
-  }
-  widget.id = id;
-  widget.rect = clampRectToCanvas(widget.rect, widgetSizeType(widget));
-  target.widgets.push(widget);
-  editor.selectedPageId = target.id;
-  editor.selectedWidgetId = widget.id;
-  renderAll();
-  setStatus(t("layout.widgets.moved", { page: target.title || target.id }));
-}
-
 // alarm_tile: show the layout's alarm_actions (no key: every action is offered)
 function alarmLoadInspector(widget) {
   if (el.alarmOptions) el.alarmOptions.classList.toggle("hidden", widget.type !== "alarm_tile");
@@ -1100,6 +872,7 @@ function alarmLoadInspector(widget) {
 }
 
 function renderInspector() {
+  refreshEntitySourceWarning();
   renderEnergyTimelineColors(selectedWidget());
   updateInspectorPanels();
   const widget = selectedWidget();
@@ -1116,7 +889,6 @@ function renderInspector() {
     el.fY.value = "";
     el.fW.value = "";
     el.fH.value = "";
-    populateMovePageOptions();
     if (el.buttonOptions) {
       el.buttonOptions.classList.add("hidden");
     }
@@ -1178,6 +950,15 @@ function renderInspector() {
       el.carExtraFields.classList.add("hidden");
     }
     if (el.cameraOptions) el.cameraOptions.classList.add("hidden");
+    if (el.priceOptions) el.priceOptions.classList.add("hidden");
+    if (el.parqetOptions) el.parqetOptions.classList.add("hidden");
+    if (el.parqetEntities) el.parqetEntities.classList.add("hidden");
+    if (el.fParqetDividends) el.fParqetDividends.value = "";
+    if (el.fParqetReturn) el.fParqetReturn.value = "";
+    if (el.fParqetSelector) el.fParqetSelector.checked = true;
+    if (el.fParqetView) el.fParqetView.value = "performance";
+    if (el.fParqetInterval) el.fParqetInterval.value = "";
+    if (el.fParqetHideAmounts) el.fParqetHideAmounts.checked = false;
     if (el.fCameraLive) el.fCameraLive.checked = false;
     if (el.fCameraSource) el.fCameraSource.value = "";
     bambuResetInspector(); evccResetInspector();
@@ -1231,6 +1012,8 @@ function renderInspector() {
       el.fSolarForecastDay3,
       el.fSolarForecastDay4,
       el.fSolarForecastDay5,
+      el.fSolarForecastDay6,
+      el.fSolarForecastDay7,
       el.fSolarForecastBarMax,
     ]) {
       if (input) input.value = "";
@@ -1249,7 +1032,9 @@ function renderInspector() {
   if (el.fSolarForecastDay3) el.fSolarForecastDay3.value = widget.forecast_day_3_entity_id || "";
   if (el.fSolarForecastDay4) el.fSolarForecastDay4.value = widget.forecast_day_4_entity_id || "";
   if (el.fSolarForecastDay5) el.fSolarForecastDay5.value = widget.forecast_day_5_entity_id || "";
-  bambuLoadInspector(widget); evccLoadInspector(widget);
+  if (el.fSolarForecastDay6) el.fSolarForecastDay6.value = widget.forecast_day_6_entity_id || "";
+  if (el.fSolarForecastDay7) el.fSolarForecastDay7.value = widget.forecast_day_7_entity_id || "";
+  bambuLoadInspector(widget); evccLoadInspector(widget); stockLoadInspector(widget); sensorListLoadInspector(widget);
   if (el.fCarPrecond) el.fCarPrecond.value = widget.precond_entity_id || "";
   if (el.fCarLock) el.fCarLock.value = widget.lock_entity_id || "";
   if (el.fCarTemp) el.fCarTemp.value = widget.interior_temp_entity_id || "";
@@ -1295,7 +1080,6 @@ function renderInspector() {
   el.fY.value = widget.rect.y;
   el.fW.value = widget.rect.w;
   el.fH.value = widget.rect.h;
-  populateMovePageOptions();
 
   const isButton = widget.type === "button";
   const isSlider = widget.type === "slider";
@@ -1350,6 +1134,19 @@ function renderInspector() {
   if (el.fCameraSource) el.fCameraSource.value = widget.camera_source || "";
   if (el.lockOptions) el.lockOptions.classList.toggle("hidden", widget.type !== "lock_tile");
   if (el.fLockConfirm) el.fLockConfirm.checked = widget.type === "lock_tile" && widget.lock_confirm === true;
+  if (el.parqetOptions) el.parqetOptions.classList.toggle("hidden", widget.type !== "parqet_portfolio");
+  if (el.parqetEntities) el.parqetEntities.classList.toggle("hidden", widget.type !== "parqet_portfolio");
+  if (el.fParqetDividends) el.fParqetDividends.value = widget.type === "parqet_portfolio" ? String(widget.dividends_entity_id || "") : "";
+  if (el.fParqetReturn) el.fParqetReturn.value = widget.type === "parqet_portfolio" ? String(widget.return_entity_id || "") : "";
+  if (el.fParqetHideAmounts) el.fParqetHideAmounts.checked = widget.type === "parqet_portfolio" && widget.parqet_hide_amounts === true;
+  if (el.fParqetSelector) el.fParqetSelector.checked = widget.type === "parqet_portfolio" && widget.parqet_selector !== false;
+  if (el.fParqetView) el.fParqetView.value = widget.type === "parqet_portfolio" && widget.parqet_view === "holdings" ? "holdings" : "performance";
+  if (el.fParqetInterval) el.fParqetInterval.value = widget.type === "parqet_portfolio" && ["1d", "1w", "1m", "ytd"].includes(widget.parqet_interval) ? widget.parqet_interval : "";
+  if (el.priceOptions) el.priceOptions.classList.toggle("hidden", widget.type !== "energy_price_forecast");
+  if (el.fPriceSelector) el.fPriceSelector.checked = widget.type === "energy_price_forecast" && widget.price_selector === true;
+  if (el.fPriceCheapTimes) el.fPriceCheapTimes.checked = widget.type === "energy_price_forecast" && widget.price_cheap_times === true;
+  if (el.fPriceLine) el.fPriceLine.checked = widget.type === "energy_price_forecast" && widget.price_line === true;
+  if (el.fPriceAverage) el.fPriceAverage.value = widget.type === "energy_price_forecast" && widget.price_average > 0 ? String(widget.price_average) : "";
   alarmLoadInspector(widget);
   if (el.historyOptions) el.historyOptions.classList.toggle("hidden",
     !["sensor", "binary_tile", "contact_tile", "lock_tile", "alarm_tile", "vacuum_tile"].includes(widget.type));
@@ -1361,10 +1158,13 @@ function renderInspector() {
   if (el.fSensorShowAge) {
     el.fSensorShowAge.checked = widget.type !== "sensor" || widget.sensor_show_age !== false;
   }
+  updateSensorEntityInfo(widget);
   if (el.gaugeOptions) {
     el.gaugeOptions.classList.toggle("hidden", !isGauge);
   }
   updateGaugeBarStyleVisibility();
+  if (el.weatherNowOptions) el.weatherNowOptions.classList.toggle("hidden", widget.type !== "weather_tile");
+  if (el.fWeatherHourly) el.fWeatherHourly.checked = widget.type === "weather_tile" && widget.weather_hourly === true;
   if (el.weatherForecastOptions) {
     el.weatherForecastOptions.classList.toggle("hidden", widget.type !== "weather_3day");
   }
@@ -1507,6 +1307,35 @@ function renderInspector() {
 
   renderEntityOptions();
   refreshInspectorLayout();
+  refreshEntitySourceWarning(widget);
+}
+
+// "Panel follows": the page chosen in the editor is shown on the panel too (POST /api/navigate), off by default and
+// remembered by this browser. Only a page the panel has (the saved layout) is sent, and only when the choice changes.
+const FOLLOW_PAGE_KEY = "betta.editor.followPage";
+let followPageSent = null;
+
+function followPageEnabled() {
+  return storageGet(FOLLOW_PAGE_KEY) === "1";
+}
+
+function syncPanelPage() {
+  const id = editor.selectedPageId;
+  if (!followPageEnabled() || !id || id === followPageSent) return;
+  let saved = null;
+  try { saved = savedLayoutSnapshot ? JSON.parse(savedLayoutSnapshot) : null; } catch (_) { saved = null; }
+  if (!saved?.pages?.some(page => page?.id === id)) return;
+  followPageSent = id;
+  fetch("/api/navigate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ page: id }) })
+    .then(response => { if (!response.ok && followPageSent === id) followPageSent = null; })
+    .catch(() => { if (followPageSent === id) followPageSent = null; });
+}
+
+function setFollowPage(on) {
+  if (on) storageSet(FOLLOW_PAGE_KEY, "1");
+  else storageRemove(FOLLOW_PAGE_KEY);
+  followPageSent = null;
+  syncPanelPage();
 }
 
 function renderAll() {
@@ -1521,6 +1350,7 @@ function renderAll() {
   // Every real edit goes through renderAll(); markDirty() compares the layout with the loaded/saved snapshot,
   // so a render that changed nothing (selecting a page or a widget) leaves the layout marked as saved.
   markDirty();
+  syncPanelPage();
 }
 
 function addPage() {
@@ -1568,7 +1398,7 @@ function duplicatePage(page) {
 
 const ROOM_EXTRA_NONE_KEYS = { humidity: "humidity", cover: "cover", media_player: "media" };
 
-// The room entities typed into the inspector (one per line, at most 7 besides the main sensor).
+// The room list uses a hidden newline-separated input for its existing validation and save path (up to seven extras).
 function roomEntitiesFromInspector() {
   return (el.fRoomEntities?.value || "")
     .split(/[\n,;]+/)
@@ -1595,9 +1425,12 @@ function refreshRoomExtraControls(primary, extras, mode, entityId) {
   el.fRoomExtraEntity.disabled = candidates.length === 0;
   if (el.fRoomExtraEntityWrap) el.fRoomExtraEntityWrap.classList.toggle("hidden", current === "default");
   if (el.fRoomExtraHint) {
-    el.fRoomExtraHint.textContent = current !== "default" && candidates.length === 0
-      ? t(`layout.inspector.room_extra_none_${ROOM_EXTRA_NONE_KEYS[current]}`)
-      : t("layout.inspector.room_extra_hint");
+    el.fRoomExtraHint.textContent = t("layout.inspector.room_extra_hint");
+  }
+  if (el.fRoomExtraWarning) {
+    const missing = current !== "default" && candidates.length === 0;
+    el.fRoomExtraWarning.hidden = !missing;
+    el.fRoomExtraWarning.textContent = missing ? t(`layout.inspector.room_extra_none_${ROOM_EXTRA_NONE_KEYS[current]}`) : "";
   }
 }
 
@@ -2013,6 +1846,9 @@ function addWidget(type, options = {}) {
       : type === "wallbox_evcc" ? 360
       : type === "bambu_printer" ? 360
       : type === "energy_timeline" ? 420
+      : type === "energy_price_forecast" ? 460
+      : type === "parqet_portfolio" ? 360
+      : type === "stock_quotes" ? 340
       : type === "todo_list" ? 360
       : type === "media_player" ? 360
       : type === "sonos_favorites" ? 360
@@ -2033,6 +1869,9 @@ function addWidget(type, options = {}) {
       : type === "wallbox_evcc" ? 300
       : type === "bambu_printer" ? 420
       : type === "energy_timeline" ? 260
+      : type === "energy_price_forecast" ? 250
+      : type === "parqet_portfolio" ? 330
+      : type === "stock_quotes" ? 300
       : type === "todo_list" ? 360
       : type === "media_player" ? 280
       : type === "sonos_favorites" ? 300
@@ -2085,6 +1924,8 @@ function addWidget(type, options = {}) {
     widget.forecast_day_3_entity_id = DEFAULT_SOLCAST_ENTITIES.day3;
     widget.forecast_day_4_entity_id = DEFAULT_SOLCAST_ENTITIES.day4;
     widget.forecast_day_5_entity_id = DEFAULT_SOLCAST_ENTITIES.day5;
+    widget.forecast_day_6_entity_id = DEFAULT_SOLCAST_ENTITIES.day6;
+    widget.forecast_day_7_entity_id = DEFAULT_SOLCAST_ENTITIES.day7;
     widget.solar_forecast_bar_orientation = DEFAULT_SOLAR_FORECAST_BAR_ORIENTATION;
   }
   if (type === "car_widget") {
@@ -2215,6 +2056,11 @@ function applyInspector(options = {}) {
     widget.forecast_day_3_entity_id = el.fSolarForecastDay3?.value.trim() ?? "";
     widget.forecast_day_4_entity_id = el.fSolarForecastDay4?.value.trim() ?? "";
     widget.forecast_day_5_entity_id = el.fSolarForecastDay5?.value.trim() ?? "";
+    // Days 6 and 7 are stored only when set: a layout without them keeps its five days.
+    for (const [key, input] of [["forecast_day_6_entity_id", el.fSolarForecastDay6], ["forecast_day_7_entity_id", el.fSolarForecastDay7]]) {
+      const value = input?.value.trim() ?? "";
+      if (value) widget[key] = value; else delete widget[key];
+    }
     widget.solar_forecast_bar_orientation = normalizeSolarForecastBarOrientation(el.fSolarForecastBarOrientation?.value);
     const barMax = Number(el.fSolarForecastBarMax?.value);
     if (Number.isFinite(barMax) && barMax > 0) {
@@ -2229,6 +2075,8 @@ function applyInspector(options = {}) {
     delete widget.forecast_day_3_entity_id;
     delete widget.forecast_day_4_entity_id;
     delete widget.forecast_day_5_entity_id;
+    delete widget.forecast_day_6_entity_id;
+    delete widget.forecast_day_7_entity_id;
     delete widget.solar_forecast_bar_max_kwh;
     delete widget.solar_forecast_bar_orientation;
   }
@@ -2242,6 +2090,8 @@ function applyInspector(options = {}) {
     else delete widget[key];
   }
   bambuSaveInspector(widget, widgetType);
+  stockSaveInspector(widget, widgetType);
+  sensorListSaveInspector(widget, widgetType);
   if (!evccSaveInspector(widget, widgetType)) return false;
   // Energy timeline: the two battery counters go together (the firmware ignores half a battery).
   for (const [key, input] of [
@@ -2299,6 +2149,8 @@ function applyInspector(options = {}) {
   } else {
     delete widget.show_precipitation; // default: shown
   }
+  if (widgetType === "weather_tile" && el.fWeatherHourly?.checked) widget.weather_hourly = true;
+  else delete widget.weather_hourly;
   saveReadabilityFields(widget);
   if (widgetSupportsName(widgetType) && el.fShowName && el.fShowName.checked !== widgetNameDefault(widgetType)) {
     widget.show_name = el.fShowName.checked; // only a deviation from the type's default is stored
@@ -2313,6 +2165,33 @@ function applyInspector(options = {}) {
   } else {
     delete widget.lock_confirm; // default: no confirmation
   }
+  // parqet_portfolio: the dividends sensor and the percentages-only option (gain is the secondary entity, XIRR the tertiary one)
+  const dividends = (el.fParqetDividends?.value || "").trim();
+  if (widgetType === "parqet_portfolio" && dividends) widget.dividends_entity_id = dividends;
+  else delete widget.dividends_entity_id;
+  const portfolioReturn = (el.fParqetReturn?.value || "").trim();
+  if (widgetType === "parqet_portfolio" && portfolioReturn) widget.return_entity_id = portfolioReturn;
+  else delete widget.return_entity_id;
+  if (widgetType === "parqet_portfolio" && el.fParqetHideAmounts?.checked) widget.parqet_hide_amounts = true;
+  else delete widget.parqet_hide_amounts;
+  // The selector buttons are on unless the layout says false.
+  if (widgetType === "parqet_portfolio" && el.fParqetSelector && !el.fParqetSelector.checked) widget.parqet_selector = false;
+  else delete widget.parqet_selector;
+  if (widgetType === "parqet_portfolio" && el.fParqetView?.value === "holdings") widget.parqet_view = "holdings"; // performance is the default
+  else delete widget.parqet_view;
+  const parqetInterval = el.fParqetInterval?.value || "";
+  if (widgetType === "parqet_portfolio" && ["1d", "1w", "1m", "ytd"].includes(parqetInterval)) widget.parqet_interval = parqetInterval; // max (the sensors) is the default
+  else delete widget.parqet_interval;
+  // energy_price_forecast: the price timeline card's options, all off by default; the average sensor is the secondary entity
+  if (widgetType === "energy_price_forecast" && el.fPriceSelector?.checked) widget.price_selector = true; // off shows the running 24 hours
+  else delete widget.price_selector;
+  if (widgetType === "energy_price_forecast" && el.fPriceCheapTimes?.checked) widget.price_cheap_times = true;
+  else delete widget.price_cheap_times;
+  if (widgetType === "energy_price_forecast" && el.fPriceLine?.checked) widget.price_line = true;
+  else delete widget.price_line;
+  const priceAverage = Number(String(el.fPriceAverage?.value ?? "").replace(",", "."));
+  if (widgetType === "energy_price_forecast" && Number.isFinite(priceAverage) && priceAverage > 0 && priceAverage <= 5) widget.price_average = priceAverage;
+  else delete widget.price_average;
   const alarmChosen = ALARM_ACTION_FIELDS.filter(([key]) => el[key]?.checked).map(([, action]) => action);
   if (widgetType === "alarm_tile" && alarmChosen.length > 0 && alarmChosen.length < ALARM_ACTION_FIELDS.length) {
     widget.alarm_actions = alarmChosen; // only a deviation from "all actions" is stored
@@ -2328,6 +2207,25 @@ function applyInspector(options = {}) {
     widget.sensor_show_age = false;
   } else {
     delete widget.sensor_show_age; // default: shown
+  }
+  if (widgetType !== "sensor") {
+    delete widget.sensor_format;
+    delete widget.sensor_unit;
+  } else if (widget.sensor_view !== "list") {
+    // A choice the device class does not offer (hidden, or the list of another class still shown) keeps the saved
+    // value for when such a sensor is chosen again; the first choice is the default and is not saved.
+    const format = sensorFormatChoices(widget, nextEntityId);
+    const formatValue = el.fSensorFormat?.value || "";
+    if (format && format.values.includes(formatValue)) {
+      if (formatValue === format.values[0]) delete widget.sensor_format;
+      else widget.sensor_format = formatValue;
+    }
+    const unit = sensorUnitChoices(widget, nextEntityId);
+    const unitValue = el.fSensorUnit?.value ?? "";
+    if (unit && unit.values.includes(unitValue)) {
+      if (!unitValue) delete widget.sensor_unit;
+      else widget.sensor_unit = unitValue;
+    }
   }
   if (secondaryConfig.enabled) {
     const typedSecondaryEntityId = el.fSecondaryEntity.value.trim();
@@ -2497,10 +2395,133 @@ function applyInspector(options = {}) {
 }
 
 function autoApplyInspector(options = {}) {
-  return applyInspector({
+  const result = applyInspector({
     refreshInspector: false,
     ...options,
   });
+  updateSensorEntityInfo();
+  return result;
+}
+
+// Entity metadata names its device class and unit in the Inspector. The Sensor tile offers the time format for a timestamp
+// sensor (device_class timestamp, or a format saved before the entity list was loaded).
+function entityDisplayInfo(entityId) {
+  if (!entityId) return {};
+  const listed = editor.entities.find((entity) => entity?.id === entityId) || {};
+  const live = editor.stateMeta?.get(entityId) || {};
+  return { ...listed, ...live, device_class: live.device_class || listed.device_class || "", unit: live.unit || listed.unit || "" };
+}
+
+function entityHasDeviceClass(entityId) {
+  return /^(binary_sensor|button|cover|event|humidifier|media_player|number|sensor|switch|update|valve)\./.test(entityId || "");
+}
+
+// A binary sensor's class can mean something else than a sensor's of the same name (power: on/off, not watts).
+function deviceClassLabel(deviceClass, entityId = "") {
+  if (!deviceClass) return "";
+  const fallback = t(`device_class.${deviceClass}`, {}, deviceClass);
+  const domain = String(entityId).split(".")[0];
+  return t(`device_class.${domain === "binary_sensor" ? "binary" : domain}.${deviceClass}`, {}, fallback);
+}
+
+// "Device class: Temperature \u00B7 Unit: \u00B0C"; "none" only for an entity Home Assistant listed, so a list that is not
+// loaded yet shows nothing rather than a wrong "none".
+// The device class and unit as chips in the header; "no device class" only
+// for an entity the panel lists, nothing while its list or state is not loaded.
+function entityClassChips(entityId) {
+  const listed = editor.entities.find((entity) => entity?.id === entityId);
+  if (!listed && !editor.stateMeta?.has(entityId)) return [];
+  const info = entityDisplayInfo(entityId);
+  // Report a supplied class even for a future/custom domain; only class-capable platforms get a "none" badge.
+  if (!entityHasDeviceClass(entityId) && !info.device_class) return [];
+  const label = deviceClassLabel(info.device_class || "", entityId);
+  if (!label && !listed) return [];
+  const chips = [label ? { text: label, title: t("inspector.device_class") }
+    : { text: t("inspector.device_class_none"), title: t("inspector.device_class"), none: true }];
+  if (info.unit) chips.push({ text: info.unit, title: t("inspector.unit") });
+  return chips;
+}
+
+// The Sensor tile's sensor_format and sensor_unit choices by device class (ha_sensor_value.h, w_sensor.c); the first
+// value is the default. Without a known class a saved value names its class, so it stays editable before the entity
+// list has loaded.
+const SENSOR_FORMAT_CLASSES = {
+  timestamp: { label: "sensor_time_format", values: ["datetime", "date", "time", "relative"] },
+  duration: { label: "sensor_format", values: ["text", "clock", "raw"] },
+  date: { label: "sensor_format", values: ["date", "relative"] },
+};
+const SENSOR_UNIT_CLASSES = {
+  temperature: { label: "sensor_unit", values: ["", "degree", "hide"] }, // the default reads as the unit itself
+  power: { label: "sensor_unit", values: ["", "auto", "hide"], defaultText: "ha" },
+  monetary: { label: "sensor_currency", values: ["", "code", "hide"], defaultText: "symbol" },
+  plain: { label: "sensor_unit", values: ["", "hide"], defaultText: "show" },
+};
+const SENSOR_UNIT_CLASS_OF = {
+  temperature: "temperature", temperature_delta: "temperature", power: "power", apparent_power: "power",
+  reactive_power: "power", energy: "power", energy_storage: "power", monetary: "monetary",
+};
+const SENSOR_NO_UNIT_CHOICE = ["timestamp", "date", "duration", "enum"];
+
+function sensorFormatChoices(widget, entityId) {
+  if ((el.fType?.value || widget?.type) !== "sensor" || !entityId.startsWith("sensor.")) return null;
+  const dc = entityDisplayInfo(entityId).device_class || "";
+  if (SENSOR_FORMAT_CLASSES[dc]) return SENSOR_FORMAT_CLASSES[dc];
+  const saved = widget?.sensor_format;
+  if (dc || !saved) return null;
+  return ["text", "clock", "raw"].includes(saved) ? SENSOR_FORMAT_CLASSES.duration : SENSOR_FORMAT_CLASSES.timestamp;
+}
+
+function sensorUnitChoices(widget, entityId) {
+  if ((el.fType?.value || widget?.type) !== "sensor" || !entityId.startsWith("sensor.")) return null;
+  const info = entityDisplayInfo(entityId);
+  const dc = info.device_class || "";
+  if (SENSOR_UNIT_CLASS_OF[dc]) return SENSOR_UNIT_CLASSES[SENSOR_UNIT_CLASS_OF[dc]];
+  if (info.unit && !SENSOR_NO_UNIT_CHOICE.includes(dc)) return SENSOR_UNIT_CLASSES.plain;
+  const saved = widget?.sensor_unit;
+  if (dc || !saved) return null;
+  return SENSOR_UNIT_CLASSES[{ degree: "temperature", auto: "power", code: "monetary" }[saved] || "plain"];
+}
+
+function sensorChoiceText(choices, kind, value, unit) {
+  if (kind !== "unit") return t(`layout.option.sensor_format.${value}`);
+  if (value) return t(`layout.option.sensor_unit.${value}`);
+  return choices.defaultText || !unit ? t(`layout.option.sensor_unit.${choices.defaultText || "show"}`) : unit;
+}
+
+// Fills a select with the class's choices (only when they change, so an open list is not rebuilt) and selects the
+// saved value, or the default when the class does not offer it.
+function fillSensorChoice(select, wrap, labelEl, choices, kind, saved, unit) {
+  wrap?.classList.toggle("hidden", !choices);
+  if (!choices || !select) return;
+  if (labelEl) labelEl.textContent = t(`layout.inspector.${choices.label}`);
+  const texts = choices.values.map((value) => sensorChoiceText(choices, kind, value, unit));
+  const key = `${choices.values.join("|")}#${texts.join("|")}`;
+  if (select.dataset?.choices !== key) {
+    select.innerHTML = choices.values.map((value, i) => `<option value="${value}">${escapeHtml(texts[i])}</option>`).join("");
+    if (select.dataset) select.dataset.choices = key;
+  }
+  select.value = choices.values.includes(saved || "") ? (saved || "") : choices.values[0];
+}
+
+function updateSensorEntityInfo(widget = selectedWidget()) {
+  const type = el.fType?.value || widget?.type;
+  const sensor = type === "sensor";
+  const entityId = el.fEntity?.value.trim() || "";
+  // A quote list names its quotes, not one sensor's device class.
+  const chips = type === "empty_tile" || type === "wallbox_evcc" || type === "stock_quotes" ? [] : entityClassChips(entityId);
+  if (el.fEntityClass) {
+    el.fEntityClass.innerHTML = chips.map((chip) => `<span class="entity-class-chip${chip.none ? " is-none" : ""}" `
+      + `title="${escapeHtml(chip.title)}">${escapeHtml(chip.text)}</span>`).join("");
+    el.fEntityClass.dataset.text = chips.map((chip) => chip.text).join(" · ");
+    el.fEntityClass.classList.toggle("hidden", chips.length === 0);
+  }
+  const format = sensor && widget?.sensor_view !== "list" ? sensorFormatChoices(widget, entityId) : null;
+  const unit = sensor && widget?.sensor_view !== "list" ? sensorUnitChoices(widget, entityId) : null;
+  const shownWidget = sensor && widget?.type === "sensor" ? widget : {};
+  fillSensorChoice(el.fSensorFormat, el.fSensorFormatWrap, el.fSensorFormatLabel, format, "format",
+    format ? shownWidget.sensor_format || format.values[0] : "", "");
+  fillSensorChoice(el.fSensorUnit, el.fSensorUnitWrap, el.fSensorUnitLabel, unit, "unit",
+    shownWidget.sensor_unit || "", entityDisplayInfo(entityId).unit || "");
 }
 
 // The bar-look choice (smooth/segmented) only means anything for the linear gauge style; the

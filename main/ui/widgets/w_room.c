@@ -361,19 +361,14 @@ static void room_render_extra(w_room_ctx_t *ctx)
         const char *down_sym = room_action_symbol(down);
         lv_label_set_text(ctx->extra_icon, up_sym != NULL ? up_sym : APP_SYMBOL_ARROW_UP);
         lv_label_set_text(ctx->extra_icon2, down_sym != NULL ? down_sym : APP_SYMBOL_ARROW_DOWN);
-        lv_obj_set_style_opa(ctx->extra_btn, up != ROOM_ACTION_NONE ? LV_OPA_COVER : LV_OPA_50, LV_PART_MAIN);
-        lv_obj_set_style_opa(ctx->extra_btn2, down != ROOM_ACTION_NONE ? LV_OPA_COVER : LV_OPA_50, LV_PART_MAIN);
-        lv_obj_set_style_text_color(ctx->extra_icon,
-            lv_color_hex(up != ROOM_ACTION_NONE ? APP_UI_COLOR_TEXT_PRIMARY : ROOM_MUTED_COLOR), LV_PART_MAIN);
-        lv_obj_set_style_text_color(ctx->extra_icon2,
-            lv_color_hex(down != ROOM_ACTION_NONE ? APP_UI_COLOR_TEXT_PRIMARY : ROOM_MUTED_COLOR), LV_PART_MAIN);
+        ui_style_action_button(ctx->extra_btn, ctx->extra_icon, up == ROOM_ACTION_COVER_STOP ? UI_CONTROL_ACTIVE : UI_CONTROL_ACTION, up != ROOM_ACTION_NONE);
+        ui_style_action_button(ctx->extra_btn2, ctx->extra_icon2, down == ROOM_ACTION_COVER_STOP ? UI_CONTROL_ACTIVE : UI_CONTROL_ACTION, down != ROOM_ACTION_NONE);
         return;
     }
     lv_label_set_text(ctx->extra_icon, room_extra_symbol(ctx));
     const bool enabled = ctx->extra_action != ROOM_ACTION_NONE;
-    lv_obj_set_style_opa(ctx->extra_btn, enabled ? LV_OPA_COVER : LV_OPA_50, LV_PART_MAIN);
-    lv_obj_set_style_text_color(ctx->extra_icon,
-        lv_color_hex(enabled ? APP_UI_COLOR_TEXT_PRIMARY : ROOM_MUTED_COLOR), LV_PART_MAIN);
+    const bool active = ctx->extra_action == ROOM_ACTION_MEDIA_PAUSE || ctx->extra_action == ROOM_ACTION_COVER_STOP;
+    ui_style_action_button(ctx->extra_btn, ctx->extra_icon, active ? UI_CONTROL_ACTIVE : UI_CONTROL_ACTION, enabled);
 }
 
 static void room_render(w_room_ctx_t *ctx)
@@ -735,16 +730,11 @@ static void room_show_popup(w_room_ctx_t *ctx)
 
     int cw = sw - 48 < 520 ? sw - 48 : 520;
     int ch = sh - 48 < 560 ? sh - 48 : 560;
-    lv_obj_t *card = lv_obj_create(overlay);
+    lv_obj_t *card = ui_popup_card_create(overlay);
     lv_obj_set_size(card, cw, ch);
     lv_obj_center(card);
-    lv_obj_set_scrollable(card, false);
-    lv_obj_set_event_bubble(card, false);
     lv_obj_set_style_radius(card, 16, LV_PART_MAIN);
-    lv_obj_set_style_bg_color(card, lv_color_hex(APP_UI_COLOR_CONTENT_BG), LV_PART_MAIN);
-    lv_obj_set_style_bg_opa(card, LV_OPA_COVER, LV_PART_MAIN);
-    lv_obj_set_style_border_width(card, 1, LV_PART_MAIN);
-    ui_popup_style_frame(card);
+
     lv_obj_set_style_pad_all(card, 16, LV_PART_MAIN);
 
     lv_obj_t *title = lv_label_create(card);
@@ -775,19 +765,23 @@ static void room_show_popup(w_room_ctx_t *ctx)
         char value[APP_MAX_STATE_LEN + APP_MAX_UNIT_LEN + 2] = {0};
         if (ha_model_get_state(id, st)) {
             cJSON *attrs = st->attributes_json[0] != '\0' ? cJSON_Parse(st->attributes_json) : NULL;
-            snprintf(name, sizeof(name), "%s", room_attr_string(attrs, "friendly_name"));
             const char *unit = room_attr_string(attrs, "unit_of_measurement");
             snprintf(value, sizeof(value), "%s%s%s", st->state, unit[0] != '\0' ? " " : "", unit);
             cJSON_Delete(attrs);
         }
-        if (name[0] == '\0') {
+        if (!ha_model_get_entity_name(id, name, sizeof(name))) {
             strlcpy(name, id, sizeof(name));
         }
         const bool toggle = room_domain_is(id, "light") || room_domain_is(id, "switch") || room_domain_is(id, "cover") ||
                             room_domain_is(id, "fan") || room_domain_is(id, "media_player");
         lv_obj_t *row = lv_obj_create(list);
         lv_obj_remove_style_all(row);
-        lv_obj_set_size(row, LV_PCT(100), 44);
+        const lv_font_t *font = ui_font_role(UI_TEXT_META);
+        const int line_h = lv_font_get_line_height(font);
+        lv_point_t value_size;
+        lv_text_get_size(&value_size, value, font, 0, 0, (cw - 32) * 34 / 100, LV_TEXT_FLAG_NONE);
+        const int content_h = value_size.y > line_h ? value_size.y : line_h;
+        lv_obj_set_size(row, LV_PCT(100), content_h + 12 > 44 ? content_h + 12 : 44);
         lv_obj_set_scrollable(row, false);
         lv_obj_set_style_radius(row, ui_style_radius(10), LV_PART_MAIN);
         lv_obj_set_style_bg_color(row, lv_color_hex(APP_UI_COLOR_CARD_BG_OFF), LV_PART_MAIN);
@@ -795,12 +789,16 @@ static void room_show_popup(w_room_ctx_t *ctx)
         lv_obj_t *nl = lv_label_create(row);
         lv_label_set_text(nl, name);
         lv_label_set_long_mode(nl, LV_LABEL_LONG_DOT);
-        lv_obj_set_width(nl, LV_PCT(62));
+        lv_obj_set_width(nl, LV_PCT(60));
+        lv_obj_set_height(nl, line_h);
         lv_obj_set_style_text_font(nl, ui_font_role(UI_TEXT_META), LV_PART_MAIN);
         lv_obj_set_style_text_color(nl, lv_color_hex(APP_UI_COLOR_TEXT_PRIMARY), LV_PART_MAIN);
         lv_obj_align(nl, LV_ALIGN_LEFT_MID, 12, 0);
         lv_obj_t *vl = lv_label_create(row);
         lv_label_set_text(vl, value);
+        lv_label_set_long_mode(vl, LV_LABEL_LONG_WRAP);
+        lv_obj_set_size(vl, LV_PCT(34), LV_SIZE_CONTENT);
+        lv_obj_set_style_text_align(vl, LV_TEXT_ALIGN_RIGHT, LV_PART_MAIN);
         lv_obj_set_style_text_font(vl, ui_font_role(UI_TEXT_META), LV_PART_MAIN);
         lv_obj_set_style_text_color(vl, lv_color_hex(ROOM_MUTED_COLOR), LV_PART_MAIN);
         lv_obj_align(vl, LV_ALIGN_RIGHT_MID, -12, 0);

@@ -2,47 +2,53 @@
 
 # Weather (now)
 
-Show current weather conditions, temperature and the available extra readings.
-
-## Required Home Assistant integration
-
-The tile needs a **[weather](https://www.home-assistant.io/integrations/weather/)** entity from any provider. Extra readings such as UV or pressure appear only when that provider supplies them.
-
-## Configure in the editor
-
-1. Open a page in the [web editor](../editor.md#layout-workspace) and add **Weather (now)**.
-2. Use **Search** beside the entity field to choose an entity by name. Configure its options below.
-3. Resize the widget for its content, then **Save** the layout. Try its controls on the panel.
-
-The weather widgets hide their name by default to leave more room for conditions and forecasts.
-
-## Preview
+Shows the **current conditions** of a `weather.*` entity, with optional hourly forecasts and a detail popup for readings and the DWD weather report.
 
 <div class="widget-previews">
-<figure><a href="../img/gallery/weather_now_glow.png"><img src="../img/gallery/weather_now_glow.png" alt="Weather (now), Glow style" loading="lazy" width="220" height="240" style="width: 176px"></a>
-<figcaption>Weather (now)</figcaption></figure>
+<figure><a href="../img/gallery/weather_now_glow.png"><img src="../img/gallery/weather_now_glow.png" alt="Weather (now), Glow style" loading="lazy" width="220" height="240" style="width: 176px"></a></figure>
 </div>
 
-Glow style, LVGL simulator with synthetic data. Click to enlarge. Other styles keep the same functions.
+## Entities
 
-## Entities and interaction
-
-**Supported primary entities:** `weather.*`
-
-| Setting / behaviour | What it does |
+| Entity | Domains |
 | --- | --- |
-| Options | weather entity and optional Show name (off by default) |
-| Interaction | read-only |
-| Extras | Today’s low and precipitation when space permits; the same colored Meteocons as the forecast on P4 |
+| Weather | `weather.*` |
+| DWD weather report *(optional)* | `sensor.*` |
 
-## Layout limits
+## Requirements
+
+Current conditions need a weather entity. **Show hourly forecast** needs that provider's hourly forecasts; daily forecasts are not substituted. The optional German report needs the **[DWD Weather integration](https://github.com/FL550/dwd_weather)** and its separate *Weather report* sensor; enable it in Home Assistant if it is disabled.
+
+## Options
+
+| Option | Effect |
+| --- | --- |
+| Show hourly forecast | off by default; adds a horizontal strip of up to 24 upcoming hours with time, condition and temperature |
+| DWD weather report | optional sensor, shown in the detail popup |
+| Show name | off by default, to leave room for the conditions |
+
+## On the panel
+
+- A tap opens today's details: temperatures, the available humidity, pressure, wind and visibility, and the optional DWD report.
+- With hourly forecasts, scroll horizontally for later hours; scrolling does not open the popup. Times use the panel's time zone.
+- Hourly forecasts are fetched only while the tile is visible and refreshed every 15 minutes. A missing hourly forecast is shown explicitly; current conditions remain available.
+- Without the hourly strip, today's low and precipitation appear when there is room. The tile uses the same Meteocons as the daily forecast.
+- Close details with the close button or a tap outside; they also close automatically after one minute.
+
+## Variants
+
+<div class="widget-previews">
+<figure><a href="../img/gallery/weather_hourly_forecast_glow.png"><img src="../img/gallery/weather_hourly_forecast_glow.png" alt="Weather hourly forecast, Glow style" loading="lazy" width="680" height="360" style="width: 544px"></a>
+<figcaption>Weather hourly forecast</figcaption></figure>
+</div>
+
+## Size
 
 - Minimum: **220 × 200 px**.
-- Maximum: **480 px × 480 px**, capped by the selected display device's dashboard area.
-- Leave space for the value, title and touch controls; the minimum is a validation limit, not a recommended size.
+- Maximum: **dashboard width × dashboard height**, capped by the display's dashboard area.
 
-The [display device overview](../choose-display.md) lists usable dashboard geometry. [Widget anatomy](../widget-anatomy.md) explains title/content spacing and touch targets.
+The minimum is a validation limit, not a recommended size. [Choose your display](../choose-display.md) lists the dashboard geometry; [Widget anatomy](../widget-anatomy.md) explains spacing and touch targets.
 
 ## Related guides
 
-[Widget overview](README.md) · [Appearance comparison](../appearance.md#compare-the-four-styles) · [Home Assistant requirements](../home-assistant.md)
+[Widget library](README.md) · [Web editor](../editor.md) · [Appearance](../appearance.md#compare-the-four-styles) · [Home Assistant requirements](../home-assistant.md)

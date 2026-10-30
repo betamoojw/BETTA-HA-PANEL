@@ -30,13 +30,13 @@ void ha_layout_entities_add(ha_layout_entity_set_t *set, const char *entity_id)
     if (set == NULL || set->ids == NULL || entity_id == NULL || entity_id[0] == '\0') {
         return;
     }
+    if (ha_layout_entities_contains(set->ids, set->count, entity_id)) {
+        return;
+    }
     if (set->count >= set->capacity) {
         if (set->on_overflow != NULL) {
             set->on_overflow(set->capacity, entity_id);
         }
-        return;
-    }
-    if (ha_layout_entities_contains(set->ids, set->count, entity_id)) {
         return;
     }
     char *dst = set->ids + (set->count * APP_MAX_ENTITY_ID_LEN);
@@ -118,7 +118,7 @@ void ha_layout_entities_collect(cJSON *root, ha_layout_entity_set_t *set)
     cJSON *pages = cJSON_GetObjectItemCaseSensitive(root, "pages");
     if (cJSON_IsArray(pages)) {
         int page_count = cJSON_GetArraySize(pages);
-        for (int p = 0; p < page_count && set->count < set->capacity; p++) {
+        for (int p = 0; p < page_count; p++) {
             cJSON *page = cJSON_GetArrayItem(pages, p);
             cJSON *page_type = cJSON_GetObjectItemCaseSensitive(page, "type");
             if (cJSON_IsString(page_type) && page_type->valuestring != NULL &&
@@ -132,7 +132,7 @@ void ha_layout_entities_collect(cJSON *root, ha_layout_entity_set_t *set)
                     cJSON *extras = cJSON_GetObjectItemCaseSensitive(room, "room_entities");
                     cJSON *extra = NULL;
                     cJSON_ArrayForEach(extra, extras) {
-                        if (cJSON_IsString(extra) && extra->valuestring != NULL && set->count < set->capacity) {
+                        if (cJSON_IsString(extra) && extra->valuestring != NULL) {
                             ha_layout_entities_add(set, extra->valuestring);
                         }
                     }
@@ -157,7 +157,7 @@ void ha_layout_entities_collect(cJSON *root, ha_layout_entity_set_t *set)
                 };
                 if (cJSON_IsObject(energy)) {
                     if (ha_layout_energy_page_uses_manual_live(energy)) {
-                        for (size_t i = 0; i < (sizeof(energy_keys) / sizeof(energy_keys[0])) && set->count < set->capacity; i++) {
+                        for (size_t i = 0; i < (sizeof(energy_keys) / sizeof(energy_keys[0])); i++) {
                             ha_layout_collect_field(energy, energy_keys[i], set);
                         }
                     } else {
@@ -175,7 +175,7 @@ void ha_layout_entities_collect(cJSON *root, ha_layout_entity_set_t *set)
             }
 
             int widget_count = cJSON_GetArraySize(widgets);
-            for (int w = 0; w < widget_count && set->count < set->capacity; w++) {
+            for (int w = 0; w < widget_count; w++) {
                 cJSON *widget = cJSON_GetArrayItem(widgets, w);
                 if (!cJSON_IsObject(widget)) {
                     continue;
@@ -194,11 +194,15 @@ void ha_layout_entities_collect(cJSON *root, ha_layout_entity_set_t *set)
                 ha_layout_collect_field(widget, "forecast_day_3_entity_id", set);
                 ha_layout_collect_field(widget, "forecast_day_4_entity_id", set);
                 ha_layout_collect_field(widget, "forecast_day_5_entity_id", set);
+                ha_layout_collect_field(widget, "forecast_day_6_entity_id", set);
+                ha_layout_collect_field(widget, "forecast_day_7_entity_id", set);
                 ha_layout_collect_field(widget, "precond_entity_id", set);
                 ha_layout_collect_field(widget, "battery_soc_entity_id", set); /* energy timeline: live state of charge */
                 ha_layout_collect_field(widget, "lock_entity_id", set);
                 ha_layout_collect_field(widget, "interior_temp_entity_id", set);
                 ha_layout_collect_field(widget, "battery_entity_id", set); /* vacuum tile: optional charge sensor */
+                ha_layout_collect_field(widget, "dividends_entity_id", set); /* portfolio tile: optional dividends sensor */
+                ha_layout_collect_field(widget, "return_entity_id", set); /* portfolio tile: optional unrealised return sensor */
                 if (cJSON_IsString(type) && type->valuestring != NULL && strcmp(type->valuestring, "bambu_printer") == 0) {
                     for (size_t b = 0; b < k_bambu_printer_binding_count; b++) {
                         ha_layout_collect_field(widget, k_bambu_printer_bindings[b].key, set);
@@ -206,12 +210,16 @@ void ha_layout_entities_collect(cJSON *root, ha_layout_entity_set_t *set)
                 }
                 if (cJSON_IsString(type) && !strcmp(type->valuestring, "wallbox_evcc")) {
                     for (size_t b = 0; b < EVCC_ROLE_COUNT; b++) ha_layout_collect_field(widget, k_evcc_bindings[b].key, set);
+                    for (size_t b = 0; b < EVCC_SITE_COUNT; b++) ha_layout_collect_field(widget, k_evcc_site_bindings[b].key, set);
                 }
-                cJSON *room_entities = cJSON_GetObjectItemCaseSensitive(widget, "room_entities");
-                cJSON *room_item = NULL;
-                cJSON_ArrayForEach(room_item, room_entities) {
-                    if (cJSON_IsString(room_item) && room_item->valuestring != NULL && set->count < set->capacity) {
-                        ha_layout_entities_add(set, room_item->valuestring);
+                /* the room card's list and the Stocks & ETFs quotes after the first */
+                static const char *const lists[] = {"room_entities", "stock_entities", "sensor_entities"};
+                for (size_t l = 0; l < sizeof(lists) / sizeof(lists[0]); l++) {
+                    cJSON *list_item = NULL;
+                    cJSON_ArrayForEach(list_item, cJSON_GetObjectItemCaseSensitive(widget, lists[l])) {
+                        if (cJSON_IsString(list_item) && list_item->valuestring != NULL) {
+                            ha_layout_entities_add(set, list_item->valuestring);
+                        }
                     }
                 }
             }

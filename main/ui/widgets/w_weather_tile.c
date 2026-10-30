@@ -86,6 +86,7 @@ static void w_weather_tile_event_cb(lv_event_t *event)
         if (ctx->popup != NULL) {
             lv_obj_del(ctx->popup); /* its delete callback clears ctx->popup */
         }
+        weather_hourly_stop(ctx);
         weather_free_lottie(ctx);
         free(ctx);
     }
@@ -102,13 +103,9 @@ esp_err_t w_weather_tile_create(const ui_widget_def_t *def, lv_obj_t *parent, ui
     lv_obj_set_size(card, def->w, def->h);
     lv_obj_set_scrollable(card, false);
     lv_obj_set_style_radius(card, APP_UI_CARD_RADIUS, LV_PART_MAIN);
-#if APP_UI_REWORK_V2
     lv_obj_set_style_border_width(card, 1, LV_PART_MAIN);
     lv_obj_set_style_border_color(card, lv_color_hex(APP_UI_COLOR_CARD_BORDER), LV_PART_MAIN);
     lv_obj_set_style_border_opa(card, LV_OPA_70, LV_PART_MAIN);
-#else
-    lv_obj_set_style_border_width(card, 0, LV_PART_MAIN);
-#endif
     #if UI_TEXT_ADAPTIVE
     lv_obj_set_style_pad_all(card, 14, LV_PART_MAIN);
 #else
@@ -126,11 +123,7 @@ esp_err_t w_weather_tile_create(const ui_widget_def_t *def, lv_obj_t *parent, ui
     lv_obj_set_height(title, title_font->line_height);
     lv_obj_set_style_text_align(title, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
     lv_obj_set_style_text_color(title, lv_color_hex(APP_UI_COLOR_TEXT_PRIMARY), LV_PART_MAIN);
-#if APP_UI_TILE_LAYOUT_TUNED
     lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 2);
-#else
-    lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 0);
-#endif
 
     lv_obj_t *condition = lv_label_create(card);
     lv_label_set_text(condition, "--");
@@ -138,11 +131,7 @@ esp_err_t w_weather_tile_create(const ui_widget_def_t *def, lv_obj_t *parent, ui
     lv_obj_set_style_text_align(condition, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
     lv_obj_set_style_text_color(condition, lv_color_hex(APP_UI_COLOR_TEXT_SOFT), LV_PART_MAIN);
     lv_obj_set_style_text_font(condition, WEATHER_CONDITION_FONT, LV_PART_MAIN);
-#if APP_UI_TILE_LAYOUT_TUNED
     lv_obj_align(condition, LV_ALIGN_TOP_MID, 0, 36);
-#else
-    lv_obj_align(condition, LV_ALIGN_TOP_MID, 0, 34);
-#endif
 
     lv_obj_t *temp = lv_label_create(card);
     lv_label_set_text(temp, "--");
@@ -150,22 +139,14 @@ esp_err_t w_weather_tile_create(const ui_widget_def_t *def, lv_obj_t *parent, ui
     lv_obj_set_style_text_align(temp, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
     lv_obj_set_style_text_color(temp, lv_color_hex(APP_UI_COLOR_TEXT_PRIMARY), LV_PART_MAIN);
     lv_obj_set_style_text_font(temp, WEATHER_TEMP_FONT, LV_PART_MAIN);
-#if APP_UI_TILE_LAYOUT_TUNED
     lv_obj_align(temp, LV_ALIGN_TOP_MID, 0, 76);
-#else
-    lv_obj_align(temp, LV_ALIGN_TOP_MID, 0, 72);
-#endif
 
     lv_obj_t *meta = lv_label_create(card);
     lv_label_set_text(meta, "");
     lv_obj_set_width(meta, def->w - 32);
     lv_obj_set_style_text_align(meta, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
     lv_obj_set_style_text_color(meta, lv_color_hex(APP_UI_COLOR_TEXT_MUTED), LV_PART_MAIN);
-#if APP_UI_TILE_LAYOUT_TUNED
     lv_obj_align(meta, LV_ALIGN_TOP_MID, 0, 130);
-#else
-    lv_obj_align(meta, LV_ALIGN_TOP_MID, 0, 124);
-#endif
 
     w_weather_tile_ctx_t *ctx = weather_calloc(1, sizeof(w_weather_tile_ctx_t));
     if (ctx == NULL) {
@@ -173,12 +154,14 @@ esp_err_t w_weather_tile_create(const ui_widget_def_t *def, lv_obj_t *parent, ui
         return ESP_ERR_NO_MEM;
     }
 
+    ctx->card = card;
+    ctx->show_hourly = def->weather_hourly && strcmp(def->type, "weather_tile") == 0;
     ctx->hide_name = def->hide_name;
     ctx->show_forecast = (strcmp(def->type, "weather_3day") == 0);
     ctx->show_precip = def->show_precipitation;
     ctx->forecast_days = def->forecast_days;
     snprintf(ctx->entity_id, sizeof(ctx->entity_id), "%s", def->entity_id);
-    if (strcmp(def->type, "weather_3day") == 0) {
+    if (strcmp(def->type, "weather_3day") == 0 || strcmp(def->type, "weather_tile") == 0) {
         snprintf(ctx->report_entity_id, sizeof(ctx->report_entity_id), "%s", def->secondary_entity_id);
     }
     ctx->condition_label = condition;
@@ -253,6 +236,11 @@ esp_err_t w_weather_tile_create(const ui_widget_def_t *def, lv_obj_t *parent, ui
 #endif
 
     lv_obj_add_event_cb(card, w_weather_tile_event_cb, LV_EVENT_DELETE, ctx);
+    if (!ctx->show_forecast) {
+        lv_obj_set_clickable(card, true);
+        lv_obj_add_event_cb(card, weather_now_clicked_cb, LV_EVENT_CLICKED, ctx);
+    }
+    if (ctx->show_hourly) weather_hourly_start(ctx);
     out_instance->ctx = ctx;
     out_instance->obj = card;
     weather_render(card, ctx, NULL, false);
@@ -283,6 +271,11 @@ void w_weather_tile_apply_state(ui_widget_instance_t *instance, const ha_state_t
         return;
     }
 
+    if (!state->state[0] || !strcmp(state->state, "unknown") || !strcmp(state->state, "unavailable")) {
+        weather_render(instance->obj, ctx, NULL, false);
+        return;
+    }
+
     /* Deterministic icon behavior:
      * As soon as a weather condition maps to an icon, keep showing that icon
      * until a new valid weather condition arrives. */
@@ -295,6 +288,7 @@ void w_weather_tile_apply_state(ui_widget_instance_t *instance, const ha_state_t
     }
 
     weather_extract_values(state, true, values);
+
     if (ctx->last_condition_text[0] == '\0' && weather_has_alpha(values->condition)) {
         weather_copy_text(ctx->last_condition_text, sizeof(ctx->last_condition_text), values->condition);
     }
@@ -313,3 +307,18 @@ void w_weather_tile_mark_unavailable(ui_widget_instance_t *instance)
     }
     weather_render(instance->obj, ctx, NULL, false);
 }
+
+#ifdef BETTA_SIMULATOR
+/* Simulator service replies stay outside the firmware's bounded state-attribute buffer. */
+void w_weather_tile_simulator_set_hourly(ui_widget_instance_t *instance, const cJSON *forecast)
+{
+    w_weather_tile_ctx_t *ctx = instance->ctx;
+    if (ctx == NULL || !ctx->show_hourly || !cJSON_IsArray(forecast)) return;
+    cJSON *result = cJSON_CreateObject();
+    cJSON *response = cJSON_AddObjectToObject(result, "response");
+    cJSON *entity = cJSON_AddObjectToObject(response, ctx->entity_id);
+    cJSON_AddItemReferenceToObject(entity, "forecast", (cJSON *)forecast);
+    weather_hourly_simulator_reply(ctx->hourly_token, result);
+    cJSON_Delete(result);
+}
+#endif

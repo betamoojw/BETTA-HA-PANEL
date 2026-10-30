@@ -38,6 +38,27 @@ Tap Sensor, Binary sensor and Contact tiles for history; long-press Lock and Vac
 [Energy timeline](widgets/energy_timeline.md) or [Graph](widgets/graph.md).
 For popups, enable [History on tap](history.md) in the widget's inspector.
 
+## Electricity prices
+
+Show today's and tomorrow's prices, the current interval and the next cheap window with an Energy price forecast widget.
+Choose bars or a stepped line. Missing intervals stay gaps, and all upcoming cheap windows remain available.
+
+**Set it up:** [Energy price forecast](widgets/energy_price_forecast.md) lists supported price sensors, units and helper formats.
+
+## Parqet portfolio
+
+Show the value of a Parqet portfolio with its gain, XIRR, dividends and largest holdings with a Parqet portfolio widget.
+It reads the sensors of the Parqet Companion integration. Tabs for Performance and Holdings, the intervals 1D, 1W, 1M, YTD and MAX and the choice of largest, best or worst holdings can be shown on the tile. An option hides all amounts and shows percentages only.
+
+**Set it up:** [Parqet portfolio](widgets/parqet_portfolio.md) lists the sensors and what the tile shows at each size.
+
+## Stocks and ETFs
+
+Follow up to eight Easy Stock quotes in one tile, as a list with the day's change or as small charts.
+A tap opens the details with the market state and a chart over 1D, 1W, 30D, YTD or 1Y; each chart names its source.
+
+**Set it up:** [Stocks & ETFs](widgets/stock_quotes.md) lists the integrations and where each period comes from.
+
 ## Doorbell and messages
 
 A doorbell or sensor can wake the screen and show a message, camera snapshot and optional action button.

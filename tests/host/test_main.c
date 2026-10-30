@@ -10,6 +10,14 @@
 #include <time.h>
 #include <unistd.h>
 
+/* Only this executable's calendar is fixed; monotonic deadlines remain real. */
+time_t host_test_time(time_t *out)
+{
+    const time_t now = 1792058400; /* Thursday 2026-10-15 */
+    if (out != NULL) *out = now;
+    return now;
+}
+
 #include "app_config.h"
 #include "cJSON.h"
 #include "ha/ha_attrs_compact.h"
@@ -31,7 +39,6 @@
 #include "settings/settings_validate.h"
 #include "util/atomic_file.h"
 #include "drivers/display_policy.h"
-#include "drivers/touch_track.h"
 #include "util/cover_guard.h"
 #include "util/json_util.h"
 #include "util/cover_scale.h"
@@ -39,6 +46,9 @@
 #include "net/setup_passphrase.h"
 #include "layout/layout_validate.h"
 bool test_energy_timeline_colors(void);
+bool test_sensor_value(void);
+bool test_quote(void);
+bool test_timestamp_format(void);
 #include "layout/widget_types.h"
 #include "settings/brightness_model.h"
 #include "settings/settings_restart.h"
@@ -226,6 +236,13 @@ static void test_layout(void)
     expect_valid("light tile", W("\"type\":\"light_tile\",\"title\":\"L\",\"entity_id\":\"light.a\",%s", rect));
     expect_valid("alarm tile actions", W("\"type\":\"alarm_tile\",\"title\":\"A\",\"entity_id\":\"alarm_control_panel.a\",\"alarm_actions\":[\"arm_home\"],%s", rect));
     expect_invalid("alarm tile bad action", W("\"type\":\"alarm_tile\",\"title\":\"A\",\"entity_id\":\"alarm_control_panel.a\",\"alarm_actions\":[\"trigger\"],%s", rect), "alarm_actions");
+    expect_valid("sensor format", W("\"type\":\"sensor\",\"title\":\"S\",\"entity_id\":\"sensor.a\",\"sensor_format\":\"relative\",%s", rect));
+    expect_valid("sensor duration format", W("\"type\":\"sensor\",\"title\":\"S\",\"entity_id\":\"sensor.a\",\"sensor_format\":\"clock\",%s", rect));
+    expect_invalid("sensor bad format", W("\"type\":\"sensor\",\"title\":\"S\",\"entity_id\":\"sensor.a\",\"sensor_format\":\"iso\",%s", rect), "sensor_format");
+    expect_invalid("sensor empty format", W("\"type\":\"sensor\",\"title\":\"S\",\"entity_id\":\"sensor.a\",\"sensor_format\":\"\",%s", rect), "sensor_format");
+    expect_valid("sensor unit", W("\"type\":\"sensor\",\"title\":\"S\",\"entity_id\":\"sensor.a\",\"sensor_unit\":\"degree\",%s", rect));
+    expect_invalid("sensor bad unit", W("\"type\":\"sensor\",\"title\":\"S\",\"entity_id\":\"sensor.a\",\"sensor_unit\":\"kW\",%s", rect), "sensor_unit");
+    expect_invalid("sensor empty unit", W("\"type\":\"sensor\",\"title\":\"S\",\"entity_id\":\"sensor.a\",\"sensor_unit\":\"\",%s", rect), "sensor_unit");
     expect_invalid("unknown type", W("\"type\":\"nope\",\"title\":\"L\",\"entity_id\":\"light.a\",%s", rect), NULL);
     expect_invalid("light tile with a sensor", W("\"type\":\"light_tile\",\"title\":\"L\",\"entity_id\":\"sensor.a\",%s", rect), "must be light.*");
     expect_invalid("button with a light", W("\"type\":\"button\",\"title\":\"B\",\"entity_id\":\"light.a\",%s", rect), "must be switch.* or media_player.*");
@@ -236,8 +253,11 @@ static void test_layout(void)
     expect_valid("legacy forecast", W("\"type\":\"weather_3day\",\"entity_id\":\"weather.a\",%s", forecast_rect));
     expect_valid("auto forecast", W("\"type\":\"weather_3day\",\"entity_id\":\"weather.a\",\"forecast_days\":0,%s", forecast_rect));
     expect_valid("six days", W("\"type\":\"weather_3day\",\"entity_id\":\"weather.a\",\"forecast_days\":6,%s", forecast_rect));
+    expect_valid("seven days", W("\"type\":\"weather_3day\",\"entity_id\":\"weather.a\",\"forecast_days\":7,%s", forecast_rect));
+    expect_valid("solar seven days with day 6 and 7", W("\"type\":\"solar_forecast\",\"entity_id\":\"sensor.a\",\"forecast_day_6_entity_id\":\"sensor.d6\",\"forecast_day_7_entity_id\":\"sensor.d7\",\"forecast_days\":7,%s", forecast_rect));
+    expect_invalid("solar day 7 needs a sensor", W("\"type\":\"solar_forecast\",\"entity_id\":\"sensor.a\",\"forecast_day_7_entity_id\":\"light.d7\",%s", forecast_rect), "forecast_day_7_entity_id");
     expect_invalid("fractional days", W("\"type\":\"weather_3day\",\"entity_id\":\"weather.a\",\"forecast_days\":2.5,%s", forecast_rect), "forecast_days");
-    expect_invalid("too many days", W("\"type\":\"weather_3day\",\"entity_id\":\"weather.a\",\"forecast_days\":7,%s", forecast_rect), "forecast_days");
+    expect_invalid("too many days", W("\"type\":\"weather_3day\",\"entity_id\":\"weather.a\",\"forecast_days\":8,%s", forecast_rect), "forecast_days");
     expect_invalid("string days", W("\"type\":\"weather_3day\",\"entity_id\":\"weather.a\",\"forecast_days\":\"auto\",%s", forecast_rect), "forecast_days");
     expect_invalid("bad alignment", W("\"type\":\"solar_forecast\",\"entity_id\":\"sensor.a\",\"align_forecast\":1,%s", forecast_rect), "align_forecast");
     /* Binary tile: door look, and the legacy contact tile. */
@@ -282,6 +302,24 @@ static void test_layout(void)
         "battery_soc_entity_id");
     expect_invalid("energy timeline too small",
         "\"type\":\"energy_timeline\",\"entity_id\":\"sensor.imp\",\"rect\":{\"x\":0,\"y\":0,\"w\":200,\"h\":150}", NULL);
+
+    /* Stocks & ETFs: up to eight sensors, its options. */
+    const char *stock_rect = "\"rect\":{\"x\":0,\"y\":0,\"w\":300,\"h\":200}";
+    expect_valid("stock quotes list", W("\"type\":\"stock_quotes\",\"entity_id\":\"sensor.a\",\"stock_entities\":"
+        "[\"sensor.b\",\"sensor.c\"],\"stock_view\":\"grid\",\"stock_period\":\"ytd\",\"stock_delta\":\"both\","
+        "\"stock_ticker\":true,%s", stock_rect));
+    expect_invalid("stock quotes nine", W("\"type\":\"stock_quotes\",\"entity_id\":\"sensor.a\",\"stock_entities\":"
+        "[\"sensor.b\",\"sensor.c\",\"sensor.d\",\"sensor.e\",\"sensor.f\",\"sensor.g\",\"sensor.h\",\"sensor.i\"],%s", stock_rect),
+        "at most 7");
+    expect_invalid("stock quotes not a sensor", W("\"type\":\"stock_quotes\",\"entity_id\":\"sensor.a\",\"stock_entities\":"
+        "[\"light.b\"],%s", stock_rect), "stock_entities");
+    expect_invalid("stock quotes period", W("\"type\":\"stock_quotes\",\"entity_id\":\"sensor.a\",\"stock_period\":\"max\",%s",
+        stock_rect), "stock_period");
+    expect_invalid("stock quotes view", W("\"type\":\"stock_quotes\",\"entity_id\":\"sensor.a\",\"stock_view\":\"tiles\",%s",
+        stock_rect), "stock_view");
+    expect_invalid("stock quotes ticker", W("\"type\":\"stock_quotes\",\"entity_id\":\"sensor.a\",\"stock_ticker\":1,%s",
+        stock_rect), "stock_ticker");
+    expect_invalid("stock quotes without a quote", W("\"type\":\"stock_quotes\",%s", stock_rect), NULL);
 
     /* Room card extra field: old layouts, valid choices, and every way to get it wrong. */
     const char *room_rect = "\"rect\":{\"x\":0,\"y\":0,\"w\":240,\"h\":140}";
@@ -725,6 +763,10 @@ static void test_ha_attr_serializers(void)
          "{\"brightness\":128,\"effect_list\":[\"A\",\"B\"],\"unused\":123}", "brightness", "unused"},
         {ha_client_serialize_cover_attrs_compact,
          "{\"current_position\":50,\"unused\":123}", "current_position", "unused"},
+        {ha_client_serialize_cover_attrs_compact,
+         "{\"device_class\":\"shutter\",\"unused\":123}", "device_class", "unused"},
+        {ha_client_serialize_media_player_attrs_compact,
+         "{\"device_class\":\"speaker\",\"unused\":123}", "device_class", "unused"},
         {ha_client_serialize_fan_attrs_compact,
          "{\"percentage\":80,\"unused\":123}", "percentage", "unused"},
         {ha_client_serialize_image_attrs_compact,
@@ -808,13 +850,13 @@ static void test_ha_attr_serializers(void)
 
     cJSON *seven = cJSON_CreateObject();
     cJSON *seven_items = cJSON_AddArrayToObject(seven, "forecast");
-    for (int i = 0; i < 7; i++) {
+    for (int i = 0; i < 8; i++) {
         cJSON *day = cJSON_CreateObject();
         cJSON_AddNumberToObject(day, "temperature", i);
         cJSON_AddItemToArray(seven_items, day);
     }
     found = ha_client_find_compact_weather_forecast(seven, "weather.home");
-    CHECK_INT(cJSON_GetArraySize(found), 6);
+    CHECK_INT(cJSON_GetArraySize(found), 7);
     cJSON_Delete(found);
     cJSON_Delete(seven);
 
@@ -830,6 +872,8 @@ static void test_ha_attr_serializers(void)
     cJSON *compact_report = cJSON_Parse(out);
     CHECK(cJSON_IsString(cJSON_GetObjectItemCaseSensitive(compact_report, "s")));
     CHECK(cJSON_IsObject(cJSON_GetObjectItemCaseSensitive(compact_report, "d")));
+    CHECK(strcmp(cJSON_GetObjectItemCaseSensitive(cJSON_GetObjectItemCaseSensitive(compact_report, "d"), "4")->valuestring,
+                 "Heute scheint die Sonne.") == 0);
     cJSON_Delete(compact_report);
     cJSON_Delete(report_attrs);
 }
@@ -902,11 +946,19 @@ static void test_ha_layout_entities(void)
     CHECK(ha_layout_entities_contains(set.ids, set.count, "sensor.manual"));
     cJSON_Delete(layout);
 
+    /* Stocks & ETFs: the first quote and the list after it. */
+    layout = cJSON_Parse("{\"pages\":[{\"widgets\":[{\"type\":\"stock_quotes\",\"entity_id\":\"sensor.quote_a\","
+                         "\"stock_entities\":[\"sensor.quote_b\",\"sensor.quote_c\"]}]}]}");
+    ha_layout_entities_collect(layout, &set);
+    CHECK_INT((int)set.count, 3);
+    CHECK(ha_layout_entities_contains(set.ids, set.count, "sensor.quote_c"));
+    cJSON_Delete(layout);
+
     /* Every widget ID slot must reach the HA subscription set. */
     const char *widget_keys[] = {
         "entity_id", "secondary_entity_id", "tertiary_entity_id",
         "forecast_today_entity_id", "forecast_tomorrow_entity_id", "forecast_day_3_entity_id",
-        "forecast_day_4_entity_id", "forecast_day_5_entity_id", "precond_entity_id",
+        "forecast_day_4_entity_id", "forecast_day_5_entity_id", "forecast_day_6_entity_id", "forecast_day_7_entity_id", "precond_entity_id",
         "lock_entity_id", "interior_temp_entity_id",
     };
     layout = cJSON_CreateObject();
@@ -924,7 +976,7 @@ static void test_ha_layout_entities(void)
     cJSON *room_entities = cJSON_AddArrayToObject(widget, "room_entities");
     cJSON_AddItemToArray(room_entities, cJSON_CreateString("sensor.room_extra"));
     ha_layout_entities_collect(layout, &set);
-    CHECK_INT((int)set.count, 12);
+    CHECK_INT((int)set.count, 14);
     for (size_t i = 0; i < sizeof(widget_keys) / sizeof(widget_keys[0]); i++) {
         char entity_id[32];
         snprintf(entity_id, sizeof(entity_id), "sensor.slot_%u", (unsigned)i);
@@ -963,8 +1015,10 @@ static void test_ha_layout_entities(void)
     ha_layout_entities_collect(layout, &cap);
     CHECK_INT((int)cap.count, 2);
     CHECK(!ha_layout_entities_contains(cap.ids, cap.count, "sensor.three"));
+    CHECK_INT(s_layout_overflows, 1); /* the collector reports omitted entities rather than stopping silently */
     ha_layout_entities_add(&cap, "sensor.four");
-    CHECK_INT(s_layout_overflows, 1);
+    CHECK_INT(s_layout_overflows, 2);
+    ha_layout_entities_add(&cap, "sensor.one"); CHECK_INT(s_layout_overflows, 2); /* a stored duplicate is not an overflow */
     cJSON_Delete(layout);
 
     char ordered_a[2][APP_MAX_ENTITY_ID_LEN] = {{0}};
@@ -1203,7 +1257,8 @@ static void test_ha_display_precision(void)
         "\"number.limit\":{\"options\":{}},\"sensor.plain\":null}");
     CHECK(ha_display_precision_handle_result(8, true, result, test_precision_changed));
     cJSON_Delete(result);
-    CHECK_INT(s_precision_changes, 2);
+    /* every entity of the batch learned its integration ("other" without an entry), two also a precision */
+    CHECK_INT(s_precision_changes, HA_DISPLAY_PRECISION_BATCH);
     CHECK_INT(ha_display_precision_get("sensor.power"), 2);
     CHECK_INT(ha_display_precision_get("sensor.solar"), 0);
     CHECK_INT(ha_display_precision_get("number.limit"), HA_DISPLAY_PRECISION_UNKNOWN);
@@ -1236,7 +1291,7 @@ static void test_ha_display_precision(void)
     result = cJSON_Parse("{\"sensor.power\":{\"options\":{\"sensor\":{\"suggested_display_precision\":2}}}}");
     CHECK(ha_display_precision_handle_result(10, true, result, test_precision_changed));
     cJSON_Delete(result);
-    CHECK_INT(s_precision_changes, 2);
+    CHECK_INT(s_precision_changes, HA_DISPLAY_PRECISION_BATCH);
     ha_display_precision_set_wanted(&ids[0][0], 20);
     req = ha_display_precision_next_request(11, 4000);
     cJSON_Delete(req);
@@ -1878,6 +1933,14 @@ static void test_auto_update_state(void)
 
 static void test_ui_watchdog(void)
 {
+    /* The beat stamp is never 0 ("no beat yet"), also where the millisecond count wraps after 49.7 days. */
+    CHECK_INT((int)ui_wd_stamp_ms(0), 1);
+    CHECK_INT((int)ui_wd_stamp_ms(1000 * 1000LL), 1001);
+    CHECK(ui_wd_stamp_ms(0xFFFFFFFELL * 1000) == 0xFFFFFFFFU);
+    CHECK(ui_wd_stamp_ms(0xFFFFFFFFLL * 1000) != 0U); /* the millisecond that used to give 0 */
+    CHECK(ui_wd_stamp_ms(0x100000000LL * 1000) != 0U);
+    CHECK((uint32_t)(ui_wd_stamp_ms(0x100000005LL * 1000) - ui_wd_stamp_ms(0xFFFFFFFELL * 1000)) == 7U); /* ages stay right across the wrap */
+
     ui_wd_state_t st;
     ui_wd_init(&st);
     ui_wd_input_t in = {.lvgl_age_s = 1, .runtime_age_s = 1, .restarts_in_a_row = 0};
@@ -2082,6 +2145,7 @@ static void test_discovery_domains(void)
     CHECK(!ha_discovery_entity_matches("cover_x.garage", "cover"));
     CHECK(ha_discovery_entity_matches("light.a", "nope")); /* unknown domain falls back to light */
     CHECK(ha_discovery_entity_matches("input_boolean.guest", "any"));
+    CHECK(ha_discovery_entity_matches("image.map", "any"));
     CHECK(!ha_discovery_entity_matches("input_boolean.guest", "room"));
     CHECK(ha_discovery_entity_matches("vacuum.robot", "room"));
     CHECK(!ha_discovery_entity_matches("automation.x", "any"));
@@ -2091,7 +2155,7 @@ static void test_discovery_domains(void)
     char jinja[384]; /* as ha_client.c */
     CHECK(ha_discovery_domains_jinja("any", jinja, sizeof(jinja)));
     CHECK(strcmp(jinja, "['sensor','binary_sensor','light','cover','fan','climate','media_player','lock','alarm_control_panel','switch',"
-                        "'input_boolean','weather','vacuum','camera','event','scene','script','button','input_button',"
+                        "'input_boolean','weather','vacuum','camera','image','event','scene','script','button','input_button',"
                         "'todo','select','input_select','input_datetime','time','date','datetime']") == 0);
     CHECK(ha_discovery_domains_jinja("room", jinja, sizeof(jinja)));
     CHECK(strcmp(jinja, "['sensor','binary_sensor','light','cover','fan','climate','media_player','lock','switch',"
@@ -2138,6 +2202,19 @@ static void test_auth_state(void)
     ha_auth_state_reset();
     CHECK(ha_auth_state_report_ws_auth_invalid());
     CHECK(strcmp(ha_auth_state_name(), "token_rejected") == 0);
+    ha_auth_state_reset();
+
+    /* An image URL with its own token (camera_proxy) or on a foreign host says nothing about the panel's token. */
+    CHECK(!ha_auth_state_report_image_fetch(401, false));
+    CHECK(!ha_auth_state_report_image_fetch(403, false));
+    CHECK(!ha_auth_state_blocked());
+    CHECK(!ha_auth_state_report_image_fetch(200, true));
+    CHECK(!ha_auth_state_blocked());
+    CHECK(ha_auth_state_report_image_fetch(401, true)); /* the panel's own token was sent and refused */
+    CHECK_INT(ha_auth_state_reason(), HA_AUTH_TOKEN_REJECTED);
+    ha_auth_state_reset();
+    CHECK(ha_auth_state_report_image_fetch(403, true));
+    CHECK_INT(ha_auth_state_reason(), HA_AUTH_FORBIDDEN);
     ha_auth_state_reset();
 }
 
@@ -2866,88 +2943,8 @@ static void test_display_policy(void)
     CHECK_INT(display_policy_clamp_percent(42), 42);
 }
 
-static touch_track_result_t tt(touch_track_t *t, int64_t ms, int n, uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1,
-                              uint16_t *ox, uint16_t *oy)
-{
-    uint16_t xs[2] = {x0, x1};
-    uint16_t ys[2] = {y0, y1};
-    return touch_track_update(t, xs, ys, n, ms * 1000, ox, oy);
-}
-
-static void test_touch_track(void)
-{
-    touch_track_t t;
-    uint16_t ox = 0, oy = 0;
-    touch_track_reset(&t);
-
-    /* a plain tap: reported from the second frame on, at the point the finger is at */
-    CHECK_INT(tt(&t, 0, 1, 400, 300, 0, 0, &ox, &oy), TOUCH_TRACK_NONE);
-    CHECK_INT(tt(&t, 10, 1, 402, 301, 0, 0, &ox, &oy), TOUCH_TRACK_REPORT);
-    CHECK(ox == 402 && oy == 301);
-    CHECK_INT(tt(&t, 20, 1, 403, 301, 0, 0, &ox, &oy), TOUCH_TRACK_REPORT);
-
-    /* the ghost the owner hit: the first frame of a contact is a stray point at the edge, then the real finger */
-    touch_track_reset(&t);
-    CHECK_INT(tt(&t, 1000, 1, 799, 664, 0, 0, &ox, &oy), TOUCH_TRACK_NONE);   /* ghost: only a candidate */
-    CHECK_INT(tt(&t, 1010, 1, 435, 672, 0, 0, &ox, &oy), TOUCH_TRACK_NONE);   /* real finger: far from the ghost, waits */
-    CHECK_INT(tt(&t, 1020, 1, 436, 672, 0, 0, &ox, &oy), TOUCH_TRACK_REPORT); /* confirmed */
-    CHECK(ox == 436 && oy == 672);
-    CHECK_INT(tt(&t, 1030, 1, 437, 671, 0, 0, &ox, &oy), TOUCH_TRACK_REPORT);
-
-    /* a stray jump while the finger is down is held, the finger keeps its place */
-    CHECK_INT(tt(&t, 1040, 1, 780, 100, 0, 0, &ox, &oy), TOUCH_TRACK_HELD);
-    CHECK(ox == 437 && oy == 671);
-    CHECK_INT(tt(&t, 1050, 1, 438, 670, 0, 0, &ox, &oy), TOUCH_TRACK_REPORT);
-    CHECK(ox == 438 && oy == 670);
-
-    /* two points reported, the second one is a stray: the one near the finger is followed, even when listed second */
-    CHECK_INT(tt(&t, 1060, 2, 700, 900, 439, 670, &ox, &oy), TOUCH_TRACK_REPORT);
-    CHECK(ox == 439 && oy == 670);
-
-    /* a fast drag stays inside the allowed speed: 300 px in 40 ms (7.5 px/ms) is no jump */
-    touch_track_reset(&t);
-    (void)tt(&t, 0, 1, 100, 100, 0, 0, &ox, &oy);
-    (void)tt(&t, 10, 1, 100, 100, 0, 0, &ox, &oy);
-    CHECK_INT(tt(&t, 50, 1, 100, 400, 0, 0, &ox, &oy), TOUCH_TRACK_REPORT);
-    CHECK(oy == 400);
-
-    /* a real jump that repeats is accepted after the hold limit (a second finger that stays) */
-    CHECK_INT(tt(&t, 60, 1, 700, 1200, 0, 0, &ox, &oy), TOUCH_TRACK_HELD);
-    CHECK_INT(tt(&t, 70, 1, 700, 1200, 0, 0, &ox, &oy), TOUCH_TRACK_HELD);
-    CHECK_INT(tt(&t, 80, 1, 700, 1200, 0, 0, &ox, &oy), TOUCH_TRACK_REPORT);
-    CHECK(ox == 700 && oy == 1200);
-
-    /* no usable point: held for two frames, then the contact ends */
-    CHECK_INT(tt(&t, 90, 0, 0, 0, 0, 0, &ox, &oy), TOUCH_TRACK_HELD);
-    CHECK_INT(tt(&t, 100, 0, 0, 0, 0, 0, &ox, &oy), TOUCH_TRACK_HELD);
-    CHECK_INT(tt(&t, 110, 0, 0, 0, 0, 0, &ox, &oy), TOUCH_TRACK_NONE);
-    CHECK(!t.tracking);
-
-    /* after a pause the next report is a new contact, not a jump */
-    touch_track_reset(&t);
-    (void)tt(&t, 0, 1, 100, 100, 0, 0, &ox, &oy);
-    (void)tt(&t, 10, 1, 100, 100, 0, 0, &ox, &oy);
-    CHECK_INT(tt(&t, 500, 1, 600, 1000, 0, 0, &ox, &oy), TOUCH_TRACK_NONE);      /* candidate of a new contact */
-    CHECK_INT(tt(&t, 510, 1, 601, 1001, 0, 0, &ox, &oy), TOUCH_TRACK_REPORT);
-
-    /* a point that keeps changing is accepted after the start frames */
-    touch_track_reset(&t);
-    CHECK_INT(tt(&t, 0, 1, 100, 100, 0, 0, &ox, &oy), TOUCH_TRACK_NONE);
-    CHECK_INT(tt(&t, 10, 1, 400, 700, 0, 0, &ox, &oy), TOUCH_TRACK_NONE);
-    CHECK_INT(tt(&t, 20, 1, 700, 200, 0, 0, &ox, &oy), TOUCH_TRACK_REPORT);
-
-    /* raw range: the saturated edge value is a ghost marker, the end of the valid range is not */
-    CHECK(touch_track_raw_valid(1650, 890, 1650, 890));
-    CHECK(!touch_track_raw_valid(1651, 100, 1650, 890));
-    CHECK(!touch_track_raw_valid(100, 891, 1650, 890));
-    CHECK(!touch_track_raw_valid(0, 0, 1650, 890));
-    CHECK(touch_track_raw_valid(20, 20, 1650, 890));
-    CHECK_INT(touch_track_update(NULL, NULL, NULL, 0, 0, &ox, &oy), TOUCH_TRACK_NONE);
-}
-
 int main(void)
 {
-    test_touch_track();
     test_display_policy();
     test_json_number_u32();
     test_cover_guard();
@@ -2959,6 +2956,9 @@ int main(void)
     test_energy_timeline_model();
     test_room_extra();
     test_datetime_value();
+    CHECK(test_timestamp_format());
+    CHECK(test_sensor_value());
+    CHECK(test_quote());
     test_lock_state();
     test_select_options();
     test_settings_restart();

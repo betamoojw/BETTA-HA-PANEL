@@ -139,15 +139,28 @@ dependencies:
     - esp32p4
     version: 1.3.0
   espressif/esp_hosted:
-    component_hash: f1792f36ef9a637adf2faa2662f3c4500b07f3d2ba65c25f3ed4824490ba59f9
+    component_hash: c88052665d8df3c7185cb5e34327d77674599006bbbbe4bfdb43c44f9a2a73a3
     dependencies:
     - name: idf
       require: private
-      version: '>=5.3'
+      version: '>=5.5'
     source:
       registry_url: https://components.espressif.com/
       type: service
-    version: 2.12.13
+    targets:
+    - esp32
+    - esp32c2
+    - esp32s2
+    - esp32s3
+    - esp32c3
+    - esp32c5
+    - esp32c6
+    - esp32c61
+    - esp32h2
+    - esp32h4
+    - esp32h21
+    - esp32p4
+    version: 3.0.10
   espressif/esp_ipa:
     component_hash: da24ae8139754b48af75a8c737b81e8eb7fc5a7af4ced5d70af1feb3a056838c
     dependencies:
@@ -205,7 +218,7 @@ dependencies:
       type: service
     version: 1.2.1
   espressif/esp_lv_decoder:
-    component_hash: 331d23c304cea5d1aed0ad3cea7774874dbaeebb2217e8db6bf3cc8485ac9f9f
+    component_hash: 6e844411eb1089a6d971d25d08af0c00def2535a6a6c844acc42c85a7d80dd36
     dependencies:
     - name: espressif/esp_new_jpeg
       registry_url: https://components.espressif.com
@@ -215,13 +228,17 @@ dependencies:
       registry_url: https://components.espressif.com
       require: private
       version: 1.*
+    - name: espressif/qoi
+      registry_url: https://components.espressif.com
+      require: private
+      version: ^0.20260529.0
     - name: idf
       require: private
       version: '>=5.3'
     - name: lvgl/lvgl
       registry_url: https://components.espressif.com
       require: private
-      version: '>=8,<10'
+      version: '>=8.3,<10'
     source:
       registry_url: https://components.espressif.com
       type: service
@@ -237,7 +254,7 @@ dependencies:
     - esp32c6
     - esp32c61
     - esp32h4
-    version: 0.4.3
+    version: 0.5.0
   espressif/esp_lv_fs:
     component_hash: 66896007884b817df34c964f9a114fff538ee2674e99fee7159162498b93f94b
     dependencies:
@@ -487,6 +504,16 @@ dependencies:
       registry_url: https://components.espressif.com/
       type: service
     version: 1.1.0
+  espressif/qoi:
+    component_hash: a6ba68ee51fabb676458c70b5203e4322b00eabaceecbc969bde360e41d4e304
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=5.0'
+    source:
+      registry_url: https://components.espressif.com
+      type: service
+    version: 0.20260529.0
   espressif/usb:
     component_hash: 6c2cff118141dbbca181d0d27d71801fdddfc78f7ac03ae43f6e5a8cbd89cb99
     dependencies:
@@ -557,7 +584,7 @@ dependencies:
       type: idf
     version: 6.1.0
   joltwallet/littlefs:
-    component_hash: f65ef32c718e87638ee966b9b02f21639c45bed59c8d0126fd03e9c1f3275a92
+    component_hash: e1a0f4a6adf821759cb34703a91107bbdce5d7ff6f4728f40ab012bb87842974
     dependencies:
     - name: idf
       require: private
@@ -565,7 +592,7 @@ dependencies:
     source:
       registry_url: https://components.espressif.com/
       type: service
-    version: 1.23.0
+    version: 1.23.1
   lvgl/lvgl:
     component_hash: 7d82410747bbfb319531449749e940f440f8414f041f9eaba13f0d1dd7f58cdd
     dependencies:
@@ -668,6 +695,6 @@ direct_dependencies:
 - joltwallet/littlefs
 - lvgl/lvgl
 - waveshare/esp32_p4_wifi6_touch_lcd_x
-manifest_hash: f102c2acb24c1b593ba040aea52b239075cf92c3450262115a47078a18e57bed
+manifest_hash: 27768fbb90b7a596ea4cd4ddaccd2090a5585dbdcdf897fbdc9724b2961d58c3
 target: esp32p4
 version: 3.0.0

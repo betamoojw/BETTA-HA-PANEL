@@ -1,12 +1,13 @@
 <!-- SPDX-License-Identifier: LicenseRef-FNCL-1.1 | Copyright (c) 2026 andre68723 -- file added in the andre68723/BETTA-HA-PANEL fork, see docs/release-notes.md -->
 # Working practices
 
-Lessons from real devices.
+Lessons from real devices. The retired `panels3` profile had no test hardware; its 480 px screen could not
+hold the newer widgets. Current variants are in [Display devices](../choose-display.md).
 
 ## Devices and flashing
 
 - Flash **one device at a time**; parallel OTA uploads or builds can hang a panel.
-- Pass the image to `tools/ota_flash.sh` explicitly. Without one it takes the newest `build/*/` binary, which is the
+- Pass the image to `scripts/ota_flash.sh` explicitly. Without one it takes the newest `build/*/` binary, which is the
   wrong variant right after another build (the panel refuses it, nothing is written).
 - Opening the USB serial port can reset the board (`idf.py monitor`, pyserial). Read `GET /api/log` (last 32 KB) and
   `GET /api/version` (memory, `cpu.load_percent`, `uptime_s`) over HTTP first.
@@ -24,7 +25,7 @@ Lessons from real devices.
 
 Host tests cover pure logic only; check UI and hardware on the device.
 
-- `GET /api/screenshot.bmp` (`tools/screenshot.sh`) returns the framebuffer, popups included.
+- `GET /api/screenshot.bmp` (`scripts/screenshot.sh`) returns the LVGL snapshot, popups included; it is not a physical framebuffer readback.
 - `POST /api/navigate {"page":"<id>"}` switches the page without touch.
 - `POST /api/ui/tap {"widget":"<id>"}` or `{"close":true}` opens and closes a read-only popup (weather, energy
   timeline, room, solar, car, graph; sensor, binary and contact with history). It needs the admin login and cannot
@@ -33,7 +34,10 @@ Host tests cover pure logic only; check UI and hardware on the device.
 
 - Page-switch timings are logged (`page <id> shown, refresh <n> ms`, `... frame done <n> ms after the switch`); compare
   them before and after a UI performance change.
-- The editor autosaves to the connected panel. Back up `GET /api/layout` before an experiment and `PUT` it back.
+- The editor autosaves to the connected panel. Before a risky layout test, back up `GET /api/layout` to ignored
+  `.claude/layout-backups/` and restore with `PUT` only when authorized. `tools/capture_device_pages.py` captures pages.
+  Recovery for an unresponsive 16 MB paneljc: `esptool --port <port> flash-id` reads the ID then resets without flashing;
+  this is a reset, requires authorization and can erase volatile evidence. Collect HTTP evidence first when possible.
 - macOS has no `timeout`; scripts talking to a device need their own.
 
 ## Admin password
@@ -44,6 +48,19 @@ POST/PUT bodies must be `application/json` (`application/octet-stream` for `/api
 [Security](../SECURITY.md).
 
 ## Memory and heap
+
+- C6 memory diagnostics (`net/c6_memory*`) configure ESP-Hosted's memory monitor from a low-priority worker
+  under the Wi-Fi API mutex, after station setup or setup AP startup. `/api/version` only copies the cache.
+  In ESP-Hosted 2.12.13 the config reply's `curr_total_heap_size` means **free** heap; only periodic events
+  contain the C6 boot minimum. Internal 8-bit and DMA capabilities overlap. Reset generations invalidate old
+  samples and in-flight replies; transport loss or an age over 180 seconds marks cached values stale.
+  Incident hooks copy the latest sample; the worker retains it under the separate versioned NVS key
+  `wifi_diag/c6_last`, at most once per five seconds, without changing the legacy Wi-Fi diagnostic blob.
+  Before a network-watchdog restart, `c6_memory_retain_for_restart()` tags a fresh sample with the reboot cause
+  (record version 2) and wakes the worker to write it at once; the watchdog runs on a PSRAM stack and must not write
+  flash itself, so it waits at most one second for the worker.
+  Ordinary minute reports never write flash. Runtime C6 support and reconnect behaviour need device trials;
+  host tests and firmware builds alone do not establish them.
 
 Internal RAM is scarce (Wi-Fi/SDIO buffers, TLS, task stacks); keep large buffers in PSRAM.
 
@@ -58,9 +75,15 @@ Internal RAM is scarce (Wi-Fi/SDIO buffers, TLS, task stacks); keep large buffer
 - **Size task stacks from measurements:** `GET /api/version?tasks=1` lists each task's stack (priority, internal or
   not, size, least ever free). Exercise the panel first (page switches, popups, editor, discovery); the low-water mark
   only covers what ran since boot. IDF-created tasks report `stack_size` 0.
+- **Find what loads a core:** the same list carries `core`, `run_time` and the top-level `total_time`. Read it twice,
+  e.g. 30 s apart; `(run_time delta) / (total_time delta)` is each task's share of one core (`IDLE0`/`IDLE1` the idle share).
+  On `paneljc` (2026-10-29) `ui_runtime` took 23-67 % of core 1 and the CPU rotation in `lvgl` another 17-34 %.
+  With the PPA, `tools/stress_test.py --duration 90` (paneljc, source `4df01b2`-equivalent, 9 editor bursts) measured
+  core 0 22 % and core 1 67 % busy under load (`lvgl` 35 %, `ui_runtime` 27 %, `ha_client` 11 %), 7 % and 29 % in the
+  20 s after; no failed requests or coredump, internal heap 267.7 → 263.0 KB free.
 - **Stacks that live in PSRAM** (`xTaskCreateWithCaps`, must end with `vTaskDeleteWithCaps(NULL)`): `ha_cover`,
   `ha_energy_tl`, `ha_history` (10 KB: a 5,000-value day left only 2 KB at 8 KB) and the MQTT client
-  (`CONFIG_MQTT_TASK_STACK_ON_EXTERNAL_MEMORY`). Current sizes: `ui_runtime` 16 KB, `taskLVGL` 20 KB,
+  (`CONFIG_MQTT_TASK_STACK_ON_EXTERNAL_MEMORY`). Current sizes: `ui_runtime` 16 KB, `lvgl` 20 KB (`taskLVGL` in older images),
   `websocket_task` 8 KB (TLS margin), `httpd` 14 KB; `GET /api/screenshot.bmp` with a popup open needs 11 KB of it.
   The websocket client has no PSRAM stack option.
 - **Hidden pages stay built** and receive every entity update. Work that only matters on screen belongs in the
@@ -79,24 +102,19 @@ Internal RAM is scarce (Wi-Fi/SDIO buffers, TLS, task stacks); keep large buffer
 
 ## Before building a feature
 
-- **Budget first.** Name the resources the feature uses (largest free internal block, task stack, heavy-request gate,
-  display lock, time per UI cycle) and read the free amount from the device, not from the documentation.
-- **Measure in the running state.** Boot values are optimistic: the largest internal block drops to about 32-36 KB
-  after hours with the camera, discovery and popups. Use `int_free`, `int_largest`, `int_min` and
-  `GET /api/version?tasks=1` after exercising the panel.
-- **Put the riskiest assumption on hardware first.** If the risk is memory, timing or the display lock, a thin
-  throwaway slice on the device comes before a long specification.
-- **No unbounded wait under a lock.** Every new wait gets a deadline and a cancel path (see the PPA hang below).
-- **Stacks from measurements,** in PSRAM where the task never touches flash. mbedTLS allocates from PSRAM
-  (`CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC`), so a TLS client costs little internal RAM, but its cost per session is not measured.
-- **Check the existing convention** before leaving it, for example "hidden pages stay built" below.
+Budget internal blocks, stacks, heavy-request gate, display lock and UI-cycle time before implementing.
+Read free resources after exercising the device; boot values are optimistic (largest internal block about
+32–36 KB after hours with camera/discovery/popups). A low-water mark only covers work actually run.
+Put memory/timing/display-lock risks on hardware first when authorized. Every wait gets a deadline/cancel path;
+keep stacks in PSRAM only for tasks that never touch flash. mbedTLS uses PSRAM
+(`CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC`); per-session cost is not measured. Follow existing visibility conventions.
 
 ## Watchdogs and crash evidence
 
 - **Network watchdog** (`util/net_watchdog.c`): a task polls every 30 s and pings the gateway every 60 s. The pure
   decision function restarts after `NET_WD_LINK_DOWN_S` without link or `NET_WD_PING_DEAD_S` of silent gateway (only if
   it answered once and Home Assistant is not connected), never within `NET_WD_BOOT_GRACE_S` of boot, at most
-  `NET_WD_MAX_RESTARTS` in a row (RTC counter, cleared after 10 minutes of working network). The restart shows as
+  `NET_WD_MAX_RESTARTS` (three) in a row (RTC counter, cleared after 10 minutes of working network). The restart shows as
   `net_watchdog` in the reboot history.
 - **Reboot history** (`util/reboot_log.c`): after an unexplained restart read `GET /api/reboot-log` (or `last_reboot`
   in `/api/version`) before touching USB: it says whether the previous run ended in a panic, a watchdog, a power cut or a
@@ -112,10 +130,12 @@ Internal RAM is scarce (Wi-Fi/SDIO buffers, TLS, task stacks); keep large buffer
 - **Known cause (paneljc, 2026-10-05):** `taskLVGL` blocked in `ppa_do_operation` (90° rotation flush) waiting with
   `portMAX_DELAY` for a PPA interrupt, holding the display lock. The `esp_lvgl_port` patch in
   `tools/apply_component_patches.py` runs the rotation non-blocking and waits 1 s on a semaphore; on a timeout
-  `lvgl_port_ppa_timeout_hook()` writes a core dump and restarts (at most three in a row). Why the PPA sometimes does
-  not finish is not established (a candidate is the SRM tail-block calculation in `ppa_srm.c`, not yet shown on the
-  device). The `paneljc` configuration therefore rotates on the CPU (`CONFIG_APP_DISPLAY_PPA` unset in
-  `config/sdkconfig.defaults.paneljc`); `paneljc-v2` keeps the PPA.
+  `lvgl_port_ppa_timeout_hook()` writes a core dump and restarts (at most three in a row). Cause of the missing
+  completion (2026-10-29, esp-idf#19096/#19023; reasoned from the upstream reports and the 352x68 geometry, not
+  reproduced on the device): the DIG-734 workaround in `ppa_srm.c` sized the leftover
+  block from the unrotated input, so a 90/270 degree RGB565 rotation such as 352x68 skipped the macro-block-order
+  bypass and the transaction never ended. `components/esp_driver_ppa` is ESP-IDF 6.1's driver with upstream commit
+  `469aa16`; `paneljc` rotates with the PPA again. Delete the directory once ESP-IDF contains the fix.
   The shared adapter callback in `drivers/display_port.c` retains the same bounded transaction and crash hook.
 - **Waveshare panel10 PPA timeouts (2026-10-24):** retained COM24 reports
   `218edc0b4680` and `8d65ab7a88a1` match ELF `36a86083c` (System Settings
@@ -140,9 +160,9 @@ Internal RAM is scarce (Wi-Fi/SDIO buffers, TLS, task stacks); keep large buffer
   an illegal instruction at `panic_abort` can be deliberate. Save the report metadata from `/api/version` and
   `GET /api/coredump?id=<id>`, then
   `python -m esp_coredump info_corefile -t raw -c core.bin build/<variant>/<app>.elf` with ESP-IDF active, against
-  the ELF of the firmware that ran. `tools/build.sh` keeps each successful build's ELF as
+  the ELF of the firmware that ran. `scripts/build.sh` keeps each successful build's ELF as
   `.local/elf/<variant>/<first 9 hex digits of its SHA256>.elf` (newest 12 per variant); the decoder's error names the
-  SHA the dump needs. A rebuild of the same commit does not match, so flash only images built through `tools/build.sh`.
+  SHA the dump needs. A rebuild of the same commit does not match, so flash only images built through `scripts/build.sh`.
   The two-report archive, PPA operation metadata and RTC marker limitations are in [Crash dumps](../coredump.md).
 
 - **Wallbox session timestamp (paneljc, 2026-10-12):** the saved dump matched ELF `51428e179` and showed
@@ -218,9 +238,26 @@ config entry), so the 2026.8 split produced no duplicates in the editor's device
 The 10-inch paneljc shows short white/cyan flashes without touch, every few minutes, sometimes three in a row (open, no underrun message captured).
 A flash write disables the cache, and the DSI refresh interrupt is not cache-safe (`CONFIG_LCD_DSI_ISR_CACHE_SAFE` is off); HomeTiles traced blue flashes on the
 same panel to exactly that. Every flash write logs `flash_trace: flash write: <what> <bytes> B, <ms> ms` (`util/flash_trace.h`: settings, layout, theme, translations, graph
-history, Wi-Fi diagnostics). Match the wall-clock time of a visible flash against `GET /api/log`; keep the trace until the cause is known. The cache-safe option does not
-work as is: the DSI driver then requires IRAM callbacks and an internal-RAM context, and `esp_lvgl_port` registers flash-resident callbacks that touch a PSRAM
-display object, so `display_init()` fails on the first boot (tried 2026-10-07, rolled back).
+history, Wi-Fi diagnostics). Match the wall-clock time of a visible flash against `GET /api/log`; keep the trace until the cause is known. The 2026-10-07 experiment with the then-active esp_lvgl_port failed: the DSI driver then requires IRAM callbacks and an internal-RAM context, and `esp_lvgl_port` registers flash-resident callbacks that touch a PSRAM
+display object, so `display_init()` failed on the first boot and was rolled back. This historical result
+does not establish cache safety of the current esp_lvgl_adapter path in `drivers/display_port.c`.
+
+## Touch contacts
+
+Taps on the 10-inch paneljc sometimes needed a second try. Counters in `GET /api/version` ("touch", `drivers/touch_track.c`) separate the stages; read them after
+a fixed series of taps (all values since boot): `contacts`/`confirmed`/`lost` (tracker), `frames`, `flagged` (weak-signal bit 0x4000 in the Y word),
+`reads`/`empty`/`i2c_errors`/`late`/`max_gap_ms` (controller polls), and `ui_pressed`/`ui_released`/`ui_clicked`/`ui_scrolled`/`ui_long`/`ui_lost` (what LVGL made of them).
+
+Findings (2026-10-18, one unit, taps on the bottom bar and the top chips):
+
+- With the adapter's interrupt mode the controller was read only after an INT edge (about 150 reads in 90 s); 6 of 21 quick taps caused no read at all.
+  Reading on every LVGL timer tick (no INT pin for the adapter) was worse, because the LVGL task wakes only as often as its timers ask (about 18 reads/s).
+- The Y word carries a weak-signal bit (0x4000, for example raw Y 16408 = 0x4018 = 24); comparing the whole word with the raw range dropped such points. About
+  2 to 4 % of the frames carry it.
+- A scan task (5 ms) plus a queue (`touch_latch.c`) gives every tap to LVGL, press and release in order. Merging taps into one pending press (first attempt)
+  lost 8 of 30 contacts when LVGL was busy with a page build (30 contacts, 22 presses); with the queue 20 contacts gave 18 presses in a short check.
+- Every press LVGL saw became a click (`ui_clicked` equals `ui_pressed`, `ui_scrolled` 0), so scroll detection is not the cause.
+- Not established: whether the missing 2 of 20 were finished taps dropped as older than 600 ms (UI busy) or very short contacts.
 
 ## JC8012P4A1 reference sources
 
@@ -228,3 +265,10 @@ ESPHome `mipi_dsi/models/guition.py` (init tables and timing), the `gsl3670` com
 `esphome-libs/gsl3670-firmware` blob (touch), `jtenniswood/espcontrol` (V2 tables, V3 notes) and the BETTA-kruzio fork
 (OV02C10 camera, `esp_cam_sensor`). "V3" means ESP32-P4 v3.x silicon, not another panel. Credit what you use in the file
 header and `LICENSE` section 12.
+
+## Style comparison
+
+The SDL style comparison on 2026-09-29 (gallery/readability/Matte fixtures; Energy/House excluded)
+reported median changed pixels: Flat/Glow 0.7% (several tiles 0%), Flat/Glass 53%, Flat/Matte 98%,
+Glass/Matte 92%, using an 8-level color threshold. These are dated render measurements, not a current
+hardware comparison. The repeatable method is in [Appearance implementation](../appearance-implementation.md#style-differences).

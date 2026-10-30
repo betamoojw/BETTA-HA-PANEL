@@ -63,6 +63,9 @@ const THEME_CANVAS_VARS = {
   "--pv-muted": "text_muted",
   "--pv-accent": "nav_tab_active",
   "--pv-nav-active": "nav_btn_bg_active",
+  "--pv-control-idle": "nav_btn_bg_idle",
+  "--pv-control-state": "state_on",
+  "--pv-control-danger": "error",
   "--pv-light-fill": "light_ind_on",
 };
 
@@ -79,6 +82,30 @@ function themeApplyCanvasPalette(theme) {
   canvas.style.setProperty("--pv-matte-on", colors.matte_card_on || colors.card_bg_on);
   canvas.style.setProperty("--pv-matte-track", colors.matte_track || colors.card_bg_off);
   canvas.style.setProperty("--pv-matte-accent", colors.matte_accent || colors.light_ind_on);
+  const mix = (a, b, weight) => {
+    const rgb = (hex) => /^#[0-9a-f]{6}$/i.test(hex || "") ? hex.slice(1).match(/../g).map(v => parseInt(v, 16)) : [32, 32, 32];
+    const x = rgb(a), y = rgb(b);
+    return "#" + x.map((v, i) => Math.round(v * weight + y[i] * (1 - weight)).toString(16).padStart(2, "0")).join("");
+  };
+  const contrast = (hex) => {
+    const rgb = hex.slice(1).match(/../g).map(v => parseInt(v, 16));
+    return (rgb[0] * 3 + rgb[1] * 4 + rgb[2]) / 8 > 150 ? "#101418" : "#ffffff";
+  };
+  const idle = colors.nav_btn_bg_idle;
+  const active = mix(colors.state_on, colors.nav_btn_bg_active, 180 / 255);
+  const danger = mix(colors.error, idle, 70 / 255);
+  canvas.style.setProperty("--pv-control-error-fg", contrast(colors.error || "#db4437"));
+  const matteIdle = colors.matte_track || idle || "#202020";
+  const matteDanger = mix(colors.error, matteIdle, 70 / 255);
+  canvas.style.setProperty("--pv-control-matte-fg", contrast(matteIdle));
+  canvas.style.setProperty("--pv-control-matte-danger-bg", matteDanger);
+  canvas.style.setProperty("--pv-control-matte-danger-fg", contrast(matteDanger));
+  canvas.style.setProperty("--pv-control-bg", idle || colors.card_bg_off);
+  canvas.style.setProperty("--pv-control-active-bg", active);
+  canvas.style.setProperty("--pv-control-danger-bg", danger);
+  canvas.style.setProperty("--pv-control-fg", contrast(idle || "#202020"));
+  canvas.style.setProperty("--pv-control-active-fg", contrast(active));
+  canvas.style.setProperty("--pv-control-danger-fg", contrast(danger));
   /* The tile previews use the editor's text tokens; inside the canvas they follow the panel. */
   canvas.style.setProperty("--text", "var(--pv-text)");
   canvas.style.setProperty("--text-2", "var(--pv-soft)");
@@ -98,7 +125,7 @@ function themePopulateSelect() {
   for (const entry of themeState.list) {
     const opt = document.createElement("option");
     opt.value = entry.id;
-    opt.textContent = ("[" + t(entry.builtin ? "settings.theme.builtin" : "settings.theme.custom") + "] ") + (entry.name || entry.id);
+    opt.textContent = `[${t(entry.builtin ? "settings.theme.builtin" : "settings.theme.custom")}] ` + (entry.builtin ? t(`settings.theme.name.${entry.id}`, {}, entry.name || entry.id) : entry.name || entry.id);
     sel.appendChild(opt);
   }
   if (themeState.activeId) {
@@ -126,15 +153,13 @@ function themeSnapTo565(hex) {
 }
 
 const THEME_COLOR_GROUPS = [
-  { id: "matte", label: "Matte surfaces", keys: ["matte_page_bg", "matte_card_off", "matte_card_on", "matte_track", "matte_accent"] },
+  { id: "matte", keys: ["matte_page_bg", "matte_card_off", "matte_card_on", "matte_track", "matte_accent"] },
   {
     id: "screen",
-    label: "Screen & Content",
     keys: ["screen_bg", "screen_bg_grad", "content_bg", "content_border"],
   },
   {
     id: "topbar",
-    label: "Top Bar",
     keys: [
       "topbar_bg",
       "topbar_border",
@@ -148,12 +173,10 @@ const THEME_COLOR_GROUPS = [
   },
   {
     id: "text",
-    label: "Text",
     keys: ["text_primary", "text_soft", "text_muted"],
   },
   {
     id: "nav",
-    label: "Navigation",
     keys: [
       "nav_bg",
       "nav_border",
@@ -167,12 +190,10 @@ const THEME_COLOR_GROUPS = [
   },
   {
     id: "status",
-    label: "Status & Connectivity",
     keys: ["ok", "error", "wifi_off"],
   },
   {
     id: "cards",
-    label: "Cards (generic tiles)",
     keys: [
       "card_bg_off",
       "card_bg_on",
@@ -185,7 +206,6 @@ const THEME_COLOR_GROUPS = [
   },
   {
     id: "light",
-    label: "Light Tiles",
     keys: [
       "light_icon_on",
       "light_track_on",
@@ -198,7 +218,6 @@ const THEME_COLOR_GROUPS = [
   },
   {
     id: "heat",
-    label: "Heating Tiles",
     keys: [
       "heat_icon_on",
       "heat_track_on",
@@ -211,7 +230,6 @@ const THEME_COLOR_GROUPS = [
   },
   {
     id: "weather",
-    label: "Weather",
     keys: ["weather_icon"],
   },
 ];
@@ -235,7 +253,7 @@ function themeRenderColorGrid(palette) {
     seen.add(key);
     const lbl = document.createElement("label");
     const span = document.createElement("span");
-    span.textContent = themeHumanizeKey(key);
+    span.textContent = t(`settings.theme.color.${key}`, {}, themeHumanizeKey(key));
     span.title = key;
     const input = document.createElement("input");
     input.type = "color";
@@ -283,7 +301,7 @@ function themeRenderColorGrid(palette) {
     .filter((k) => !seen.has(k))
     .sort();
   if (leftover.length > 0) {
-    appendGroup(t("settings.theme.group.other"), leftover, { open: false });
+    appendGroup(t("settings.theme.other"), leftover, { open: false });
   }
 }
 
@@ -314,19 +332,19 @@ function themeRenderPreview() {
   ctx.fillText("21.5°", 18, 60);
   ctx.font = "10px sans-serif";
   ctx.fillStyle = soft;
-  ctx.fillText(t("evcc.off"), 18, 88);
+  ctx.fillText(t("preview.binary_state.off"), 18, 88);
 
   // Tile 2 (on)
   ctx.fillStyle = cardOn;
   themeRoundRect(ctx, 120, 10, 100, 90, 12, true);
   ctx.fillStyle = text;
   ctx.font = "11px sans-serif";
-  ctx.fillText(t("room_import.role.light"), 128, 28);
+  ctx.fillText(t("wizard.entity.t.light_tile"), 128, 28);
   ctx.fillStyle = accent;
   ctx.fillRect(128, 40, 80, 8);
   ctx.fillStyle = text;
   ctx.font = "10px sans-serif";
-  ctx.fillText(t("layout.preview.on"), 128, 88);
+  ctx.fillText(t("preview.binary_state.on"), 128, 88);
 
   // Tile 3 (heating arc)
   ctx.fillStyle = cardOn;
@@ -354,7 +372,7 @@ function themeRenderPreview() {
   ctx.fillRect(10, canvas.height - 26, 40, 22);
   ctx.fillStyle = themeReadableOn(accent, text);
   ctx.font = "11px sans-serif";
-  ctx.fillText(t("layout.preview.home"), 14, canvas.height - 12);
+  ctx.fillText(t("layout.energy.home"), 14, canvas.height - 12);
 }
 
 // The text colour that stays readable on a fill: a dark one on a light fill, else the given one.
@@ -393,7 +411,7 @@ async function themeLoadAndRender() {
     themeSyncEditFields();
     themeSetInfo("");
   } catch (e) {
-    themeSetInfo("settings.theme.load_failed", true);
+    themeSetInfo("settings.theme.load_failed", true, { error: e && e.message ? e.message : e });
   }
 }
 
@@ -415,7 +433,7 @@ function themeSyncEditFields() {
     idInput.value = editing.id || "";
     nameInput.value = editing.name || entry.name || "";
     idInput.readOnly = true;
-    idInput.title = t("settings.theme.edit_hint");
+    idInput.title = t("settings.theme.editing_id");
     if (baseMeta) {
       baseMeta.textContent = t("settings.theme.editing", { name: editing.name || editing.id, id: editing.id });
     }
@@ -448,7 +466,7 @@ async function themeApplyActive() {
     await themeLoadAndRender();
     themeSetInfo("settings.theme.applied", false, { id: sel.value });
   } catch (e) {
-    themeSetInfo("settings.theme.apply_failed", true);
+    themeSetInfo("settings.theme.apply_failed", true, { error: e.message });
   }
 }
 
@@ -466,20 +484,20 @@ async function themeExportActive() {
     a.click();
     URL.revokeObjectURL(url);
   } catch (e) {
-    themeSetInfo("settings.theme.export_failed", true);
+    themeSetInfo("settings.theme.export_failed", true, { error: e.message });
   }
 }
 
 async function themeImportFile() {
   const input = themeEl("settingsThemeImportFile");
   if (!input || !input.files || !input.files[0]) {
-    themeSetInfo("settings.theme.choose_file", true);
+    themeSetInfo("settings.translation.no_file", true);
     return;
   }
   try {
     const text = await input.files[0].text();
     const theme = JSON.parse(text);
-    if (!theme || !theme.id) throw new Error("invalid theme JSON: missing id");
+    if (!theme || !theme.id) throw new Error(t("settings.theme.invalid_json"));
     const resp = await fetch("/api/themes/custom", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -489,7 +507,7 @@ async function themeImportFile() {
     await themeLoadAndRender();
     themeSetInfo("settings.theme.imported", false, { id: theme.id });
   } catch (e) {
-    themeSetInfo("settings.theme.import_failed", true);
+    themeSetInfo("settings.theme.import_failed", true, { error: e.message });
   }
 }
 
@@ -538,7 +556,7 @@ async function themeSaveCustom() {
       }
     }
   } catch (e) {
-    themeSetInfo("settings.theme.save_failed", true);
+    themeSetInfo("settings.theme.save_failed", true, { error: e.message });
   }
 }
 
@@ -558,7 +576,7 @@ async function themeDeleteCustom() {
     await themeLoadAndRender();
     themeSetInfo("settings.theme.deleted", false, { id: entry.id });
   } catch (e) {
-    themeSetInfo("settings.theme.delete_failed", true);
+    themeSetInfo("settings.theme.delete_failed", true, { error: e.message });
   }
 }
 
@@ -590,7 +608,7 @@ function initThemeSection() {
         themeRenderPreview();
         themeSyncEditFields();
       } catch (e) {
-        themeSetInfo("settings.theme.load_failed", true);
+        themeSetInfo("settings.theme.load_failed", true, { error: e.message });
       }
     };
   }

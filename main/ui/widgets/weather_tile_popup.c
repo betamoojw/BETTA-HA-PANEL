@@ -4,6 +4,7 @@
  */
 #include "ui/ui_transition.h"
 #include "ui/widgets/weather_tile_internal.h"
+#include "drivers/display_init.h"
 
 /* ---- Day detail popup ------------------------------------------------- */
 
@@ -89,13 +90,13 @@ static void weather_popup_add_row(lv_obj_t *list, const char *label, const char 
     lv_obj_set_style_border_color(row, lv_color_hex(APP_UI_COLOR_CARD_BORDER), LV_PART_MAIN);
     lv_obj_set_style_border_opa(row, LV_OPA_50, LV_PART_MAIN);
 
-    lv_obj_t *l = lv_label_create(row);
+    lv_obj_t *l = ui_popup_label_create(row, label, UI_POPUP_LABEL_CAPTION);
     lv_label_set_text(l, label);
     ui_text_set(l, UI_TEXT_LABEL, true);
     lv_obj_set_style_text_color(l, lv_color_hex(APP_UI_COLOR_TEXT_MUTED), LV_PART_MAIN);
     lv_obj_align(l, LV_ALIGN_LEFT_MID, 2, 0);
 
-    lv_obj_t *v = lv_label_create(row);
+    lv_obj_t *v = ui_popup_label_create(row, value, UI_POPUP_LABEL_VALUE);
     lv_label_set_text(v, value);
     ui_text_set(v, UI_TEXT_VALUE, true);
     lv_obj_set_style_text_color(v, lv_color_hex(APP_UI_COLOR_TEXT_PRIMARY), LV_PART_MAIN);
@@ -144,8 +145,10 @@ static const char *weather_compass_point(int bearing, char *buf, size_t buf_size
 
 /* Extra details for one day, fetched with weather.get_forecasts when the popup
  * opens (the panel's compact forecast has no room for them). */
-typedef struct {
-    lv_obj_t *list;   /* popup list; checked with lv_obj_is_valid() before use */
+typedef struct weather_day_detail {
+    struct weather_day_detail *next;
+    uint32_t token;
+    lv_obj_t *list;   /* validity and token checked on the UI task */
     bool skip_current; /* today: pressure/humidity/wind/visibility already shown */
     char date[11];
     float humidity, pressure, wind_speed, wind_gust, uv, clouds, sun_h, rain_h, visibility_km, dew;
@@ -154,6 +157,32 @@ typedef struct {
     char wind_unit[8];
     char temp_unit[8];
 } weather_day_detail_t;
+
+static weather_day_detail_t *s_pending_details;
+static uint32_t s_detail_token;
+#ifndef BETTA_SIMULATOR
+#include "freertos/FreeRTOS.h"
+static portMUX_TYPE s_detail_lock = portMUX_INITIALIZER_UNLOCKED;
+#define WEATHER_DETAILS_LOCK() portENTER_CRITICAL(&s_detail_lock)
+#define WEATHER_DETAILS_UNLOCK() portEXIT_CRITICAL(&s_detail_lock)
+#else
+#define WEATHER_DETAILS_LOCK() ((void)0)
+#define WEATHER_DETAILS_UNLOCK() ((void)0)
+#endif
+
+/* Both a synchronous send error and the WS callback may finish a request. Integer
+ * handles let exactly one take ownership, without retaining a freed callback pointer. */
+static weather_day_detail_t *weather_detail_take(uint32_t token)
+{
+    WEATHER_DETAILS_LOCK();
+    weather_day_detail_t **link = &s_pending_details;
+    while (*link && (*link)->token != token) link = &(*link)->next;
+    weather_day_detail_t *detail = *link;
+    if (detail) *link = detail->next;
+    WEATHER_DETAILS_UNLOCK();
+    return detail;
+}
+
 
 static bool weather_detail_num(cJSON *item, const char *key, float *out)
 {
@@ -165,13 +194,26 @@ static bool weather_detail_num(cJSON *item, const char *key, float *out)
     return false;
 }
 
+/* LVGL 9.6's validity check follows the candidate's parent pointer. Find the
+ * request target among live popup objects before touching a possibly freed list. */
+static bool weather_detail_list_live(lv_obj_t *root, const weather_day_detail_t *detail)
+{
+    if (root == detail->list) {
+        return lv_obj_get_user_data(root) == (void *)(uintptr_t)detail->token;
+    }
+    for (uint32_t i = 0; i < lv_obj_get_child_count(root); i++) {
+        if (weather_detail_list_live(lv_obj_get_child(root, i), detail)) return true;
+    }
+    return false;
+}
+
 static void weather_detail_apply_cb(void *data)
 {
     weather_day_detail_t *d = (weather_day_detail_t *)data;
     if (d == NULL) {
         return;
     }
-    if (d->list != NULL && lv_obj_is_valid(d->list)) {
+    if (d->list != NULL && weather_detail_list_live(lv_layer_top(), d)) {
         char text[48];
         if (!d->skip_current) {
             if (!isnan(d->humidity)) {
@@ -227,10 +269,9 @@ static void weather_detail_apply_cb(void *data)
 /* Runs on the HA WS RX task: pick the day out of the response, hand it to LVGL. */
 static void weather_detail_response_cb(bool success, cJSON *result, void *user)
 {
-    weather_day_detail_t *d = (weather_day_detail_t *)user;
-    if (d == NULL) {
-        return;
-    }
+    weather_day_detail_t *d = weather_detail_take((uint32_t)(uintptr_t)user);
+    if (d == NULL) return;
+    if (!success) { heap_caps_free(d); return; }
     bool found = false;
     if (success && result != NULL) {
         cJSON *response = cJSON_GetObjectItemCaseSensitive(result, "response");
@@ -263,9 +304,12 @@ static void weather_detail_response_cb(bool success, cJSON *result, void *user)
         }
     }
     (void)found;
-    if (lv_async_call(weather_detail_apply_cb, d) != LV_RESULT_OK) {
-        heap_caps_free(d);
+    bool queued = false;
+    if (display_lock(2000)) {
+        queued = lv_async_call(weather_detail_apply_cb, d) == LV_RESULT_OK;
+        display_unlock();
     }
+    if (!queued) heap_caps_free(d);
 }
 
 static void weather_request_day_details(w_weather_tile_ctx_t *ctx, lv_obj_t *list, int index)
@@ -289,15 +333,20 @@ static void weather_request_day_details(w_weather_tile_ctx_t *ctx, lv_obj_t *lis
     if (d->pressure_unit[0] == '\0') {
         snprintf(d->pressure_unit, sizeof(d->pressure_unit), "hPa");
     }
-    esp_err_t err = ha_client_call_service_with_response(
-        "weather", "get_forecasts", ctx->entity_id, "{\"type\":\"daily\"}", weather_detail_response_cb, d);
-    if (err != ESP_OK) {
-        heap_caps_free(d);
+    WEATHER_DETAILS_LOCK();
+    d->token = ++s_detail_token;
+    d->next = s_pending_details;
+    s_pending_details = d;
+    const uint32_t token = d->token;
+    WEATHER_DETAILS_UNLOCK();
+    lv_obj_set_user_data(list, (void *)(uintptr_t)token);
+    if (ha_client_call_service_with_response("weather", "get_forecasts", ctx->entity_id, "{\"type\":\"daily\"}",
+            weather_detail_response_cb, (void *)(uintptr_t)token) != ESP_OK) {
+        heap_caps_free(weather_detail_take(token));
     }
 }
 
 /* ---- Weather report (DWD text) ------------------------------------------ */
-
 
 static int weather_weekday_from_date(const char *date)
 {
@@ -348,6 +397,7 @@ void weather_report_parse_state(w_weather_tile_ctx_t *ctx, const ha_state_t *sta
 {
     ctx->report_summary[0] = '\0';
     memset(ctx->report_day, 0, sizeof(ctx->report_day));
+    if (!strcmp(state->state, "unknown") || !strcmp(state->state, "unavailable")) return;
     cJSON *attrs = state->attributes_json[0] != '\0' ? cJSON_Parse(state->attributes_json) : NULL;
     if (attrs == NULL) {
         return;
@@ -370,7 +420,7 @@ void weather_report_parse_state(w_weather_tile_ctx_t *ctx, const ha_state_t *sta
 
 static void weather_popup_add_text(lv_obj_t *list, const char *text, lv_color_t color)
 {
-    lv_obj_t *label = lv_label_create(list);
+    lv_obj_t *label = ui_popup_label_create(list, text, UI_POPUP_LABEL_HINT);
     lv_label_set_text(label, text);
     lv_obj_set_width(label, LV_PCT(100));
     lv_label_set_long_mode(label, LV_LABEL_LONG_WRAP);
@@ -411,16 +461,11 @@ static void weather_show_report_popup(w_weather_tile_ctx_t *ctx)
     int card_h = 330;
     if (card_h > screen_h - 48) card_h = screen_h - 48;
 
-    lv_obj_t *card = lv_obj_create(overlay);
+    lv_obj_t *card = ui_popup_card_create(overlay);
     lv_obj_set_size(card, card_w, card_h);
     lv_obj_center(card);
-    lv_obj_set_scrollable(card, false);
-    lv_obj_set_event_bubble(card, false);
     lv_obj_set_style_radius(card, 16, LV_PART_MAIN);
-    lv_obj_set_style_bg_color(card, lv_color_hex(APP_UI_COLOR_CONTENT_BG), LV_PART_MAIN);
-    lv_obj_set_style_bg_opa(card, LV_OPA_COVER, LV_PART_MAIN);
-    lv_obj_set_style_border_width(card, 1, LV_PART_MAIN);
-    ui_popup_style_frame(card);
+
     #if UI_TEXT_ADAPTIVE
     lv_obj_set_style_pad_all(card, 14, LV_PART_MAIN);
 #else
@@ -527,16 +572,11 @@ static void weather_show_day_popup(w_weather_tile_ctx_t *ctx, int index)
     int card_h = screen_h - 48;
     if (card_h > (wide ? 560 : 560)) card_h = 560;
 
-    lv_obj_t *card = lv_obj_create(overlay);
+    lv_obj_t *card = ui_popup_card_create(overlay);
     lv_obj_set_size(card, card_w, card_h);
     lv_obj_center(card);
-    lv_obj_set_scrollable(card, false);
-    lv_obj_set_event_bubble(card, false);
     lv_obj_set_style_radius(card, 16, LV_PART_MAIN);
-    lv_obj_set_style_bg_color(card, lv_color_hex(APP_UI_COLOR_CONTENT_BG), LV_PART_MAIN);
-    lv_obj_set_style_bg_opa(card, LV_OPA_COVER, LV_PART_MAIN);
-    lv_obj_set_style_border_width(card, 1, LV_PART_MAIN);
-    ui_popup_style_frame(card);
+
     lv_obj_set_style_pad_all(card, 16, LV_PART_MAIN);
 
     const int inner_w = card_w - 32;
@@ -602,6 +642,9 @@ static void weather_show_day_popup(w_weather_tile_ctx_t *ctx, int index)
     lv_obj_set_scrollable(list, true);
     lv_obj_set_scroll_dir(list, LV_DIR_VER);
 
+    if (!ctx->show_forecast && ctx->report_summary[0]) {
+        weather_popup_add_text(list, ctx->report_summary, lv_color_hex(APP_UI_COLOR_TEXT_PRIMARY));
+    }
     const char *report_text = weather_report_text_for_row(ctx, index);
     if (report_text[0] != '\0') {
         weather_popup_add_text(list, report_text, lv_color_hex(APP_UI_COLOR_TEXT_PRIMARY));
@@ -658,3 +701,9 @@ void weather_col_clicked_cb(lv_event_t *event)
  * temperature beside it, and below it one card per day (today first) with the
  * weekday, a colored icon and the high and low. Returns false if the tile is
  * not suited (then the caller renders the compact rows). */
+
+void weather_now_clicked_cb(lv_event_t *event)
+{
+    w_weather_tile_ctx_t *ctx = lv_event_get_user_data(event);
+    if (ctx != NULL && ctx->available) weather_show_day_popup(ctx, 0);
+}

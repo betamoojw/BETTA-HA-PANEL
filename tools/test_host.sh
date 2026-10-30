@@ -66,10 +66,21 @@ if [ -d "$sr/include/esp32p4" ]; then
     -o "$out/test_xiaozhi_wake"
   "$out/test_xiaozhi_wake"
 fi
-cc -std=gnu11 -Wall -Wextra -Werror -Wno-unused-parameter -g \
+cc -std=gnu11 -Wall -Wextra -Werror -Wno-unused-parameter -Dtime=host_test_time -g \
   -I main -I tests/host/stubs "${variant_flags[@]}" "${cjson_flags[@]}" \
-  tests/host/test_main.c tests/host/test_energy_timeline_colors.c main/ui/theme/matte_title.c main/ui/theme/ui_style_registry.c main/settings/brightness_model.c main/settings/settings_restart.c main/settings/settings_validate.c main/layout/layout_validate.c main/layout/bambu_printer_slots.c main/layout/evcc_slots.c main/layout/layout_orientation.c main/layout/widget_types.c main/util/atomic_file.c tests/host/flash_gate_stub.c main/util/cover_scale.c main/drivers/display_policy.c main/drivers/touch_track.c main/util/json_util.c main/util/cover_guard.c main/util/boot_guard.c main/util/entity_id.c main/util/distance_units.c main/util/iso_time.c main/util/room_extra.c main/util/ota_health.c main/util/auto_update.c main/util/sha256_soft.c main/util/auto_update_state.c main/util/user_activity.c main/ui/nav_layout.c main/util/reboot_log.c main/util/net_watchdog.c main/util/ui_watchdog.c main/util/ota_chip_rev.c main/util/history_feed_policy.c main/util/chart_scale.c main/ha/energy_timeline_model.c main/util/url_decode.c main/util/notification_parse.c main/ui/notification_text.c main/util/chime_synth.c main/ha/ha_attrs_compact.c main/ha/ha_attr_serialize.c main/ha/ha_layout_entities.c main/ha/ha_display_precision.c main/ha/ha_discovery_domains.c main/ha/ha_registry_discovery.c main/ha/ha_auth_state.c main/ha/ha_select_options.c main/ha/ha_control_options.c main/ha/ha_datetime_value.c main/ha/ha_history_reduce.c main/ha/ha_lock_state.c main/ha/ha_alarm_state.c main/ha/ha_room_registry.c main/ui/widgets/weather_value_parse.c main/ui/widgets/weather_condition_icon.c main/net/wifi_signal_level.c main/net/setup_passphrase.c main/net/update_check_parse.c "${cjson_sources[@]}" \
+  tests/host/test_main.c tests/host/test_energy_timeline_colors.c tests/host/test_sensor_value.c tests/host/test_quote.c main/ha/ha_quote.c main/ui/theme/matte_title.c main/ui/theme/ui_style_registry.c main/settings/brightness_model.c main/settings/settings_restart.c main/settings/settings_validate.c main/layout/layout_validate.c main/layout/bambu_printer_slots.c main/layout/evcc_slots.c main/layout/layout_orientation.c main/layout/widget_types.c main/util/atomic_file.c tests/host/flash_gate_stub.c main/util/cover_scale.c main/drivers/display_policy.c main/util/json_util.c main/util/cover_guard.c main/util/boot_guard.c main/util/entity_id.c main/util/distance_units.c main/util/iso_time.c main/util/room_extra.c main/util/ota_health.c main/util/auto_update.c main/util/sha256_soft.c main/util/auto_update_state.c main/util/user_activity.c main/ui/nav_layout.c main/util/reboot_log.c main/util/net_watchdog.c main/util/ui_watchdog.c main/util/ota_chip_rev.c main/util/history_feed_policy.c main/util/chart_scale.c main/ha/energy_timeline_model.c main/util/url_decode.c main/util/notification_parse.c main/ui/notification_text.c main/util/chime_synth.c main/ha/ha_attrs_compact.c main/ha/ha_attr_serialize.c main/ha/ha_price_series.c main/ha/ha_history_stats.c main/ha/ha_layout_entities.c main/ha/ha_display_precision.c main/ha/ha_discovery_domains.c main/ha/ha_registry_discovery.c main/ha/ha_auth_state.c main/ha/ha_select_options.c main/ha/ha_control_options.c main/ha/ha_datetime_value.c main/ha/ha_timestamp_format.c main/ha/ha_sensor_value.c main/ha/ha_history_reduce.c main/ha/ha_lock_state.c main/ha/ha_alarm_state.c main/ha/ha_room_registry.c main/ui/widgets/weather_value_parse.c main/ui/widgets/weather_condition_icon.c main/net/wifi_signal_level.c main/net/setup_passphrase.c main/net/update_check_parse.c "${cjson_sources[@]}" \
   "${cjson_libs[@]}" -lm -o "$out/test_host"
+
+# Entity picker discovery: bounded production queries and capability metadata.
+cc -std=gnu11 -Wall -Wextra -Werror -g -I main "${cjson_flags[@]}" \
+  tests/host/test_entity_search.c main/ha/ha_entity_source.c main/ha/ha_discovery_domains.c \
+  "${cjson_sources[@]}" "${cjson_libs[@]}" -o "$out/test_entity_search"
+"$out/test_entity_search"
+
+# Shared display-name cache: use the simulator's allocation/lock adapters.
+cc -std=gnu11 -Wall -Wextra -Werror -g -I main -I tests/simulator/stubs "${variant_flags[@]}" \
+  tests/host/test_entity_names.c main/ha/ha_model.c -o "$out/test_entity_names"
+"$out/test_entity_names"
 
 cc -std=gnu11 -Wall -Wextra -Werror -g -I main \
   tests/host/test_display_preview.c main/drivers/display_policy.c main/settings/brightness_model.c \
@@ -83,12 +94,25 @@ cc -std=gnu11 -Wall -Wextra -Werror -g -Itests/host/display_present_stubs -Imain
   tests/host/test_display_present.c main/drivers/display_present.c \
   -o "$out/test_display_present"
 "$out/test_display_present"
-"$out/test_host"
+TZ=Europe/Berlin "$out/test_host"
+
+# C6 diagnostic snapshots: lifecycle/retry policy and versioned incident records, no radio.
+cc -std=gnu11 -Wall -Wextra -Werror -g -I main "${cjson_flags[@]}" \
+  tests/host/test_c6_memory.c main/net/c6_memory_state.c main/util/reboot_log.c \
+  "${cjson_sources[@]}" "${cjson_libs[@]}" -o "$out/test_c6_memory"
+"$out/test_c6_memory"
+
+cc -std=gnu11 -Wall -Wextra -Werror -Wno-unused-variable -g -I main \
+  -I tests/host/storage_stubs -I tests/host/stubs "${cjson_flags[@]}" \
+  tests/host/test_c6_memory_store.c main/net/wifi_diag_store.c main/net/c6_memory_state.c main/util/reboot_log.c \
+  "${cjson_sources[@]}" "${cjson_libs[@]}" -o "$out/test_c6_memory_store"
+"$out/test_c6_memory_store"
 
 cc -std=gnu11 -Wall -Wextra -Werror -g -I main -I tests/host/stubs \
   -DCONFIG_IDF_TARGET_ESP32P4=1 "${cjson_flags[@]}" \
   tests/host/test_ha_controls.c main/ha/ha_registry_discovery.c main/ha/ha_control_options.c \
-  main/ha/ha_attr_serialize.c "${cjson_sources[@]}" "${cjson_libs[@]}" -lm -o "$out/test_ha_controls"
+  main/ha/ha_attr_serialize.c main/ha/ha_price_series.c main/ha/ha_history_stats.c main/util/iso_time.c \
+  "${cjson_sources[@]}" "${cjson_libs[@]}" -lm -o "$out/test_ha_controls"
 "$out/test_ha_controls"
 
 # Exercise S3 identity, memory limits and navigation independently of the host variant.
@@ -97,6 +121,45 @@ cc -std=gnu11 -Wall -Wextra -Werror -g -I main -I tests/host/stubs \
   tests/host/test_panels3.c main/layout/widget_types.c main/ui/nav_layout.c main/ui/text_scale.c main/net/update_check_parse.c \
   "${cjson_sources[@]}" "${cjson_libs[@]}" -lm -o "$out/test_panels3"
 "$out/test_panels3"
+# Electricity price lists: both source shapes, the regular grid, the attribute budget, day statistics and cheap windows.
+cc -std=gnu11 -Wall -Wextra -Werror -g -I main -I tests/host/stubs \
+  -DCONFIG_IDF_TARGET_ESP32P4=1 "${cjson_flags[@]}" \
+  tests/host/test_price_series.c main/ha/ha_price_series.c main/ha/ha_history_stats.c main/util/iso_time.c \
+  main/ha/ha_attr_serialize.c main/ha/ha_control_options.c main/ha/ha_registry_discovery.c \
+  "${cjson_sources[@]}" "${cjson_libs[@]}" -lm -o "$out/test_price_series"
+TZ=Europe/Berlin "$out/test_price_series"
+
+# Hourly weather: bounded real forecast samples, exact entity, invalid data and repeated DST hour.
+cc -std=gnu11 -Wall -Wextra -Werror -g -I main "${cjson_flags[@]}" \
+  tests/host/test_weather_hourly.c main/ha/ha_weather_hourly.c main/util/iso_time.c \
+  "${cjson_sources[@]}" "${cjson_libs[@]}" -lm -o "$out/test_weather_hourly"
+"$out/test_weather_hourly"
+
+# Stocks & ETFs histories: Easy Stock's reply, periods with their reference, Home Assistant sources, change and reduction.
+cc -std=gnu11 -Wall -Wextra -Werror -g -I main -I tests/host/stubs \
+  -DCONFIG_IDF_TARGET_ESP32P4=1 "${cjson_flags[@]}" \
+  tests/host/test_quote_series.c main/ha/ha_quote_series.c \
+  "${cjson_sources[@]}" "${cjson_libs[@]}" -lm -o "$out/test_quote_series"
+TZ=Europe/Berlin "$out/test_quote_series"
+
+# Touch input: the contact tracker with its counters and the queue that hands every tap to LVGL.
+cc -std=gnu11 -Wall -Wextra -Werror -g -I main -I tests/host/stubs \
+  tests/host/test_touch.c main/drivers/touch_track.c main/drivers/touch_latch.c -o "$out/test_touch"
+"$out/test_touch"
+
+# Parqet portfolio sensors: the total value attributes (top holdings, interval), numbers, gain percentage and interval labels.
+cc -std=gnu11 -Wall -Wextra -Werror -g -I main -I tests/host/stubs \
+  -DCONFIG_IDF_TARGET_ESP32P4=1 "${cjson_flags[@]}" \
+  tests/host/test_parqet.c main/ha/parqet_portfolio.c \
+  "${cjson_sources[@]}" "${cjson_libs[@]}" -lm -o "$out/test_parqet"
+
+# The reply of parqet/get_performance reduced for the portfolio widget: figures, holdings of the interval and the value curve.
+cc -std=gnu11 -Wall -Wextra -Werror -g -I main -I tests/host/stubs \
+  -DCONFIG_IDF_TARGET_ESP32P4=1 "${cjson_flags[@]}" \
+  tests/host/test_parqet_perf.c main/ha/parqet_performance.c main/ha/parqet_portfolio.c \
+  "${cjson_sources[@]}" "${cjson_libs[@]}" -lm -o "$out/test_parqet_perf"
+"$out/test_parqet_perf"
+"$out/test_parqet"
 
 # Exercise Tab5 geometry and orientation independently of the default host variant.
 cc -std=gnu11 -Wall -Wextra -Werror -g -I main -I tests/host/stubs \
@@ -111,12 +174,16 @@ cc -std=gnu11 -Wall -Wextra -Werror -g -I main \
   -o "$out/test_cover_request_lifetime"
 "$out/test_cover_request_lifetime"
 
+cc -std=gnu11 -Wall -Wextra -Werror -g -I main \
+  tests/host/test_cover_auth.c main/util/cover_guard.c main/ha/ha_auth_state.c -o "$out/test_cover_auth"
+"$out/test_cover_auth"
+
 cc -std=gnu11 -Wall -Wextra -Werror -Wno-unused-parameter -g -I main \
   tests/host/test_mjpeg_parser.c main/ha/mjpeg_parser.c -o "$out/test_mjpeg_parser"
 "$out/test_mjpeg_parser"
 
 cc -std=gnu11 -Wall -Wextra -Werror -Wno-unused-parameter -g -I tests/host/camera_stubs -I main \
-  tests/host/test_camera_stream.c main/ha/ha_camera_stream.c main/ha/mjpeg_parser.c -o "$out/test_camera_stream"
+  tests/host/test_camera_stream.c main/ha/ha_camera_stream.c main/ha/mjpeg_parser.c main/ha/ha_auth_state.c -o "$out/test_camera_stream"
 "$out/test_camera_stream"
 cc -std=gnu11 -Wall -Wextra -Werror -I tests/host/camera_stubs -I main \
   tests/host/test_camera_source.c main/camera/camera_source_fetch.c -o "$out/test_camera_source"
@@ -128,11 +195,19 @@ cc -std=gnu11 -Wall -Wextra -Werror -I tests/host/camera_stubs -I tests/host/stu
 
 cc -std=gnu11 -Wall -Wextra -Werror -g -I main -I tests/host/stubs \
   "${variant_flags[@]}" "${cjson_flags[@]}" tests/host/test_camera_layout.c \
-  main/layout/layout_validate.c main/layout/widget_types.c main/layout/layout_orientation.c \
+  main/layout/layout_validate.c main/ha/ha_timestamp_format.c main/ha/ha_sensor_value.c main/ha/ha_datetime_value.c main/util/iso_time.c main/layout/widget_types.c main/layout/layout_orientation.c \
   main/layout/bambu_printer_slots.c main/layout/evcc_slots.c \
   main/ha/ha_alarm_state.c main/util/entity_id.c main/util/room_extra.c main/util/chime_synth.c \
   "${cjson_sources[@]}" "${cjson_libs[@]}" -lm -o "$out/test_camera_layout"
 "$out/test_camera_layout"
+
+cc -std=gnu11 -Wall -Wextra -Werror -g -I main -I tests/host/stubs \
+  "${variant_flags[@]}" "${cjson_flags[@]}" tests/host/test_price_layout.c \
+  main/layout/layout_validate.c main/ha/ha_timestamp_format.c main/ha/ha_sensor_value.c main/ha/ha_datetime_value.c main/util/iso_time.c main/layout/widget_types.c main/layout/layout_orientation.c \
+  main/layout/bambu_printer_slots.c main/layout/evcc_slots.c main/ha/ha_layout_entities.c \
+  main/ha/ha_alarm_state.c main/util/entity_id.c main/util/room_extra.c main/util/chime_synth.c \
+  "${cjson_sources[@]}" "${cjson_libs[@]}" -lm -o "$out/test_price_layout"
+"$out/test_price_layout"
 
 cc -std=gnu11 -Wall -Wextra -Werror -g -I main \
   tests/host/test_text_scale.c main/ui/text_scale.c \
@@ -190,12 +265,38 @@ cc -std=gnu11 -Wall -Wextra -Werror -g -I main "${cjson_flags[@]}" \
 
 # The real 7-day history worker with pthread-backed FreeRTOS stubs and a scriptable WebSocket: busy gate, silence, late
 # and failing replies, partial sources, units, queue overflow and no allocation left behind after a thousand requests.
-cc -std=gnu11 -Wall -Wextra -Werror -Wno-unused-parameter -g -pthread \
+cc -std=gnu11 -Wall -Wextra -Werror -Wno-unused-parameter -Dtime=history_test_time -g -pthread \
   -DWEEK_REPLY_TIMEOUT_MS=300 -DWEEK_GATE_POLL_MS=10 -DWEEK_CHECK_GATE_WAIT_MS=100 -DWEEK_REQUEST_GATE_WAIT_MS=100 \
   -I tests/host/week_stubs -I main -I tests/host/stubs "${variant_flags[@]}" "${cjson_flags[@]}" \
   tests/host/test_history_week.c main/ha/ha_history_week.c main/ha/ha_history_stats.c \
   "${cjson_sources[@]}" "${cjson_libs[@]}" -lm -o "$out/test_history_week"
-"$out/test_history_week"
+TZ=Europe/Berlin "$out/test_history_week"
+
+# Real HTTP workers: bounded gate/slow transfers, auth rejection, cleanup and retry after task creation fails.
+for worker in recorder easy; do
+  worker_flags=()
+  worker_sources=(main/ha/ha_history_reduce.c main/util/iso_time.c)
+  if [ "$worker" = easy ]; then worker_flags=(-DTEST_EASY_STOCK=1); worker_sources=(); fi
+  cc -std=gnu11 -Wall -Wextra -Werror -Wno-unused-parameter -g \
+    -I tests/host/request_stubs -I tests/host/week_stubs -I main -I tests/host/stubs \
+    "${variant_flags[@]}" "${worker_flags[@]}" "${cjson_flags[@]}" \
+    tests/host/test_aux_history.c main/util/transfer_deadline.c "${worker_sources[@]}" \
+    "${cjson_sources[@]}" "${cjson_libs[@]}" -lm -o "$out/test_aux_$worker"
+  "$out/test_aux_$worker"
+done
+
+# Use the production scheduler, rather than the simulator's immediate Parqet reply stub.
+cc -std=gnu11 -Wall -Wextra -Werror -Wno-unused-parameter -g \
+  -I tests/host/request_stubs -I tests/host/week_stubs -I main -I tests/host/stubs \
+  "${variant_flags[@]}" "${cjson_flags[@]}" tests/host/test_parqet_request.c main/ha/parqet_performance.c \
+  "${cjson_sources[@]}" "${cjson_libs[@]}" -lm -o "$out/test_parqet_request"
+"$out/test_parqet_request"
+
+cc -std=gnu11 -Wall -Wextra -Werror -Wno-unused-parameter -g \
+  -I tests/host/request_stubs -I tests/host/week_stubs -I main -I tests/host/stubs \
+  "${variant_flags[@]}" "${cjson_flags[@]}" tests/host/test_quote_feed.c main/ha/ha_quote_series.c \
+  main/util/history_feed_policy.c "${cjson_sources[@]}" "${cjson_libs[@]}" -lm -o "$out/test_quote_feed"
+"$out/test_quote_feed"
 
 # The admin password store against a fake NVS with injected faults (finding 16: an unreadable credential closes the panel).
 cc -std=gnu11 -Wall -Wextra -Werror -g -I tests/host/auth_stubs -I main \
@@ -240,11 +341,11 @@ cc -std=gnu11 -Wall -Wextra -Werror -g -I tests/host/storage_stubs -I main \
 
 cc -std=gnu11 -Wall -Wextra -Werror -g -I main -I tests/host/stubs "${variant_flags[@]}" "${cjson_flags[@]}" \
   -DHA_EVCC_SESSIONS_TEST_HOOKS=1 -Dtime=ha_evcc_sessions_test_time \
-  tests/host/test_evcc.c tests/host/test_evcc_sessions.c main/ha/ha_evcc_sessions.c main/util/iso_time.c main/layout/layout_validate.c main/ha/ha_alarm_state.c main/layout/widget_types.c main/layout/layout_orientation.c main/util/entity_id.c main/util/room_extra.c main/util/chime_synth.c main/layout/bambu_printer_slots.c main/ha/ha_layout_entities.c main/ha/ha_evcc_lookup.c main/ha/ha_evcc_value.c main/layout/evcc_slots.c main/ha/ha_select_options.c \
+  tests/host/test_evcc.c tests/host/test_evcc_sessions.c main/ha/ha_evcc_sessions.c main/ha/ha_evcc_vehicle_names.c main/util/iso_time.c main/layout/layout_validate.c main/ha/ha_timestamp_format.c main/ha/ha_sensor_value.c main/ha/ha_datetime_value.c main/ha/ha_alarm_state.c main/layout/widget_types.c main/layout/layout_orientation.c main/util/entity_id.c main/util/room_extra.c main/util/chime_synth.c main/layout/bambu_printer_slots.c main/ha/ha_layout_entities.c main/ha/ha_evcc_lookup.c main/ha/ha_evcc_value.c main/layout/evcc_slots.c main/ha/ha_select_options.c \
   "${cjson_sources[@]}" "${cjson_libs[@]}" -lm -o "$out/test_evcc"
 
 cc -std=gnu11 -Wall -Wextra -Werror -g -I main -I tests/host/stubs "${variant_flags[@]}" "${cjson_flags[@]}" \
-  tests/host/test_backup_layout.c main/layout/layout_validate.c main/ha/ha_alarm_state.c main/layout/widget_types.c main/layout/layout_orientation.c main/util/entity_id.c main/util/room_extra.c main/util/chime_synth.c main/layout/bambu_printer_slots.c main/layout/evcc_slots.c main/ha/ha_layout_entities.c main/ha/ha_select_options.c \
+  tests/host/test_backup_layout.c main/layout/layout_validate.c main/ha/ha_timestamp_format.c main/ha/ha_sensor_value.c main/ha/ha_datetime_value.c main/util/iso_time.c main/ha/ha_alarm_state.c main/layout/widget_types.c main/layout/layout_orientation.c main/util/entity_id.c main/util/room_extra.c main/util/chime_synth.c main/layout/bambu_printer_slots.c main/layout/evcc_slots.c main/ha/ha_layout_entities.c main/ha/ha_select_options.c \
   "${cjson_sources[@]}" "${cjson_libs[@]}" -lm -o "$out/test_backup_layout"
 "$out/test_backup_layout"
 "$out/test_evcc"

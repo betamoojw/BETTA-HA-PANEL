@@ -1,6 +1,33 @@
 <!-- SPDX-License-Identifier: LicenseRef-FNCL-1.1 | Copyright (c) 2026 andre68723 -- file added in the andre68723/BETTA-HA-PANEL fork, see docs/release-notes.md -->
 # Components and patches
 
+## Module ownership
+
+[Development](../development.md#architecture) maps boot, configuration, networking, API, display and editor.
+Home Assistant/MQTT/Wi-Fi feed the model/event queue and `ui_runtime.c`; API layout saves rebuild the UI.
+
+| Responsibility | Source under main/ |
+| --- | --- |
+| HA transport/task, layout/settings loading and overflow logs | `ha/ha_client.c` |
+| Domain attribute compaction and forecast extraction | `ha/ha_attr_serialize.c` (host-tested) |
+| Layout-driven subscriptions | `ha/ha_layout_entities.c` |
+| Area/floor registry and display precision | `ha/ha_room_registry.c`, `ha/ha_display_precision.c` |
+| Editor discovery domains (one table entry per new domain) | `ha/ha_discovery_domains.c` |
+| Fallback names and parent-device areas | `ha/ha_registry_discovery.c` (host-tested) |
+| Bounded effect/fan options and escaped service values | `ha/ha_control_options.c` (host-tested) |
+| Seven-day history and Energy Gas/Water/Solar statistics | `ha/ha_history_stats.c` (pure, host-tested), `ha/ha_history_week.c` (serialized WebSocket worker) |
+| Daily bars in popups and Energy details | `ui/ui_days_view.c` |
+| Weather parsing | `ui/widgets/weather_value_parse.c` |
+| Weather rendering entry points and private modules | `ui/widgets/w_weather_tile.c`, `weather_tile_{lottie,text,icon,values,forecast,layout,popup,render}.c`, `weather_tile_internal.h` |
+| Shared firmware/simulator House and Energy configuration | `ui/ui_house_page.c`, `ui_energy_page_config_from_json()` |
+| Brightness/wake/inactivity, pure policy | `drivers/display_brightness.c`, `drivers/display_policy.c` |
+
+Statistics timestamps are UTC; day boundaries follow the panel's local zone. Measured reply shapes are in
+[Recorder statistics](learnings.md#recorder-statistics). Rendering refactors need before/after SDL hashes
+(`SDL_VIDEODRIVER=dummy`, simulator `--screenshot`), including the weather modules.
+The WebUI build bundles/fingerprints ordered JS and CSS, gzips and embeds three assets; see
+[Web editor source](../editor-source.md). Build-only bundles are not maintained source modules.
+
 ## Vendored camera component and the P4 silicon cap
 
 `components/esp_cam_sensor` is Espressif's core plus OV02C10 (JC8012P4A1), OV5647 (LCD-X, with read-only AEC/AGC statistics) and SC202CS/SC2356 drivers
@@ -29,7 +56,7 @@ The adapter's registration rotation stays zero. Its custom bitmap callback uses
 the current `lv_display_get_rotation()` for both boot and runtime orientation,
 keeping Tab5 automatic rotation and LVGL's native touch mapping together. Native
 DPI framebuffer counts remain unchanged; no extra full-screen buffer is required.
-`APP_DISPLAY_PPA` selects bounded PPA rotation or LVGL CPU rotation (original JC).
+`APP_DISPLAY_PPA` selects bounded PPA rotation or LVGL CPU rotation; P4 profiles use the PPA except LCD-X Panel10, which retains CPU rotation and synchronized frame presentation. S3 uses CPU rotation.
 A PPA completion has a one-second deadline and retains crash evidence; uncertain
 output is never submitted or reused after a timeout. The adapter's sleep handling
 is disabled because BETTA owns brightness, wake and inactivity policy.
@@ -44,6 +71,15 @@ one ST7121/v1.3 Tab5 report adapter 0.7.3, valid OTA, live Home Assistant connec
 and unchanged layouts/settings. The owner confirmed physical image orientation
 and page navigation by touch on all three. Tab5 was mounted at 270 degrees;
 this check does not qualify physical touch mapping in every automatic orientation.
+
+## Vendored PPA driver (temporary)
+
+`components/esp_driver_ppa` is ESP-IDF 6.1's driver with upstream commit `469aa16` (esp-idf#19096, #19023): the
+P4 DIG-734 workaround now uses the rotated block size, so 90/270 degree RGB565 rotations no longer fail to complete.
+It overrides the IDF component for all variants. Remove it, with its `LICENSE` entry, once the ESP-IDF in use
+contains the change: `grep -n "in_block_w" $IDF_PATH/components/esp_driver_ppa/src/ppa_srm.c` finds the fixed code.
+After removing it, rebuild every variant, run a rotation soak on paneljc and tab5 and check that `GET /api/version`
+reports no PPA coredump.
 
 ## Waveshare LCD-4B BSP override
 
@@ -88,19 +124,31 @@ tools/apply_component_patches.py           # apply without a build
   deleted context (`tlsf_free` assertion in `mp_release_cover`, OTA rollback after 20 s; the panic PC read "Illegal
   instruction", the decoded core dump showed the double free).
 
-### Shared lock files
+### Variant lock files
 
-`dependencies.lock` (root) is shared by `panel4` and `panel10`; `paneljc`/`paneljc-v2` use `dependencies.lock.paneljc`,
-`tab5` uses `dependencies.lock.tab5` (`idf_build_set_property(DEPENDENCIES_LOCK ...)` in the root `CMakeLists.txt`).
-Building one of the shared pair overwrites the root file with that variant's resolution and swaps `managed_components/`
-(their manifests pull different Waveshare BSP packages). `lvgl`, `esp_lcd_touch`, `littlefs`, `esp_websocket_client`,
-`mqtt`, `cjson`, `esp_lvgl_adapter` and `esp_lcd_touch_gt911` are pinned to the same version in every manifest, so only the BSP differs.
+Each dependency set has a committed lock file, selected by the root `CMakeLists.txt` and used for the component
+versions reported by `/api/version`:
 
-To get the current one back afterwards, back up first: `cp -R managed_components <backup>` and `cp dependencies.lock
-<backup>/`; restore with `rsync -a --delete <backup>/ managed_components/` and copy the lock back.
-`git checkout dependencies.lock` is safe only without uncommitted changes of its own (a manifest bump in progress).
+| Variant | Lock file |
+| --- | --- |
+| Panel4 | `dependencies.lock` |
+| Panel10 | `dependencies.lock.panel10` |
+| JC V1 and V2 | `dependencies.lock.paneljc` |
+| Tab5 | `dependencies.lock.tab5` |
+
+The manifests use different BSPs and can resolve different transitive versions. Building one variant must not
+replace another variant's lock. Builds still share `managed_components/`, so build variants serially. Review and
+commit the matching lock when changing a manifest; use a disposable checkout for dependency experiments.
 
 ## Keeping components current
 
 `python3 tools/check_component_updates.py` lists each managed component with locked version, constraint and newest
 registry version (see `tools/README.md`). Run it before touching `dependencies.lock*` or the manifests.
+
+## Dependency pins
+
+Variant manifests and lock files are authoritative. JC/Tab5 select `esp_sccb_intf` 1.0.0 and
+`libpng` 1.6.59; Panel10 has its own lock at 1.6.59, while Panel4 retains 1.6.58~2.
+The Waveshare BSP's split ESP-IDF driver dependencies are supplied during the first configure;
+a second configure is not required to discover missing driver components. Shared build/CI scripts
+may still reconfigure deliberately for their other responsibilities.

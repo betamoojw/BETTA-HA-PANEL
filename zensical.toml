@@ -16,7 +16,7 @@ extra_css = ["stylesheets/extra.css"]
 extra_javascript = ["javascripts/image-viewer.js"]
 copyright = "Copyright &copy; 2026 Cpt_Kirk and andre68723 · LicenseRef-FNCL-1.1"
 nav = [
-  { "Home" = "README.md" },
+  { "BETTA HA Panel" = "README.md" },
   { "Get started" = [
     { "Install and set up" = "getting-started.md" },
     { "Choose your display" = "choose-display.md" },
@@ -36,7 +36,7 @@ nav = [
       { "Top bar" = "top-bar.md" },
     ] },
     { "Widgets" = [
-      { "Overview" = "widgets/README.md" },
+      { "Widget library" = "widgets/README.md" },
       { "Alarm" = "widgets/alarm_tile.md" },
       { "Bambu printer" = "widgets/bambu_printer.md" },
       { "Binary sensor" = "widgets/binary_tile.md" },
@@ -57,12 +57,15 @@ nav = [
       { "Light" = "widgets/light_tile.md" },
       { "Lock" = "widgets/lock_tile.md" },
       { "Media player" = "widgets/media_player.md" },
-      { "Room card" = "widgets/room_tile.md" },
+      { "Room" = "widgets/room_tile.md" },
       { "Scene" = "widgets/scene_tile.md" },
       { "Select" = "widgets/select_tile.md" },
       { "Sensor" = "widgets/sensor.md" },
       { "Slider" = "widgets/slider.md" },
       { "Solar forecast" = "widgets/solar_forecast.md" },
+      { "Energy price forecast" = "widgets/energy_price_forecast.md" },
+      { "Parqet portfolio" = "widgets/parqet_portfolio.md" },
+      { "Stocks & ETFs" = "widgets/stock_quotes.md" },
       { "Sonos favorites" = "widgets/sonos_favorites.md" },
       { "Todo list" = "widgets/todo_list.md" },
       { "Vacuum" = "widgets/vacuum_tile.md" },
@@ -84,22 +87,25 @@ nav = [
     ] },
   ] },
   { "Development" = [
-    { "Overview" = "development.md" },
+    { "Development" = "development.md" },
     { "Build and release" = [
       { "Build and flash" = "development/build.md" },
       { "Releases, OTA and rollback" = "development/release.md" },
     ] },
     { "Quality" = [
       { "Checks and device tests" = "development/testing.md" },
+      { "Native settings validation" = "development/native-settings-validation.md" },
+      { "Page transitions" = "development/page-transitions.md" },
       { "Display rotation" = "development/display-rotation.md" },
       { "Alert center" = "development/alert-center.md" },
       { "Code conventions" = "development/conventions.md" },
       { "Working practices" = "development/learnings.md" },
-      { "Scripts in tools/" = "development/tools.md" },
+      { "Scripts and tools" = "development/tools.md" },
     ] },
     { "Components and patches" = "development/components.md" },
     { "Internals" = [
       { "Web editor source" = "editor-source.md" },
+      { "Entity search rules" = "development/entity-search.md" },
       { "Appearance implementation" = "appearance-implementation.md" },
       { "Text size and readability" = "text-size-readability.md" },
       { "Notification implementation" = "notifications-implementation.md" },
@@ -124,14 +130,15 @@ nav = [
     ] },
     { "Visual comparisons" = [
       { "Gallery" = "gallery.md" },
-      { '5" M5Stack Tab5 (simulator)' = "gallery-sim-tab5.md" },
-      { '10.1" Guition (simulator)' = "gallery-sim-paneljc.md" },
+      { '5" M5Stack Tab5: simulator gallery' = "gallery-sim-tab5.md" },
+      { '10.1" Guition: simulator gallery' = "gallery-sim-paneljc.md" },
     ] },
     { "Documentation site" = "documentation.md" },
   ] },
   { "Project" = [
     { "Contributing" = "contributing.md" },
     { "Release notes" = "release-notes.md" },
+    { "Release notes architecture" = "release-notes-architecture.md" },
     { "Upstream release notes" = "release-notes-upstream.md" },
     { "Security" = "SECURITY.md" },
     { "Security fixes" = "security-fixes.md" },
@@ -171,4 +178,4 @@ toggle.name = "Switch to light mode"
 # Working notes and capture metadata are not public documentation. Local plans
 # and skills live outside docs/ in .local/. Zensical renders the Markdown galleries.
 [project.plugins.exclude]
-glob = ["**/sources.json", "**/manifest.json", "img/hardware/README.md"]
+glob = ["**/sources.json", "**/manifest.json", "img/hardware/README.md", "javascripts/vendor/README.md"]

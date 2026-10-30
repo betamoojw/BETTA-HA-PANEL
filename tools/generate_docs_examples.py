@@ -24,6 +24,14 @@ from generate_simulator_gallery import DATA, REPO, TOP_BAR_H, build_simulator, c
 
 OUT = REPO / "docs/img/examples"
 WWW = REPO / "components/webui/www"
+# Widgets whose guide shows the inspector: many options, or options that depend on the entity.
+# Wallbox and Bambu printer are left out: their inspector fills from device detection, which the demo API does not offer.
+INSPECTOR_KINDS = ["sensor", "graph", "gauge", "energy_price_forecast", "parqet_portfolio", "stock_quotes", "room_tile", "energy_timeline"]
+
+
+class DemoHTTPServer(ThreadingHTTPServer):
+    # The editor loads many assets in parallel; a small listen backlog resets some connections.
+    request_queue_size = 128
 
 
 def fixtures():
@@ -200,8 +208,14 @@ def render_panels(wide, compact, devices, output, appearance_only=False, setup_o
                     image = image.crop((0, 0, image.width, TOP_BAR_H))
                 elif name.startswith("popup-"):
                     # The popup is centred; its height follows the rows (Home Assistant also lists the firmware).
-                    top, bottom = (230, 570) if name == "popup-ha" else (275, 525)
-                    image = image.crop((400, top, 880, bottom))
+                    if name == "popup-ha":
+                        card = next(row for line in dump.read_text().splitlines()
+                                    if (row := json.loads(line)).get("widget") == "popup"
+                                    and row.get("depth") == 2 and row.get("kind") == "obj")
+                        image = image.crop((max(0, card["x1"] - 12), max(0, card["y1"] - 12),
+                                            min(image.width, card["x2"] + 13), min(image.height, card["y2"] + 13)))
+                    else:
+                        image = image.crop((400, 275, 880, 525))
                 elif name.startswith("weather-forecast-report_") or name == "graph-ha-history-24h":
                     rect = fixture["pages"][0]["widgets"][0]["rect"]
                     x, y = rect["x"], rect["y"] + TOP_BAR_H
@@ -213,11 +227,54 @@ def render_panels(wide, compact, devices, output, appearance_only=False, setup_o
 def demo_api(fixture):
     """Only public synthetic responses; no credentials, proxy or external calls."""
     layout = {k: v for k, v in fixture.items() if k in ("version", "alerts", "pages")}
-    states = [{**state, "attributes": state.get("attributes", {}),
-               "attributes_json": json.dumps(state.get("attributes", {}))} for state in fixture["states"]]
+    states = []
+    for state in fixture["states"]:
+        attrs = copy.deepcopy(state.get("attributes", {}))
+        # The simulator's compact fixture recipe is expanded by its C adapter.
+        # Give the editor the same real HA list shape rather than a test-only key.
+        recipe = attrs.pop("price_series", None)
+        if isinstance(recipe, dict):
+            from datetime import datetime, timedelta
+            start = datetime.now().astimezone().replace(hour=0, minute=0, second=0, microsecond=0)
+            interval = timedelta(minutes=recipe.get("interval_min", 60))
+            attrs["data"] = [{"start_time": (start + timedelta(days=day) + index * interval).isoformat(), "price_per_kwh": value}
+                             for day, key in enumerate(("today", "tomorrow")) for index, value in enumerate(recipe.get(key, []))]
+        states.append({**state, "attributes": attrs, "attributes_json": json.dumps(attrs)})
+    # Explicit integration metadata for synthetic examples; never inferred in the production editor.
+    integrations = {}
+    for page in fixture.get("pages", []):
+        for widget in page.get("widgets", []):
+            kind = widget.get("type")
+            if kind in ("stock_quotes", "sonos_favorites", "bambu_printer"):
+                for key, value in widget.items():
+                    if key.endswith("entity_id") and isinstance(value, str):
+                        integrations[value] = kind
+                if kind == "stock_quotes":
+                    for value in widget.get("stock_entities", []):
+                        integrations[value] = kind
+
+    def search_flags(state):
+        attrs = state["attributes"]
+        try:
+            import math
+            numeric = int(math.isfinite(float(state["state"])))
+        except (ValueError, TypeError):
+            numeric = 0
+        kind = integrations.get(state["entity_id"])
+        return (numeric | (2 if isinstance(attrs.get("data"), str) and len(attrs["data"]) > 400 and "Wetter" in attrs["data"] else 0)
+                | (4 if isinstance(attrs.get("items"), dict) else 0)
+                | ({"stock_quotes": 8, "sonos_favorites": 16, "bambu_printer": 32}.get(kind, 0))
+                | (64 if isinstance(attrs.get("current_temperature"), (int, float)) else 0)
+                | (128 if kind == "bambu_printer" and {"running", "pause"} <= set(attrs.get("options", [])) else 0))
     entities = [{"id": s["entity_id"], "name": s["attributes"].get("friendly_name", s["entity_id"]),
+                 "search_flags": search_flags(s), "supported_features": s["attributes"].get("supported_features"),
+                 "capabilities": {"dimming": any(mode not in ("onoff", "unknown") for mode in s["attributes"].get("supported_color_modes", []))},
                  "domain": s["entity_id"].split(".")[0], "unit": s["attributes"].get("unit_of_measurement", ""),
-                 "device_class": s["attributes"].get("device_class", ""), "area_id": "living_room",
+                 "device_class": s["attributes"].get("device_class", ""),
+                 "state_class": s["attributes"].get("state_class", ""),
+                 "has_price_series": bool(s["attributes"].get("pf") or s["attributes"].get("raw_today") or
+                                          any("price_per_kwh" in row or "da_cons" in row for row in s["attributes"].get("data", []) if isinstance(row, dict))),
+                 "has_solar_forecast": isinstance(s["attributes"].get("detailedForecast", s["attributes"].get("fc_kw")), list), "area_id": "living_room",
                  "area_name": "Living room"} for s in states]
     # Read the firmware's Dark palette, so the editor preview and LVGL use the same colors.
     source = (REPO / "main/ui/theme/theme_palette.c").read_text().split("k_preset_classic_v1")[0]
@@ -289,7 +346,7 @@ def capture_editor(fixture, output, executable, setup_only=False, hero=False, fi
         do_PUT = do_POST
         do_DELETE = do_POST
 
-    server = ThreadingHTTPServer(("127.0.0.1", 0), partial(Handler, directory=str(WWW)))
+    server = DemoHTTPServer(("127.0.0.1", 0), partial(Handler, directory=str(WWW)))
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
@@ -301,6 +358,7 @@ def capture_editor(fixture, output, executable, setup_only=False, hero=False, fi
             size = {"width": 1440, "height": 900} if hero else {"width": 1536, "height": 864}
             page = browser.new_page(viewport=size, device_scale_factor=1, locale="en-GB")
             page.on("pageerror", lambda error: failures.append(str(error)))
+            page.on("requestfailed", lambda request: failures.append(f"{request.failure}: {request.url}"))
             page.on("console", lambda msg: failures.append(msg.text) if msg.type == "error" else None)
 
             def local_only(route):
@@ -342,11 +400,9 @@ def capture_editor(fixture, output, executable, setup_only=False, hero=False, fi
                 page.screenshot(path=str(output / "editor-layout.png"))
                 # the Energy page's own options: data source and the seven-day details (popup or right-hand panel)
                 page.evaluate("editor.selectedPageId = 'energy'; editor.selectedWidgetId = null; renderAll()")
-                page.locator("#energyPageOptions").wait_for(state="visible")
-                # The hints sit in the info popup now (js/inspector-layout.js), so the group's own box is the clip.
-                box = page.locator("#energyPageOptions").bounding_box()
-                clip = {"x": box["x"], "y": box["y"], "width": box["width"], "height": box["height"] + 10}
-                page.screenshot(path=str(output / "editor-energy.png"), clip=clip)
+                # The page inspector in the widget inspector's form (js/inspector-layout.js): header and sections.
+                page.locator("#pageInspectorSection .inspector-sec").first.wait_for(state="visible")
+                page.locator("#pageInspectorSection").screenshot(path=str(output / "editor-energy.png"))
                 page.evaluate("setActivePane('settings'); setActiveSettingsSection('settingsThemeSection')")
                 page.screenshot(path=str(output / "editor-appearance.png"))
                 page.evaluate("setActiveSettingsSection('settingsHardwareSection')")
@@ -372,6 +428,88 @@ def capture_editor(fixture, output, executable, setup_only=False, hero=False, fi
         thread.join()
 
 
+def capture_inspectors(output, executable):
+    """The inspector (Placement collapsed) for INSPECTOR_KINDS, each with the widget of its guide's main preview (the
+    first gallery tile of that type) selected, at twice the pixel density for legible text."""
+    from playwright.sync_api import sync_playwright
+
+    _spec, fixture = prepare_fixture(json.loads(DATA.read_text()))
+    responses = demo_api(fixture)
+    failures = []
+
+    class Handler(SimpleHTTPRequestHandler):
+        def log_message(self, *_):
+            pass
+
+        def do_GET(self):
+            url = urlsplit(self.path)
+            if not url.path.startswith("/api/"):
+                return super().do_GET()
+            payload = responses.get(url.path)
+            if payload is None:
+                self.send_error(404)
+                return
+            body = json.dumps(payload).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def do_POST(self):
+            self.send_error(405, "Documentation demo is read-only")
+
+    server = DemoHTTPServer(("127.0.0.1", 0), partial(Handler, directory=str(WWW)))
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        with sync_playwright() as p:
+            options = {"headless": True}
+            if executable:
+                options["executable_path"] = executable
+            browser = p.chromium.launch(**options)
+            page = browser.new_page(viewport={"width": 1536, "height": 2400}, device_scale_factor=2, locale="en-GB")
+            page.on("pageerror", lambda error: failures.append(str(error)))
+            page.on("requestfailed", lambda request: failures.append(f"{request.failure}: {request.url}"))
+            page.route("**/*", lambda route: route.continue_() if urlsplit(route.request.url).hostname == "127.0.0.1"
+                       else (failures.append(f"External request: {route.request.url}"), route.abort()))
+            for kind in INSPECTOR_KINDS:
+                widget = next((pg["widgets"][0] for pg in fixture["pages"]
+                               if pg["widgets"] and pg["widgets"][0]["type"] == kind), None)
+                if widget is None:
+                    failures.append(f"No gallery tile of type {kind}")
+                    continue
+                # The gallery has more tiles than a layout has pages: each capture loads a layout of this tile alone.
+                responses["/api/layout"] = {"version": 1, "alerts": [], "pages": [{"id": "inspector", "title": "Demo",
+                                                                                    "widgets": [widget]}]}
+                # The demo's energy counters and similar have no state; list them so the rows do not read "not found".
+                listed = {item["id"] for item in responses["/api/entities"]["items"]}
+                for value in widget.values():
+                    if isinstance(value, str) and re.fullmatch(r"[a-z_]+\.[a-z0-9_]+", value) and value not in listed:
+                        responses["/api/entities"]["items"].append({"id": value, "name": value, "domain": value.split(".")[0],
+                                                                    "unit": "", "device_class": ""})
+                        listed.add(value)
+                page.goto(f"http://127.0.0.1:{server.server_port}", wait_until="networkidle")
+                try:
+                    page.wait_for_function("editor.editorStarted && editor.entities.length > 0", timeout=15000)
+                except Exception as error:
+                    state = page.evaluate("({url: location.href, started: typeof editor !== 'undefined' && editor.editorStarted, entities: typeof editor !== 'undefined' ? editor.entities.length : 0, status: document.getElementById('status')?.textContent, body: document.body.innerText.slice(0, 500)})")
+                    raise RuntimeError(("\n".join(failures) or str(error)) + f"\nEditor state: {state}") from error
+                page.evaluate("(id) => { editor.selectedPageId = 'inspector'; editor.selectedWidgetId = id; renderAll(); }",
+                              widget["id"])
+                page.locator("#inspectorSection").wait_for(state="visible")
+                page.wait_for_timeout(200)
+                page.locator("#inspectorSection").screenshot(path=str(output / f"inspector-{kind}.png"))
+                print(f"Captured the inspector of {kind}")
+            browser.close()
+        if failures:
+            raise RuntimeError("\n".join(failures))
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join()
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, default=OUT)
@@ -385,9 +523,13 @@ def main():
     selection.add_argument("--weather-report-only", action="store_true", help="Render weather forecasts with synthetic DWD report text")
     selection.add_argument("--history-only", action="store_true", help="Render a 24-hour temperature graph and motion history popup")
     selection.add_argument("--energy-details-only", action="store_true", help="Render the Energy page's seven-day details (side panel and popup)")
+    selection.add_argument("--inspector-only", action="store_true", help="Capture the inspector of the widgets whose guide shows it")
     parser.add_argument("--browser-executable", help="Use an installed Chromium browser instead of Playwright's")
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
+    if args.inspector_only:
+        capture_inspectors(args.output, args.browser_executable)
+        return
     wide, compact, devices = fixtures()
     if not args.editor_only:
         render_panels(wide, compact, devices, args.output, args.appearance_only, args.setup_only, args.topbar_only,

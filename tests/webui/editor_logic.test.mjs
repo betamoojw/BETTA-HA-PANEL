@@ -94,8 +94,8 @@ test("entity search input and suggestions", () => {
     { id: "binary_sensor.motion", device_class: "motion" }, { id: "binary_sensor.door", device_class: "door" },
     { id: "binary_sensor.unknown" },
   ];
-  assert.deepEqual(ids(rule(sensors, "contact_tile", "primary")), ["binary_sensor.door", "binary_sensor.unknown"],
-    "the door look hides a known other class but keeps an unknown one");
+  assert.deepEqual(ids(rule(sensors, "contact_tile", "primary")), ["binary_sensor.door"],
+    "the door look requires a reported contact class");
 });
 
 test("tile previews escape titles, entity ids and states", () => {
@@ -377,7 +377,7 @@ test("all named widget previews hide only the display name in English and German
       w.show_name=false;
       const hidden=renderer(w);
       assert.ok(!hidden.includes("NAME SENTINEL"),type+" hidden");
-      if(type==="media_player") assert.ok(hidden.includes(fn("t")("layout.preview.song_title")));
+      if(type==="media_player") assert.ok(hidden.includes(lang==="de"?"Musiktitel":"Song title"));
       if(type==="weather_3day") assert.ok(hidden.includes("22°"));
       if(type==="sensor") assert.ok(hidden.includes("1250 W"));
     }

@@ -31,6 +31,7 @@
 #include "app_config.h"
 #include "app_events.h"
 #include "ha/ha_attrs_compact.h"
+#include "ha/parqet_portfolio.h"
 #include "ha/ha_attr_serialize.h"
 #include "ha/ha_energy_model.h"
 #include "ha/ha_energy_prefs.h"
@@ -39,11 +40,14 @@
 #include "ha/ha_auth_state.h"
 #include "ha/ha_discovery_domains.h"
 #include "ha/ha_registry_discovery.h"
+#include "ha/ha_cover_fetcher.h"
 #include "ha/ha_display_precision.h"
 #include "ha/ha_printer_lookup.h"
 #include "ha/ha_evcc_lookup.h"
 #include "ha/ha_evcc_sessions.h"
 #include "ha/ha_evcc_value.h"
+#include "ha/ha_evcc_vehicle_names.h"
+#include "ha/ha_entity_source.h"
 #include "ha/ha_room_registry.h"
 #include "ha/ha_model.h"
 #include "ha/ha_ws.h"
@@ -81,13 +85,7 @@ typedef enum {
     HA_BG_BUDGET_CRITICAL = 3,
 } ha_bg_budget_level_t;
 
-#define HA_ENERGY_PAGE_ENTITY_MAX (APP_MAX_PAGES * 9)
-#define HA_SETTINGS_ENTITY_MAX 4
-/* Average entity-ID budget per widget. Most widgets use 1-2 IDs, but a
- * solar_forecast widget can contribute up to 8 (entity + secondary +
- * tertiary + 5 forecast days); 4 gives headroom for mixed layouts without
- * oversizing the subscription buffers. Overflow is logged, not silent. */
-#define HA_LAYOUT_ENTITY_MAX ((APP_MAX_WIDGETS_TOTAL * 4) + HA_ENERGY_PAGE_ENTITY_MAX + HA_SETTINGS_ENTITY_MAX)
+#define HA_LAYOUT_ENTITY_MAX HA_LAYOUT_ENTITY_CAPACITY
 #define HA_WS_ENTITIES_SUB_MAX HA_LAYOUT_ENTITY_MAX
 #define HA_WS_ENTITIES_SUB_ID_BYTES ((size_t)HA_WS_ENTITIES_SUB_MAX * (size_t)APP_MAX_ENTITY_ID_LEN)
 #define HA_WS_ENTITIES_SUB_REQ_BYTES ((size_t)HA_WS_ENTITIES_SUB_MAX * sizeof(uint32_t))
@@ -165,9 +163,13 @@ typedef struct {
     char area_id[APP_HA_DISCOVERY_ID_MAX_LEN];
     char device_id[APP_HA_DISCOVERY_ID_MAX_LEN];
     char icon[APP_MAX_ICON_LEN];
-    char device_class[24];
+    char device_class[APP_MAX_NAME_LEN];
+    char unit[APP_MAX_UNIT_LEN], state_class[24];
+    bool has_price_series, has_solar_forecast;
+    ha_entity_search_meta_t search;
     char floor[APP_MAX_NAME_LEN];
     bool prefix_device;
+    bool name_from_template;
 } ha_light_discovery_pending_item_t;
 
 typedef struct {
@@ -176,7 +178,10 @@ typedef struct {
     char room[APP_MAX_NAME_LEN];
     char area_id[APP_HA_DISCOVERY_ID_MAX_LEN];
     char icon[APP_MAX_ICON_LEN];
-    char device_class[24];
+    char device_class[APP_MAX_NAME_LEN];
+    char unit[APP_MAX_UNIT_LEN], state_class[24];
+    bool has_price_series, has_solar_forecast;
+    ha_entity_search_meta_t search;
     char floor[APP_MAX_NAME_LEN];
 } ha_light_discovery_item_t;
 
@@ -503,6 +508,8 @@ static void safe_copy_cstr(char *dst, size_t dst_size, const char *src);
 static bool ha_client_is_tls_bad_input_data(int tls_stack_err);
 static void ha_client_priority_sync_queue_push_locked(const char *entity_id);
 static size_t ha_client_collect_layout_entity_ids(char *entity_ids, size_t max_count, bool *out_need_weather_forecast);
+/* A saved layout changed the entities: the HA task asks the registry again for their precision and integration. */
+static volatile bool s_registry_lookup_due;
 static bool ha_client_layout_needs_ha_energy(void);
 static bool ha_client_entity_is_weather(const char *entity_id);
 static void ha_client_queue_weather_priority_sync_from_layout(int64_t now_ms);
@@ -966,7 +973,7 @@ static void ha_client_auth_status(int status, bool template_request)
 {
     if (ha_auth_state_report_http(status, template_request, s_client.authenticated)) {
         ESP_LOGE(TAG_HA_CLIENT, "HA rejected the panel (HTTP %d, %s): no more requests with this token until "
-                 "a restart or a new token in Settings", status, ha_auth_state_name());
+                 "a manual reconnect or corrected Settings", status, ha_auth_state_name());
     }
 }
 
@@ -1096,7 +1103,7 @@ static uint16_t ha_client_prepare_entities_resubscribe_locked(int64_t now_ms)
         bool need_weather_forecast = false;
         entity_count = ha_client_collect_layout_entity_ids(entity_ids, max_entities, &need_weather_forecast);
         s_client.layout_needs_weather_forecast = need_weather_forecast;
-        ha_display_precision_set_wanted(entity_ids, entity_count);
+        if (!ha_display_precision_set_wanted(entity_ids, entity_count)) s_registry_lookup_due = true;
     }
 
     uint16_t target_count =
@@ -1779,10 +1786,16 @@ static void ha_client_light_discovery_finish_locked(int64_t now_ms)
         safe_copy_cstr(name.text, sizeof(name.text), src->name);
         ha_registry_name_resolve(&name, src->id, src->device_id, s_client.light_discovery_devices,
             s_client.light_discovery_device_count, dst->name, sizeof(dst->name));
-        /* HA's computed friendly name includes the configured name parts. */
-        (void)ha_model_get_entity_name(src->id, dst->name, sizeof(dst->name));
+        /* Template names are already computed. Registry-only discovery keeps HA's legacy
+         * display name when present (including custom names on HA 2026.10). */
+        if (!src->name_from_template) (void)ha_model_get_entity_name(src->id, dst->name, sizeof(dst->name));
+        if (strcmp(src->id, dst->name) != 0) (void)ha_model_set_entity_name(src->id, dst->name);
         safe_copy_cstr(dst->icon, sizeof(dst->icon), src->icon);
         safe_copy_cstr(dst->device_class, sizeof(dst->device_class), src->device_class);
+        safe_copy_cstr(dst->unit, sizeof(dst->unit), src->unit);
+        safe_copy_cstr(dst->state_class, sizeof(dst->state_class), src->state_class);
+        dst->has_price_series = src->has_price_series; dst->has_solar_forecast = src->has_solar_forecast;
+        dst->search = src->search;
         safe_copy_cstr(dst->floor, sizeof(dst->floor), src->floor);
 
         const char *area_id = src->area_id;
@@ -1875,6 +1888,14 @@ static esp_err_t ha_client_light_discovery_refresh_from_model(const char *domain
         safe_copy_cstr(dst->id, sizeof(dst->id), src->id);
         safe_copy_cstr(dst->name, sizeof(dst->name), src->name[0] != '\0' ? src->name : src->id);
         safe_copy_cstr(dst->icon, sizeof(dst->icon), src->icon);
+        safe_copy_cstr(dst->device_class, sizeof(dst->device_class), src->device_class);
+        safe_copy_cstr(dst->unit, sizeof(dst->unit), src->unit);
+        safe_copy_cstr(dst->state_class, sizeof(dst->state_class), src->state_class);
+        dst->has_price_series = src->has_price_series;
+        dst->has_solar_forecast = src->has_solar_forecast;
+        dst->search.features_known = true;
+        dst->search.features = src->supported_features;
+        dst->search.dimming = src->supports_dimming;
     }
     if (s_client.light_discovery_count > 1) {
         qsort(s_client.light_discovery_items, s_client.light_discovery_count,
@@ -2727,95 +2748,21 @@ static esp_err_t ha_client_light_discovery_template_step(uint16_t offset, uint16
         goto fail;
     }
 
-    char template_text[2048] = {0};
-    int template_len = 0;
-    char domains_jinja[384] = "[]"; /* the "any" and "room" domain lists, from ha_discovery_domains.c */
-    (void)ha_discovery_domains_jinja(domain, domains_jinja, sizeof(domains_jinja));
-    if (strcmp(domain, "any") == 0) {
-        /* Add from an entity: every entity a tile can show, matched on id, name and area, with its
-         * device class so the editor can suggest the right tile. */
-        template_len = snprintf(template_text, sizeof(template_text),
-            "{%% set offset = %u %%}"
-            "{%% set limit = %u %%}"
-            "{%% set q = (%s|lower) %%}"
-            "{%% set doms = %s %%}"
-            "{%% set ns = namespace(items=[], total=0) %%}"
-            "{%% for s in states|sort(attribute='entity_id') %%}"
-            "{%% if s.domain in doms %%}"
-            "{%% set room = area_name(s.entity_id) or '' %%}"
-            "{%% set hay = (s.entity_id ~ ' ' ~ s.name ~ ' ' ~ room)|lower %%}"
-            "{%% if q == '' or q in hay %%}"
-            "{%% set idx = ns.total %%}"
-            "{%% set ns.total = ns.total + 1 %%}"
-            "{%% if idx >= offset and idx < offset + limit %%}"
-            "{%% set ns.items = ns.items + [dict(id=s.entity_id, name=s.name, room=room, "
-            "dc=(s.attributes.device_class|default('', true)))] %%}"
-            "{%% endif %%}"
-            "{%% endif %%}"
-            "{%% endif %%}"
-            "{%% endfor %%}"
-            "{{ {'total': ns.total, 'items': ns.items}|to_json }}",
-            (unsigned)offset, (unsigned)page_size, search_literal, domains_jinja);
-    } else if (strcmp(domain, "room") == 0) {
-        /* Room cards (and the editor's per-room widget import): everything that belongs to an
-         * area and can be shown for a room (temperature and humidity sensors, window/door/motion
-         * sensors, lights, covers, fans, climate, media players, locks, switches, vacuums), with
-         * its device class. */
-        template_len = snprintf(template_text, sizeof(template_text),
-            "{%% set offset = %u %%}"
-            "{%% set limit = %u %%}"
-            "{%% set q = (%s|lower) %%}"
-            "{%% set sc = ['temperature','humidity','battery'] %%}"
-            "{%% set bc = ['window','door','opening','garage_door','motion','occupancy','presence','moving','battery'] %%}"
-            "{%% set ns = namespace(items=[], total=0) %%}"
-            "{%% for s in states|sort(attribute='entity_id') %%}"
-            "{%% set d = s.domain %%}"
-            "{%% set dc = s.attributes.device_class|default('', true) %%}"
-            "{%% if (d == 'sensor' and dc in sc) or (d == 'binary_sensor' and dc in bc) or (d not in ['sensor','binary_sensor'] and d in %s) %%}"
-            "{%% set room = area_name(s.entity_id) or '' %%}"
-            "{%% if room != '' and (q == '' or q in room|lower) %%}"
-            "{%% set idx = ns.total %%}"
-            "{%% set ns.total = ns.total + 1 %%}"
-            "{%% if idx >= offset and idx < offset + limit %%}"
-            "{%% set ns.items = ns.items + [dict(id=s.entity_id, name=s.name, room=room, dc=dc, fl=(floor_name(s.entity_id) or ''))] %%}"
-            "{%% endif %%}"
-            "{%% endif %%}"
-            "{%% endif %%}"
-            "{%% endfor %%}"
-            "{{ {'total': ns.total, 'items': ns.items}|to_json }}",
-            (unsigned)offset, (unsigned)page_size, search_literal, domains_jinja);
-    } else {
-        template_len = snprintf(template_text, sizeof(template_text),
-        "{%% set offset = %u %%}"
-        "{%% set limit = %u %%}"
-        "{%% set q = (%s|lower) %%}"
-        "{%% set ns = namespace(items=[], total=0) %%}"
-        "{%% for s in states.%s|sort(attribute='entity_id') %%}"
-        "{%% set room = area_name(s.entity_id) or '' %%}"
-        "{%% set hay = (s.entity_id ~ ' ' ~ s.name ~ ' ' ~ room)|lower %%}"
-        "{%% if q == '' or q in hay %%}"
-        "{%% set idx = ns.total %%}"
-        "{%% set ns.total = ns.total + 1 %%}"
-        "{%% if idx >= offset and idx < offset + limit %%}"
-        "{%% set ns.items = ns.items + [dict(id=s.entity_id, name=s.name, room=room, icon=(s.attributes.icon|default('', true)))] %%}"
-        "{%% endif %%}"
-        "{%% endif %%}"
-        "{%% endfor %%}"
-        "{{ {'total': ns.total, 'items': ns.items}|to_json }}",
-        (unsigned)offset, (unsigned)page_size, search_literal, domain);
-    }
+    char *template_text = ha_entity_source_template(domain, search_literal, offset, page_size);
     cJSON_free(search_literal);
-    if (template_len <= 0 || (size_t)template_len >= sizeof(template_text)) {
-        err = ESP_ERR_INVALID_SIZE;
+    if (template_text == NULL) {
+        err = ESP_ERR_NO_MEM;
         goto fail;
     }
 
     cJSON *body_root = cJSON_CreateObject();
     if (body_root == NULL) {
+        free(template_text);
         err = ESP_ERR_NO_MEM;
         goto fail;
     }
     cJSON_AddStringToObject(body_root, "template", template_text);
+    free(template_text);
     char *body = cJSON_PrintUnformatted(body_root);
     cJSON_Delete(body_root);
     if (body == NULL) {
@@ -2953,9 +2900,15 @@ static esp_err_t ha_client_light_discovery_template_step(uint16_t offset, uint16
         if (!ha_client_json_string_value(entry, "name", item.name, sizeof(item.name))) {
             safe_copy_cstr(item.name, sizeof(item.name), item.id);
         }
+        item.name_from_template = true;
         (void)ha_client_json_string_value(entry, "room", item.room, sizeof(item.room));
         (void)ha_client_json_string_value(entry, "icon", item.icon, sizeof(item.icon));
         (void)ha_client_json_string_value(entry, "dc", item.device_class, sizeof(item.device_class));
+        (void)ha_client_json_string_value(entry, "u", item.unit, sizeof(item.unit));
+        (void)ha_client_json_string_value(entry, "sc", item.state_class, sizeof(item.state_class));
+        ha_entity_search_parse(entry, &item.search);
+        item.has_price_series = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(entry, "ps"));
+        item.has_solar_forecast = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(entry, "sf"));
         (void)ha_client_json_string_value(entry, "fl", item.floor, sizeof(item.floor));
         ha_client_light_discovery_add_pending_locked(&item);
     }
@@ -3613,12 +3566,14 @@ static bool ha_client_format_energy_period_iso(char *start_buf, size_t start_siz
     local_start.tm_hour = 0;
     local_start.tm_min = 0;
     local_start.tm_sec = 0;
+    local_start.tm_isdst = -1;
     time_t start = mktime(&local_start);
 
     struct tm local_end = local_start;
     local_end.tm_hour = 23;
     local_end.tm_min = 59;
     local_end.tm_sec = 59;
+    local_end.tm_isdst = -1;
     time_t end = mktime(&local_end);
     if (start <= 0 || end <= start) {
         return false;
@@ -4257,6 +4212,17 @@ static bool ha_client_import_state_object(cJSON *state_obj)
                 snprintf(model_state.attributes_json, sizeof(model_state.attributes_json), "{}");
                 serialized = true;
             }
+        } else if (ha_client_attrs_is_price_series(attributes)) {
+            /* An electricity price list (EPEX Spot, Day Ahead Optimizer, ...) is far beyond the attribute buffer: keep it as a
+             * regular grid, or, when it cannot be kept exactly, only the generic metadata and no list (never a cut one). */
+            serialized = ha_client_serialize_price_series_compact(
+                attributes, model_state.attributes_json, sizeof(model_state.attributes_json));
+            if (!serialized) {
+                ESP_LOGW(TAG_HA_CLIENT, "price list of %s is not representable, dropping it", model_state.entity_id);
+                ha_attrs_build_generic_overflow_fallback(
+                    attributes, model_state.attributes_json, sizeof(model_state.attributes_json));
+                serialized = true;
+            }
         }
 
         if (!serialized && (strncmp(model_state.entity_id, "select.", 7) == 0 ||
@@ -4275,9 +4241,13 @@ static bool ha_client_import_state_object(cJSON *state_obj)
                     /* The snprintf() above already left an invalid, truncated JSON string in the
                      * buffer -- silently unparseable by every reader's cJSON_Parse(). Replace it with
                      * a small but always-valid object holding the handful of fields a generic
-                     * (non-domain-specific) widget might still need, instead of leaving that. */
-                    ha_attrs_build_generic_overflow_fallback(
-                        attributes, model_state.attributes_json, sizeof(model_state.attributes_json));
+                     * (non-domain-specific) widget might still need, instead of leaving that. A Parqet portfolio
+                     * sensor keeps its ids, interval and positions instead (long fund names push it over the limit). */
+                    if (!parqet_attrs_is_portfolio(attributes) ||
+                        !parqet_attrs_compact(attributes, model_state.attributes_json, sizeof(model_state.attributes_json))) {
+                        ha_attrs_build_generic_overflow_fallback(
+                            attributes, model_state.attributes_json, sizeof(model_state.attributes_json));
+                    }
                 }
                 cJSON_free(attr_json);
             }
@@ -4350,6 +4320,10 @@ static bool ha_client_import_state_object(cJSON *state_obj)
         cJSON *friendly_name = cJSON_GetObjectItemCaseSensitive(attributes, "friendly_name");
         cJSON *unit = cJSON_GetObjectItemCaseSensitive(attributes, "unit_of_measurement");
         cJSON *device_class = cJSON_GetObjectItemCaseSensitive(attributes, "device_class");
+        const char *state_class = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(attributes, "state_class"));
+        safe_copy_cstr(entity.state_class, sizeof(entity.state_class), state_class);
+        entity.has_price_series = strncmp(model_state.attributes_json, "{\"pf\":", 6) == 0;
+        entity.has_solar_forecast = cJSON_IsArray(cJSON_GetObjectItemCaseSensitive(attributes, "detailedForecast")) || cJSON_IsArray(cJSON_GetObjectItemCaseSensitive(attributes, "fc_kw"));
         cJSON *icon = cJSON_GetObjectItemCaseSensitive(attributes, "icon");
         cJSON *supported_features = cJSON_GetObjectItemCaseSensitive(attributes, "supported_features");
         if (cJSON_IsString(friendly_name) && friendly_name->valuestring != NULL) {
@@ -5413,7 +5387,7 @@ static void ha_client_handle_text_message(const char *data, int len)
             ESP_LOGD(TAG_HA_CLIENT, "HA pong received while no ping was in-flight");
         }
     } else if (strcmp(type->valuestring, "auth_invalid") == 0 && ha_auth_state_report_ws_auth_invalid()) {
-        ESP_LOGE(TAG_HA_CLIENT, "HA rejected the token: no reconnect until a restart or a new token in Settings");
+        ESP_LOGE(TAG_HA_CLIENT, "HA rejected the token: waiting for manual reconnect or corrected Settings");
     }
 
     cJSON_Delete(root);
@@ -5540,6 +5514,7 @@ static void ha_client_ws_event_cb(const ha_ws_event_t *event, void *user_ctx)
             s_client.light_discovery_req_id = 0;
         }
         xSemaphoreGive(s_client.mutex);
+        ha_cover_fetcher_cancel_cameras();
         ha_client_pending_response_expire_all(true);
         if (ws_session_age_ms > 0 && ws_session_age_ms < HA_WS_SHORT_SESSION_MS) {
             ESP_LOGW(TAG_HA_CLIENT,
@@ -5609,6 +5584,30 @@ static void ha_client_task(void *arg)
     int64_t last_wifi_force_recover_ms = 0;
     bool wifi_seen_connected_once = false;
     while (true) {
+        xSemaphoreTake(s_client.mutex, portMAX_DELAY);
+        bool manual_retry = ha_auth_state_take_retry();
+        xSemaphoreGive(s_client.mutex);
+        if (manual_retry) {
+            /* Transport operations run here, never under the display lock of the popup. */
+            ha_cover_fetcher_cancel_cameras();
+            ha_ws_stop();
+            ha_client_reset_ws_rx_assembly();
+            ha_client_flush_ws_rx_queue();
+            ha_client_pending_response_expire_all(true);
+            xSemaphoreTake(s_client.mutex, portMAX_DELAY);
+            s_client.authenticated = false;
+            s_client.pending_send_auth = false;
+            s_client.pending_send_pong = false;
+            s_client.ping_inflight = false;
+            s_client.ws_error_streak = 0;
+            s_client.ping_timeout_strikes = 0;
+            s_client.ws_short_session_strikes = 0;
+            s_client.pending_force_wifi_recover = false;
+            ha_auth_state_begin_retry();
+            xSemaphoreGive(s_client.mutex);
+            last_ws_restart_ms = ha_client_now_ms() - HA_WS_RESTART_INTERVAL_MAX_MS - HA_WS_RESTART_JITTER_MS;
+            ESP_LOGI(TAG_HA_CLIENT, "Home Assistant reconnect requested by user");
+        }
         if (s_client.ws_rx_queue != NULL) {
             ha_ws_rx_msg_t msg = {0};
             int drained = 0;
@@ -6097,6 +6096,12 @@ static void ha_client_task(void *arg)
                 if (err != ESP_OK) ha_evcc_sessions_send_failed(err == ESP_ERR_INVALID_STATE);
             }
         }
+        if (connected && authenticated && ha_evcc_vehicle_names_is_due(now_ms) && !ha_client_heavy_gate_is_busy()) {
+            uint32_t token = ha_client_next_message_id();
+            cJSON *request = ha_evcc_vehicle_names_next_request(token, now_ms);
+            if (request && ha_client_send_command_with_response(request, ha_evcc_vehicle_names_reply, (void *)(uintptr_t)token) != ESP_OK)
+                ha_evcc_vehicle_names_result(token, false, NULL);
+        }
         if (connected && authenticated && ha_evcc_lookup_is_due(now_ms)) {
             cJSON *req = ha_evcc_lookup_next_request(ha_client_next_message_id(), now_ms);
             if (req != NULL && ha_client_send_json(req) != ESP_OK) ha_evcc_lookup_send_failed();
@@ -6113,6 +6118,20 @@ static void ha_client_task(void *arg)
             ha_printer_lookup_cancel();
             ha_evcc_lookup_cancel();
             ha_evcc_sessions_cancel();
+            ha_evcc_vehicle_names_cancel();
+        }
+        if (connected && authenticated && s_registry_lookup_due) {
+            /* new entities of a saved layout: their display precision and integration (a Stocks & ETFs quote) */
+            s_registry_lookup_due = false;
+            char *ids = calloc((size_t)HA_LAYOUT_ENTITY_MAX, APP_MAX_ENTITY_ID_LEN);
+            if (ids != NULL) {
+                bool need_weather_forecast = false;
+                const size_t count = ha_client_collect_layout_entity_ids(ids, (size_t)HA_LAYOUT_ENTITY_MAX, &need_weather_forecast);
+                if (!ha_display_precision_set_wanted(ids, count)) s_registry_lookup_due = true;
+                free(ids);
+            } else {
+                s_registry_lookup_due = true; /* a temporary allocation failure must not lose the new layout's lookup */
+            }
         }
         if (connected && authenticated && ha_display_precision_is_due(now_ms)) {
             cJSON *dp_req = ha_display_precision_next_request(ha_client_next_message_id(), now_ms);
@@ -7068,6 +7087,7 @@ esp_err_t ha_client_notify_layout_updated(void)
     }
 
     if (started && entity_set_changed) {
+        s_registry_lookup_due = true;
         s_client.initial_layout_sync_index = 0;
         s_client.initial_layout_sync_imported = 0;
         s_client.get_states_req_id = 0;
@@ -7242,6 +7262,31 @@ bool ha_client_is_connected(void)
         xSemaphoreGive(s_client.mutex);
     }
     return ha_ws_is_connected() && authenticated;
+}
+
+static bool ha_client_reconnect_available_locked(void)
+{
+    return s_client.task_handle != NULL && s_client.ws_url[0] != '\0' &&
+        (!s_client.authenticated || ha_auth_state_blocked()) &&
+        ha_auth_state_retry_available(ha_client_now_ms());
+}
+
+bool ha_client_reconnect_available(void)
+{
+    if (s_client.mutex == NULL || !wifi_mgr_is_connected()) return false;
+    xSemaphoreTake(s_client.mutex, portMAX_DELAY);
+    bool available = ha_client_reconnect_available_locked();
+    xSemaphoreGive(s_client.mutex);
+    return available;
+}
+
+bool ha_client_request_reconnect(void)
+{
+    if (s_client.mutex == NULL || !wifi_mgr_is_connected()) return false;
+    xSemaphoreTake(s_client.mutex, portMAX_DELAY);
+    bool requested = ha_client_reconnect_available_locked() && ha_auth_state_request_retry(ha_client_now_ms());
+    xSemaphoreGive(s_client.mutex);
+    return requested;
 }
 
 bool ha_client_is_initial_sync_done(void)
@@ -7519,6 +7564,11 @@ esp_err_t ha_client_get_domain_entities_json(const char *domain, const char *sea
             cJSON_AddStringToObject(item, "area_id", src->area_id);
             cJSON_AddStringToObject(item, "icon", src->icon);
             cJSON_AddStringToObject(item, "device_class", src->device_class);
+            cJSON_AddStringToObject(item, "unit", src->unit);
+            cJSON_AddStringToObject(item, "state_class", src->state_class);
+            cJSON_AddBoolToObject(item, "has_price_series", src->has_price_series);
+            cJSON_AddBoolToObject(item, "has_solar_forecast", src->has_solar_forecast);
+            ha_entity_search_json(item, &src->search);
             cJSON_AddStringToObject(item, "floor", src->floor);
             cJSON_AddItemToArray(items, item);
         }

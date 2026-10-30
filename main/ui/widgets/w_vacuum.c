@@ -141,6 +141,8 @@ typedef struct w_rr_ctx {
     size_t robot_trail_count;
 
     char state_text[48];
+    char restore_text[48];      /* state_text while a failed command's notice replaces it */
+    int64_t notice_until_ms;    /* 0: no notice shown */
     char detail_text[160];
     char fan_speed[HA_CONTROL_OPTION_LEN];
     ha_control_options_t fan_options;
@@ -381,10 +383,6 @@ static lv_color_t w_rr_surface_fill(uint8_t mix)
     return lv_color_mix(lv_color_hex(APP_UI_COLOR_TOPBAR_CHIP_BG), lv_color_hex(APP_UI_COLOR_CARD_BG_OFF), mix);
 }
 
-static lv_color_t w_rr_pressed_fill(lv_color_t color)
-{
-    return lv_color_brightness(color) > 127 ? lv_color_darken(color, 26) : lv_color_lighten(color, 26);
-}
 
 static lv_color_t w_rr_contrast_text(lv_color_t bg)
 {
@@ -539,6 +537,17 @@ static void w_rr_popup_show_map_placeholder(w_rr_ctx_t *ctx, const char *text, b
 static void w_rr_update_popup_clean_button(w_rr_ctx_t *ctx);
 static void w_rr_apply_visual(w_rr_ctx_t *ctx);
 static void w_rr_layout_card(w_rr_ctx_t *ctx);
+
+/* The state ("In der Station") shrinks to the board's smallest text before it ends in dots beside the charge chip. */
+static void w_rr_fit_state(w_rr_ctx_t *ctx)
+{
+    const lv_coord_t width = lv_obj_get_width(ctx->state_label);
+    if (width <= 0) return;
+    ui_text_record(ctx->state_label, UI_TEXT_META, true);
+    lv_obj_set_style_text_font(ctx->state_label, ui_text_fit(ctx->state_text, ui_font_role(UI_TEXT_META), width,
+                                                             lv_font_get_line_height(ui_font_role(UI_TEXT_META))),
+                               LV_PART_MAIN);
+}
 static void w_rr_render_map_overlay(w_rr_ctx_t *ctx);
 
 static void w_rr_update_map_content_bounds(w_rr_ctx_t *ctx)
@@ -1262,33 +1271,20 @@ static void w_rr_merge_map_attr_metadata(w_rr_ctx_t *ctx, cJSON *attrs)
     }
 }
 
-static void w_rr_style_action_button(lv_obj_t *btn, lv_obj_t *label, lv_color_t bg, lv_color_t border, lv_color_t text)
+static void w_rr_style_control(lv_obj_t *btn, lv_obj_t *label, ui_control_role_t role, bool enabled)
 {
-    if (btn == NULL) {
-        return;
-    }
+    if (btn == NULL) return;
     lv_obj_set_style_radius(btn, ui_style_radius(18), LV_PART_MAIN);
-    ui_style_button(btn, bg, border, w_rr_pressed_fill(bg));
     lv_obj_set_style_pad_all(btn, 0, LV_PART_MAIN);
-
-    if (label != NULL) {
-        lv_obj_set_style_text_color(label, text, LV_PART_MAIN);
-    }
+    ui_style_action_button(btn, label, role, enabled);
 }
 
 static esp_err_t w_rr_call_vacuum_simple(const char *service, const char *entity_id);
+static void w_rr_command_failed(w_rr_ctx_t *ctx, const char *what, esp_err_t err);
 
 static void w_rr_style_stop_button(w_rr_ctx_t *ctx)
 {
-    if (ctx == NULL) {
-        return;
-    }
-
-    lv_color_t idle_bg = w_rr_surface_fill(220);
-    lv_color_t idle_border = lv_color_hex(APP_UI_COLOR_TOPBAR_CHIP_BORDER);
-    lv_color_t idle_text = lv_color_hex(APP_UI_COLOR_TEXT_PRIMARY);
-
-    w_rr_style_action_button(ctx->stop_btn, ctx->stop_label, idle_bg, idle_border, idle_text);
+    if (ctx != NULL) w_rr_style_control(ctx->stop_btn, ctx->stop_label, UI_CONTROL_ACTION, !ctx->unavailable);
 }
 
 /* Colors of the line-art robot: gray while idle, accent while working, red on
@@ -1517,6 +1513,7 @@ static void w_rr_layout_generic(w_rr_ctx_t *ctx, lv_coord_t inner_w, lv_coord_t 
         lv_obj_set_style_text_align(ctx->state_label, beside_chip ? LV_TEXT_ALIGN_LEFT : LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
         lv_obj_set_size(ctx->state_label, text_w, name_line);
         lv_obj_set_pos(ctx->state_label, col_x, name_y + ui_widget_name_gap(ctx->title_label, name_gap));
+        w_rr_fit_state(ctx);
     }
 
     /* Controls: chip on top, icon buttons at the bottom. */
@@ -1549,9 +1546,7 @@ static void w_rr_layout_generic(w_rr_ctx_t *ctx, lv_coord_t inner_w, lv_coord_t 
         lv_obj_set_pos(ctx->fan_btn, fan_x, 0);
         lv_obj_set_size(ctx->fan_btn, fan_w, chip_h);
         lv_obj_set_state(ctx->fan_btn, LV_STATE_DISABLED, ctx->unavailable);
-        lv_color_t bg = lv_color_hex(APP_UI_COLOR_NAV_BTN_BG_IDLE);
-        w_rr_style_action_button(ctx->fan_btn, ctx->fan_label, bg,
-            lv_color_hex(APP_UI_COLOR_TOPBAR_CHIP_BORDER), lv_color_hex(APP_UI_COLOR_TEXT_PRIMARY));
+        w_rr_style_control(ctx->fan_btn, ctx->fan_label, UI_CONTROL_ACTION, !ctx->unavailable);
         lv_label_set_text(ctx->fan_label, ctx->fan_speed[0] != '\0' ? ctx->fan_speed : ui_i18n_get("roborock.fan_title", "Suction level"));
         lv_label_set_long_mode(ctx->fan_label, LV_LABEL_LONG_DOT);
         lv_obj_set_size(ctx->fan_label, fan_w - 16, lv_font_get_line_height(ui_font_role(UI_TEXT_META)));
@@ -1643,7 +1638,7 @@ static void w_rr_stop_event_cb(lv_event_t *event)
     }
     esp_err_t err = w_rr_call_vacuum_simple("stop", ctx->entity_id);
     if (err != ESP_OK) {
-        ESP_LOGW(W_RR_TAG, "stop failed (%s): %s", ctx->entity_id, esp_err_to_name(err));
+        w_rr_command_failed(ctx, "stop", err);
     }
 }
 
@@ -1653,18 +1648,8 @@ static void w_rr_update_popup_clean_button(w_rr_ctx_t *ctx)
         return;
     }
 
-    lv_color_t enabled_bg = lv_color_mix(lv_color_hex(APP_UI_COLOR_STATE_ON), lv_color_hex(APP_UI_COLOR_NAV_BTN_BG_ACTIVE), 176);
-    lv_color_t enabled_border = lv_color_mix(enabled_bg, lv_color_hex(APP_UI_COLOR_TOPBAR_CHIP_BORDER), 150);
-    lv_color_t disabled_bg = w_rr_surface_fill(214);
-    lv_color_t disabled_border = lv_color_hex(APP_UI_COLOR_TOPBAR_CHIP_BORDER);
-    bool enabled = !ctx->unavailable && ctx->mode_count > 0;
-
-    w_rr_style_action_button(
-        ctx->rooms_btn,
-        ctx->rooms_label,
-        enabled ? enabled_bg : disabled_bg,
-        enabled ? enabled_border : disabled_border,
-        enabled ? w_rr_contrast_text(enabled_bg) : lv_color_hex(APP_UI_COLOR_TEXT_MUTED));
+    const bool enabled = !ctx->unavailable && ctx->mode_count > 0;
+    w_rr_style_control(ctx->rooms_btn, ctx->rooms_label, UI_CONTROL_ACTION, enabled);
 
     char text[64] = {0};
     char mode_text[W_RR_MODE_LEN];
@@ -1694,6 +1679,20 @@ static esp_err_t w_rr_call_vacuum_simple(const char *service, const char *entity
     char payload[160];
     snprintf(payload, sizeof(payload), "{\"entity_id\":\"%s\"}", entity_id);
     return ha_client_call_service("vacuum", service, payload);
+}
+
+#define W_RR_NOTICE_MS 3000
+
+/* A command that could not be sent says so in the state line for a few seconds, then the real state returns. */
+static void w_rr_command_failed(w_rr_ctx_t *ctx, const char *what, esp_err_t err)
+{
+    ESP_LOGW(W_RR_TAG, "%s failed (%s): %s", what, ctx->entity_id, esp_err_to_name(err));
+    if (ctx->notice_until_ms == 0) strlcpy(ctx->restore_text, ctx->state_text, sizeof(ctx->restore_text));
+    const char *text = err == ESP_ERR_INVALID_STATE ? ui_i18n_get("roborock.not_connected", "Home Assistant not connected")
+                                                    : ui_i18n_get("roborock.send_failed", "Command not sent");
+    snprintf(ctx->state_text, sizeof(ctx->state_text), "%s", text);
+    ctx->notice_until_ms = w_rr_now_ms() + W_RR_NOTICE_MS;
+    w_rr_apply_visual(ctx);
 }
 
 /* The cleaning-mode popup is the shared option picker (ui_option_picker.c). */
@@ -1809,8 +1808,10 @@ static void w_rr_start_event_cb(lv_event_t *event)
     }
     esp_err_t err = w_rr_call_vacuum_simple(should_pause ? "pause" : "start", ctx->entity_id);
     if (err != ESP_OK) {
+        w_rr_command_failed(ctx, should_pause ? "pause" : "start", err);
         return;
     }
+    ctx->notice_until_ms = 0;
 
     if (should_pause) {
         ctx->active_clean = false;
@@ -1836,9 +1837,12 @@ static void w_rr_dock_event_cb(lv_event_t *event)
     if (ctx == NULL || ctx->unavailable) {
         return;
     }
-    if (w_rr_call_vacuum_simple("return_to_base", ctx->entity_id) != ESP_OK) {
+    const esp_err_t err = w_rr_call_vacuum_simple("return_to_base", ctx->entity_id);
+    if (err != ESP_OK) {
+        w_rr_command_failed(ctx, "return_to_base", err);
         return;
     }
+    ctx->notice_until_ms = 0;
     ctx->active_clean = false;
     ctx->paused = false;
     ctx->returning = true;
@@ -1907,6 +1911,7 @@ static void w_rr_apply_visual(w_rr_ctx_t *ctx)
 
     if (ctx->state_label != NULL) {
         lv_label_set_text(ctx->state_label, ctx->state_text);
+        w_rr_fit_state(ctx);
     }
     if (ctx->detail_label != NULL) {
         lv_label_set_text(ctx->detail_label, ctx->detail_text);
@@ -1940,21 +1945,10 @@ static void w_rr_apply_visual(w_rr_ctx_t *ctx)
         lv_label_set_text(ctx->battery_label, battery_text);
     }
 
-    lv_color_t primary_btn_bg = ctx->unavailable
-        ? w_rr_surface_fill(214)
-        : lv_color_mix(lv_color_hex(APP_UI_COLOR_STATE_ON), lv_color_hex(APP_UI_COLOR_NAV_BTN_BG_ACTIVE), 176);
-    lv_color_t primary_btn_border = lv_color_mix(primary_btn_bg, lv_color_hex(APP_UI_COLOR_TOPBAR_CHIP_BORDER), 150);
-    lv_color_t primary_btn_text = w_rr_contrast_text(primary_btn_bg);
-    lv_color_t idle_btn_bg = w_rr_surface_fill(220);
-    lv_color_t idle_btn_border = lv_color_hex(APP_UI_COLOR_TOPBAR_CHIP_BORDER);
-    lv_color_t idle_btn_text = ctx->unavailable ? lv_color_hex(APP_UI_COLOR_TEXT_MUTED) : w_rr_contrast_text(idle_btn_bg);
-
-    w_rr_style_action_button(ctx->start_btn, ctx->start_label, primary_btn_bg, primary_btn_border, primary_btn_text);
-    w_rr_style_action_button(ctx->dock_btn, ctx->dock_label, idle_btn_bg, idle_btn_border, idle_btn_text);
-
-    lv_opa_t button_opa = ctx->unavailable ? LV_OPA_50 : LV_OPA_COVER;
-    if (ctx->start_btn != NULL) lv_obj_set_style_opa(ctx->start_btn, button_opa, LV_PART_MAIN);
-    if (ctx->dock_btn != NULL) lv_obj_set_style_opa(ctx->dock_btn, button_opa, LV_PART_MAIN);
+    /* The primary control pauses both cleaning and return movement. */
+    const bool running = ctx->active_clean || ctx->returning;
+    w_rr_style_control(ctx->start_btn, ctx->start_label, running ? UI_CONTROL_ACTIVE : UI_CONTROL_ACTION, !ctx->unavailable);
+    w_rr_style_control(ctx->dock_btn, ctx->dock_label, UI_CONTROL_ACTION, !ctx->unavailable);
     w_rr_layout_card(ctx);
 
     if (ctx->popup_map_panel != NULL) {
@@ -1982,6 +1976,7 @@ static void w_rr_apply_primary_state(w_rr_ctx_t *ctx, const ha_state_t *state)
     if (ctx->fan_popup != NULL) ui_option_picker_close(ctx->fan_popup);
     ha_control_options_parse(state->attributes_json, "fan_speed_list", "fan_speed", &ctx->fan_options);
     ctx->detail_text[0] = '\0';
+    ctx->notice_until_ms = 0; /* a new state replaces a failed command's notice */
 
     if (ctx->charging && (ctx->robot_position.valid || ctx->robot_trail_count > 0 || ctx->position_failed)) {
         ctx->robot_position = (w_rr_position_t){0};
@@ -2176,6 +2171,11 @@ static void w_rr_tick_cb(lv_timer_t *timer)
     w_rr_drain_pending_position(ctx);
 
     int64_t now = w_rr_now_ms();
+    if (ctx->notice_until_ms != 0 && now >= ctx->notice_until_ms) {
+        ctx->notice_until_ms = 0;
+        strlcpy(ctx->state_text, ctx->restore_text, sizeof(ctx->state_text));
+        w_rr_apply_visual(ctx);
+    }
     if (w_rr_has_map_entity(ctx) && ctx->popup_map_panel != NULL && ctx->popup_map_request_pending &&
         !ctx->popup_map_request_inflight) {
         w_rr_request_popup_map(ctx);
@@ -2370,11 +2370,7 @@ esp_err_t w_vacuum_create(const ui_widget_def_t *def, lv_obj_t *parent, ui_widge
     lv_obj_set_style_pad_all(ctx->controls_panel, 0, LV_PART_MAIN);
 
     /* The Stop icon button; there is no Locate button. */
-    ctx->stop_btn = lv_btn_create(ctx->controls_panel);
-    lv_obj_add_event_cb(ctx->stop_btn, w_rr_stop_event_cb, LV_EVENT_CLICKED, ctx);
-    ctx->stop_label = lv_label_create(ctx->stop_btn);
-    lv_obj_set_style_text_font(ctx->stop_label, ui_font_role(UI_TEXT_META), LV_PART_MAIN);
-    lv_obj_center(ctx->stop_label);
+    ctx->stop_btn = w_rr_make_small_button(ctx->controls_panel, APP_SYMBOL_STOP, w_rr_stop_event_cb, ctx, &ctx->stop_label);
 
     ctx->start_btn = w_rr_make_small_button(ctx->controls_panel, ui_i18n_get("common.start", "Start"), w_rr_start_event_cb, ctx, &ctx->start_label);
     ctx->dock_btn = w_rr_make_small_button(ctx->controls_panel, ui_i18n_get("roborock.dock", "Dock"), w_rr_dock_event_cb, ctx, &ctx->dock_label);

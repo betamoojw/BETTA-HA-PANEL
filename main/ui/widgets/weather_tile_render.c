@@ -139,9 +139,14 @@ static bool weather_render_columns(lv_obj_t *card, w_weather_tile_ctx_t *ctx, co
     weather_copy_text(rows[0].day, sizeof(rows[0].day), ui_i18n_get("weather.today", "Today"));
 
     const lv_coord_t gap = 6;
+    /* With a "Visible days" count the cards sit on the shared day grid, which w_solar_forecast.c shares for "Line up days with the
+     * weather tile": its outer width less 14 px each side, uncapped. The fixed-text boards pad this card by 16 px, not 14. */
+    const bool dated = ctx->forecast_days >= 0;
+    const lv_coord_t grid_w = dated && !readable ? lv_obj_get_width(card) - 28 : cw;
+    const lv_coord_t grid_x0 = dated && !readable ? 14 - lv_obj_get_style_pad_left(card, LV_PART_MAIN) : 0;
     int count = (int)((cw + gap) / (54 + gap));
-    if (count > WEATHER_COLS_MAX) {
-        count = WEATHER_COLS_MAX;
+    if (count > WEATHER_COLS_LEGACY_MAX) {
+        count = WEATHER_COLS_LEGACY_MAX;
     }
     if (count > WEATHER_3DAY_ROWS) {
         count = WEATHER_3DAY_ROWS;
@@ -149,7 +154,7 @@ static bool weather_render_columns(lv_obj_t *card, w_weather_tile_ctx_t *ctx, co
     if (count < 3) {
         count = 3;
     }
-    if (ctx->forecast_days >= 0) count = ui_day_grid_count(cw, ctx->forecast_days, WEATHER_COLS_MAX);
+    if (dated) count = ui_day_grid_count(grid_w, ctx->forecast_days, WEATHER_COLS_MAX);
     if (ctx->forecast_days >= 0) {
         weather_3day_row_t dated[WEATHER_3DAY_ROWS]; memcpy(dated, rows, sizeof(dated));
         for (int i = 0; i < count; i++) {
@@ -172,12 +177,12 @@ static bool weather_render_columns(lv_obj_t *card, w_weather_tile_ctx_t *ctx, co
     if (valid_days > 0 && valid_days < count) {
         count = valid_days;
     }
-    lv_coord_t col_w = (cw - gap * (count - 1)) / count;
-    if (!readable && col_w > 96) {
+    lv_coord_t col_w = (grid_w - gap * (count - 1)) / count;
+    if (!readable && !dated && col_w > 96) {
         col_w = 96;
     }
     const lv_coord_t total_w = col_w * count + gap * (count - 1);
-    const lv_coord_t x0 = (cw - total_w) / 2;
+    const lv_coord_t x0 = dated ? grid_x0 : (cw - total_w) / 2; /* the grid is left-aligned: a pixel remainder must not shift the columns */
     /* Below both the icon and the temperature/condition block next to it. */
     const lv_coord_t text_bottom = block_y + temp_h + (inline_head ? 0 : line_gap + meta_h);
     const lv_coord_t free_y = (text_bottom > head_y + icon_px ? text_bottom : head_y + icon_px) + 10;
@@ -297,6 +302,7 @@ static void weather_render_3day(lv_obj_t *card, w_weather_tile_ctx_t *ctx, const
     }
     weather_columns_hide(ctx);
 
+    lv_obj_update_layout(card); /* unavailable at creation: the card has no size yet and the labels collapsed to 0 */
     lv_coord_t card_w = lv_obj_get_width(card);
     lv_coord_t icon_x = 20;
     lv_coord_t icon_y = ctx->hide_name ? 0 : 20;
@@ -307,8 +313,11 @@ static void weather_render_3day(lv_obj_t *card, w_weather_tile_ctx_t *ctx, const
     lv_obj_set_style_text_align(ctx->meta_label, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
     lv_obj_set_width(ctx->temp_label, card_w - 32);
     lv_obj_set_width(ctx->meta_label, card_w - 32);
-    lv_obj_set_pos(ctx->temp_label, 16, 58 - (ctx->hide_name ? 28 : 0));
-    lv_obj_set_pos(ctx->meta_label, 16, 102 - (ctx->hide_name ? 28 : 0));
+    const lv_coord_t temp_y = 58 - (ctx->hide_name ? 28 : 0);
+    lv_obj_set_pos(ctx->temp_label, 16, temp_y);
+    /* below the temperature line, whose height grows with the text size */
+    const lv_coord_t meta_y = temp_y + lv_font_get_line_height(WEATHER_TEMP_FONT);
+    lv_obj_set_pos(ctx->meta_label, 16, meta_y > 102 - (ctx->hide_name ? 28 : 0) ? meta_y : 102 - (ctx->hide_name ? 28 : 0));
 
     for (int i = 0; i < WEATHER_3DAY_ROWS; i++) {
         weather_3day_row_widgets_t *row = &ctx->rows[i];
@@ -353,14 +362,8 @@ static void weather_render_3day(lv_obj_t *card, w_weather_tile_ctx_t *ctx, const
         lv_obj_set_style_radius(row->bar_marker, LV_RADIUS_CIRCLE, LV_PART_MAIN);
     }
     if (!available || values == NULL) {
-        lv_obj_set_hidden(ctx->condition_label, false);
-        lv_obj_set_style_text_font(ctx->condition_label, WEATHER_3DAY_TEMP_FONT, LV_PART_MAIN);
-        lv_obj_set_style_text_color(ctx->condition_label, lv_color_hex(APP_UI_COLOR_TEXT_SOFT), LV_PART_MAIN);
-        lv_obj_set_style_text_align(ctx->condition_label, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN);
-        lv_obj_set_size(ctx->condition_label, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-        lv_obj_align(ctx->condition_label, LV_ALIGN_TOP_LEFT, icon_x, icon_y + 8);
-        lv_label_set_text(ctx->condition_label, "--");
-
+        /* "--" and the reason in the centred temperature and meta lines; a third "--" in the icon's place overlapped them */
+        lv_obj_set_hidden(ctx->condition_label, true);
         lv_label_set_text(ctx->temp_label, "--");
         lv_label_set_text(ctx->meta_label, ui_i18n_get("weather.unavailable", "Unavailable"));
         weather_set_3day_rows_layout(card, ctx, WEATHER_3DAY_ROWS_TOP - (ctx->hide_name ? 28 : 0));
@@ -457,7 +460,18 @@ void weather_render(lv_obj_t *card, w_weather_tile_ctx_t *ctx, const weather_val
         return;
     }
 
+    ctx->available = available && values != NULL;
+    if (ctx->available) {
+        ctx->last_values = *values;
+        weather_build_3day_rows(values, ctx->render_rows);
+    } else {
+        memset(ctx->render_rows, 0, sizeof(ctx->render_rows));
+    }
     weather_now_hide(&ctx->now_view);
+    if (ctx->show_hourly && weather_hourly_render(card, ctx, values)) {
+        weather_hide_lottie(ctx);
+        return;
+    }
     if (available && values != NULL) {
         weather_now_data_t now = {
             .hide_name = ctx->hide_name, .has_temp = values->has_temp, .temp = values->temp, .unit = values->unit,
@@ -475,6 +489,7 @@ void weather_render(lv_obj_t *card, w_weather_tile_ctx_t *ctx, const weather_val
     }
 
     lv_obj_set_hidden(ctx->meta_label, false);
+    lv_obj_update_layout(card); /* unavailable at creation: the card has no size yet and "--" would wrap into a column */
     lv_obj_set_width(ctx->temp_label, lv_obj_get_content_width(card));
     lv_obj_set_width(ctx->meta_label, lv_obj_get_content_width(card));
     const lv_font_t *temp_font = weather_pick_temp_font(card);
@@ -490,18 +505,20 @@ void weather_render(lv_obj_t *card, w_weather_tile_ctx_t *ctx, const weather_val
         lv_obj_set_style_text_font(ctx->condition_label, WEATHER_CONDITION_FONT, LV_PART_MAIN);
         lv_obj_set_style_text_color(ctx->condition_label, lv_color_hex(APP_UI_COLOR_TEXT_SOFT), LV_PART_MAIN);
         lv_obj_set_hidden(ctx->condition_label, false);
-#if APP_UI_TILE_LAYOUT_TUNED
-        lv_obj_align(ctx->condition_label, LV_ALIGN_TOP_MID, 0, 36 - (ctx->hide_name ? 28 : 0));
-        lv_obj_align(ctx->temp_label, LV_ALIGN_TOP_MID, 0, 76 - (ctx->hide_name ? 28 : 0));
-        lv_obj_align(ctx->meta_label, LV_ALIGN_TOP_MID, 0, 130 - (ctx->hide_name ? 28 : 0));
-#else
-        lv_obj_align(ctx->condition_label, LV_ALIGN_TOP_MID, 0, 34 - (ctx->hide_name ? 28 : 0));
-        lv_obj_align(ctx->temp_label, LV_ALIGN_TOP_MID, 0, 72 - (ctx->hide_name ? 28 : 0));
-        lv_obj_align(ctx->meta_label, LV_ALIGN_TOP_MID, 0, 124 - (ctx->hide_name ? 28 : 0));
-#endif
         lv_label_set_text(ctx->condition_label, ui_i18n_get("weather.unavailable", "Unavailable"));
         lv_label_set_text(ctx->temp_label, "--");
         lv_label_set_text(ctx->meta_label, "");
+        /* stacked by measured height: larger text can wrap the reason onto a second line */
+        lv_obj_update_layout(card);
+        const lv_coord_t shift = ctx->hide_name ? 28 : 0;
+        const lv_coord_t condition_y = 36 - shift;
+        lv_coord_t temp_y = condition_y + lv_obj_get_height(ctx->condition_label) + 4;
+        if (temp_y < 76 - shift) temp_y = 76 - shift;
+        lv_coord_t meta_y = temp_y + lv_obj_get_height(ctx->temp_label) + 4;
+        if (meta_y < 130 - shift) meta_y = 130 - shift;
+        lv_obj_align(ctx->condition_label, LV_ALIGN_TOP_MID, 0, condition_y);
+        lv_obj_align(ctx->temp_label, LV_ALIGN_TOP_MID, 0, temp_y);
+        lv_obj_align(ctx->meta_label, LV_ALIGN_TOP_MID, 0, meta_y);
         weather_hide_lottie(ctx);
         return;
     }

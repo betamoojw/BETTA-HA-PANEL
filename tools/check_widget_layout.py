@@ -88,6 +88,13 @@ def find_problems(lines, context="", min_px=0):
         # Other surfaces directly in the tile (panels, forecast cards, pictures): a text either lies
         # within one or stays clear of it; half on it means one covers the other.
         surfaces = [r for r in recs if r["kind"] in ("obj", "bar", "slider") and r["depth"] == 1]
+        if wtype == "energy_price_forecast" and any(r.get("text_role") == "key" for r in labels):
+            # A valid price tile must retain its plot and the complete interval, even at a forced growth cap.
+            if not any(r["kind"] == "obj" and r["y2"] - r["y1"] + 1 >= 14 for r in surfaces):
+                problems.append(f"{where}: price plot is missing or too short")
+            for label in labels:
+                if ":" in label["text"] and label.get("text_clipped"):
+                    problems.append(f"{where}: price interval '{label['text']}' is clipped")
         for rec in labels + [r for r in recs if r["kind"] not in ("card", "obj", "label")]:
             if not contains(card, rec):
                 text = rec.get("text", rec["kind"])
@@ -217,13 +224,18 @@ def main():
                         help="force the tile growth cap of every tile (calibration; default: the calibrated cap per tile)")
     parser.add_argument("--rotation", type=int, choices=(0, 90, 180, 270),
                         help="native display rotation on the selected variant")
+    parser.add_argument("--now", help="simulator date YYYY-MM-DDTHH:MM or real; defaults to the shared gallery clock")
     args = parser.parse_args()
     extra_args = ["--text-step", str(args.text_step)] + (["--text-cap", str(args.text_cap)] if args.text_cap is not None else [])
     if args.rotation is not None:
         extra_args += ["--rotation", str(args.rotation)]
 
     sys.path.insert(0, str(REPO / "tools"))
-    from generate_simulator_gallery import DATA, build_simulator, prepare_fixture
+    from generate_simulator_gallery import DATA, FIXED_NOW, build_simulator, prepare_fixture, use_fixed_clock
+    try:
+        use_fixed_clock(args.now or os.environ.get("BETTA_SIM_NOW", FIXED_NOW))
+    except ValueError:
+        parser.error("--now: YYYY-MM-DDTHH:MM or real")
 
     binary = build_simulator(args.variant)
     with tempfile.TemporaryDirectory(prefix="betta_layout_") as temp:
@@ -239,6 +251,8 @@ def main():
                         "connectivity_ha": json.loads((REPO / "tests/simulator/connectivity_ha.json").read_text()),
                         "connectivity_wifi": json.loads((REPO / "tests/simulator/connectivity_wifi.json").read_text()),
                         }
+            fixtures["weather_hourly"] = json.loads((REPO / "tests/simulator/weather_hourly.json").read_text())
+            fixtures["stock_precision"] = json.loads((REPO / "tests/simulator/stock_precision.json").read_text())
             if args.variant == "panel4":  # the readability fixtures use panel4's 720x600 pages and its role sizes
                 fixtures["readability"] = json.loads((REPO / "tests/simulator/readability.json").read_text())
                 for kind in ("numeric", "state"):

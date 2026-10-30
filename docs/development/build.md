@@ -16,11 +16,11 @@ source ~/esp/esp-idf-v6.1/export.sh              # in every new terminal
 Builds from the development checkout can contain changes newer than any release.
 
 **C6 adapter image.** The binary is not tracked; put the version your checkout needs into `release/` before building
-(ESP-Hosted 2.12.13 for the current source):
+(ESP-Hosted 3.0.10 for the current source):
 
 ```bash
-curl -L --fail https://github.com/esphome/esp-hosted-firmware/releases/download/v2.12.13/network_adapter_esp32c6.bin -o release/network_adapter_esp32c6_2.12.13.bin
-shasum -a 256 release/network_adapter_esp32c6_2.12.13.bin   # 09e4ed4ff648444ad045c1d934825af407648f58898586ce9f4275e53fdb23f6
+curl -L --fail https://github.com/esphome/esp-hosted-firmware/releases/download/v3.0.10/network_adapter_esp32c6.bin -o release/network_adapter_esp32c6_3.0.10.bin
+shasum -a 256 release/network_adapter_esp32c6_3.0.10.bin   # c552957fad9f35cf31b0273099dd3b23dc5c388bb43884c6567756ab97fd8cce
 ```
 
 The build embeds it and the P4 updates the C6 over SDIO when needed. Without the file the build warns and skips that
@@ -29,9 +29,9 @@ updater ([adapter policy](https://github.com/andre68723/BETTA-HA-PANEL/blob/main
 ## Build and flash a variant
 
 ```bash
-tools/build.sh panel4 build
-tools/build.sh panel4 -p <port> flash monitor       # exit the monitor with Ctrl+]
-tools/package_release.sh <built-version> panel4     # factory and OTA files plus SHA256SUMS in release/out/<version>/
+scripts/build.sh panel4 build
+scripts/build.sh panel4 -p <port> flash monitor       # exit the monitor with Ctrl+]
+scripts/package_release.sh <built-version> panel4     # factory and OTA files plus SHA256SUMS in release/out/<version>/
 ```
 
 Variants: `panel4`, `panel10`, `paneljc`, `paneljc-v2`, `tab5`, `panels3`. `package_release.sh` checks the version the build
@@ -75,16 +75,16 @@ Activate ESP-IDF 6.1 with the ESP32-S3 tools installed, then build **only**
 80 MHz PSRAM. Do not combine them with the P4 base defaults. No C6 image is needed.
 
 ```bash
-tools/build.sh panels3 build
-tools/build.sh panels3 -p <port> flash monitor
-tools/package_release.sh v0.9.0 panels3
+scripts/build.sh panels3 build
+scripts/build.sh panels3 -p <port> flash monitor
+scripts/package_release.sh v0.9.0 panels3
 ```
 
 On Windows, use an ESP-IDF PowerShell terminal (Git Bash is rejected by IDF 6):
 
 ```powershell
-./tools/build.ps1 panels3 build
-./tools/build.ps1 panels3 -p COM3 flash monitor
+./scripts/build.ps1 panels3 build
+./scripts/build.ps1 panels3 -p COM3 flash monitor
 ```
 
 The app is `build/panels3/betta-ha-panel-s3.bin`; the dedicated dependency lock is
@@ -116,7 +116,7 @@ shasum -a 256 betta86-ha-panel-v0.9.0-panel4.factory.bin
 
 ## Rules for builds and flashing
 
-- **Always go through `tools/build.sh <variant> [idf.py arguments]`.** It passes the full define set, selects target,
+- **Always go through `scripts/build.sh <variant> [idf.py arguments]`.** It passes the full define set, selects target,
   manifest, config overlays and `build/<variant>/`. A bare `idf.py` resets the CMake cache to the root default (panel4,
   32 MB flash), and that image boot-loops on a 16 MB board.
 - The configuration comes from `config/sdkconfig.defaults*` into `build/<variant>/sdkconfig` (git-ignored). Never edit it;
@@ -128,7 +128,7 @@ shasum -a 256 betta86-ha-panel-v0.9.0-panel4.factory.bin
 ## Flash over Wi-Fi
 
 ```bash
-tools/ota_flash.sh <panel-ip> build/paneljc/betta-ha-panel-jc.bin
+scripts/ota_flash.sh <panel-ip> build/paneljc/betta-ha-panel-jc.bin
 ```
 
 Before it uploads, the script refuses an image that is older than a file in `main/`, `components/` or `config/`
@@ -144,7 +144,7 @@ written: a new bootloader or table and the first flash of a blank board need USB
 
 An OTA writes only the app slot, so a new table needs one USB flash. `nvs` (0x9000, 24 KiB), `otadata` and `phy_init`
 have not moved in any table of this fork, so Wi-Fi/HA/MQTT passwords and the admin login survive a flash that leaves
-that range alone: `tools/build.sh <variant> -p <port> flash` does, the combined `*.factory.bin` erases the NVS range.
+that range alone: `scripts/build.sh <variant> -p <port> flash` does, the combined `*.factory.bin` erases the NVS range.
 A `storage` partition that moves or resizes is not found at its new place: the first boot formats an empty LittleFS and
 layout, settings, themes and graph history are gone (it sits at 0xD60000 now). To carry the files over:
 

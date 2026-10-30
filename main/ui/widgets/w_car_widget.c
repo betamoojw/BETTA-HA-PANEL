@@ -22,11 +22,16 @@
 #include "ui/theme/ui_style.h"
 
 #define CAR_CHARGE_POWER_MAX_W 11000.0f
-/* The optional bottom row (lock, interior temperature, pre-conditioning) needs this much room. */
+/* The optional extras (a status line with lock and interior temperature, the pre-conditioning button below it) need
+ * this much room. */
 #define CAR_EXTRAS_MIN_H 330
 #define CAR_EXTRAS_MIN_W 200
-#define CAR_EXTRAS_ROW_H 36
+#define CAR_EXTRAS_BTN_H 44 /* a touch target, as wide as the card */
+#define CAR_EXTRAS_GAP 6
 #define CAR_STATE_LEN 24
+/* A cloud-backed car can take tens of seconds to report the new mode after Home Assistant accepted the call. The button
+ * shows a neutral pending word meanwhile; this cap ends it if no state change ever arrives. */
+#define CAR_PRECOND_PENDING_MS 60000
 
 typedef struct {
     lv_obj_t *card;
@@ -46,6 +51,9 @@ typedef struct {
     char temp_entity_id[APP_MAX_ENTITY_ID_LEN];
     char precond_state[CAR_STATE_LEN];
     bool has_precond;
+    bool precond_pending;         /* a call was sent and the entity has not changed its on/off meaning yet */
+    bool precond_pending_from_on; /* the on/off meaning when it was sent */
+    lv_timer_t *precond_timer;
     int lock_kind; /* 0 unknown, 1 locked, 2 unlocked, 3 closed, 4 open */
     float interior_temp;
     char temp_unit[APP_MAX_UNIT_LEN];
@@ -141,39 +149,70 @@ static bool car_extras_visible(const w_car_widget_ctx_t *ctx, lv_coord_t w, lv_c
     return car_has_extras(ctx) && h >= CAR_EXTRAS_MIN_H && w >= CAR_EXTRAS_MIN_W;
 }
 
+/* Height of the extras block: the status line (lock, interior temperature) and the pre-conditioning button, each when set. */
+static lv_coord_t car_extras_height(const w_car_widget_ctx_t *ctx)
+{
+    const bool status = ctx->lock_entity_id[0] != '\0' || ctx->temp_entity_id[0] != '\0';
+    const bool button = ctx->precond_entity_id[0] != '\0';
+    return (status ? lv_font_get_line_height(ui_font_role(UI_TEXT_META)) : 0) + (status && button ? CAR_EXTRAS_GAP : 0) +
+           (button ? CAR_EXTRAS_BTN_H : 0);
+}
+
+/* The status line holds the lock state on the left and the interior temperature on the right (one of them alone is
+ * centred); the pre-conditioning button spans the card below it. Words such as "Entriegelt" or "Vorklimatisieren" no
+ * longer share a third of the width each. */
 static void car_layout_extras(w_car_widget_ctx_t *ctx, lv_coord_t w, lv_coord_t h, bool visible)
 {
-    lv_obj_t *cells[3] = {ctx->lock_label, ctx->temp_label, ctx->precond_btn};
-    const bool wanted[3] = {ctx->lock_entity_id[0] != '\0', ctx->temp_entity_id[0] != '\0',
-                            ctx->precond_entity_id[0] != '\0'};
-    int n = 0;
-    for (int i = 0; i < 3; i++) {
-        if (visible && wanted[i]) {
-            n++;
-            lv_obj_set_hidden(cells[i], false);
-        } else {
-            lv_obj_set_hidden(cells[i], true);
-        }
-    }
-    if (n == 0) {
+    const bool lock = visible && ctx->lock_entity_id[0] != '\0';
+    const bool temp = visible && ctx->temp_entity_id[0] != '\0';
+    const bool button = visible && ctx->precond_entity_id[0] != '\0';
+    lv_obj_set_hidden(ctx->lock_label, !lock);
+    lv_obj_set_hidden(ctx->temp_label, !temp);
+    lv_obj_set_hidden(ctx->precond_btn, !button);
+    if (!lock && !temp && !button) {
         return;
     }
+    /* Essential: the layout check reports them when they are cut (the German words were, unnoticed). */
+    ui_text_record(ctx->lock_label, UI_TEXT_META, true);
+    ui_text_record(ctx->temp_label, UI_TEXT_META, true);
+    ui_text_record(ctx->precond_label, UI_TEXT_META, true);
     const lv_coord_t pad = 12;
-    const lv_coord_t gap = 8;
-    const lv_coord_t cell_w = (w - 2 * pad - (n - 1) * gap) / n;
-    const lv_coord_t y = h - 12 - CAR_EXTRAS_ROW_H;
-    int k = 0;
-    for (int i = 0; i < 3; i++) {
-        if (!wanted[i]) {
-            continue;
-        }
-        lv_obj_set_size(cells[i], cell_w, CAR_EXTRAS_ROW_H);
-        lv_obj_set_pos(cells[i], pad + k * (cell_w + gap), y);
-        k++;
+    const lv_coord_t inner_w = w - 2 * pad;
+    lv_coord_t bottom = h - 12;
+    if (button) {
+        lv_obj_set_size(ctx->precond_btn, inner_w, CAR_EXTRAS_BTN_H);
+        lv_obj_set_pos(ctx->precond_btn, pad, bottom - CAR_EXTRAS_BTN_H);
+        /* "Vorklimatisieren" nearly fills a 200 px card's button: 4 px padding, and a step smaller where the board allows it. */
+        const lv_font_t *font = ui_text_fit(lv_label_get_text(ctx->precond_label), ui_font_role(UI_TEXT_META), inner_w - 8,
+                                            CAR_EXTRAS_BTN_H);
+        lv_obj_set_style_text_font(ctx->precond_label, font, LV_PART_MAIN);
+        lv_obj_set_width(ctx->precond_label, inner_w - 8);
+        lv_obj_center(ctx->precond_label);
+        bottom -= CAR_EXTRAS_BTN_H + CAR_EXTRAS_GAP;
     }
-    /* The plain labels are vertically centred in the row. */
-    lv_obj_set_style_pad_top(ctx->lock_label, (CAR_EXTRAS_ROW_H - lv_font_get_line_height(ui_font_role(UI_TEXT_META))) / 2, LV_PART_MAIN);
-    lv_obj_set_style_pad_top(ctx->temp_label, (CAR_EXTRAS_ROW_H - lv_font_get_line_height(ui_font_role(UI_TEXT_META))) / 2, LV_PART_MAIN);
+    if (!lock && !temp) {
+        return;
+    }
+    const lv_coord_t line = lv_font_get_line_height(ui_font_role(UI_TEXT_META));
+    const lv_coord_t y = bottom - line;
+    if (lock && temp) {
+        /* The temperature keeps the width of a widest reading (a label in dot mode rewrites its own text, so it is not
+         * measured); the lock word takes the rest and ends in dots if it must. */
+        lv_point_t temp_size;
+        lv_text_get_size(&temp_size, "-88.8°C", ui_font_role(UI_TEXT_META), 0, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
+        const lv_coord_t temp_w = temp_size.x + 2 < inner_w / 2 ? temp_size.x + 2 : inner_w / 2;
+        lv_obj_set_size(ctx->temp_label, temp_w, line);
+        lv_obj_set_style_text_align(ctx->temp_label, LV_TEXT_ALIGN_RIGHT, LV_PART_MAIN);
+        lv_obj_set_pos(ctx->temp_label, pad + inner_w - temp_w, y);
+        lv_obj_set_size(ctx->lock_label, inner_w - temp_w - 8, line);
+        lv_obj_set_style_text_align(ctx->lock_label, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN);
+        lv_obj_set_pos(ctx->lock_label, pad, y);
+        return;
+    }
+    lv_obj_t *only = lock ? ctx->lock_label : ctx->temp_label;
+    lv_obj_set_size(only, inner_w, line);
+    lv_obj_set_style_text_align(only, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+    lv_obj_set_pos(only, pad, y);
 }
 
 static void car_layout(w_car_widget_ctx_t *ctx)
@@ -195,7 +234,7 @@ static void car_layout(w_car_widget_ctx_t *ctx)
     }
 #endif
     /* The title sits in the ring's open segment, so the ring takes the whole card but the extras row. */
-    const lv_coord_t extras_h = extras ? CAR_EXTRAS_ROW_H + 12 : 0;
+    const lv_coord_t extras_h = extras ? car_extras_height(ctx) + 12 : 0;
     lv_coord_t arc_size = min_dim - 24;
     if (arc_size > h - 24 - extras_h) {
         arc_size = h - 24 - extras_h;
@@ -233,13 +272,22 @@ static void car_layout(w_car_widget_ctx_t *ctx)
     lv_obj_set_style_text_font(ctx->title_label, min_dim >= 190 ? ui_font_role(UI_TEXT_LABEL) : (arc_size >= 130 ? ui_font_role(UI_TEXT_META) : ui_font_role(UI_TEXT_META)), LV_PART_MAIN);
     const lv_coord_t title_h = lv_font_get_line_height(lv_obj_get_style_text_font(ctx->title_label, LV_PART_MAIN));
     lv_obj_set_width(ctx->title_label, r * 13 / 10);
+    ui_widget_name_one_line(ctx->title_label);
     lv_obj_align(ctx->title_label, LV_ALIGN_TOP_MID, 0, center_y + r * 37 / 50 - title_h / 2);
 #if UI_TEXT_ADAPTIVE
     if (min_dim >= 190) {
         lv_obj_align(ctx->range_label, LV_ALIGN_TOP_MID, 0, center_y - 61);
-        lv_obj_align(ctx->soc_label, LV_ALIGN_TOP_LEFT, group_x, center_y - 18);
-        lv_obj_align(ctx->soc_unit_label, LV_ALIGN_TOP_LEFT, group_x + soc_w + 3, center_y - 10);
-        lv_obj_align(ctx->power_label, LV_ALIGN_TOP_MID, 0, center_y + 20);
+        /* the "%" ends with the digits and the power starts below both, whatever their sizes */
+        const lv_coord_t soc_y = center_y - 18;
+        const lv_coord_t soc_h = lv_obj_get_height(ctx->soc_label);
+        const lv_coord_t power_y = soc_y + soc_h > center_y + 20 ? soc_y + soc_h : center_y + 20;
+        lv_obj_align(ctx->soc_label, LV_ALIGN_TOP_LEFT, group_x, soc_y);
+        lv_obj_align(ctx->soc_unit_label, LV_ALIGN_TOP_LEFT, group_x + soc_w + 3, soc_y + soc_h - lv_obj_get_height(ctx->soc_unit_label));
+        lv_obj_align(ctx->power_label, LV_ALIGN_TOP_MID, 0, power_y);
+        /* a ring too small for the power above the name (larger text on a small tile) leaves the power out */
+        const bool power_fits = !ui_widget_name_enabled(ctx->title_label) ||
+            power_y + lv_obj_get_height(ctx->power_label) <= center_y + r * 37 / 50 - title_h / 2;
+        lv_obj_set_hidden(ctx->power_label, !power_fits || ctx->power_entity_id[0] == '\0');
     }
 #endif
     car_layout_extras(ctx, w, h, extras);
@@ -249,6 +297,48 @@ static bool car_state_is_off(const char *state)
 {
     return state == NULL || state[0] == '\0' || strcasecmp(state, "off") == 0 || strcasecmp(state, "none") == 0 ||
            strcasecmp(state, "idle") == 0 || strcmp(state, "unavailable") == 0 || strcmp(state, "unknown") == 0;
+}
+
+static bool car_precond_active(const w_car_widget_ctx_t *ctx)
+{
+    const bool is_toggle = strncmp(ctx->precond_entity_id, "switch.", 7) == 0 ||
+                           strncmp(ctx->precond_entity_id, "input_boolean.", 14) == 0;
+    const bool is_climate = strncmp(ctx->precond_entity_id, "climate.", 8) == 0;
+    const bool climate_on = strcmp(ctx->precond_state, "heat") == 0 || strcmp(ctx->precond_state, "cool") == 0 ||
+        strcmp(ctx->precond_state, "heat_cool") == 0 || strcmp(ctx->precond_state, "auto") == 0 ||
+        strcmp(ctx->precond_state, "dry") == 0 || strcmp(ctx->precond_state, "fan_only") == 0;
+    return ctx->has_precond && ((is_toggle && strcmp(ctx->precond_state, "on") == 0) || (is_climate && climate_on));
+}
+
+/* Only entities whose on/off state follows the call can show a pending state; select and button have no such end. */
+static bool car_precond_can_pend(const w_car_widget_ctx_t *ctx)
+{
+    return strncmp(ctx->precond_entity_id, "climate.", 8) == 0 || strncmp(ctx->precond_entity_id, "switch.", 7) == 0 ||
+           strncmp(ctx->precond_entity_id, "input_boolean.", 14) == 0;
+}
+
+static void car_precond_pending_clear(w_car_widget_ctx_t *ctx)
+{
+    ctx->precond_pending = false;
+    if (ctx->precond_timer != NULL) {
+        lv_timer_delete(ctx->precond_timer);
+        ctx->precond_timer = NULL;
+    }
+}
+
+static void car_render(w_car_widget_ctx_t *ctx);
+
+static void car_precond_timeout_cb(lv_timer_t *timer)
+{
+    w_car_widget_ctx_t *ctx = (w_car_widget_ctx_t *)lv_timer_get_user_data(timer);
+    if (ctx == NULL) {
+        return;
+    }
+    ctx->precond_timer = NULL; /* one-shot: LVGL deletes it after this run */
+    if (ctx->precond_pending) {
+        ctx->precond_pending = false;
+        car_render(ctx);
+    }
 }
 
 static void car_render_extras(w_car_widget_ctx_t *ctx)
@@ -294,22 +384,21 @@ static void car_render_extras(w_car_widget_ctx_t *ctx)
 
     /* Pre-conditioning button: a select shows its option, everything else a fixed word. */
     const bool is_select = strncmp(ctx->precond_entity_id, "select.", 7) == 0;
-    const bool active = ctx->has_precond && !car_state_is_off(ctx->precond_state) &&
-                        strncmp(ctx->precond_entity_id, "button.", 7) != 0 &&
-                        strncmp(ctx->precond_entity_id, "input_button.", 13) != 0;
+    const bool active = car_precond_active(ctx);
     lv_label_set_text(ctx->precond_label,
-        is_select && ctx->has_precond ? ctx->precond_state : ui_i18n_get("car.precond", "Precond."));
-    const lv_color_t base = active ? lv_color_mix(lv_color_hex(APP_UI_COLOR_STATE_ON), lv_color_hex(APP_UI_COLOR_NAV_BTN_BG_ACTIVE), 180)
-                                   : lv_color_hex(APP_UI_COLOR_NAV_BTN_BG_IDLE);
-    ui_style_button_auto(ctx->precond_btn, base, lv_color_hex(APP_UI_COLOR_TOPBAR_CHIP_BORDER));
-    lv_obj_set_style_text_color(ctx->precond_label, lv_color_hex(active ? 0x1B1300 : APP_UI_COLOR_TEXT_PRIMARY), LV_PART_MAIN);
+        ctx->precond_pending ? ui_i18n_get("car.precond_pending", "Sending...")
+        : is_select && ctx->has_precond ? ctx->precond_state : ui_i18n_get("car.precond", "Precondition"));
+    const bool available = ctx->has_precond && strcmp(ctx->precond_state, "unavailable") != 0 &&
+                           (strncmp(ctx->precond_entity_id, "button.", 7) == 0 ||
+                            strncmp(ctx->precond_entity_id, "input_button.", 13) == 0 || strcmp(ctx->precond_state, "unknown") != 0);
+    ui_style_action_button(ctx->precond_btn, ctx->precond_label, active ? UI_CONTROL_ACTIVE : UI_CONTROL_ACTION, available);
 }
 
 static void car_precond_cb(lv_event_t *event)
 {
     w_car_widget_ctx_t *ctx = (w_car_widget_ctx_t *)lv_event_get_user_data(event);
-    if (ctx == NULL || ctx->precond_entity_id[0] == '\0') {
-        return;
+    if (ctx == NULL || ctx->precond_entity_id[0] == '\0' || ctx->precond_pending) {
+        return; /* a second tap while the first is unanswered would toggle it back */
     }
     const char *id = ctx->precond_entity_id;
     const char *domain = "switch";
@@ -331,7 +420,18 @@ static void car_precond_cb(lv_event_t *event)
     }
     char payload[APP_MAX_ENTITY_ID_LEN + 40];
     snprintf(payload, sizeof(payload), "{\"entity_id\":\"%s\"%s}", id, strcmp(domain, "select") == 0 ? ",\"cycle\":true" : "");
-    (void)ha_client_call_service(domain, service, payload);
+    if (ha_client_call_service(domain, service, payload) == ESP_OK && ctx->has_precond && car_precond_can_pend(ctx)) {
+        ctx->precond_pending = true;
+        ctx->precond_pending_from_on = car_precond_active(ctx);
+        if (ctx->precond_timer != NULL) {
+            lv_timer_delete(ctx->precond_timer);
+        }
+        ctx->precond_timer = lv_timer_create(car_precond_timeout_cb, CAR_PRECOND_PENDING_MS, ctx);
+        if (ctx->precond_timer != NULL) {
+            lv_timer_set_repeat_count(ctx->precond_timer, 1);
+        }
+        car_render(ctx);
+    }
 }
 
 static void car_render(w_car_widget_ctx_t *ctx)
@@ -398,6 +498,7 @@ static void car_event_cb(lv_event_t *event)
     }
     lv_event_code_t code = lv_event_get_code(event);
     if (code == LV_EVENT_DELETE) {
+        car_precond_pending_clear(ctx);
         free(ctx);
     } else if (code == LV_EVENT_SIZE_CHANGED) {
         car_layout(ctx);
@@ -483,7 +584,7 @@ esp_err_t w_car_widget_create(const ui_widget_def_t *def, lv_obj_t *parent, ui_w
         lv_obj_t *l = i == 0 ? ctx->lock_label : ctx->temp_label;
         lv_obj_set_style_text_font(l, ui_font_role(UI_TEXT_META), LV_PART_MAIN);
         lv_obj_set_style_text_align(l, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
-        lv_label_set_long_mode(l, LV_LABEL_LONG_CLIP);
+        lv_label_set_long_mode(l, LV_LABEL_LONG_DOT);
     }
     lv_obj_set_style_text_color(ctx->temp_label, lv_color_hex(APP_UI_COLOR_TEXT_PRIMARY), LV_PART_MAIN);
     ctx->precond_btn = lv_btn_create(card);
@@ -494,6 +595,7 @@ esp_err_t w_car_widget_create(const ui_widget_def_t *def, lv_obj_t *parent, ui_w
     ctx->precond_label = lv_label_create(ctx->precond_btn);
     lv_obj_set_style_text_font(ctx->precond_label, ui_font_role(UI_TEXT_META), LV_PART_MAIN);
     lv_label_set_long_mode(ctx->precond_label, LV_LABEL_LONG_DOT);
+    lv_obj_set_style_text_align(ctx->precond_label, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
     lv_obj_center(ctx->precond_label);
     lv_label_set_text(ctx->soc_unit_label, "%");
     lv_label_set_text(ctx->title_label, def->title[0] ? def->title : ui_i18n_get("titles.car", "Car"));
@@ -538,6 +640,14 @@ static void car_apply_lock(w_car_widget_ctx_t *ctx, const ha_state_t *state)
     }
 }
 
+static bool car_set_reading(bool *valid, float *stored, bool next_valid, float next)
+{
+    const bool changed = *valid != next_valid || (next_valid && *stored != next);
+    *valid = next_valid;
+    if (next_valid) *stored = next;
+    return changed;
+}
+
 void w_car_widget_apply_state(ui_widget_instance_t *instance, const ha_state_t *state)
 {
     if (instance == NULL || instance->ctx == NULL || state == NULL) {
@@ -545,52 +655,70 @@ void w_car_widget_apply_state(ui_widget_instance_t *instance, const ha_state_t *
     }
     w_car_widget_ctx_t *ctx = (w_car_widget_ctx_t *)instance->ctx;
     float value = 0.0f;
+    bool changed = false;
     if (ctx->lock_entity_id[0] != '\0' && strncmp(state->entity_id, ctx->lock_entity_id, APP_MAX_ENTITY_ID_LEN) == 0) {
+        const int previous = ctx->lock_kind;
         car_apply_lock(ctx, state);
+        changed = previous != ctx->lock_kind;
     } else if (ctx->temp_entity_id[0] != '\0' && strncmp(state->entity_id, ctx->temp_entity_id, APP_MAX_ENTITY_ID_LEN) == 0) {
-        ctx->has_temp = !car_state_is_unavailable(state->state) && car_parse_float(state->state, &value);
+        const bool valid = !car_state_is_unavailable(state->state) && car_parse_float(state->state, &value);
+        changed = car_set_reading(&ctx->has_temp, &ctx->interior_temp, valid, value);
         if (ctx->has_temp) {
-            ctx->interior_temp = value;
+            char previous[APP_MAX_UNIT_LEN];
+            strlcpy(previous, ctx->temp_unit, sizeof(previous));
             car_state_unit(state, ctx->temp_unit, sizeof(ctx->temp_unit));
+            changed |= strcmp(previous, ctx->temp_unit) != 0;
         }
     } else if (ctx->precond_entity_id[0] != '\0' && strncmp(state->entity_id, ctx->precond_entity_id, APP_MAX_ENTITY_ID_LEN) == 0) {
-        ctx->has_precond = !car_state_is_unavailable(state->state);
-        strlcpy(ctx->precond_state, state->state, sizeof(ctx->precond_state));
-    } else if (strncmp(state->entity_id, ctx->battery_entity_id, APP_MAX_ENTITY_ID_LEN) == 0) {
-        ctx->has_soc = !car_state_is_unavailable(state->state) && car_parse_float(state->state, &value);
-        if (ctx->has_soc) {
-            ctx->soc = value;
+        const bool valid = !car_state_is_unavailable(state->state);
+        char next[CAR_STATE_LEN];
+        strlcpy(next, state->state, sizeof(next));
+        changed = ctx->has_precond != valid || strcmp(ctx->precond_state, next) != 0;
+        ctx->has_precond = valid;
+        strlcpy(ctx->precond_state, next, sizeof(ctx->precond_state));
+        if (ctx->precond_pending && (!valid || car_precond_active(ctx) != ctx->precond_pending_from_on)) {
+            car_precond_pending_clear(ctx); /* the entity answered, or went away */
+            changed = true;
         }
+    } else if (strncmp(state->entity_id, ctx->battery_entity_id, APP_MAX_ENTITY_ID_LEN) == 0) {
+        const bool valid = !car_state_is_unavailable(state->state) && car_parse_float(state->state, &value);
+        changed = car_set_reading(&ctx->has_soc, &ctx->soc, valid, value);
     } else if (ctx->power_entity_id[0] != '\0' &&
                strncmp(state->entity_id, ctx->power_entity_id, APP_MAX_ENTITY_ID_LEN) == 0) {
-        ctx->has_power = !car_state_is_unavailable(state->state) && car_parse_float(state->state, &value);
+        const bool valid = !car_state_is_unavailable(state->state) && car_parse_float(state->state, &value);
+        changed = car_set_reading(&ctx->has_power, &ctx->power_w, valid, value);
         if (ctx->has_power) {
-            ctx->power_w = value;
             if (!ctx->power_unit_from_attrs) {
+                char previous[APP_MAX_UNIT_LEN];
+                strlcpy(previous, ctx->power_unit, sizeof(previous));
                 car_state_unit(state, ctx->power_unit, sizeof(ctx->power_unit));
                 if (ctx->power_unit[0] != '\0') {
                     ctx->power_unit_from_attrs = true;
                 } else {
                     snprintf(ctx->power_unit, sizeof(ctx->power_unit), "W");
                 }
+                changed |= strcmp(previous, ctx->power_unit) != 0;
             }
         }
     } else if (ctx->range_entity_id[0] != '\0' &&
                strncmp(state->entity_id, ctx->range_entity_id, APP_MAX_ENTITY_ID_LEN) == 0) {
-        ctx->has_range = !car_state_is_unavailable(state->state) && car_parse_float(state->state, &value);
+        const bool valid = !car_state_is_unavailable(state->state) && car_parse_float(state->state, &value);
+        changed = car_set_reading(&ctx->has_range, &ctx->range, valid, value);
         if (ctx->has_range) {
-            ctx->range = value;
             if (!ctx->range_unit_from_attrs) {
+                char previous[APP_MAX_UNIT_LEN];
+                strlcpy(previous, ctx->range_unit, sizeof(previous));
                 car_state_unit(state, ctx->range_unit, sizeof(ctx->range_unit));
                 if (ctx->range_unit[0] != '\0') {
                     ctx->range_unit_from_attrs = true;
                 } else {
                     snprintf(ctx->range_unit, sizeof(ctx->range_unit), "km");
                 }
+                changed |= strcmp(previous, ctx->range_unit) != 0;
             }
         }
     }
-    car_render(ctx);
+    if (changed) car_render(ctx);
 }
 
 void w_car_widget_mark_unavailable(ui_widget_instance_t *instance)
@@ -599,11 +727,16 @@ void w_car_widget_mark_unavailable(ui_widget_instance_t *instance)
         return;
     }
     w_car_widget_ctx_t *ctx = (w_car_widget_ctx_t *)instance->ctx;
+    const bool changed = ctx->has_soc || ctx->has_power || ctx->has_range || ctx->has_temp ||
+                         ctx->has_precond || ctx->lock_kind != 0;
     ctx->has_soc = false;
     ctx->has_power = false;
     ctx->has_range = false;
     ctx->has_temp = false;
     ctx->has_precond = false;
     ctx->lock_kind = 0;
-    car_render(ctx);
+    if (ctx->precond_pending) {
+        car_precond_pending_clear(ctx);
+    }
+    if (changed) car_render(ctx);
 }

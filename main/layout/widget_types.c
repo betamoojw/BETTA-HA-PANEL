@@ -29,9 +29,15 @@ static const widget_type_info_t s_types[] = {
     {"empty_tile",      {120, 80,  CBW,        CBH},       "*"},
     {"light_tile",      {180, 180, 480,       480},       "light"},
     {"heating_tile",    {220, 200, 480,       480},       "climate"},
-    {"weather_tile",    {220, 200, 480,       480},       "weather"},
+    {"weather_tile",    {220, 200, CBW,       CBH},       "weather"},
     {"weather_3day",    {260, 220, CBW,       CBH},       "weather"},
     {"solar_forecast",  {260, 220, 640,       480},       "sensor"},
+    /* A day of electricity prices (hourly or quarter-hourly) from the list attribute of a price sensor. */
+    {"energy_price_forecast",  {240, 150, CBW,       CBH},       "sensor"},
+    /* A portfolio from the Parqet Companion sensors: value, gain, XIRR, dividends and the largest holdings. */
+    {"parqet_portfolio", {240, 150, CBW,       CBH},       "sensor"},
+    /* Stocks & ETFs: up to eight Easy Stock quotes as a list or stacked charts. */
+    {"stock_quotes",    {240, 120, CBW,       CBH},       "sensor"},
     {"car_widget",      {200, 200, 480,       560},       "sensor"},
     {"wallbox_evcc", {320, 360, CBW, CBH}, "select"},
     {"bambu_printer",   {320, 320, CBW,       CBH},       "sensor"},

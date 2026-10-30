@@ -28,10 +28,17 @@
 #define UI_ETL_EXTRA_BATTERY_CHARGE 0
 #define UI_ETL_EXTRA_BATTERY_DISCHARGE 1
 #define UI_ETL_EXTRA_BATTERY_SOC 2
+/* extra_entity_id[] of the portfolio tile (JSON key dividends_entity_id): the dividends sensor. The unrealised gain is secondary_entity_id and
+ * the XIRR tertiary_entity_id. */
+#define UI_PARQET_EXTRA_DIVIDENDS 0
+#define UI_PARQET_EXTRA_RETURN 1 /* JSON key return_entity_id: the unrealised return in percent */
+/* Stocks & ETFs: entity_id is the first quote, extra_entity_id[0 .. 6] the others (JSON array stock_entities); the view is
+ * display_mode ("list", "chart" or "grid", JSON key stock_view). */
+#define UI_STOCK_MAX_QUOTES 8
 
 typedef struct {
     char id[APP_MAX_WIDGET_ID_LEN];
-    char type[16];
+    char type[24]; /* includes energy_price_forecast (21 characters) */
     char title[APP_MAX_NAME_LEN];
     char entity_id[APP_MAX_ENTITY_ID_LEN];
     char secondary_entity_id[APP_MAX_ENTITY_ID_LEN];
@@ -42,6 +49,8 @@ typedef struct {
     char forecast_day_3_entity_id[APP_MAX_ENTITY_ID_LEN];
     char forecast_day_4_entity_id[APP_MAX_ENTITY_ID_LEN];
     char forecast_day_5_entity_id[APP_MAX_ENTITY_ID_LEN];
+    char forecast_day_6_entity_id[APP_MAX_ENTITY_ID_LEN];
+    char forecast_day_7_entity_id[APP_MAX_ENTITY_ID_LEN];
     float solar_forecast_bar_max_kwh;
     char solar_forecast_bar_orientation[APP_MAX_UI_OPTION_LEN];
     char slider_direction[APP_MAX_UI_OPTION_LEN];
@@ -59,8 +68,9 @@ typedef struct {
     char arc_opening[APP_MAX_UI_OPTION_LEN];
     char display_mode[APP_MAX_UI_OPTION_LEN]; /* binary_tile: "" (text + since), "icon" or "since" */
     char default_mode[48]; /* vacuum_tile: cleaning program (option of the mode select) set before Start */
-    int forecast_days; /* weather/solar: -1 legacy, 0 measured auto, 1..6 (solar max 5) */
+    int forecast_days; /* weather/solar: -1 legacy, 0 measured auto, 1..7 */
     bool align_forecast; /* solar: dated columns with Rest in the header */
+    bool weather_hourly; /* weather_tile: optional real hourly forecast strip, default false */
     bool show_precipitation; /* weather_3day: rain chance and amount, default true */
     bool room_controls; /* room_tile: a control row (lights, switches, covers) when the card is large enough, default false */
     float gauge_min; /* gauge: bottom of the bar's range, default 0 */
@@ -75,11 +85,25 @@ typedef struct {
     float gauge_target_high; /* range only: end of the in-range band */
     bool hide_name; /* shared show_name=false; zero-initialized widgets keep their name */
     bool sensor_show_age; /* sensor: "N min ago" freshness text below the value, default true */
+    char sensor_format[12]; /* sensor: timestamp "date"/"time"/"relative", duration "clock"/"raw", date "relative" */
+    char sensor_unit[8];    /* sensor: "hide", "degree" (temperature), "auto" (power, energy), "code" (monetary) */
     bool lock_confirm; /* lock_tile: ask before unlocking or opening, default false */
     bool camera_live; /* camera_tile: HA MJPEG while visible; opt-in, default false */
     char camera_source[24]; /* empty: HA entity; local or saved source id */
     unsigned alarm_actions; /* alarm_tile: bit (1 << ha_alarm_action_t) per action offered, 0 = all */
     bool history_popup; /* sensor/binary/contact/lock: show Recorder history on tap/long press */
+    bool price_selector;    /* energy_price_forecast: Today/Tomorrow buttons on the tile, default false (the 24 hours around now) */
+    bool price_line; /* energy_price_forecast: a stepped line instead of filled bars, default false */
+    bool price_cheap_times; /* energy_price_forecast: shade the cheap times and name the next one, default false */
+    bool parqet_hide_amounts; /* parqet_portfolio: percentages only, no amounts, default false */
+    bool parqet_selector;     /* parqet_portfolio: tabs and interval chips to change the view by touch, default true */
+    char parqet_view[16];     /* parqet_portfolio: "performance" (default) or "holdings" */
+    char parqet_interval[8];  /* parqet_portfolio: "1d", "1w", "1m", "ytd" or "max" (default: the sensors' own figures) */
+    float price_average;    /* energy_price_forecast: fixed average in EUR/kWh, 0 = none (the day's own average, or the sensor in secondary_entity_id) */
+    char stock_period[8];   /* stock_quotes: "1d", "1w", "30d" (default), "ytd" or "1y": the charts' and the detail's start period */
+    char stock_delta[12];   /* stock_quotes: "percent" (default), "absolute" or "both" */
+    bool stock_ticker;      /* stock_quotes: the symbol after the name, default false */
+    bool stock_selector;    /* stock_quotes: period buttons on the chart tile, default true */
     int x;
     int y;
     int w;
@@ -89,7 +113,7 @@ typedef struct {
 typedef struct {
     char id[APP_MAX_WIDGET_ID_LEN];
     char page_id[APP_MAX_PAGE_ID_LEN];
-    char type[16];
+    char type[24]; /* includes energy_price_forecast (21 characters) */
     char title[APP_MAX_NAME_LEN];
     char entity_id[APP_MAX_ENTITY_ID_LEN];
     char secondary_entity_id[APP_MAX_ENTITY_ID_LEN];
@@ -100,6 +124,8 @@ typedef struct {
     char forecast_day_3_entity_id[APP_MAX_ENTITY_ID_LEN];
     char forecast_day_4_entity_id[APP_MAX_ENTITY_ID_LEN];
     char forecast_day_5_entity_id[APP_MAX_ENTITY_ID_LEN];
+    char forecast_day_6_entity_id[APP_MAX_ENTITY_ID_LEN];
+    char forecast_day_7_entity_id[APP_MAX_ENTITY_ID_LEN];
     float solar_forecast_bar_max_kwh;
     char solar_forecast_bar_orientation[APP_MAX_UI_OPTION_LEN];
     char slider_direction[APP_MAX_UI_OPTION_LEN];
@@ -138,3 +164,6 @@ esp_err_t ui_widget_factory_create(const ui_widget_def_t *def, lv_obj_t *parent,
 void ui_widget_factory_apply_state(ui_widget_instance_t *instance, const ha_state_t *state);
 void ui_widget_factory_mark_unavailable(ui_widget_instance_t *instance);
 void ui_widget_factory_set_visible(ui_widget_instance_t *instance, bool visible);
+/* The Binary tile's state word for a binary sensor of this device class ("Open", "Motion", "On"), also
+ * used by the Sensor tile (w_binary.c). */
+const char *w_binary_class_state_text(const char *device_class, bool on);

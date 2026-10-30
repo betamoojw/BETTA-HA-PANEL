@@ -446,12 +446,26 @@ static void light_layout_split(lv_obj_t *card, const light_tile_widgets_t *w, co
     lv_obj_set_align(w->color_button, LV_ALIGN_TOP_LEFT);
     lv_obj_set_style_text_align(w->title, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN);
     lv_obj_set_style_text_align(w->value_label, LV_TEXT_ALIGN_RIGHT, LV_PART_MAIN);
-    lv_obj_set_pos(w->icon, layout->card_pad, card_h / 2 - 46);
-    lv_obj_set_pos(w->title, layout->card_pad, card_h / 2 + 3);
-    lv_obj_set_pos(w->state_label, layout->card_pad, card_h / 2 + 30);
-    lv_obj_set_pos(w->value_label, right_x, card_h / 2 - 41);
-    lv_obj_set_pos(w->slider, right_x, card_h / 2 - 7);
-    lv_obj_set_pos(w->color_button, split - color_button_size - 8, 12);
+    /* icon, title and state stacked by their line heights and centred; the value above the track at the same centre */
+    const lv_coord_t icon_h = lv_font_get_line_height(lv_obj_get_style_text_font(w->icon, LV_PART_MAIN));
+    const lv_coord_t title_h = lv_font_get_line_height(lv_obj_get_style_text_font(w->title, LV_PART_MAIN));
+    const lv_coord_t state_h = lv_font_get_line_height(lv_obj_get_style_text_font(w->state_label, LV_PART_MAIN));
+    const lv_coord_t value_h = lv_font_get_line_height(lv_obj_get_style_text_font(w->value_label, LV_PART_MAIN));
+    const lv_coord_t group_h = icon_h + 4 + title_h + 2 + state_h;
+    const lv_coord_t top = (card_h - 2 * layout->card_pad - group_h) / 2;
+    const lv_coord_t middle = top + group_h / 2;
+    lv_obj_set_pos(w->icon, layout->card_pad, top);
+    lv_obj_set_pos(w->title, layout->card_pad, top + icon_h + 4);
+    lv_obj_set_pos(w->state_label, layout->card_pad, top + icon_h + 4 + title_h + 2);
+    /* the value stays below the top row (switch, colour button) */
+    lv_coord_t top_row_h = w->toggle != NULL ? lv_obj_get_height(w->toggle) : 0;
+    if (!lv_obj_is_hidden(w->color_button) && color_button_size > top_row_h) top_row_h = color_button_size;
+    lv_coord_t right_middle = middle;
+    if (right_middle < 12 + top_row_h + 4 + value_h + 4 + 18) right_middle = 12 + top_row_h + 4 + value_h + 4 + 18;
+    lv_obj_set_pos(w->slider, right_x, right_middle - 18);
+    lv_obj_set_pos(w->value_label, right_x, right_middle - 18 - 4 - value_h);
+    /* the colour button left of the switch, clear of the stacked icon */
+    lv_obj_set_pos(w->color_button, card_w - layout->card_pad - 52 - 12 - color_button_size, 12);
     if (w->toggle != NULL) {
         lv_obj_set_pos(w->toggle, card_w - layout->card_pad - 52, 12);
     }
@@ -510,10 +524,7 @@ static void light_apply_layout(lv_obj_t *card, const w_light_tile_ctx_t *ctx, co
     }
 
     lv_obj_set_style_text_font(w.title, ui_font_role(layout->title_role), LV_PART_MAIN);
-    if (ui_style_traits()->single_line_titles) {
-        lv_label_set_long_mode(w.title, LV_LABEL_LONG_DOT);
-        lv_obj_set_height(w.title, lv_font_get_line_height(ui_font_role(layout->title_role)));
-    }
+    ui_widget_name_one_line(w.title); /* a wrapped title grows into the icon and the colour button */
     lv_obj_set_style_text_font(w.state_label, ui_font_role(layout->top_role), LV_PART_MAIN);
     lv_obj_set_style_text_font(w.value_label, ui_font_role(layout->top_role), LV_PART_MAIN);
     lv_obj_set_style_transform_pivot_x(w.icon, 0, LV_PART_MAIN);
@@ -1558,17 +1569,13 @@ static void w_light_tile_open_color_popup(w_light_tile_ctx_t *ctx)
         card_h = screen_h - 16;
     }
 
-    lv_obj_t *card = lv_obj_create(popup->overlay);
+    lv_obj_t *card = ui_popup_card_create(popup->overlay);
     lv_obj_set_size(card, card_w, card_h);
     lv_obj_center(card);
     lv_obj_set_scrollable(card, true);
     lv_obj_set_scroll_dir(card, LV_DIR_VER);
-    lv_obj_set_event_bubble(card, false);
     lv_obj_set_style_radius(card, 12, LV_PART_MAIN);
-    lv_obj_set_style_bg_color(card, lv_color_hex(APP_UI_COLOR_CONTENT_BG), LV_PART_MAIN);
-    lv_obj_set_style_bg_opa(card, LV_OPA_COVER, LV_PART_MAIN);
-    lv_obj_set_style_border_width(card, 1, LV_PART_MAIN);
-    ui_popup_style_frame(card);
+
     lv_obj_set_style_pad_all(card, 18, LV_PART_MAIN);
 
     lv_obj_t *title = lv_label_create(card);
@@ -1748,13 +1755,9 @@ esp_err_t w_light_tile_create(const ui_widget_def_t *def, lv_obj_t *parent, ui_w
     lv_obj_set_size(card, def->w, def->h);
     lv_obj_set_scrollable(card, false);
     lv_obj_set_style_radius(card, APP_UI_CARD_RADIUS, LV_PART_MAIN);
-#if APP_UI_REWORK_V2
     lv_obj_set_style_border_width(card, 1, LV_PART_MAIN);
     lv_obj_set_style_border_color(card, lv_color_hex(APP_UI_COLOR_CARD_BORDER), LV_PART_MAIN);
     lv_obj_set_style_border_opa(card, LV_OPA_70, LV_PART_MAIN);
-#else
-    lv_obj_set_style_border_width(card, 0, LV_PART_MAIN);
-#endif
     lv_obj_set_style_pad_all(card, 14, LV_PART_MAIN);
 
     lv_obj_t *icon = lv_label_create(card);

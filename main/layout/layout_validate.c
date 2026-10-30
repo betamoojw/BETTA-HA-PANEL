@@ -3,6 +3,7 @@
  * Modified 2026 by andre68723 in the andre68723/BETTA-HA-PANEL fork, see docs/release-notes.md
  */
 #include "ha/ha_alarm_state.h"
+#include "ha/ha_sensor_value.h"
 #include "layout/layout_validate.h"
 
 #include "layout/bambu_printer_slots.h"
@@ -316,6 +317,8 @@ static bool validate_widget(cJSON *widget, const char *known_widget_ids, size_t 
     cJSON *forecast_day_3_entity_id = cJSON_GetObjectItemCaseSensitive(widget, "forecast_day_3_entity_id");
     cJSON *forecast_day_4_entity_id = cJSON_GetObjectItemCaseSensitive(widget, "forecast_day_4_entity_id");
     cJSON *forecast_day_5_entity_id = cJSON_GetObjectItemCaseSensitive(widget, "forecast_day_5_entity_id");
+    cJSON *forecast_day_6_entity_id = cJSON_GetObjectItemCaseSensitive(widget, "forecast_day_6_entity_id");
+    cJSON *forecast_day_7_entity_id = cJSON_GetObjectItemCaseSensitive(widget, "forecast_day_7_entity_id");
     cJSON *solar_forecast_bar_max_kwh = cJSON_GetObjectItemCaseSensitive(widget, "solar_forecast_bar_max_kwh");
     cJSON *solar_forecast_bar_orientation = cJSON_GetObjectItemCaseSensitive(widget, "solar_forecast_bar_orientation");
     cJSON *gauge_min = cJSON_GetObjectItemCaseSensitive(widget, "gauge_min");
@@ -412,7 +415,12 @@ static bool validate_widget(cJSON *widget, const char *known_widget_ids, size_t 
         layout_validation_add(result, msg);
     }
 
-    if (cJSON_IsString(type) && type->valuestring != NULL && strcmp(type->valuestring, "weather_3day") == 0 &&
+    cJSON *hourly = cJSON_GetObjectItemCaseSensitive(widget, "weather_hourly");
+    if (hourly != NULL && (!cJSON_IsBool(hourly) || !cJSON_IsString(type) || strcmp(type->valuestring, "weather_tile") != 0)) {
+        layout_validation_add(result, "weather_hourly must be a boolean on weather_tile");
+    }
+
+    if (cJSON_IsString(type) && type->valuestring != NULL && (strcmp(type->valuestring, "weather_3day") == 0 || strcmp(type->valuestring, "weather_tile") == 0) &&
         cJSON_IsString(secondary_entity_id) && secondary_entity_id->valuestring != NULL &&
         secondary_entity_id->valuestring[0] != '\0') {
         /* Optional DWD weather report sensor. */
@@ -420,6 +428,112 @@ static bool validate_widget(cJSON *widget, const char *known_widget_ids, size_t 
             !entity_in_domain(secondary_entity_id->valuestring, "sensor")) {
             snprintf(msg, sizeof(msg), "widget %s: secondary_entity_id must be sensor.*",
                 cJSON_IsString(id) ? id->valuestring : "?");
+            layout_validation_add(result, msg);
+        }
+    }
+
+    if (cJSON_IsString(type) && type->valuestring != NULL && strcmp(type->valuestring, "energy_price_forecast") == 0) {
+        /* Optional average sensor and the price card's options. */
+        cJSON *price_selector = cJSON_GetObjectItemCaseSensitive(widget, "price_selector");
+        cJSON *price_cheap_times = cJSON_GetObjectItemCaseSensitive(widget, "price_cheap_times");
+        cJSON *price_line = cJSON_GetObjectItemCaseSensitive(widget, "price_line");
+        cJSON *price_average = cJSON_GetObjectItemCaseSensitive(widget, "price_average");
+        if (cJSON_IsString(secondary_entity_id) && secondary_entity_id->valuestring != NULL &&
+            secondary_entity_id->valuestring[0] != '\0' &&
+            (!is_valid_entity_id(secondary_entity_id->valuestring) || !entity_in_domain(secondary_entity_id->valuestring, "sensor"))) {
+            snprintf(msg, sizeof(msg), "widget %s: secondary_entity_id must be sensor.*", cJSON_IsString(id) ? id->valuestring : "?");
+            layout_validation_add(result, msg);
+        }
+        if ((price_selector != NULL && !cJSON_IsBool(price_selector)) || (price_cheap_times != NULL && !cJSON_IsBool(price_cheap_times)) ||
+            (price_line != NULL && !cJSON_IsBool(price_line))) {
+            snprintf(msg, sizeof(msg), "widget %s: price_selector, price_cheap_times and price_line must be true or false",
+                cJSON_IsString(id) ? id->valuestring : "?");
+            layout_validation_add(result, msg);
+        }
+        if (price_average != NULL && (!cJSON_IsNumber(price_average) || price_average->valuedouble < 0.0 || price_average->valuedouble > 5.0)) {
+            snprintf(msg, sizeof(msg), "widget %s: price_average must be a price in EUR/kWh between 0 and 5",
+                cJSON_IsString(id) ? id->valuestring : "?");
+            layout_validation_add(result, msg);
+        }
+    }
+
+    if (cJSON_IsString(type) && type->valuestring != NULL && strcmp(type->valuestring, "parqet_portfolio") == 0) {
+        /* Optional gain (secondary), XIRR (tertiary), dividends and return sensors, and the percentages-only option. */
+        const char *keys[] = {"secondary_entity_id", "tertiary_entity_id", "dividends_entity_id", "return_entity_id"};
+        for (size_t k = 0; k < sizeof(keys) / sizeof(keys[0]); k++) {
+            cJSON *item = cJSON_GetObjectItemCaseSensitive(widget, keys[k]);
+            if (cJSON_IsString(item) && item->valuestring != NULL && item->valuestring[0] != '\0' &&
+                (!is_valid_entity_id(item->valuestring) || !entity_in_domain(item->valuestring, "sensor"))) {
+                snprintf(msg, sizeof(msg), "widget %s: %s must be sensor.*", cJSON_IsString(id) ? id->valuestring : "?", keys[k]);
+                layout_validation_add(result, msg);
+            }
+        }
+        cJSON *hide = cJSON_GetObjectItemCaseSensitive(widget, "parqet_hide_amounts");
+        cJSON *selector = cJSON_GetObjectItemCaseSensitive(widget, "parqet_selector");
+        if ((hide != NULL && !cJSON_IsBool(hide)) || (selector != NULL && !cJSON_IsBool(selector))) {
+            snprintf(msg, sizeof(msg), "widget %s: parqet_hide_amounts and parqet_selector must be true or false", cJSON_IsString(id) ? id->valuestring : "?");
+            layout_validation_add(result, msg);
+        }
+        cJSON *view = cJSON_GetObjectItemCaseSensitive(widget, "parqet_view");
+        if (view != NULL && (!cJSON_IsString(view) || view->valuestring == NULL ||
+                             (strcmp(view->valuestring, "performance") != 0 && strcmp(view->valuestring, "holdings") != 0))) {
+            snprintf(msg, sizeof(msg), "widget %s: parqet_view must be performance or holdings", cJSON_IsString(id) ? id->valuestring : "?");
+            layout_validation_add(result, msg);
+        }
+        cJSON *interval = cJSON_GetObjectItemCaseSensitive(widget, "parqet_interval");
+        if (interval != NULL && (!cJSON_IsString(interval) || interval->valuestring == NULL ||
+                                 (strcmp(interval->valuestring, "1d") != 0 && strcmp(interval->valuestring, "1w") != 0 &&
+                                  strcmp(interval->valuestring, "1m") != 0 && strcmp(interval->valuestring, "ytd") != 0 &&
+                                  strcmp(interval->valuestring, "max") != 0))) {
+            snprintf(msg, sizeof(msg), "widget %s: parqet_interval must be 1d, 1w, 1m, ytd or max", cJSON_IsString(id) ? id->valuestring : "?");
+            layout_validation_add(result, msg);
+        }
+    }
+
+    if (cJSON_IsString(type) && type->valuestring != NULL && strcmp(type->valuestring, "stock_quotes") == 0) {
+        /* Stocks & ETFs: entity_id is the first quote, stock_entities up to seven more (Easy
+         * Stock; which one is known from the registry at run time). */
+        const char *wid = cJSON_IsString(id) ? id->valuestring : "?";
+        cJSON *more = cJSON_GetObjectItemCaseSensitive(widget, "stock_entities");
+        if (more != NULL && (!cJSON_IsArray(more) || cJSON_GetArraySize(more) > 7)) {
+            snprintf(msg, sizeof(msg), "widget %s: stock_entities must be an array of at most 7 sensor.* ids", wid);
+            layout_validation_add(result, msg);
+        } else if (more != NULL) {
+            cJSON *item = NULL;
+            cJSON_ArrayForEach(item, more) {
+                if (!cJSON_IsString(item) || !is_valid_entity_id(item->valuestring) || !entity_in_domain(item->valuestring, "sensor")) {
+                    snprintf(msg, sizeof(msg), "widget %s: stock_entities must be sensor.* ids", wid);
+                    layout_validation_add(result, msg);
+                    break;
+                }
+            }
+        }
+        static const char *const choices[][6] = {
+            {"stock_view", "list", "chart", "grid", NULL},
+            {"stock_period", "1d", "1w", "30d", "ytd", "1y"},
+            {"stock_delta", "percent", "absolute", "both", NULL},
+        };
+        for (size_t k = 0; k < sizeof(choices) / sizeof(choices[0]); k++) {
+            cJSON *item = cJSON_GetObjectItemCaseSensitive(widget, choices[k][0]);
+            if (item == NULL) continue;
+            bool ok = cJSON_IsString(item) && item->valuestring != NULL;
+            if (ok) {
+                ok = false;
+                for (size_t c = 1; c < 6 && choices[k][c] != NULL; c++) ok = ok || strcmp(item->valuestring, choices[k][c]) == 0;
+            }
+            if (!ok) {
+                snprintf(msg, sizeof(msg), "widget %s: invalid %s", wid, choices[k][0]);
+                layout_validation_add(result, msg);
+            }
+        }
+        cJSON *ticker = cJSON_GetObjectItemCaseSensitive(widget, "stock_ticker");
+        if (ticker != NULL && !cJSON_IsBool(ticker)) {
+            snprintf(msg, sizeof(msg), "widget %s: stock_ticker must be true or false", wid);
+            layout_validation_add(result, msg);
+        }
+        cJSON *stock_selector = cJSON_GetObjectItemCaseSensitive(widget, "stock_selector");
+        if (stock_selector != NULL && !cJSON_IsBool(stock_selector)) {
+            snprintf(msg, sizeof(msg), "widget %s: stock_selector must be true or false", wid);
             layout_validation_add(result, msg);
         }
     }
@@ -643,6 +757,26 @@ static bool validate_widget(cJSON *widget, const char *known_widget_ids, size_t 
                 layout_validation_add(result, msg);
             }
         }
+        /* The optional header: "power" (a bar up to evcc_power_max_kw) or "flow" (the site's four power sensors). */
+        for (size_t i = 0; i < EVCC_SITE_COUNT; i++) {
+            const cJSON *value = cJSON_GetObjectItemCaseSensitive(widget, k_evcc_site_bindings[i].key);
+            if (!value || (cJSON_IsString(value) && value->valuestring && !*value->valuestring)) continue;
+            if (!cJSON_IsString(value) || !value->valuestring || strlen(value->valuestring) >= APP_MAX_ENTITY_ID_LEN ||
+                !is_valid_entity_id(value->valuestring) || !entity_in_domain(value->valuestring, "sensor")) {
+                snprintf(msg, sizeof(msg), "widget %s: invalid %s", cJSON_IsString(id) ? id->valuestring : "?", k_evcc_site_bindings[i].key);
+                layout_validation_add(result, msg);
+            }
+        }
+        const cJSON *header = cJSON_GetObjectItemCaseSensitive(widget, "evcc_header");
+        if (header && (!cJSON_IsString(header) || (strcmp(header->valuestring, "power") && strcmp(header->valuestring, "flow")))) {
+            snprintf(msg, sizeof(msg), "widget %s: evcc_header must be power or flow", cJSON_IsString(id) ? id->valuestring : "?");
+            layout_validation_add(result, msg);
+        }
+        const cJSON *max_kw = cJSON_GetObjectItemCaseSensitive(widget, "evcc_power_max_kw");
+        if (max_kw && (!cJSON_IsNumber(max_kw) || max_kw->valuedouble < EVCC_POWER_MAX_KW_MIN || max_kw->valuedouble > EVCC_POWER_MAX_KW_MAX)) {
+            snprintf(msg, sizeof(msg), "widget %s: evcc_power_max_kw must be 1-50", cJSON_IsString(id) ? id->valuestring : "?");
+            layout_validation_add(result, msg);
+        }
     }
 
     if (cJSON_IsString(type) && type->valuestring != NULL && strcmp(type->valuestring, "car_widget") == 0) {
@@ -688,8 +822,8 @@ static bool validate_widget(cJSON *widget, const char *known_widget_ids, size_t 
     if (cJSON_IsString(type) && type->valuestring &&
         (!strcmp(type->valuestring, "weather_3day") || !strcmp(type->valuestring, "solar_forecast"))) {
         cJSON *days = cJSON_GetObjectItemCaseSensitive(widget, "forecast_days");
-        if (days != NULL && (!cJSON_IsNumber(days) || days->valuedouble != days->valueint || days->valueint < 0 || days->valueint > 6)) {
-            snprintf(msg, sizeof(msg), "widget %s: forecast_days must be an integer from 0 (auto) to 6", cJSON_IsString(id) ? id->valuestring : "?");
+        if (days != NULL && (!cJSON_IsNumber(days) || days->valuedouble != days->valueint || days->valueint < 0 || days->valueint > 7)) {
+            snprintf(msg, sizeof(msg), "widget %s: forecast_days must be an integer from 0 (auto) to 7", cJSON_IsString(id) ? id->valuestring : "?");
             layout_validation_add(result, msg);
         }
         cJSON *aligned = cJSON_GetObjectItemCaseSensitive(widget, "align_forecast");
@@ -712,6 +846,8 @@ static bool validate_widget(cJSON *widget, const char *known_widget_ids, size_t 
             forecast_day_3_entity_id,
             forecast_day_4_entity_id,
             forecast_day_5_entity_id,
+            forecast_day_6_entity_id,
+            forecast_day_7_entity_id,
         };
         const char *forecast_keys[] = {
             "forecast_today_entity_id",
@@ -719,6 +855,8 @@ static bool validate_widget(cJSON *widget, const char *known_widget_ids, size_t 
             "forecast_day_3_entity_id",
             "forecast_day_4_entity_id",
             "forecast_day_5_entity_id",
+            "forecast_day_6_entity_id",
+            "forecast_day_7_entity_id",
         };
         for (size_t i = 0; i < sizeof(forecast_entities) / sizeof(forecast_entities[0]); i++) {
             const cJSON *item = forecast_entities[i];
@@ -891,6 +1029,39 @@ static bool validate_widget(cJSON *widget, const char *known_widget_ids, size_t 
         }
         if (sensor_show_age != NULL && !cJSON_IsBool(sensor_show_age)) {
             snprintf(msg, sizeof(msg), "widget %s: sensor_show_age must be true or false",
+                cJSON_IsString(id) ? id->valuestring : "?");
+            layout_validation_add(result, msg);
+        }
+        const cJSON *view = cJSON_GetObjectItemCaseSensitive(widget, "sensor_view");
+        if (view != NULL && (!cJSON_IsString(view) ||
+            (strcmp(view->valuestring, "single") != 0 && strcmp(view->valuestring, "list") != 0))) {
+            layout_validation_add(result, "sensor_view must be single or list");
+        }
+        const cJSON *more = cJSON_GetObjectItemCaseSensitive(widget, "sensor_entities");
+        if (more != NULL && (!cJSON_IsArray(more) || cJSON_GetArraySize(more) > 7)) {
+            layout_validation_add(result, "sensor_entities must contain at most seven additional sensors");
+        } else if (more != NULL) {
+            const cJSON *item = NULL;
+            cJSON_ArrayForEach(item, more) {
+                if (!cJSON_IsString(item) || !is_valid_entity_id(item->valuestring) ||
+                    (!entity_in_domain(item->valuestring, "sensor") && !entity_in_domain(item->valuestring, "binary_sensor"))) {
+                    layout_validation_add(result, "sensor_entities must contain sensor.* or binary_sensor.* IDs");
+                    break;
+                }
+            }
+        }
+        /* The device class decides which values the editor offers; any of them is valid for any sensor. */
+        cJSON *format = cJSON_GetObjectItemCaseSensitive(widget, "sensor_format");
+        if (format != NULL && (!cJSON_IsString(format) || !ha_sv_format_valid(format->valuestring))) {
+            snprintf(msg, sizeof(msg), "widget %s: sensor_format must be datetime, date, time, relative, text, clock or raw",
+                cJSON_IsString(id) ? id->valuestring : "?");
+            layout_validation_add(result, msg);
+        }
+        cJSON *unit = cJSON_GetObjectItemCaseSensitive(widget, "sensor_unit");
+        ha_sv_unit_t unit_mode;
+        if (unit != NULL && (!cJSON_IsString(unit) || unit->valuestring == NULL || unit->valuestring[0] == '\0' ||
+                             !ha_sv_unit_from_string(unit->valuestring, &unit_mode))) {
+            snprintf(msg, sizeof(msg), "widget %s: sensor_unit must be hide, degree, auto or code",
                 cJSON_IsString(id) ? id->valuestring : "?");
             layout_validation_add(result, msg);
         }

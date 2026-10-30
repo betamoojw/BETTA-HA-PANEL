@@ -74,7 +74,7 @@ curl -X POST -H 'Content-Type: application/json' \
 ## Matching ELF and backtrace
 
 The exact ELF that ran at the crash is required. Rebuilding the same commit does not
-reproduce it reliably. `tools/build.sh` archives the newest 12 successful ELFs per
+reproduce it reliably. `scripts/build.sh` archives the newest 12 successful ELFs per
 variant under `.local/elf/<variant>/<first-9-SHA256-digits>.elf`; compare the recorded
 `elf_sha256` before decoding. Preserve older ELFs separately when keeping reports longer.
 The currently running build in `/api/version` can differ from an archived report's build.
@@ -160,5 +160,17 @@ LVGL visibility changes run in the UI task under the display lock.
 - Power loss and brownout cannot write a dump.
 - A hang leaves evidence only if a watchdog or another path raises a panic.
 - A crash of the ESP32-C6 co-processor is outside the P4 dump's scope.
+
+## Network restarts
+
+A network-watchdog restart (`net_watchdog` or `http_watchdog` in `/api/reboot-log`) is deliberate and leaves no
+dump. Read `wifi_diag` in the saved `/api/version`: `c6_memory` is the Wi-Fi co-processor's current heap, and
+`c6_last_incident` the last sample kept for a disconnect, a transport loss or such a restart. With
+`restart_cause` the sample was written just before that restart, which also covers a silent gateway with the link
+still up. `same_host_boot: false` means it comes from an earlier boot; `sample_age_ms` is the sample's age at the
+incident, so an old sample says little about the moment itself. A low `free_heap_bytes` or `min_free_heap_bytes`
+points at the C6 rather than the P4. These values are not yet confirmed on hardware. With a co-processor image that has no
+memory monitor (the prebuilt ESP-Hosted 3.0.10 image) `c6_memory.state` is `unsupported` and neither a live reading nor a
+`c6_last_incident` is reported; ignore them then.
 - A panic before import can overwrite a previous raw dump; only reports successfully
   archived after boot get the two-report retention guarantee.

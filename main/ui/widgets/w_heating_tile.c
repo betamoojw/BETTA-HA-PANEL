@@ -28,6 +28,7 @@ typedef struct {
     char climate_entity_id[APP_MAX_ENTITY_ID_LEN];
     char sensor_entity_id[APP_MAX_ENTITY_ID_LEN];
     bool is_on;
+    bool unavailable;
     bool arc_semi;
     char arc_opening[APP_MAX_UI_OPTION_LEN];
     float target_temp;
@@ -544,29 +545,12 @@ static void heating_apply_visual(lv_obj_t *card, w_heating_tile_ctx_t *ctx, bool
         arc, is_on ? lv_color_hex(APP_UI_COLOR_HEAT_KNOB_ON) : lv_color_hex(APP_UI_COLOR_HEAT_KNOB_OFF), LV_PART_KNOB);
     lv_obj_set_style_bg_opa(arc, LV_OPA_COVER, LV_PART_KNOB);
 
+    lv_obj_set_state(ctx->arc, LV_STATE_DISABLED, ctx->unavailable);
     if (ctx->arc_semi) {
-        const lv_color_t btn_bg = lv_color_hex(is_on ? APP_UI_COLOR_HEAT_IND_ON : APP_UI_COLOR_HEAT_IND_OFF);
-        const lv_color_t btn_icon = ui_style_button_icon_color(btn_bg);
-        if (ctx->minus_btn != NULL) {
-            ui_style_button_auto(ctx->minus_btn, btn_bg, lv_color_hex(APP_UI_COLOR_TOPBAR_CHIP_BORDER));
-            lv_obj_t *minus_lbl = lv_obj_get_child(ctx->minus_btn, 0);
-            if (minus_lbl != NULL) {
-                lv_obj_set_style_text_color(minus_lbl, btn_icon, LV_PART_MAIN);
-            }
-        }
-        if (ctx->plus_btn != NULL) {
-            ui_style_button_auto(ctx->plus_btn, btn_bg, lv_color_hex(APP_UI_COLOR_TOPBAR_CHIP_BORDER));
-            lv_obj_t *plus_lbl = lv_obj_get_child(ctx->plus_btn, 0);
-            if (plus_lbl != NULL) {
-                lv_obj_set_style_text_color(plus_lbl, btn_icon, LV_PART_MAIN);
-            }
-        }
-        if (ctx->min_label != NULL) {
-            lv_obj_set_style_text_color(ctx->min_label, lv_color_hex(APP_UI_COLOR_TEXT_MUTED), LV_PART_MAIN);
-        }
-        if (ctx->max_label != NULL) {
-            lv_obj_set_style_text_color(ctx->max_label, lv_color_hex(APP_UI_COLOR_TEXT_MUTED), LV_PART_MAIN);
-        }
+        ui_style_action_button(ctx->minus_btn, lv_obj_get_child(ctx->minus_btn, 0), UI_CONTROL_ACTION, !ctx->unavailable);
+        ui_style_action_button(ctx->plus_btn, lv_obj_get_child(ctx->plus_btn, 0), UI_CONTROL_ACTION, !ctx->unavailable);
+        if (ctx->min_label != NULL) lv_obj_set_style_text_color(ctx->min_label, lv_color_hex(APP_UI_COLOR_TEXT_MUTED), LV_PART_MAIN);
+        if (ctx->max_label != NULL) lv_obj_set_style_text_color(ctx->max_label, lv_color_hex(APP_UI_COLOR_TEXT_MUTED), LV_PART_MAIN);
     }
 
     int arc_value = (int)(clamp_temp(target_temp) * 2.0f + 0.5f);
@@ -595,6 +579,7 @@ static void w_heating_tile_card_event_cb(lv_event_t *event)
     }
 
     if (code == LV_EVENT_CLICKED) {
+        if (ctx->unavailable) return;
         lv_obj_t *card = lv_event_get_target(event);
         bool prev_is_on = ctx->is_on;
         char prev_status[sizeof(ctx->status_text)] = {0};
@@ -625,6 +610,7 @@ static void w_heating_tile_arc_event_cb(lv_event_t *event)
 
     lv_obj_t *arc = lv_event_get_target(event);
     w_heating_tile_ctx_t *ctx = (w_heating_tile_ctx_t *)lv_event_get_user_data(event);
+    if (ctx == NULL || ctx->unavailable) return;
     int value = (arc != NULL) ? lv_arc_get_value(arc) : 40;
     float target_c = (float)value * 0.5f;
 
@@ -647,6 +633,7 @@ static void w_heating_tile_step_event_cb(lv_event_t *event)
     if (ctx == NULL) {
         return;
     }
+    if (ctx->unavailable) return;
     lv_obj_t *btn = lv_event_get_target(event);
     int delta = (btn == ctx->plus_btn) ? 1 : -1;
     float next = snap_half_deg(clamp_temp(ctx->target_temp) + (float)delta * 0.5f);
@@ -670,23 +657,15 @@ esp_err_t w_heating_tile_create(const ui_widget_def_t *def, lv_obj_t *parent, ui
     lv_obj_set_size(card, def->w, def->h);
     lv_obj_set_scrollable(card, false);
     lv_obj_set_style_radius(card, APP_UI_CARD_RADIUS, LV_PART_MAIN);
-#if APP_UI_REWORK_V2
     lv_obj_set_style_border_width(card, 1, LV_PART_MAIN);
     lv_obj_set_style_border_color(card, lv_color_hex(APP_UI_COLOR_CARD_BORDER), LV_PART_MAIN);
     lv_obj_set_style_border_opa(card, LV_OPA_70, LV_PART_MAIN);
-#else
-    lv_obj_set_style_border_width(card, 0, LV_PART_MAIN);
-#endif
     lv_obj_set_style_pad_all(card, 16, LV_PART_MAIN);
 
     lv_obj_t *icon = lv_label_create(card);
     lv_label_set_text(icon, APP_SYMBOL_POWER);
     lv_obj_set_style_text_font(icon, APP_FONT_SYMBOL_SMALL, LV_PART_MAIN);
-#if APP_UI_TILE_LAYOUT_TUNED
     lv_obj_align(icon, LV_ALIGN_TOP_LEFT, 0, 2);
-#else
-    lv_obj_align(icon, LV_ALIGN_TOP_LEFT, 0, 0);
-#endif
 
     lv_obj_t *title = ui_widget_name_create(card, !def->hide_name);
     lv_label_set_text(title, def->title[0] ? def->title : def->id);
@@ -696,41 +675,25 @@ esp_err_t w_heating_tile_create(const ui_widget_def_t *def, lv_obj_t *parent, ui
     lv_label_set_long_mode(title, LV_LABEL_LONG_DOT);
     lv_obj_set_style_text_font(title, ui_font_role(UI_TEXT_META), LV_PART_MAIN);
     lv_obj_set_style_text_align(title, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
-#if APP_UI_TILE_LAYOUT_TUNED
     lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 2);
-#else
-    lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 0);
-#endif
 
     lv_obj_t *arc = lv_arc_create(card);
     lv_obj_set_size(arc, HEATING_ARC_SIZE_MIN, HEATING_ARC_SIZE_MIN);
     lv_arc_set_range(arc, 10, 60);
     lv_arc_set_value(arc, 40);
     lv_arc_set_bg_angles(arc, 160, 20);
-#if APP_UI_TILE_LAYOUT_TUNED
     lv_obj_align(arc, LV_ALIGN_CENTER, 0, 30);
-#else
-    lv_obj_align(arc, LV_ALIGN_CENTER, 0, 20);
-#endif
     lv_obj_set_event_bubble(arc, false);
 
     lv_obj_t *target_label = lv_label_create(card);
     heating_set_target_label(target_label, 20.0f);
     lv_obj_set_style_text_font(target_label, HEATING_TARGET_FONT, LV_PART_MAIN);
-#if APP_UI_TILE_LAYOUT_TUNED
     lv_obj_align(target_label, LV_ALIGN_CENTER, 0, 8);
-#else
-    lv_obj_align(target_label, LV_ALIGN_CENTER, 0, 4);
-#endif
 
     lv_obj_t *actual_label = lv_label_create(card);
     lv_label_set_text(actual_label, "--.- C");
     lv_obj_set_style_text_font(actual_label, HEATING_ACTUAL_FONT, LV_PART_MAIN);
-#if APP_UI_TILE_LAYOUT_TUNED
     lv_obj_align(actual_label, LV_ALIGN_CENTER, 0, 50);
-#else
-    lv_obj_align(actual_label, LV_ALIGN_CENTER, 0, 40);
-#endif
 
     lv_obj_t *status_label = lv_label_create(card);
     lv_label_set_text(status_label, ui_i18n_get("common.off", "OFF"));
@@ -815,6 +778,7 @@ esp_err_t w_heating_tile_create(const ui_widget_def_t *def, lv_obj_t *parent, ui
     lv_obj_add_event_cb(arc, w_heating_tile_arc_event_cb, LV_EVENT_VALUE_CHANGED, ctx);
     lv_obj_add_event_cb(arc, w_heating_tile_arc_event_cb, LV_EVENT_RELEASED, ctx);
 
+    ctx->unavailable = true;
     out_instance->ctx = ctx;
     out_instance->obj = card;
     heating_apply_from_ctx(card, ctx);
@@ -835,6 +799,7 @@ void w_heating_tile_apply_state(ui_widget_instance_t *instance, const ha_state_t
     if (strncmp(state->entity_id, ctx->climate_entity_id, APP_MAX_ENTITY_ID_LEN) == 0) {
         heating_values_t values = {0};
         heating_extract_climate_values(state, &values);
+        ctx->unavailable = state->state[0] == '\0' || strcmp(state->state, "unavailable") == 0 || strcmp(state->state, "unknown") == 0;
         ctx->is_on = heating_state_is_on(state->state);
         ctx->target_temp = values.target_temp;
         heating_copy_text(ctx->status_text, sizeof(ctx->status_text), values.status_text);
@@ -866,6 +831,7 @@ void w_heating_tile_mark_unavailable(ui_widget_instance_t *instance)
     w_heating_tile_ctx_t *ctx = (w_heating_tile_ctx_t *)instance->ctx;
     if (ctx != NULL) {
         ctx->is_on = false;
+        ctx->unavailable = true;
         ctx->has_current_temp = false;
         heating_copy_text(ctx->status_text, sizeof(ctx->status_text), "unavailable");
         heating_apply_from_ctx(instance->obj, ctx);
@@ -874,6 +840,7 @@ void w_heating_tile_mark_unavailable(ui_widget_instance_t *instance)
 
     w_heating_tile_ctx_t fallback = {0};
     fallback.is_on = false;
+    fallback.unavailable = true;
     fallback.target_temp = 20.0f;
     fallback.current_temp = 20.0f;
     fallback.has_current_temp = false;

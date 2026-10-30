@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BETTA HA Panel - BETTA Editor</title>
   <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/css/editor-refinements.css" />
   <link rel="stylesheet" href="/css/style-depth.css" />
   <link rel="stylesheet" href="/css/style-flat.css" />
   <link rel="stylesheet" href="/css/style-glow.css" />
@@ -18,6 +19,8 @@
   <link rel="stylesheet" href="/css/layout-toolbar.css" />
   <link rel="stylesheet" href="/css/layout-actions.css" />
   <link rel="stylesheet" href="/css/evcc-wallbox.css" />
+  <link rel="stylesheet" href="/css/stock-quotes.css" />
+  <link rel="stylesheet" href="/css/preview-roles.css" />
   <link rel="stylesheet" href="/css/inspector.css" />
   <link rel="stylesheet" href="/css/remote-display.css" />
 </head>
@@ -163,6 +166,9 @@
               <button id="addWeatherTileBtn" type="button">+ Weather</button>
               <button id="addWeather3DayBtn" type="button">+ Weather Forecast</button>
               <button id="addSolarForecastBtn" type="button">+ Solar Forecast</button>
+              <button id="addPriceForecastBtn" type="button">+ Energy Price Forecast</button>
+              <button id="addParqetPortfolioBtn" type="button">+ Parqet Portfolio</button>
+              <button id="addStockQuotesBtn" type="button">+ Stocks &amp; ETFs</button>
               <button id="addTodoListBtn" type="button">+ Todo List</button>
               <button id="addMediaPlayerBtn" type="button">+ Media Player</button>
               <button id="addSonosFavoritesBtn" type="button">+ Sonos Favorites</button>
@@ -294,7 +300,7 @@
 
           <h2 id="settingsStatusHeading">Device status</h2>
           <div class="form">
-            <dl class="kv-list">
+            <dl class="kv-list device-status-list">
               <dt id="settingsStatusCpuLabel">CPU load</dt>
               <dd id="settingsStatusCpu">-</dd>
               <dt id="settingsStatusRamLabel">Internal RAM</dt>
@@ -311,6 +317,17 @@
                 <div class="mem-bar" id="settingsStatusPsramBar" role="img">
                   <div class="mem-bar-fill" id="settingsStatusPsramBarFill"></div>
                 </div>
+              </dd>
+              <dt id="settingsStatusC6Label">Wi-Fi processor (ESP32-C6)</dt>
+              <dd id="settingsStatusC6Row" class="c6-memory-status">
+                <span id="settingsStatusC6">--</span>
+                <details class="restart-history">
+                  <summary id="settingsStatusC6DetailsLabel">Memory details</summary>
+                  <p id="settingsStatusC6Dma" class="meta">--</p>
+                  <p id="settingsStatusC6Error" class="meta" hidden></p>
+                  <p id="settingsStatusC6Incident" class="meta">--</p>
+                  <p id="settingsStatusC6Hint" class="meta"></p>
+                </details>
               </dd>
               <dt id="settingsStatusUptimeLabel">Uptime</dt>
               <dd id="settingsStatusUptime">-</dd>
@@ -769,7 +786,7 @@
             </label>
             <label><span id="settingsTopbarStockEntityLabel">Stock sensor</span>
               <span class="entity-input-row">
-                <input id="settingsTopbarStockEntity" type="text" list="settingsStockEntityOptions" placeholder="sensor.yahoofinance_vwce_de" maxlength="95" />
+                <input id="settingsTopbarStockEntity" type="text" list="settingsStockEntityOptions" placeholder="sensor.vwce_de" maxlength="95" />
                 <button id="settingsTopbarStockSearchBtn" class="btn small entity-picker-btn" type="button">Search</button>
               </span>
             </label>
@@ -942,9 +959,13 @@
             <option value="2">Largest</option>
           </select>
           <details id="layoutTextSizeDetails">
-            <summary id="layoutTextSizeInfoBtn" title="Text sizes on this panel" aria-label="Text sizes on this panel">&#9432;</summary>
+            <summary id="layoutTextSizeInfoBtn" class="inspector-info-btn" title="Text sizes on this panel" aria-label="Text sizes on this panel" aria-haspopup="dialog"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7v1"/></svg></summary>
             <div id="settingsUiTextStepInfo" class="meta no-shorten" aria-live="polite"></div>
           </details>
+          <label class="layout-follow-page" id="followPageLabel" title="Show the page chosen here on the panel too">
+            <input id="followPageToggle" type="checkbox" />
+            <span id="followPageText">Panel follows</span>
+          </label>
         </div>
         <div class="workspace-top-right">
           <span id="unsavedBadge" class="unsaved-badge hidden" role="status">Unsaved changes</span>
@@ -1172,6 +1193,7 @@
                     <option value="weather_tile">weather_tile</option>
                     <option value="weather_3day">weather_3day</option>
                     <option value="solar_forecast">solar_forecast</option>
+                    <option value="energy_price_forecast">energy_price_forecast</option>
                     <option value="car_widget">car_widget</option>
                     <option value="wallbox_evcc">wallbox_evcc</option>
 <option value="bambu_printer">bambu_printer</option>
@@ -1188,6 +1210,8 @@
                     <option value="camera_tile">camera_tile</option>
                     <option value="fan_tile">fan_tile</option>
                   </select>
+                  <div id="entitySourceHint" class="meta hidden"></div>
+                  <div id="entitySourceWarning" class="meta warn no-shorten hidden"></div>
                   <label id="fEntityWrap"><span id="fEntityLabel">Entity</span>
                     <div class="entity-input-row">
                       <input id="fEntity" type="text" list="entityOptions" />
@@ -1195,6 +1219,7 @@
                     </div>
                     <datalist id="entityOptions"></datalist>
                   </label>
+                  <div id="fEntityClass" class="entity-class-chips hidden"></div>
                   <label id="fSecondaryEntityWrap" class="hidden"><span id="fSecondaryEntityLabel">Actual entity (sensor)</span>
                     <div class="entity-input-row">
                       <input id="fSecondaryEntity" type="text" list="sensorEntityOptions" />
@@ -1216,6 +1241,80 @@
                       <button class="btn small entity-picker-btn" type="button" data-inspector-entity-target="tertiary">Search</button>
                     </div>
                   </label>
+                  <div id="optionalEntityControls" class="optional-entity-controls" hidden>
+                    <select id="optionalEntityRole" aria-label="Optional function"></select>
+                    <button id="optionalEntityAdd" class="btn small" type="button">Add assignment</button>
+                  </div>
+                  <div id="parqetEntities" class="hidden">
+                  <label><span id="fParqetDividendsLabel">Dividends sensor (optional)</span>
+                    <div class="entity-input-row">
+                      <input id="fParqetDividends" type="text" list="sensorEntityOptions" />
+                      <button class="btn small entity-picker-btn" type="button" data-inspector-entity-target="parqet_dividends">Search</button>
+                    </div>
+                  </label>
+                  <label><span id="fParqetReturnLabel">Unrealised return sensor (%, optional)</span>
+                    <div class="entity-input-row">
+                      <input id="fParqetReturn" type="text" list="sensorEntityOptions" />
+                      <button class="btn small entity-picker-btn" type="button" data-inspector-entity-target="parqet_return">Search</button>
+                    </div>
+                  </label>
+                  </div>
+                  <div id="sensorListEntities" hidden>
+                    <label><span id="fSensorList1Label">Entry 2</span><div class="entity-input-row"><input id="fSensorList1" type="text" /><button class="btn small entity-picker-btn" type="button" data-inspector-entity-target="sensor_list_2">Search</button></div></label>
+                    <label><span id="fSensorList2Label">Entry 3</span><div class="entity-input-row"><input id="fSensorList2" type="text" /><button class="btn small entity-picker-btn" type="button" data-inspector-entity-target="sensor_list_3">Search</button></div></label>
+                    <label><span id="fSensorList3Label">Entry 4</span><div class="entity-input-row"><input id="fSensorList3" type="text" /><button class="btn small entity-picker-btn" type="button" data-inspector-entity-target="sensor_list_4">Search</button></div></label>
+                    <label><span id="fSensorList4Label">Entry 5</span><div class="entity-input-row"><input id="fSensorList4" type="text" /><button class="btn small entity-picker-btn" type="button" data-inspector-entity-target="sensor_list_5">Search</button></div></label>
+                    <label><span id="fSensorList5Label">Entry 6</span><div class="entity-input-row"><input id="fSensorList5" type="text" /><button class="btn small entity-picker-btn" type="button" data-inspector-entity-target="sensor_list_6">Search</button></div></label>
+                    <label><span id="fSensorList6Label">Entry 7</span><div class="entity-input-row"><input id="fSensorList6" type="text" /><button class="btn small entity-picker-btn" type="button" data-inspector-entity-target="sensor_list_7">Search</button></div></label>
+                    <label><span id="fSensorList7Label">Entry 8</span><div class="entity-input-row"><input id="fSensorList7" type="text" /><button class="btn small entity-picker-btn" type="button" data-inspector-entity-target="sensor_list_8">Search</button></div></label>
+                    <button id="sensorListAdd" class="btn small" type="button">Add sensors</button>
+                  </div>
+                  <div id="stockEntities" class="hidden">
+                  <label><span id="fStock1Label">Quote 2</span>
+                    <div class="entity-input-row">
+                      <input id="fStock1" type="text" list="sensorEntityOptions" />
+                      <button class="btn small entity-picker-btn" type="button" data-inspector-entity-target="stock_2">Search</button>
+                    </div>
+                  </label>
+                  <label><span id="fStock2Label">Quote 3</span>
+                    <div class="entity-input-row">
+                      <input id="fStock2" type="text" list="sensorEntityOptions" />
+                      <button class="btn small entity-picker-btn" type="button" data-inspector-entity-target="stock_3">Search</button>
+                    </div>
+                  </label>
+                  <label><span id="fStock3Label">Quote 4</span>
+                    <div class="entity-input-row">
+                      <input id="fStock3" type="text" list="sensorEntityOptions" />
+                      <button class="btn small entity-picker-btn" type="button" data-inspector-entity-target="stock_4">Search</button>
+                    </div>
+                  </label>
+                  <label><span id="fStock4Label">Quote 5</span>
+                    <div class="entity-input-row">
+                      <input id="fStock4" type="text" list="sensorEntityOptions" />
+                      <button class="btn small entity-picker-btn" type="button" data-inspector-entity-target="stock_5">Search</button>
+                    </div>
+                  </label>
+                  <label><span id="fStock5Label">Quote 6</span>
+                    <div class="entity-input-row">
+                      <input id="fStock5" type="text" list="sensorEntityOptions" />
+                      <button class="btn small entity-picker-btn" type="button" data-inspector-entity-target="stock_6">Search</button>
+                    </div>
+                  </label>
+                  <label><span id="fStock6Label">Quote 7</span>
+                    <div class="entity-input-row">
+                      <input id="fStock6" type="text" list="sensorEntityOptions" />
+                      <button class="btn small entity-picker-btn" type="button" data-inspector-entity-target="stock_7">Search</button>
+                    </div>
+                  </label>
+                  <label><span id="fStock7Label">Quote 8</span>
+                    <div class="entity-input-row">
+                      <input id="fStock7" type="text" list="sensorEntityOptions" />
+                      <button class="btn small entity-picker-btn" type="button" data-inspector-entity-target="stock_8">Search</button>
+                    </div>
+                  </label>
+                  <button id="stockAddQuote" class="btn small" type="button">Add quote</button>
+                  <div class="field-hint" id="fStockHint">Easy Stock sensors, in this order.</div>
+                  </div>
                   <div id="vacuumOptions" class="hidden">
                     <label><span id="fVacuumDefaultModeLabel">Default cleaning program</span>
                       <select id="fVacuumDefaultMode"></select>
@@ -1245,6 +1344,8 @@
                         <button class="btn small entity-picker-btn" type="button" data-inspector-entity-target="room_entities">Search</button>
                       </div>
                     </label>
+                    <div id="roomEntityList" hidden></div>
+                    <button id="roomEntityAdd" class="btn small" type="button" hidden>Add entity</button>
                     <div class="meta" id="fRoomEntitiesHint"></div>
                     <label><span id="fRoomExtraModeLabel">Extra field</span>
                       <select id="fRoomExtraMode">
@@ -1261,6 +1362,7 @@
                       </div>
                     </label>
                     <div class="meta" id="fRoomExtraHint"></div>
+                    <div class="meta warn no-shorten" id="fRoomExtraWarning" role="status" hidden></div>
                     <label class="row">
                       <input id="fRoomControls" type="checkbox" />
                       <span id="fRoomControlsLabel">Controls on the card</span>
@@ -1290,75 +1392,114 @@
                     <datalist id="carPrecondOptions"></datalist>
                     <datalist id="carLockOptions"></datalist>
                   </div>
+                  <div id="evccHeaderOptions" class="hidden">
+                    <label><span id="fEvccHeaderLabel">Header</span>
+                      <select id="fEvccHeader">
+                        <option value="">Off</option>
+                        <option value="power">Charging power</option>
+                        <option value="flow">Energy flow</option>
+                      </select>
+                    </label>
+                    <div class="meta warn no-shorten" id="evccHeaderHint" role="status"></div>
+                    <label id="fEvccPowerMaxWrap"><span id="fEvccPowerMaxLabel">Maximum charging power (kW)</span>
+                      <input id="fEvccPowerMax" type="number" min="1" max="50" step="0.1" placeholder="11" />
+                    </label>
+                  </div>
                   <div id="evccFields" class="hidden">
                     <label><span id="fEvccLoadpointLabel">Loadpoint</span><select id="fEvccLoadpoint"></select></label>
                     <button id="fEvccDetectBtn" type="button" class="btn small">Find loadpoints</button>
                     <div class="meta" id="evccStatus"></div>
+                    <div id="evccSiteFields" class="hidden">
+                      <label><span id="fEvccPvPowerLabel">PV power (sensor)</span>
+                        <div class="entity-input-row">
+                          <input id="fEvccPvPower" type="text" readonly list="evccsensorOptions" />
+                          <button class="btn small entity-picker-btn" type="button" disabled data-inspector-entity-target="evcc_pvpower">Search</button>
+                        </div>
+                      </label>
+                      <label><span id="fEvccBatteryPowerLabel">Battery power (sensor)</span>
+                        <div class="entity-input-row">
+                          <input id="fEvccBatteryPower" type="text" readonly list="evccsensorOptions" />
+                          <button class="btn small entity-picker-btn" type="button" disabled data-inspector-entity-target="evcc_batterypower">Search</button>
+                        </div>
+                      </label>
+                      <label><span id="fEvccGridPowerLabel">Grid power (sensor)</span>
+                        <div class="entity-input-row">
+                          <input id="fEvccGridPower" type="text" readonly list="evccsensorOptions" />
+                          <button class="btn small entity-picker-btn" type="button" disabled data-inspector-entity-target="evcc_gridpower">Search</button>
+                        </div>
+                      </label>
+                      <label><span id="fEvccHomePowerLabel">Home power (sensor)</span>
+                        <div class="entity-input-row">
+                          <input id="fEvccHomePower" type="text" readonly list="evccsensorOptions" />
+                          <button class="btn small entity-picker-btn" type="button" disabled data-inspector-entity-target="evcc_homepower">Search</button>
+                        </div>
+                      </label>
+                    </div>
                     <details><summary id="evccDetailsSummary">Advanced entities</summary>
                       <label><span id="fEvccModeLabel">Mode (select)</span>
                         <div class="entity-input-row">
-                          <input id="fEvccMode" type="text" list="evccselectOptions" />
-                          <button class="btn small entity-picker-btn" type="button" data-inspector-entity-target="evcc_mode">Search</button>
+                          <input id="fEvccMode" type="text" readonly list="evccselectOptions" />
+                          <button class="btn small entity-picker-btn" type="button" disabled data-inspector-entity-target="evcc_mode">Search</button>
                         </div>
                       </label>
                       <label><span id="fEvccVehicleLabel">Vehicle (select)</span>
                         <div class="entity-input-row">
-                          <input id="fEvccVehicle" type="text" list="evccselectOptions" />
-                          <button class="btn small entity-picker-btn" type="button" data-inspector-entity-target="evcc_vehicle">Search</button>
+                          <input id="fEvccVehicle" type="text" readonly list="evccselectOptions" />
+                          <button class="btn small entity-picker-btn" type="button" disabled data-inspector-entity-target="evcc_vehicle">Search</button>
                         </div>
                       </label>
                       <label><span id="fEvccTargetLabel">Target (number,select)</span>
                         <div class="entity-input-row">
-                          <input id="fEvccTarget" type="text" list="evccnumberOptions" />
-                          <button class="btn small entity-picker-btn" type="button" data-inspector-entity-target="evcc_target">Search</button>
+                          <input id="fEvccTarget" type="text" readonly list="evccnumberOptions" />
+                          <button class="btn small entity-picker-btn" type="button" disabled data-inspector-entity-target="evcc_target">Search</button>
                         </div>
                       </label>
                       <label><span id="fEvccPowerLabel">Power (sensor)</span>
                         <div class="entity-input-row">
-                          <input id="fEvccPower" type="text" list="evccsensorOptions" />
-                          <button class="btn small entity-picker-btn" type="button" data-inspector-entity-target="evcc_power">Search</button>
+                          <input id="fEvccPower" type="text" readonly list="evccsensorOptions" />
+                          <button class="btn small entity-picker-btn" type="button" disabled data-inspector-entity-target="evcc_power">Search</button>
                         </div>
                       </label>
                       <label><span id="fEvccSocLabel">Soc (sensor)</span>
                         <div class="entity-input-row">
-                          <input id="fEvccSoc" type="text" list="evccsensorOptions" />
-                          <button class="btn small entity-picker-btn" type="button" data-inspector-entity-target="evcc_soc">Search</button>
+                          <input id="fEvccSoc" type="text" readonly list="evccsensorOptions" />
+                          <button class="btn small entity-picker-btn" type="button" disabled data-inspector-entity-target="evcc_soc">Search</button>
                         </div>
                       </label>
                       <label><span id="fEvccConnectedLabel">Connected (binary_sensor)</span>
                         <div class="entity-input-row">
-                          <input id="fEvccConnected" type="text" list="evccbinary_sensorOptions" />
-                          <button class="btn small entity-picker-btn" type="button" data-inspector-entity-target="evcc_connected">Search</button>
+                          <input id="fEvccConnected" type="text" readonly list="evccbinary_sensorOptions" />
+                          <button class="btn small entity-picker-btn" type="button" disabled data-inspector-entity-target="evcc_connected">Search</button>
                         </div>
                       </label>
                       <label><span id="fEvccChargingLabel">Charging (binary_sensor)</span>
                         <div class="entity-input-row">
-                          <input id="fEvccCharging" type="text" list="evccbinary_sensorOptions" />
-                          <button class="btn small entity-picker-btn" type="button" data-inspector-entity-target="evcc_charging">Search</button>
+                          <input id="fEvccCharging" type="text" readonly list="evccbinary_sensorOptions" />
+                          <button class="btn small entity-picker-btn" type="button" disabled data-inspector-entity-target="evcc_charging">Search</button>
                         </div>
                       </label>
                       <label><span id="fEvccDisabledLabel">Disabled (binary_sensor)</span>
                         <div class="entity-input-row">
-                          <input id="fEvccDisabled" type="text" list="evccbinary_sensorOptions" />
-                          <button class="btn small entity-picker-btn" type="button" data-inspector-entity-target="evcc_disabled">Search</button>
+                          <input id="fEvccDisabled" type="text" readonly list="evccbinary_sensorOptions" />
+                          <button class="btn small entity-picker-btn" type="button" disabled data-inspector-entity-target="evcc_disabled">Search</button>
                         </div>
                       </label>
                       <label><span id="fEvccEffectiveLabel">Effective (sensor)</span>
                         <div class="entity-input-row">
-                          <input id="fEvccEffective" type="text" list="evccsensorOptions" />
-                          <button class="btn small entity-picker-btn" type="button" data-inspector-entity-target="evcc_effective">Search</button>
+                          <input id="fEvccEffective" type="text" readonly list="evccsensorOptions" />
+                          <button class="btn small entity-picker-btn" type="button" disabled data-inspector-entity-target="evcc_effective">Search</button>
                         </div>
                       </label>
                       <label><span id="fEvccEnergyLabel">Charged energy (sensor)</span>
                         <div class="entity-input-row">
-                          <input id="fEvccEnergy" type="text" list="evccsensorOptions" />
-                          <button class="btn small entity-picker-btn" type="button" data-inspector-entity-target="evcc_energy">Search</button>
+                          <input id="fEvccEnergy" type="text" readonly list="evccsensorOptions" />
+                          <button class="btn small entity-picker-btn" type="button" disabled data-inspector-entity-target="evcc_energy">Search</button>
                         </div>
                       </label>
                       <label><span id="fEvccRemainingLabel">Remaining duration (sensor)</span>
                         <div class="entity-input-row">
-                          <input id="fEvccRemaining" type="text" list="evccsensorOptions" />
-                          <button class="btn small entity-picker-btn" type="button" data-inspector-entity-target="evcc_remaining">Search</button>
+                          <input id="fEvccRemaining" type="text" readonly list="evccsensorOptions" />
+                          <button class="btn small entity-picker-btn" type="button" disabled data-inspector-entity-target="evcc_remaining">Search</button>
                         </div>
                       </label>
                     </details>
@@ -1505,6 +1646,18 @@
                         <button class="btn small entity-picker-btn" type="button" data-inspector-entity-target="solar_day_5">Search</button>
                       </div>
                     </label>
+                    <label><span id="fSolarForecastDay6Label">Day 6 forecast</span>
+                      <div class="entity-input-row">
+                        <input id="fSolarForecastDay6" type="text" list="sensorEntityOptions" />
+                        <button class="btn small entity-picker-btn" type="button" data-inspector-entity-target="solar_day_6">Search</button>
+                      </div>
+                    </label>
+                    <label><span id="fSolarForecastDay7Label">Day 7 forecast</span>
+                      <div class="entity-input-row">
+                        <input id="fSolarForecastDay7" type="text" list="sensorEntityOptions" />
+                        <button class="btn small entity-picker-btn" type="button" data-inspector-entity-target="solar_day_7">Search</button>
+                      </div>
+                    </label>
                     <label><span id="fSolarForecastBarMaxLabel">Bar max (kWh)</span>
                       <input id="fSolarForecastBarMax" type="number" min="0" step="0.1" placeholder="auto" />
                     </label>
@@ -1643,9 +1796,16 @@
                     </label>
                   </div>
                   <div id="sensorOptions" class="slider-options hidden">
+                    <label><span id="fSensorViewLabel">View</span><select id="fSensorView"><option id="fSensorViewSingle" value="single">Single value</option><option id="fSensorViewList" value="list">List</option></select></label>
                     <label class="row">
                       <input id="fSensorShowAge" type="checkbox" checked />
                       <span id="fSensorShowAgeLabel">Show last-updated time</span>
+                    </label>
+                    <label id="fSensorFormatWrap" class="hidden"><span id="fSensorFormatLabel">Format</span>
+                      <select id="fSensorFormat"></select>
+                    </label>
+                    <label id="fSensorUnitWrap" class="hidden"><span id="fSensorUnitLabel">Unit</span>
+                      <select id="fSensorUnit"></select>
                     </label>
                   </div>
                   <div id="cameraOptions" class="slider-options hidden">
@@ -1662,8 +1822,84 @@
                       <span id="fLockConfirmLabel">Ask before unlocking or opening</span>
                     </label>
                   </div>
+                  <div id="priceOptions" class="slider-options hidden">
+                    <label class="row">
+                      <input id="fPriceSelector" type="checkbox" />
+                      <span id="fPriceSelectorLabel">Show selector buttons on the tile</span>
+                    </label>
+                    <label class="row">
+                      <input id="fPriceCheapTimes" type="checkbox" />
+                      <span id="fPriceCheapTimesLabel">Cheap times (shade and name the cheapest hours)</span>
+                    </label>
+                    <label class="row">
+                      <input id="fPriceLine" type="checkbox" />
+                      <span id="fPriceLineLabel">Line instead of filled bars</span>
+                    </label>
+                    <label><span id="fPriceAverageLabel">Average (fixed, EUR/kWh)</span>
+                      <input id="fPriceAverage" type="number" min="0" max="5" step="0.001" placeholder="calculated" />
+                    </label>
+                  </div>
+                  <div id="stockOptions" class="slider-options hidden">
+                    <label><span id="fStockViewLabel">View</span>
+                      <select id="fStockView">
+                        <option value="list" id="fStockViewList">List</option>
+                        <option value="chart" id="fStockViewChart">Charts</option>
+                        <option value="grid" id="fStockViewGrid">Tiles</option>
+                      </select>
+                    </label>
+                    <label><span id="fStockPeriodLabel">Period</span>
+                      <select id="fStockPeriod">
+                        <option value="1d" id="fStockPeriod1d">1 day</option>
+                        <option value="1w" id="fStockPeriod1w">1 week</option>
+                        <option value="30d" id="fStockPeriod30d">30 days</option>
+                        <option value="ytd" id="fStockPeriodYtd">Year to date</option>
+                        <option value="1y" id="fStockPeriod1y">1 year</option>
+                      </select>
+                    </label>
+                    <label><span id="fStockDeltaLabel">Change</span>
+                      <select id="fStockDelta">
+                        <option value="percent" id="fStockDeltaPercent">Percent</option>
+                        <option value="absolute" id="fStockDeltaAbsolute">Amount</option>
+                        <option value="both" id="fStockDeltaBoth">Amount and percent</option>
+                      </select>
+                    </label>
+                    <label class="row">
+                      <input id="fStockTicker" type="checkbox" />
+                      <span id="fStockTickerLabel">Show the symbol</span>
+                    </label>
+                    <label class="row" id="fStockSelectorRow">
+                      <input id="fStockSelector" type="checkbox" />
+                      <span id="fStockSelectorLabel">Show selector buttons on the tile</span>
+                    </label>
+                  </div>
+                  <div id="parqetOptions" class="slider-options hidden">
+                    <div class="field-hint" id="fParqetHint">The tile reads the sensors above for MAX. The other intervals (1D, 1W, 1M, YTD) are requested from the Parqet integration; the start view and interval apply when the tile is built, the tabs and buttons change them on the panel. Hide amounts shows percentages only.</div>
+                    <label class="row">
+                      <input id="fParqetHideAmounts" type="checkbox" />
+                      <span id="fParqetHideAmountsLabel">Hide amounts (percentages only)</span>
+                    </label>
+                    <label class="row">
+                      <input id="fParqetSelector" type="checkbox" />
+                      <span id="fParqetSelectorLabel">Show selector buttons on the tile</span>
+                    </label>
+                    <label><span id="fParqetViewLabel">View</span>
+                      <select id="fParqetView">
+                        <option value="performance">Performance</option>
+                        <option value="holdings">Holdings</option>
+                      </select>
+                    </label>
+                    <label><span id="fParqetIntervalLabel">Interval</span>
+                      <select id="fParqetInterval">
+                        <option value="">Max (sensor values)</option>
+                        <option value="1d">1D</option>
+                        <option value="1w">1W</option>
+                        <option value="1m">1M</option>
+                        <option value="ytd">YTD</option>
+                      </select>
+                    </label>
+                  </div>
                   <div id="alarmOptions" class="slider-options hidden">
-                    <span id="alarmActionsLabel">Actions offered on tap</span>
+                    <span id="alarmActionsLabel" class="meta">Actions offered on tap</span>
                     <label class="row">
                       <input id="fAlarmDisarm" type="checkbox" checked />
                       <span id="fAlarmDisarmLabel">disarm</span>
@@ -1698,14 +1934,18 @@
                   <div id="forecastReadabilityOptions" class="slider-options hidden">
                     <label><span id="fForecastDaysLabel">Visible days</span>
                       <select id="fForecastDays">
-                        <option value="">Keep existing day count</option>
+                        <option value="">Default</option>
                         <option value="0">Auto (readable columns)</option>
                         <option value="1">1</option><option value="2">2</option><option value="3">3</option>
-                        <option value="4">4</option><option value="5">5</option><option value="6">6</option>
+                        <option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option>
                       </select>
                     </label>
-                    <label class="row"><input id="fAlignForecast" type="checkbox" /><span id="fAlignForecastLabel">Align dated solar columns</span></label>
+                    <label class="row"><input id="fAlignForecast" type="checkbox" /><span id="fAlignForecastLabel">Line up days with the weather tile</span></label>
                     <div class="meta" id="fReadabilityHint"></div>
+                  </div>
+                  <div id="weatherNowOptions" class="slider-options hidden">
+                    <label class="row"><input id="fWeatherHourly" type="checkbox" /><span id="fWeatherHourlyLabel">Show hourly forecast</span></label>
+                    <div id="fWeatherHourlyHint" class="meta"></div>
                   </div>
                   <div id="weatherForecastOptions" class="slider-options hidden">
                     <label class="row">
@@ -1755,9 +1995,6 @@
                     <label>W <input id="fW" type="number" /></label>
                     <label>H <input id="fH" type="number" /></label>
                   </div>
-                  <label><span id="fMovePageLabel">Move to page</span>
-                    <select id="fMovePage"></select>
-                  </label>
                 </div>
               </details>
               <button id="applyInspectorBtn" class="btn hidden" type="button" hidden>Apply</button>
@@ -1773,11 +2010,15 @@
       <div class="section-head">
         <h2 id="lightEntityPickerTitle">Choose Light</h2>
         <div class="row">
+        <button id="stockPickerApply" class="btn small" type="button" hidden>Apply selection</button>
           <button id="lightEntityPickerRefreshBtn" class="btn small" type="button">Refresh</button>
           <button id="lightEntityPickerCloseBtn" class="btn small" type="button">X</button>
         </div>
       </div>
+      <div id="lightEntityPickerCurrent" class="entity-picker-current hidden"></div>
+      <div id="stockPickerSelection" class="stock-picker-selection" hidden></div>
       <input id="lightEntityPickerSearch" class="light-picker-search" type="search" placeholder="Search entities" maxlength="63" />
+      <div id="lightEntityPickerFilter" class="meta no-shorten"></div>
       <div id="lightEntityPickerStatus" class="meta"></div>
       <div id="lightEntityPickerProgress" class="entity-picker-progress hidden" aria-hidden="true">
         <div class="entity-picker-progress-track">
@@ -1788,6 +2029,8 @@
       <div id="lightEntityPickerRooms" class="light-picker-rooms"></div>
       <div class="row">
         <button id="lightEntityPickerBlankBtn" class="btn small" type="button">Blank Light Tile</button>
+        <button id="lightEntityPickerRemoveBtn" class="btn small hidden" type="button">Remove</button>
+        <button id="lightEntityPickerUseIdBtn" class="btn small hidden" type="button">Use ID</button>
       </div>
     </div>
   </div>
@@ -1823,6 +2066,7 @@
         <h2 id="addTileTitle">Add a tile</h2>
         <button id="addTileCloseBtn" class="btn small" type="button">X</button>
       </div>
+      <div id="addTileFilter" class="meta no-shorten"></div>
       <input id="addTileSearch" class="light-picker-search" type="search" placeholder="Search a tile type or a Home Assistant entity" maxlength="63" />
       <div id="addTileTypes" class="add-tile-types">
         <div class="add-tile-group">
@@ -1865,6 +2109,7 @@
           <button class="btn small add-tile-type" type="button" data-add-target="addWeatherTileBtn">Weather</button>
           <button class="btn small add-tile-type" type="button" data-add-target="addWeather3DayBtn">Weather Forecast</button>
           <button class="btn small add-tile-type" type="button" data-add-target="addSolarForecastBtn">Solar Forecast</button>
+          <button class="btn small add-tile-type" type="button" data-add-target="addPriceForecastBtn">Energy Price Forecast</button>
           <button class="btn small add-tile-type" type="button" data-add-target="addEmptyTileBtn">Empty Tile</button>
         </div>
       </div>
@@ -1914,6 +2159,7 @@
   <datalist id="energyEntityOptions"></datalist>
   <script src="/js/config.js"></script>
   <script src="/js/i18n.js"></script>
+  <script src="/js/i18n-de.js"></script>
   <script src="/js/i18n-camera.js"></script>
   <script src="/js/i18n-knx.js"></script>
   <script src="/js/i18n-es.js"></script>
@@ -1931,15 +2177,20 @@
   <script src="/js/settings.js"></script>
   <script src="/js/brightness-test.js"></script>
   <script src="/js/update-check.js"></script>
+  <script src="/js/entity-search-rules.js"></script>
   <script src="/js/layout-model.js"></script>
   <script src="/js/pickers.js"></script>
   <script src="/js/readability.js"></script>
   <script src="/js/bambu-printer.js"></script>
   <script src="/js/evcc-wallbox.js"></script>
+  <script src="/js/stock-quotes.js"></script>
+  <script src="/js/sensor-list.js"></script>
+  <script src="/js/optional-entities.js"></script>
   <script src="/js/energy-timeline-colors.js"></script>
   <script src="/js/tile-previews.js"></script>
   <script src="/js/layout-history.js"></script>
   <script src="/js/widget-actions.js"></script>
+  <script src="/js/energy-canvas-preview.js"></script>
   <script src="/js/canvas.js"></script>
   <script src="/js/inspector-layout.js"></script>
   <script src="/js/room-import.js"></script>

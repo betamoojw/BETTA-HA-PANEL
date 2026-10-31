@@ -77,6 +77,9 @@ cc -std=gnu11 -Wall -Wextra -Werror -I main tests/host/test_http_socket_budget.c
 cc -std=gnu11 -Wall -Wextra -Werror -DXIAOZHI_FONT_TEST -I main tests/host/test_xiaozhi_font_store.c \
   main/xiaozhi/xiaozhi_font_store.c main/util/sha256_soft.c -o "$out/test_xiaozhi_font_store"
 "$out/test_xiaozhi_font_store" "$out/font-resource.ttf"
+cc -std=gnu11 -Wall -Wextra -Werror -DXIAOZHI_CUSTOM_MODEL_TEST -I main tests/host/test_xiaozhi_custom_model.c \
+  main/xiaozhi/xiaozhi_custom_model_store.c main/util/sha256_soft.c -o "$out/test_xiaozhi_custom_model"
+"$out/test_xiaozhi_custom_model" "$out/custom-wake-resource.bin"
 # The wake wrapper uses ESP-SR's public types with mocked inference/audio.
 # Run when the panel10 dependency has been fetched; no firmware or device needed.
 sr="managed_components/espressif__esp-sr"
@@ -86,6 +89,12 @@ if [ -d "$sr/include/esp32p4" ]; then
     tests/host/test_xiaozhi_wake.c main/xiaozhi/xiaozhi_wake.c \
     -o "$out/test_xiaozhi_wake"
   "$out/test_xiaozhi_wake"
+  python3 tools/prepare_custom_wake_model.py --output "$out/custom-wake-model.bin"
+  cc -std=gnu11 -Wall -Wextra -Werror -g -I main -I tests/simulator/stubs \
+    -I "$sr/include/esp32p4" -I "$sr/src/include" \
+    tests/host/test_xiaozhi_custom_wake.c main/xiaozhi/xiaozhi_custom_wake.c \
+    -o "$out/test_xiaozhi_custom_wake"
+  "$out/test_xiaozhi_custom_wake" "$out/custom-wake-model.bin"
 fi
 cc -std=gnu11 -Wall -Wextra -Werror -Wno-unused-parameter -Dtime=host_test_time -g \
   -I main -I tests/host/stubs "${variant_flags[@]}" "${cjson_flags[@]}" \

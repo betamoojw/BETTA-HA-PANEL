@@ -85,3 +85,5 @@ main/idf_component.yml
 !/tools/generate_timezones.py
 
 !tools/pack_xiaozhi_model.py
+!tools/prepare_custom_wake_model.py
+!tools/install_custom_wake_model.py

@@ -4,6 +4,13 @@
 (() => {
   const node = (id) => document.getElementById(id);
   let busy = 0, talking = false, pending = Promise.resolve(), refreshing = false, revision = 0;
+  let wakeDirty = false, wakePending = null, wakeRevision = 0, pendingRevision = 0, wakePendingAt = 0;
+  let savedWakePhrase = "ni hao xiao zhi";
+  const normalizePhrase = (value) => value.trim().toLowerCase().replace(/\s+/g, " ");
+  const validPhrase = (phrase) => phrase.length <= 95 && /^[a-z]{1,6}( [a-z]{1,6}){2,11}$/.test(phrase);
+  function wakeFields() {
+    node("xiaozhiCustomFields").hidden = Number(node("xiaozhiWakeWord").value) !== 3;
+  }
   async function refresh() {
     const section = node("settingsXiaozhiSection");
     if (!section || section.classList.contains("hidden") || document.hidden) { stop(); return; }
@@ -24,6 +31,27 @@
       if (document.activeElement !== node("xiaozhiVolume")) node("xiaozhiVolume").value = s.volume;
       node("xiaozhiCode").textContent = s.code;
       node("xiaozhiWake").checked = !!s.wake_enabled;
+      node("xiaozhiWakeSettings").hidden = !s.wake_enabled;
+      node("xiaozhiModelInstall").hidden = !!s.wake_model_ready;
+      if (validPhrase(s.wake_phrase || "")) savedWakePhrase = s.wake_phrase;
+      if (wakePending && s.wake_config_revision !== pendingRevision && !s.wake_config_failed &&
+          s.wake_word === wakePending.word && s.wake_phrase === wakePending.phrase) {
+        // A hidden, invalid custom draft must not block saving a preset or be lost.
+        wakeDirty = wakePending.word !== 3 && normalizePhrase(node("xiaozhiWakePhrase").value) !== wakePending.phrase;
+        wakePending = null;
+        node("xiaozhiWakeResult").textContent = t("xiaozhi.wake_saved");
+      } else if (wakePending && ((s.wake_config_revision !== pendingRevision && s.wake_config_failed) || Date.now() - wakePendingAt > 30000)) {
+        wakePending = null;
+        node("xiaozhiWakeResult").textContent = t("xiaozhi.state.wake_config_error");
+      }
+      if (!wakeDirty && !wakePending) {
+        node("xiaozhiWakeWord").value = s.wake_word || 0;
+        node("xiaozhiWakePhrase").value = s.wake_phrase || "ni hao xiao zhi";
+      }
+      wakeRevision = s.wake_config_revision || 0;
+      node("xiaozhiWakeWord").disabled = node("xiaozhiWakePhrase").disabled = !!wakePending;
+      node("xiaozhiWakeSave").disabled = !!wakePending;
+      wakeFields();
       node("xiaozhiWakeHint").hidden = !s.wake_enabled;
       node("xiaozhiTalk").hidden = !!s.wake_enabled && !!s.wake_ready;
       if (document.activeElement !== node("xiaozhiTimeout")) node("xiaozhiTimeout").value = s.dialog_timeout || 30;
@@ -50,11 +78,14 @@
     busy++;
     // Keep rapid edits and start/release in order; never silently discard an edit.
     pending = pending.then(async () => {
+      const controller = new AbortController();
+      const deadline = setTimeout(() => controller.abort(), 10000);
       try {
-        const response = await fetch("/api/xiaozhi", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({action, value})});
+        const response = await fetch("/api/xiaozhi", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({action, value}), signal: controller.signal});
         if (!response.ok) throw new Error(t("xiaozhi.failed"));
-      } catch (_) { node("xiaozhiStatus").textContent = t("xiaozhi.failed"); }
-      finally { busy--; }
+        return true;
+      } catch (_) { node("xiaozhiStatus").textContent = t("xiaozhi.failed"); return false; }
+      finally { clearTimeout(deadline); busy--; }
     });
     return pending;
   }
@@ -64,6 +95,52 @@
     if (talking || node("xiaozhiTalk").disabled || node("xiaozhiTalk").hidden) return;
     event.preventDefault(); talking = true; return command("start");
   }
+  node("xiaozhiWakeWord").addEventListener("change", () => { wakeDirty = true; revision++; wakeFields(); });
+  node("xiaozhiWakePhrase").addEventListener("input", () => { wakeDirty = true; revision++; });
+  node("xiaozhiWakeSave").addEventListener("click", async () => {
+    let phrase = normalizePhrase(node("xiaozhiWakePhrase").value);
+    const word = Number(node("xiaozhiWakeWord").value);
+    if (!Number.isInteger(word) || word < 0 || word > 3 || (word === 3 && !validPhrase(phrase))) {
+      node("xiaozhiWakeResult").textContent = t("xiaozhi.phrase_help"); return;
+    }
+    if (word !== 3 && !validPhrase(phrase)) phrase = savedWakePhrase;
+    wakePendingAt = Date.now();
+    pendingRevision = wakeRevision;
+    wakePending = {word, phrase}; wakeDirty = true;
+    node("xiaozhiWakeWord").disabled = node("xiaozhiWakePhrase").disabled = true;
+    node("xiaozhiWakeSave").disabled = true;
+    node("xiaozhiWakeResult").textContent = t("xiaozhi.wake_saving");
+    if (!await command("wake_config", wakePending)) {
+      wakePending = null; node("xiaozhiWakeSave").disabled = false;
+      node("xiaozhiWakeWord").disabled = node("xiaozhiWakePhrase").disabled = false;
+      node("xiaozhiWakeResult").textContent = t("xiaozhi.state.wake_config_error");
+    }
+  });
+  async function modelRequest(options = {}) {
+    const controller = new AbortController();
+    const deadline = setTimeout(() => controller.abort(), 20000);
+    try {
+      const response = await fetch("/api/xiaozhi/wake-model", {...options, signal: controller.signal, cache: "no-store"});
+      if (!response.ok) throw new Error("upload");
+      return await response.json();
+    } finally { clearTimeout(deadline); }
+  }
+  node("xiaozhiModelFile").addEventListener("change", async (event) => {
+    const file = event.target.files?.[0]; if (!file) return;
+    busy++; revision++; event.target.disabled = true;
+    try {
+      const meta = await modelRequest();
+      if (file.size !== meta.bytes) throw new Error("size");
+      if (!meta.ready) for (let offset = 0; offset < file.size; offset += 32768) {
+        const state = await modelRequest({method:"PUT", headers:{"Content-Type":"application/octet-stream", "X-Model-Offset":String(offset)}, body:file.slice(offset, offset + 32768)});
+        if (offset + 32768 >= file.size && !state.ready) throw new Error("checksum");
+        node("xiaozhiWakeResult").textContent = `${Math.min(100, Math.round((offset + 32768) * 100 / file.size))}%`;
+        await new Promise(resolve => setTimeout(resolve, 150));
+      }
+      node("xiaozhiWakeResult").textContent = t("xiaozhi.model_ready");
+    } catch (_) { node("xiaozhiWakeResult").textContent = t("xiaozhi.model_failed"); }
+    finally { busy--; event.target.disabled = false; event.target.value = ""; }
+  });
   node("xiaozhiEnabled").addEventListener("change", (e) => command(e.target.checked ? "enable" : "disable"));
   node("xiaozhiWake").addEventListener("change", (e) => command("wake", e.target.checked ? 1 : 0));
   node("xiaozhiEmoji").addEventListener("change", (e) => {
@@ -76,7 +153,7 @@
     node("xiaozhiStatus").textContent = t("xiaozhi.failed");
   });
   node("xiaozhiPair").addEventListener("click", () => command("pair"));
-  node("xiaozhiReset").addEventListener("click", () => command("reset"));
+  node("xiaozhiReset").addEventListener("click", async () => { if (await command("reset")) { wakeDirty = false; wakePending = null; node("xiaozhiWakeResult").textContent = ""; } });
   node("xiaozhiStop").addEventListener("click", () => { talking = false; command("disconnect"); });
   node("xiaozhiVolume").addEventListener("change", (e) => command("volume", Number(e.target.value)));
   node("xiaozhiTalk").addEventListener("pointerdown", start);

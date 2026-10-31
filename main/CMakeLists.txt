@@ -499,15 +499,27 @@ if(CONFIG_APP_PANEL_VARIANT_10INCH_1280)
     target_sources(${COMPONENT_LIB} PRIVATE "xiaozhi/xiaozhi_font_store.c" "xiaozhi/xiaozhi_font_api.c")
     idf_component_optional_requires(PRIVATE 78__esp-opus espressif__esp_codec_dev espressif__esp-sr)
     idf_component_get_property(sr_dir espressif__esp-sr COMPONENT_DIR)
-    set(wake_model "${CMAKE_CURRENT_BINARY_DIR}/xiaozhi_wake_model.bin")
-    set(wake_source "${sr_dir}/model/wakenet_model/wn9_nihaoxiaozhi")
-    add_custom_command(OUTPUT "${wake_model}"
-        COMMAND ${PYTHON} "${PROJECT_DIR}/tools/pack_xiaozhi_model.py" "${wake_source}" "${wake_model}"
-        DEPENDS "${PROJECT_DIR}/tools/pack_xiaozhi_model.py" "${wake_source}/wn9_data"
-            "${wake_source}/wn9_index" "${wake_source}/_MODEL_INFO_" VERBATIM)
-    add_custom_target(xiaozhi_wake_model DEPENDS "${wake_model}")
-    add_dependencies(${COMPONENT_LIB} xiaozhi_wake_model)
-    target_add_binary_data(${COMPONENT_LIB} "${wake_model}" BINARY)
+    target_sources(${COMPONENT_LIB} PRIVATE "xiaozhi/xiaozhi_wake_model.c"
+        "xiaozhi/xiaozhi_custom_wake.c" "xiaozhi/xiaozhi_custom_model_store.c" "xiaozhi/xiaozhi_custom_model_api.c")
+    set(custom_wake_resource "${CMAKE_BINARY_DIR}/xiaozhi-custom-wake.bin")
+    file(GLOB custom_wake_inputs "${sr_dir}/model/multinet_model/mn7_cn/*")
+    add_custom_command(OUTPUT "${custom_wake_resource}"
+        COMMAND ${PYTHON} "${PROJECT_DIR}/tools/prepare_custom_wake_model.py" --output "${custom_wake_resource}"
+        DEPENDS ${custom_wake_inputs} "${PROJECT_DIR}/tools/prepare_custom_wake_model.py"
+            "${PROJECT_DIR}/tools/pack_xiaozhi_model.py" "${PROJECT_DIR}/main/xiaozhi/xiaozhi_custom_resource.h" VERBATIM)
+    add_custom_target(custom_wake_resource ALL DEPENDS "${custom_wake_resource}")
+    foreach(model wn9_nihaoxiaozhi wn9_hiesp wn9_jarvis_tts)
+        set(wake_model "${CMAKE_CURRENT_BINARY_DIR}/${model}.bin")
+        set(wake_source "${sr_dir}/model/wakenet_model/${model}")
+        add_custom_command(OUTPUT "${wake_model}"
+            COMMAND ${PYTHON} "${PROJECT_DIR}/tools/pack_xiaozhi_model.py" "${wake_source}" "${wake_model}" --compress
+            DEPENDS "${PROJECT_DIR}/tools/pack_xiaozhi_model.py" "${wake_source}/wn9_data"
+                "${wake_source}/wn9_index" "${wake_source}/_MODEL_INFO_" VERBATIM)
+        add_custom_target(${model}_resource DEPENDS "${wake_model}")
+        add_dependencies(${COMPONENT_LIB} ${model}_resource)
+        target_add_binary_data(${COMPONENT_LIB} "${wake_model}" BINARY)
+    endforeach()
+
 endif()
 
 # P4 uses ESP-Hosted; S3 has native Wi-Fi.

@@ -7,7 +7,7 @@ import vm from 'node:vm';
 
 const source = fs.readFileSync(new URL('../../components/webui/www/js/xiaozhi.js', import.meta.url), 'utf8');
 function setup(saved = {}, overrides = {}) {
-  const model = {supported:true, enabled:false, paired:false, volume:50, state:'disabled', code:'', text:'', ...saved};
+  const model = {supported:true, enabled:false, paired:false, volume:50, state:'disabled', code:'', text:'', wake_config_revision:0, ...saved};
   const nodes = new Map(), events = {}, requests = [];
   function node(id) {
     if (!nodes.has(id)) nodes.set(id, {listeners:{}, attrs:{}, getAttribute(k){return this.attrs[k];}, setAttribute(k,v){this.attrs[k]=v;}, removeAttribute(k){delete this.attrs[k];}, classList:{contains:()=>false}, addEventListener(type, cb){this.listeners[type]=cb;}});
@@ -24,10 +24,11 @@ function setup(saved = {}, overrides = {}) {
       if (body.action==='enable') model.enabled=true;
       if (body.action==='disable') model.enabled=false;
       if (body.action==='volume') model.volume=body.value;
+      if (body.action==='wake_config') {model.wake_word=body.value.word;model.wake_phrase=body.value.phrase;model.wake_config_revision++;model.wake_config_failed=false;}
       if (body.action==='wake') model.wake_enabled=!!body.value;
       if (body.action==='timeout') model.dialog_timeout=body.value;
       if (body.action==='emoji') model.emoji_style=body.value;
-      if (body.action==='reset') {model.enabled=false;model.volume=50;model.wake_enabled=false;model.dialog_timeout=30;model.emoji_style=0;}
+      if (body.action==='reset') {model.enabled=false;model.volume=50;model.wake_enabled=false;model.dialog_timeout=30;model.emoji_style=0;model.wake_word=0;model.wake_phrase='ni hao xiao zhi';}
       return {ok:true};
     }};
   Object.assign(context, overrides);
@@ -106,7 +107,7 @@ test('all Xiaozhi HTML labels are wired into the existing translation refresh',(
   const html=fs.readFileSync(new URL('../../components/webui/www/index.html',import.meta.url),'utf8');
   const translations=fs.readFileSync(new URL('../../components/webui/www/js/translations.js',import.meta.url),'utf8');
   const labels=[...html.matchAll(/<[^>]+id="([^"]+)"[^>]+data-i18n-key="(xiaozhi\.[^"]+)"/g)];
-  assert.equal(labels.length,16);
+  assert.equal(labels.length,22);
   for (const [,id,key] of labels) assert.ok(translations.includes(`setTextById("${id}", "${key}")`),`${id} must refresh when language changes`);
 });
 
@@ -166,4 +167,140 @@ test('talk hides only when local wake engine is ready, with manual fallback on f
   s.model.wake_ready=false;await s.poll();assert.equal(s.node('xiaozhiTalk').hidden,false);
   for(const value of ['0','301','1.2','bad']) {s.node('xiaozhiTimeout').value=value;await s.fire('xiaozhiTimeout','change');}
   assert.equal(s.requests.length,0);
+});
+
+ test('custom phrase saves JSON, survives reload/disable and reset restores defaults', async()=>{
+  const s=setup({enabled:true,paired:true,wake_enabled:true,wake_model_ready:true});await s.poll();
+  s.node('xiaozhiWakeWord').value='3';await s.fire('xiaozhiWakeWord','change');
+  s.node('xiaozhiWakePhrase').value='NI HAO GUAN JIA';await s.fire('xiaozhiWakePhrase','input');
+  await s.poll();assert.equal(s.node('xiaozhiWakePhrase').value,'NI HAO GUAN JIA');
+  await s.fire('xiaozhiWakeSave','click');await s.poll();
+  assert.deepEqual(s.requests.at(-1),{action:'wake_config',value:{word:3,phrase:'ni hao guan jia'}});
+  assert.equal(s.node('xiaozhiWakeResult').textContent,'xiaozhi.wake_saved');
+  s.node('xiaozhiEnabled').checked=false;await s.fire('xiaozhiEnabled','change');
+  const r=setup(JSON.parse(JSON.stringify(s.model)));await r.poll();
+  assert.equal(r.node('xiaozhiWakeWord').value,3);assert.equal(r.node('xiaozhiWakePhrase').value,'ni hao guan jia');
+  r.node('xiaozhiEnabled').checked=true;await r.fire('xiaozhiEnabled','change');await r.poll();
+  assert.equal(r.node('xiaozhiCustomFields').hidden,false);
+  await r.fire('xiaozhiReset','click');await r.poll();
+  assert.equal(r.node('xiaozhiWakeWord').value,0);assert.equal(r.node('xiaozhiWakePhrase').value,'ni hao xiao zhi');
+  assert.equal(r.model.paired,true);
+ });
+ test('invalid custom input sends nothing and failed saves retain the editable draft', async()=>{
+  const s=setup({enabled:true,wake_word:0});await s.poll();s.node('xiaozhiWakeWord').value='3';
+  for(const phrase of ['', 'ni hao', 'ni hao 123', '你好管家', 'ni '.repeat(13), '<script>']) {
+    s.node('xiaozhiWakePhrase').value=phrase;await s.fire('xiaozhiWakeSave','click');
+  }
+  assert.equal(s.requests.length,0);
+  const f=setup({enabled:true}, {fetch:async()=>({ok:false})});await f.poll();
+  f.node('xiaozhiWakeWord').value='3';f.node('xiaozhiWakePhrase').value='ni hao guan jia';
+  await f.fire('xiaozhiWakeSave','click');await f.poll();
+  assert.equal(f.node('xiaozhiWakePhrase').value,'ni hao guan jia');
+  assert.equal(f.node('xiaozhiWakeSave').disabled,false);
+  assert.equal(f.node('xiaozhiWakeResult').textContent,'xiaozhi.state.wake_config_error');
+ });
+
+test('worker rejection remains visible after detection returns to ready', async()=>{
+ const s=setup({enabled:true,wake_word:0,wake_phrase:'ni hao xiao zhi',wake_config_revision:4}, {fetch:async()=>({ok:true})});
+ await s.poll();s.node('xiaozhiWakeWord').value='3';s.node('xiaozhiWakePhrase').value='zz zz zz';
+ await s.fire('xiaozhiWakeSave','click');
+ assert.equal(s.node('xiaozhiWakePhrase').disabled,true);
+ assert.equal(s.node('xiaozhiWakeWord').disabled,true);
+ await s.poll();
+ assert.equal(s.node('xiaozhiWakeSave').disabled,true);
+ s.model.wake_config_revision=5;s.model.wake_config_failed=true;s.model.state='ready';await s.poll();
+ assert.equal(s.node('xiaozhiWakeSave').disabled,false);
+ assert.equal(s.node('xiaozhiWakePhrase').value,'zz zz zz');
+ assert.equal(s.node('xiaozhiWakeResult').textContent,'xiaozhi.state.wake_config_error');
+});
+
+test('lost save across a device restart unlocks the retained draft after the deadline', async()=>{
+ let now=1000;
+ const s=setup({enabled:true,wake_word:0,wake_phrase:'ni hao xiao zhi',wake_config_revision:0},
+   {fetch:async()=>({ok:true}),Date:{now:()=>now}});
+ await s.poll();s.node('xiaozhiWakeWord').value='3';s.node('xiaozhiWakePhrase').value='ni hao xiao bei';
+ await s.fire('xiaozhiWakeSave','click');now=30000;await s.poll();
+ assert.equal(s.node('xiaozhiWakeSave').disabled,true);
+ now=32000;await s.poll();
+ assert.equal(s.node('xiaozhiWakeSave').disabled,false);
+ assert.equal(s.node('xiaozhiWakePhrase').disabled,false);
+ assert.equal(s.node('xiaozhiWakePhrase').value,'ni hao xiao bei');
+ assert.equal(s.node('xiaozhiWakeResult').textContent,'xiaozhi.state.wake_config_error');
+});
+
+test('an invalid hidden custom draft does not block a preset save or disappear', async()=>{
+ const s=setup({enabled:true,wake_word:3,wake_phrase:'ni hao xiao bei'});await s.poll();
+ s.node('xiaozhiWakePhrase').value='unfinished draft!';await s.fire('xiaozhiWakePhrase','input');
+ s.node('xiaozhiWakeWord').value='1';await s.fire('xiaozhiWakeWord','change');
+ await s.fire('xiaozhiWakeSave','click');await s.poll();
+ assert.deepEqual(s.requests.at(-1),{action:'wake_config',value:{word:1,phrase:'ni hao xiao bei'}});
+ assert.equal(s.node('xiaozhiWakeResult').textContent,'xiaozhi.wake_saved');
+ s.node('xiaozhiWakeWord').value='3';await s.fire('xiaozhiWakeWord','change');await s.poll();
+ assert.equal(s.node('xiaozhiWakePhrase').value,'unfinished draft!');
+ const reload=setup(s.model);await reload.poll();
+ assert.equal(reload.node('xiaozhiWakeWord').value,1);
+ assert.equal(reload.node('xiaozhiWakePhrase').value,'ni hao xiao bei');
+});
+
+test('saving the existing phrase waits for the worker and reports its failure', async()=>{
+ const s=setup({enabled:true,wake_word:3,wake_phrase:'ni hao xiao bei'}, {fetch:async()=>({ok:true})});
+ await s.poll();await s.fire('xiaozhiWakeSave','click');await s.poll();
+ assert.equal(s.node('xiaozhiWakeSave').disabled,true);
+ s.model.wake_config_revision++;s.model.wake_config_failed=true;await s.poll();
+ assert.equal(s.node('xiaozhiWakeSave').disabled,false);
+ assert.equal(s.node('xiaozhiWakeResult').textContent,'xiaozhi.state.wake_config_error');
+});
+
+test('a stalled save request expires, retains the draft and releases the command queue', async()=>{
+ let abort, stalled=true, completed=0;
+ const s=setup({enabled:true}, {
+  setTimeout:(cb,ms)=>{if(ms===10000)abort=cb;return 1;},clearTimeout:()=>{},
+  fetch:async(_url,{signal})=>{
+   if(stalled)return new Promise((_,reject)=>signal.addEventListener('abort',()=>reject(new Error('deadline'))));
+   completed++;return {ok:true};
+  }
+ });
+ await s.poll();s.node('xiaozhiWakeWord').value='3';s.node('xiaozhiWakePhrase').value='ni hao xiao bei';
+ const save=s.fire('xiaozhiWakeSave','click');await Promise.resolve();abort();await save;
+ assert.equal(s.node('xiaozhiWakeSave').disabled,false);
+ assert.equal(s.node('xiaozhiWakePhrase').value,'ni hao xiao bei');
+ stalled=false;s.node('xiaozhiVolume').value='60';await s.fire('xiaozhiVolume','change');
+ assert.equal(completed,1);
+});
+
+test('model upload sends ordered chunks and requires final device verification', async()=>{
+ for(const verified of [true,false]) {
+  const offsets=[],file=new Blob([new Uint8Array(65539)]);
+  const s=setup({}, {
+   setTimeout:(cb,ms)=>{if(ms===150)queueMicrotask(cb);return 1;},clearTimeout:()=>{},
+   fetch:async(_url,options)=>{
+    if(!options.method)return {ok:true,json:async()=>({bytes:file.size,ready:false})};
+    const offset=Number(options.headers['X-Model-Offset']);offsets.push(offset);
+    assert.equal(options.body.size,Math.min(32768,file.size-offset));
+    return {ok:true,json:async()=>({ready:verified&&offset+32768>=file.size})};
+   }
+  });
+  s.node('xiaozhiModelFile').files=[file];await s.fire('xiaozhiModelFile','change');
+  assert.deepEqual(offsets,[0,32768,65536]);
+  assert.equal(s.node('xiaozhiWakeResult').textContent,verified?'xiaozhi.model_ready':'xiaozhi.model_failed');
+  assert.equal(s.node('xiaozhiModelFile').disabled,false);
+ }
+});
+
+test('a stalled upload response body expires and restores settings polling', async()=>{
+ let abort,reading=false;
+ const s=setup({enabled:true,wake_phrase:'ni hao xiao bei'}, {
+  setTimeout:(cb,ms)=>{if(ms===20000)abort=cb;return 1;},clearTimeout:()=>{},
+  fetch:async(_url,{signal,method})=>({ok:true,json:async()=>{
+   if(!method)return {bytes:3,ready:false};
+   reading=true;return new Promise((_,reject)=>signal.addEventListener('abort',()=>reject(new Error('deadline'))));
+  }})
+ });
+ s.node('xiaozhiModelFile').files=[new Blob(['abc'])];
+ const upload=s.fire('xiaozhiModelFile','change');
+ for(let i=0;i<12&&!reading;i++)await Promise.resolve();
+ assert.equal(reading,true);abort();await upload;
+ assert.equal(s.node('xiaozhiModelFile').disabled,false);
+ assert.equal(s.node('xiaozhiWakeResult').textContent,'xiaozhi.model_failed');
+ await s.poll();assert.equal(s.node('xiaozhiWakePhrase').value,'ni hao xiao bei');
 });

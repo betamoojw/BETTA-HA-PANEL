@@ -8,6 +8,7 @@
 #include "knx/knx.h"
 #include "camera/camera_store.h"
 #include "xiaozhi/xiaozhi_font_store.h"
+#include "xiaozhi/xiaozhi_custom_model_store.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -178,6 +179,7 @@ void app_main(void)
     ESP_ERROR_CHECK(init_littlefs());
     coredump_archive_init(); /* preserve the previous panic before network/UI can fail again */
 #if CONFIG_APP_PANEL_VARIANT_10INCH_1280
+    xiaozhi_custom_model_store_init();
     xiaozhi_font_store_init(); /* Hash the optional immutable font before UI/HTTP can use it. */
 #endif
     ESP_ERROR_CHECK(init_net_stack());

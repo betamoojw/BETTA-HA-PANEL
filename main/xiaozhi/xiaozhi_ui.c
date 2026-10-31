@@ -15,6 +15,7 @@
 #include "ui/theme/ui_style.h"
 #include "ui/theme/theme_default.h"
 #include "drivers/display_init.h"
+#include "esp_log.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -81,7 +82,10 @@ static void refresh(lv_timer_t *timer)
     if (!s->enabled) set_dialog_visible(v, false);
     if (s->dialog_seq != v->shown_seq) {
         v->shown_seq = s->dialog_seq;
-        if (s->enabled) show(v, true);
+        if (s->enabled) {
+            show(v, true);
+            ESP_LOGI("xiaozhi", "Voice dialog shown");
+        }
     }
     if (s->activity_seq != v->activity_seq) {
         v->activity_seq = s->activity_seq; v->idle_since = lv_tick_get();
@@ -94,7 +98,7 @@ static void refresh(lv_timer_t *timer)
     unsigned timeout = s->dialog_timeout >= 10 && s->dialog_timeout <= 300 ? s->dialog_timeout : 30;
     if (xiaozhi_dialog_expired(lv_tick_elaps(v->idle_since), 0, timeout)) { hide(v); return; }
     char key[80], text[128]; snprintf(key, sizeof(key), "xiaozhi.state.%s", s->state);
-    snprintf(text, sizeof(text), "%s%s%s", ui_i18n_get(key, s->state), s->code[0] ? "\n" : "", s->code);
+    snprintf(text, sizeof(text), "%s%s%s", ui_i18n_get(!strcmp(s->state, "wake_config_error") ? "xiaozhi.state.wake_error" : key, s->state), s->code[0] ? "\n" : "", s->code);
     label(v->state, text);
     label(v->emoji, xiaozhi_emotion_glyph(s->emotion));
     bool animated = false;

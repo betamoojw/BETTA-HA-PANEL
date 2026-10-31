@@ -7,6 +7,8 @@ implementation uses activation POSTs, a WebSocket v3 hello and 60 ms mono Opus
 frames. The local integration reimplements those boundaries rather than using
 the Guition audio pins or its direct network-task LVGL calls.
 
+Custom wake configuration and model installation: [Xiaozhi resources](xiaozhi-resources.md#custom-wake-recognition).
+
 ## Runtime
 
 - `main/xiaozhi/xiaozhi.c`: one worker owns pairing, connection lifetime, Opus

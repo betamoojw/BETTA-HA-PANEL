@@ -18,6 +18,11 @@ static esp_err_t get_status(httpd_req_t *req)
     cJSON_AddBoolToObject(j, "paired", s.paired);
     cJSON_AddBoolToObject(j, "listening", s.listening);
     cJSON_AddNumberToObject(j, "volume", s.volume);
+    cJSON_AddNumberToObject(j, "wake_word", s.wake_config.word);
+    cJSON_AddStringToObject(j, "wake_phrase", s.wake_config.phrase);
+    cJSON_AddBoolToObject(j, "wake_model_ready", s.wake_model_ready);
+    cJSON_AddBoolToObject(j, "wake_config_failed", s.wake_config_failed);
+    cJSON_AddNumberToObject(j, "wake_config_revision", s.wake_config_revision);
     cJSON_AddBoolToObject(j, "wake_enabled", s.wake_enabled);
     cJSON_AddBoolToObject(j, "wake_ready", s.wake_ready);
     cJSON_AddBoolToObject(j, "wake_running", s.wake_running);
@@ -42,7 +47,7 @@ static esp_err_t get_status(httpd_req_t *req)
 
 static esp_err_t command(httpd_req_t *req)
 {
-    char body[128];
+    char body[256];
     if (req->content_len <= 0 || req->content_len >= sizeof(body)) return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid request size");
     int used = 0;
     while (used < req->content_len) {
@@ -54,7 +59,13 @@ static esp_err_t command(httpd_req_t *req)
     cJSON *j = cJSON_Parse(body), *a = cJSON_GetObjectItemCaseSensitive(j, "action");
     cJSON *v = cJSON_GetObjectItemCaseSensitive(j, "value");
     esp_err_t err = ESP_ERR_INVALID_ARG;
-    if (cJSON_IsString(a) && !strcmp(a->valuestring, "emoji") && cJSON_IsNumber(v) && v->valuedouble == v->valueint)
+    if (cJSON_IsString(a) && !strcmp(a->valuestring, "wake_config")) {
+        cJSON *word = cJSON_GetObjectItemCaseSensitive(v, "word");
+        cJSON *phrase = cJSON_GetObjectItemCaseSensitive(v, "phrase");
+        if (cJSON_IsNumber(word) && word->valuedouble == word->valueint && cJSON_IsString(phrase))
+            err = xiaozhi_configure_wake(word->valueint, phrase->valuestring);
+    }
+    else if (cJSON_IsString(a) && !strcmp(a->valuestring, "emoji") && cJSON_IsNumber(v) && v->valuedouble == v->valueint)
         err = xiaozhi_set_emoji_style(v->valueint);
     else if (cJSON_IsString(a) && ((strcmp(a->valuestring, "volume") && strcmp(a->valuestring, "wake") && strcmp(a->valuestring, "timeout")) ||
         (cJSON_IsNumber(v) && v->valuedouble == v->valueint)))
@@ -87,6 +98,9 @@ esp_err_t xiaozhi_api_register(httpd_handle_t server)
 {
 #if CONFIG_APP_PANEL_VARIANT_10INCH_1280
     extern esp_err_t xiaozhi_font_api_register(httpd_handle_t server);
+    extern esp_err_t xiaozhi_custom_model_api_register(httpd_handle_t server);
+    esp_err_t model_err = xiaozhi_custom_model_api_register(server);
+    if (model_err != ESP_OK) return model_err;
     esp_err_t font_err = xiaozhi_font_api_register(server);
     if (font_err != ESP_OK) return font_err;
 #endif

@@ -86,7 +86,7 @@ when closed, timed out or disabled, including dialogues opened by a wake word.
 Hold the button, speak toward the microphone, then release to request a reply.
 Opening the window alone does not start a cloud conversation.
 
-With **Voice wake-up** enabled, say **Ni hao Xiao Zhi** (你好小智), wait for
+With **Voice wake-up** enabled, say the saved wake phrase (default **Ni hao Xiao Zhi**, 你好小智), wait for
 **Listening**, then speak. A voice wake opens the dialogue automatically with
 the Talk button hidden. If the wake engine becomes unavailable, manual Talk
 returns. Closing a voice dialogue and reopening it with the header icon returns
@@ -119,12 +119,36 @@ Press the top-bar button again or use **Disconnect** in the editor to end the
 session. Disable the assistant to stop pairing, capture and the cloud connection.
 Volume is limited to 80%; start low when first testing a connected speaker.
 
-Controls on this settings page save immediately. **Reset to defaults** disables
+Controls save immediately except the wake phrase, which has its own Save button.
+**Reset to defaults** disables
 the assistant and voice wake-up, and restores 50% volume and a 30-second idle
 timeout and Otto Robot style while retaining cloud pairing. Disabling
 and re-enabling also preserves pairing, volume and emotion style. Pairing credentials remain
 on this physical device; they are not included in ordinary layout/settings
 exports and are never returned by the editor API.
+
+## Custom wake phrase
+
+Under **Settings → Xiaozhi AI**, enable **Voice wake-up**, choose **Custom Chinese
+phrase**, and enter 3–12 lowercase pinyin syllables separated by spaces, without
+tones (for example `ni hao guan jia` for 你好管家). Select **Save wake phrase** and
+wait for **Wake phrase saved**. This changes actual local recognition; no model
+training or firmware rebuild is needed when changing the phrase. Only Chinese
+phrases are supported by the custom model. Choose a distinctive phrase and test
+it in your room; sensitivity and false activations depend on speech and noise.
+The bundled presets remain available: Ni hao Xiao Zhi, Hi ESP and Jarvis.
+
+Install the matching `.wake-model.bin` release resource once using the file
+picker shown for custom phrases. The panel checks its size and SHA256 before
+using it. An interrupted upload can be restarted with the same file. The model
+survives firmware updates and reset of assistant preferences. Without it, custom
+phrases cannot be saved; presets and manual Talk remain available.
+
+Saving ends the current conversation and validates the phrase locally. A rejected
+phrase or storage failure keeps the previous saved choice. Disabling voice wake-up
+or the assistant preserves the phrase. **Reset to defaults** restores Ni hao Xiao
+Zhi and the custom draft `ni hao xiao zhi`, along with the other assistant defaults.
+These device-local preferences are not included in layout/settings exports.
 
 ## Chinese interface
 

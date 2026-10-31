@@ -3,7 +3,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 /* Single audio-worker owner; local inference never sends microphone data. */
-bool xiaozhi_wake_init(void);
+bool xiaozhi_wake_init(int word, const char *phrase);
 int xiaozhi_wake_chunk(void);
 bool xiaozhi_wake_detect(int16_t *mono);
 bool xiaozhi_voice_active(int16_t *mono, int samples);

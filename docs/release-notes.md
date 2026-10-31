@@ -15,6 +15,14 @@ Late weather detail responses are discarded safely after their popup closes, inc
 The combined `panel10` build fits its existing 6.5 MiB OTA slot by losslessly compressing the bundled C6 updater.
 All features and the partition layout are retained; the restored C6 image is verified before transfer.
 
+### Xiaozhi AI
+
+- The web editor can save a custom Chinese wake phrase as pinyin, with local
+  validation, restart persistence and reset to defaults. A separately installed,
+  checksum-verified MultiNet resource avoids changing the flash partitions.
+- Ni hao Xiao Zhi, Hi ESP and Jarvis presets are also selectable. Disabling the
+  assistant retains the selected phrase; custom input failures retain the previous choice.
+
 ### Widgets: new and changed
 
 **New** means a type added since v0.9.0; **Changed** means an existing type was updated. The Parqet portfolio, Stocks & ETFs and

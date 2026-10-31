@@ -124,7 +124,7 @@ WEB_I18N_BUILTIN["fr"] = {
   "xiaozhi.title": "Xiaozhi AI",
   "xiaozhi.enable": "Activer Xiaozhi AI",
   "xiaozhi.wake": "Réveil vocal",
-  "xiaozhi.wake_hint": "Dites « Ni hao Xiao Zhi » pour commencer. Le mot de réveil est reconnu localement.",
+  "xiaozhi.wake_hint": "Say the saved wake phrase to start. Recognition runs locally.",
   "xiaozhi.timeout": "Fermer le dialogue après inactivité (secondes)",
   "xiaozhi.recognized": "Parole reconnue",
   "xiaozhi.reply": "Réponse de l’IA",
@@ -2022,5 +2022,16 @@ WEB_I18N_BUILTIN["fr"] = {
   "knx.state.error": "Erreur",
   "layout.pages.visible": "Visible sur le panneau",
   "layout.pages.hidden": "Masquée",
-  "layout.pages.visible_hint": "Enregistrez pour masquer ou rétablir cette page et son onglet de navigation. Les pages masquées conservent leur contenu et restent modifiables ici."
+  "layout.pages.visible_hint": "Enregistrez pour masquer ou rétablir cette page et son onglet de navigation. Les pages masquées conservent leur contenu et restent modifiables ici.",
+  "xiaozhi.wake_word": "Wake phrase",
+  "xiaozhi.custom": "Custom Chinese phrase",
+  "xiaozhi.phrase": "Pinyin phrase",
+  "xiaozhi.phrase_help": "Enter 3–12 lowercase pinyin syllables separated by spaces, without tones. Example: ni hao guan jia. Chinese only.",
+  "xiaozhi.model_install": "Install the matching wake model once (.bin)",
+  "xiaozhi.wake_save": "Save wake phrase",
+  "xiaozhi.wake_saved": "Wake phrase saved",
+  "xiaozhi.wake_saving": "Validating and saving…",
+  "xiaozhi.model_ready": "Model installed. You can save your phrase now.",
+  "xiaozhi.model_failed": "Model installation failed. Use the matching resource and retry.",
+  "xiaozhi.state.wake_config_error": "Wake phrase rejected or model unavailable; previous phrase retained."
 };

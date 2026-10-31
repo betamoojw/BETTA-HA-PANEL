@@ -124,7 +124,7 @@ WEB_I18N_BUILTIN["zh-cn"] = {
   "xiaozhi.title": "小智 AI",
   "xiaozhi.enable": "启用小智 AI",
   "xiaozhi.wake": "语音唤醒",
-  "xiaozhi.wake_hint": "说“你好小智”开始对话。唤醒词在面板本地识别。",
+  "xiaozhi.wake_hint": "说出已保存的唤醒短语即可开始，识别在本地完成。",
   "xiaozhi.timeout": "对话空闲超时（秒）",
   "xiaozhi.recognized": "识别到的语音",
   "xiaozhi.reply": "AI 回复",
@@ -2022,5 +2022,16 @@ WEB_I18N_BUILTIN["zh-cn"] = {
   "knx.state.error": "错误",
   "layout.pages.visible": "在面板上显示",
   "layout.pages.hidden": "已隐藏",
-  "layout.pages.visible_hint": "保存后隐藏或恢复此页面及其底部导航项。隐藏的页面会保留内容，仍可在此编辑。"
+  "layout.pages.visible_hint": "保存后隐藏或恢复此页面及其底部导航项。隐藏的页面会保留内容，仍可在此编辑。",
+  "xiaozhi.wake_word": "唤醒短语",
+  "xiaozhi.custom": "自定义中文短语",
+  "xiaozhi.phrase": "拼音短语",
+  "xiaozhi.phrase_help": "输入 3–12 个小写拼音音节，以空格分隔，不带声调。例如：ni hao guan jia（你好管家）。仅支持中文。",
+  "xiaozhi.model_install": "首次安装配套唤醒模型（.bin）",
+  "xiaozhi.wake_save": "保存唤醒短语",
+  "xiaozhi.wake_saved": "唤醒短语已保存",
+  "xiaozhi.wake_saving": "正在校验并保存…",
+  "xiaozhi.model_ready": "模型安装成功，现在可以保存短语。",
+  "xiaozhi.model_failed": "模型安装失败，请使用配套模型文件重试。",
+  "xiaozhi.state.wake_config_error": "短语无效或模型不可用，已保留原短语。"
 };

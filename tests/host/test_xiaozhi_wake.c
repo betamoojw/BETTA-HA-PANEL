@@ -10,6 +10,12 @@
 #include "model_path.h"
 
 const unsigned char model_blob[] asm("_binary_xiaozhi_wake_model_bin_start") = {1};
+void *xiaozhi_wake_model_load(int word) { assert(word == 0); return (void *)model_blob; }
+void xiaozhi_wake_model_free(void *p) { assert(!p || p == model_blob); }
+bool xiaozhi_custom_wake_init(const char *p) { (void)p; return false; }
+void xiaozhi_custom_wake_free(void) {}
+int xiaozhi_custom_wake_chunk(void) { return 0; }
+bool xiaozhi_custom_wake_detect(int16_t *p) { (void)p; return false; }
 struct model_iface_data_t { int alive; };
 static struct model_iface_data_t instance;
 static srmodel_list_t catalog;
@@ -21,7 +27,7 @@ srmodel_list_t *srmodel_load(const void *p)
 void esp_srmodel_deinit(srmodel_list_t *p)
 { assert(p == &catalog && live_models == 1 && !instance.alive); --live_models; }
 char *esp_srmodel_filter(srmodel_list_t *p, const char *a, const char *b)
-{ assert(p == &catalog && !strcmp(a, "wn") && !strcmp(b, "nihaoxiaozhi")); return "wn9_nihaoxiaozhi"; }
+{ assert(p == &catalog && !strcmp(a, "wn") && !strcmp(b, "wn9_nihaoxiaozhi")); return "wn9_nihaoxiaozhi"; }
 static model_iface_data_t *create(const void *name, det_mode_t mode)
 {
     assert(!strcmp(name, "wn9_nihaoxiaozhi") && mode == DET_MODE_95 && !instance.alive);
@@ -49,6 +55,8 @@ vad_state_t vad_process(vad_handle_t v, int16_t *s, int hz, int ms)
 
 int main(void)
 {
+    assert(!xiaozhi_wake_init(-1, "ni hao xiao zhi"));
+    assert(!xiaozhi_wake_init(3, "ni hao guan jia"));
     int16_t pcm[] = {32767, -32768, -32768, 32767, 123, -123, 0, 32767};
     int mp, rp;
     xiaozhi_pcm_mono(pcm, 4, &mp, &rp);
@@ -56,7 +64,7 @@ int main(void)
     assert(mp == 32768 && rp == 32768); /* No reference mixing or signed overflow. */
     int16_t silence[960] = {0};
     for (int i = 0; i < 20; ++i) {
-        assert(xiaozhi_wake_init() && xiaozhi_wake_init());
+        assert(xiaozhi_wake_init(0, "ni hao xiao zhi") && xiaozhi_wake_init(0, "ni hao xiao zhi"));
         assert(xiaozhi_wake_chunk() == 512 && !xiaozhi_wake_detect(silence));
         silence[0] = 123;
         assert(xiaozhi_wake_detect(silence) && xiaozhi_voice_active(silence, 960));
@@ -65,11 +73,11 @@ int main(void)
         assert(!live_models && !live_vad && !instance.alive && !xiaozhi_wake_chunk());
         xiaozhi_wake_free(); /* Disable after disconnect is idempotent. */
     }
-    fail_model = true; assert(!xiaozhi_wake_init()); fail_model = false;
-    fail_vad = true; assert(!xiaozhi_wake_init()); fail_vad = false;
-    channels = 2; assert(!xiaozhi_wake_init()); channels = 1;
-    rate = 24000; assert(!xiaozhi_wake_init()); rate = 16000;
-    assert(xiaozhi_wake_init()); xiaozhi_wake_free();
+    fail_model = true; assert(!xiaozhi_wake_init(0, "ni hao xiao zhi")); fail_model = false;
+    fail_vad = true; assert(!xiaozhi_wake_init(0, "ni hao xiao zhi")); fail_vad = false;
+    channels = 2; assert(!xiaozhi_wake_init(0, "ni hao xiao zhi")); channels = 1;
+    rate = 24000; assert(!xiaozhi_wake_init(0, "ni hao xiao zhi")); rate = 16000;
+    assert(xiaozhi_wake_init(0, "ni hao xiao zhi")); xiaozhi_wake_free();
     assert(created == destroyed && !live_models && !live_vad);
     puts("Xiaozhi wake lifecycle and microphone/reference tests passed");
 }

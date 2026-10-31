@@ -11,6 +11,7 @@
 #                                                       padded across the NVS range, so it erases stored credentials: to keep them
 #                                                       write the parts separately, docs/development/build.md "Changing the partition table")
 #   betta86-ha-panel-<version>-<variant>.ota.bin       the app binary (OTA upload and the panel's update check)
+#   betta86-ha-panel-<version>-panel10.wake-model.bin the resource produced by that same panel10 build
 # and a SHA256SUMS file. The names are what the update check looks for (`betta86-ha-panel-*-<variant>.ota.bin`).
 #
 # Needs ESP-IDF 6.1 in the environment (esptool) and a finished build of every variant that reports <version>:
@@ -47,6 +48,10 @@ for variant in "$@"; do
     base="betta86-ha-panel-$version-$variant"
     (cd "$build" && "$esptool_cmd" --chip "$chip" merge-bin -o "$out/$base.factory.bin" @flash_args >/dev/null)
     cp "$build/$app" "$out/$base.ota.bin"
+    if [ "$variant" = panel10 ]; then
+        [ -f "$build/xiaozhi-custom-wake.bin" ] || { echo "panel10 wake model missing: complete its firmware build first" >&2; exit 1; }
+        cp "$build/xiaozhi-custom-wake.bin" "$out/$base.wake-model.bin"
+    fi
     echo "$variant: $base.factory.bin and $base.ota.bin"
 done
 

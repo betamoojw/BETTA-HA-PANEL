@@ -6,9 +6,14 @@
 #include "esp_err.h"
 #include "esp_http_server.h"
 #include "lvgl.h"
+#include "xiaozhi_custom_wake.h"
+typedef struct { int word; char phrase[XIAOZHI_WAKE_PHRASE_SIZE]; } xiaozhi_wake_config_t;
 
 typedef struct {
     bool supported, enabled, paired, listening, wake_enabled, wake_ready, wake_running, conversation;
+    xiaozhi_wake_config_t wake_config;
+    bool wake_model_ready, wake_config_failed;
+    uint32_t wake_config_revision;
     int volume, dialog_timeout, emoji_style; /* 0 Otto (default), 1 classic */
     uint32_t dialog_seq, activity_seq;
     uint32_t wake_frames, wake_hits;
@@ -20,6 +25,7 @@ void xiaozhi_init(void);
 void xiaozhi_status(xiaozhi_status_t *out);
 /* Commands are serialized by a worker; these never call LVGL or wait on audio. */
 esp_err_t xiaozhi_command(const char *action, int value);
+esp_err_t xiaozhi_configure_wake(int word, const char *phrase);
 /* Storage operation: only HTTP/settings workers, never under the display lock. */
 esp_err_t xiaozhi_set_emoji_style(int value);
 esp_err_t xiaozhi_api_register(httpd_handle_t server);

@@ -117,3 +117,84 @@ On 2026-10-26 the owner again reported the same white flashes during the MCP
 device-tool trial; the controls otherwise worked. Later bounded dialogue and
 header-icon checks passed, but do not establish a fix. The issue remains open
 for separate display investigation; these changes do not prove all-day stability.
+
+## Custom wake recognition
+
+The worker owns both WakeNet presets and the optional ESP-SR 2.4.7 `mn7_cn`
+engine. `POST /api/xiaozhi` accepts `{"action":"wake_config","value":{"word":3,
+"phrase":"ni hao guan jia"}}`; IDs 0–2 select the bundled presets, 3 selects
+custom Chinese pinyin. `GET` returns `wake_word`, `wake_phrase` and
+`wake_model_ready`. HTTP validates bounds/syntax, then returns 202 for the queued
+request; read back the configuration to confirm application. The worker validates
+with MultiNet before committing one `wake_config` NVS blob. Invalid saved blobs
+fall back to the default. Invalid engine input reports `wake_config_error`.
+
+The packed resource includes both `mn7_cn` and `fst/commands_cn.txt`. Its
+minimal seed row uses the pinned component's comma format (`1,ni hao xiao zhi`).
+ESP-SR 2.4.7 initialization requires that FST even though the worker immediately
+replaces its commands; omitting it makes the vendor initializer dereference a
+failed model creation. The loader checks for the FST before calling that code.
+
+`xiaozhi_custom_wake.c` loads the verified packed model into PSRAM. One model
+catalog exists at a time; engine destruction precedes catalog/buffer release.
+A 0.20 threshold (the upstream custom-wake default) and command ID 1 gate
+custom detections. Detection and timeout
+clear MultiNet state; the known unsafe WakeNet clean hook remains unused.
+The existing mono 16 kHz microphone path feeds detection; no idle audio is sent
+upstream. This path does not add acoustic echo cancellation or noise suppression.
+
+`prepare_custom_wake_model.py` verifies the pinned resource identity and builds
+`build/panel10/xiaozhi-custom-wake.bin`. Packaging copies this build output as a
+separate `.wake-model.bin`, without regenerating it from later dependency state.
+GET/PUT `/api/xiaozhi/wake-model` uses authenticated, bounded
+32 KiB chunks with `X-Model-Offset`, a temporary file, final SHA256 verification
+and immutable rename. A 1 MiB storage reserve is required. The model is verified
+again at boot before inference; no partition changes are needed.
+
+For a local build, install with the editor file picker or:
+
+```sh
+python tools/install_custom_wake_model.py --url http://<panel-ip> --install
+```
+
+This installer does not enable the microphone or change preferences. Custom words
+need a physical speech trial; host tests and a ready engine are not acoustic proof.
+
+On 2026-10-31, the Waveshare 10.1-inch panel on COM24 ran ELF `db2854d06`
+with resource SHA256 prefix `2edad3a5633b`. Serial readback matched the app image;
+OTA state was valid and the custom phrase `ni hao xiao bei` survived restart.
+Browser save/reload, wake disable/re-enable, all three presets, invalid syntax
+and MultiNet rejection retained the expected settings. Layout and unrelated
+settings were preserved. The device recorded a custom wake hit, recognized a
+time query, received its answer and returned to local detection after inactivity.
+During that dialogue the Xiaozhi task stack low-water was 6,912 bytes, internal
+heap minimum 138,948 bytes and free PSRAM 3,731,896 bytes. These are bounded
+panel10 measurements, not other-board or long-duration qualification.
+
+The first trial exposed the missing seed FST described above. Its crash report
+`679ce109` (ELF `997410f33`) was archived and retained on the device. The corrected
+resource passed initialization and the subsequent checks without a new report;
+the editor's retained-crash banner can therefore still refer to that earlier build.
+
+The owner reported several seconds of wake latency with the initial 0.90
+threshold. That build's hit counters established detections, not satisfactory
+response time. The follow-up uses the upstream custom-wake threshold 0.20 and
+logs detection, UI display and listening milestones. `loud_age_ms` measures time
+since a microphone peak of at least 256; it is only an energy marker, not a
+speech endpoint or an end-to-end acoustic latency measurement.
+
+Follow-up ELF `2b71290cc` (source stamp `2026-10-31 12:29:30`) reached valid OTA
+state on the same panel. Four trials recorded 81–205 ms from local detection to
+the UI show call and 815–916 ms to listening. The first accepted score was 0.319;
+a host regression now ensures that this result is accepted while low scores,
+wrong command IDs and missing results are rejected. The UI lifecycle regression
+passed. These software timings do not measure physical display onset. On
+2026-10-31 the owner confirmed that, after finishing "ni hao xiao bei", the
+dialogue appeared within approximately one second and was noticeably faster.
+This completes the bounded custom-wake trial on this panel.
+
+Editor saves wait for the worker's result revision, including when the saved
+values already match. Commands expire after 10 seconds; model requests (including
+response bodies) expire after 20 seconds and release the controls for retry.
+An invalid custom draft remains editable when switching presets; it cannot block
+saving a preset, which retains the last valid saved phrase instead.

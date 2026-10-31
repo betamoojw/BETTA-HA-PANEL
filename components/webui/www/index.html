@@ -266,7 +266,25 @@
             <output id="xiaozhiCode" aria-live="polite"></output>
             <label class="field-narrow"><span id="xiaozhiVolumeLabel" data-i18n-key="xiaozhi.volume">Speaker volume</span><input id="xiaozhiVolume" type="number" min="0" max="80" value="50" /></label>
             <label class="row"><input type="checkbox" id="xiaozhiWake" /><span id="xiaozhiWakeLabel" data-i18n-key="xiaozhi.wake">Voice wake-up</span></label>
-            <p id="xiaozhiWakeHint" class="meta" data-i18n-key="xiaozhi.wake_hint">Say “Ni hao Xiao Zhi” to start. Wake-word recognition runs locally.</p>
+            <div id="xiaozhiWakeSettings">
+              <label for="xiaozhiWakeWord" id="xiaozhiWakeWordLabel" data-i18n-key="xiaozhi.wake_word">Wake phrase</label>
+              <select id="xiaozhiWakeWord">
+                <option value="0">你好小智 (Ni hao Xiao Zhi)</option><option value="1">Hi ESP</option><option value="2">Jarvis</option>
+                <option value="3" id="xiaozhiCustomOption" data-i18n-key="xiaozhi.custom">Custom Chinese phrase</option>
+              </select>
+              <div id="xiaozhiCustomFields">
+                <label for="xiaozhiWakePhrase" id="xiaozhiPhraseLabel" data-i18n-key="xiaozhi.phrase">Pinyin phrase</label>
+                <input id="xiaozhiWakePhrase" type="text" maxlength="95" autocomplete="off" spellcheck="false" aria-describedby="xiaozhiPhraseHelp" />
+                <p class="meta" id="xiaozhiPhraseHelp" data-i18n-key="xiaozhi.phrase_help">Enter 3–12 lowercase pinyin syllables separated by spaces, without tones. Example: ni hao guan jia. Chinese only.</p>
+                <div id="xiaozhiModelInstall">
+                  <label for="xiaozhiModelFile" id="xiaozhiModelLabel" data-i18n-key="xiaozhi.model_install">Install the matching wake model once (.bin)</label>
+                  <input id="xiaozhiModelFile" type="file" accept=".bin" />
+                </div>
+              </div>
+              <button class="btn small" id="xiaozhiWakeSave" type="button" data-i18n-key="xiaozhi.wake_save">Save wake phrase</button>
+              <p class="meta" id="xiaozhiWakeResult" role="status" aria-live="polite"></p>
+            </div>
+            <p id="xiaozhiWakeHint" class="meta" data-i18n-key="xiaozhi.wake_hint">Say the saved wake phrase to start. Recognition runs locally.</p>
             <label class="field-narrow"><span id="xiaozhiTimeoutLabel" data-i18n-key="xiaozhi.timeout">Dialogue idle timeout (seconds)</span><input id="xiaozhiTimeout" type="number" min="10" max="300" value="30" /></label>
             <label class="field-narrow"><span id="xiaozhiEmojiLabel" data-i18n-key="xiaozhi.emoji_style">AI emotion style</span><select id="xiaozhiEmoji"><option value="0" id="xiaozhiEmojiOtto" data-i18n-key="xiaozhi.emoji_otto">Otto Robot</option><option value="1" id="xiaozhiEmojiClassic" data-i18n-key="xiaozhi.emoji_classic">Classic Emoji</option></select></label>
             <button class="btn small" id="xiaozhiTalk" type="button" data-i18n-key="xiaozhi.talk">Hold to talk</button>

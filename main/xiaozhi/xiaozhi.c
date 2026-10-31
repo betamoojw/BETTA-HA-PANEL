@@ -21,6 +21,8 @@
 #if CONFIG_APP_PANEL_VARIANT_10INCH_1280
 #include "xiaozhi_audio.h"
 #include "xiaozhi_wake.h"
+#include "xiaozhi_wake_words.h"
+#include "xiaozhi_custom_model_store.h"
 #include "xiaozhi_pcm.h"
 #include "xiaozhi_dialog.h"
 #include "esp_crt_bundle.h"
@@ -38,12 +40,12 @@
 #define MAX_FRAME 8192
 #define FRAME_SAMPLES 960
 #define NS "xiaozhi"
-typedef struct { char action[16]; int value; } command_t;
+typedef struct { char action[16]; int value; char phrase[XIAOZHI_WAKE_PHRASE_SIZE]; } command_t;
 typedef struct { int opcode, len; uint8_t *data; } packet_t;
 static SemaphoreHandle_t lock;
 static QueueHandle_t commands, packets;
 static TaskHandle_t worker_task;
-static xiaozhi_status_t status = {.supported = true, .volume = 50, .dialog_timeout = 30};
+static xiaozhi_status_t status = {.supported = true, .volume = 50, .dialog_timeout = 30, .wake_config = {.phrase = XIAOZHI_WAKE_DEFAULT_PHRASE}};
 static char endpoint[256], token[1024], device[18], uuid[37], session[128];
 static esp_websocket_client_handle_t ws;
 static volatile bool connected, failed;
@@ -59,6 +61,7 @@ static int64_t deadline, listen_deadline, pair_deadline, next_pair;
 static bool pairing, identity_ready, auto_listen, idle_capture;
 static int64_t last_activity, wake_retry;
 static int16_t *wake_pcm;
+static int64_t wake_last_loud;
 
 static void activity(void)
 {
@@ -86,6 +89,7 @@ void xiaozhi_status(xiaozhi_status_t *out)
 {
     if (!lock) { memset(out, 0, sizeof(*out)); out->supported = true; return; }
     xSemaphoreTake(lock, portMAX_DELAY); *out = status; xSemaphoreGive(lock);
+    out->wake_model_ready = xiaozhi_custom_model_available();
 }
 
 static bool save_enabled(bool enabled)
@@ -384,8 +388,37 @@ static void receive_packet(packet_t *p)
     }
 }
 
+static void wake_config_result(bool failed_config)
+{
+    xSemaphoreTake(lock, portMAX_DELAY);
+    status.wake_config_failed = failed_config; ++status.wake_config_revision;
+    xSemaphoreGive(lock);
+}
 static void handle_command(command_t *c)
 {
+    if (!strcmp(c->action, "wake_config")) {
+        xiaozhi_wake_config_t next = {.word = c->value};
+        strlcpy(next.phrase, c->phrase, sizeof(next.phrase));
+        disconnect_session();
+        /* Validate with the real engine before persisting; rejected words retain
+         * the previous configuration. Only this worker ever owns either model. */
+        bool valid = xiaozhi_wake_init(next.word, next.phrase);
+        xiaozhi_wake_free();
+        if (!valid) { set_state("wake_config_error"); wake_config_result(true); return; }
+        if (!flash_gate_enter(1000)) { set_state("storage_error"); wake_config_result(true); return; }
+        nvs_handle_t h;
+        esp_err_t err = nvs_open(NS, NVS_READWRITE, &h);
+        if (err == ESP_OK) {
+            err = nvs_set_blob(h, "wake_config", &next, sizeof(next));
+            if (err == ESP_OK) err = nvs_commit(h);
+            nvs_close(h);
+        }
+        flash_gate_leave();
+        if (err != ESP_OK) { set_state("storage_error"); wake_config_result(true); return; }
+        xSemaphoreTake(lock, portMAX_DELAY); status.wake_config = next; xSemaphoreGive(lock);
+        wake_config_result(false);
+        wake_retry = 0; set_state(status.enabled ? "ready" : "disabled"); return;
+    }
     if (!strcmp(c->action, "reset")) {
         nvs_handle_t h;
         if (!flash_gate_enter(1000)) { set_state("storage_error"); return; }
@@ -396,6 +429,8 @@ static void handle_command(command_t *c)
             if (err == ESP_OK) err = nvs_set_u8(h, "wake", 0);
             if (err == ESP_OK) err = nvs_set_u16(h, "dialog_timeout", 30);
             if (err == ESP_OK) err = nvs_set_u8(h, "emoji", 0);
+            const xiaozhi_wake_config_t defaults = {.phrase = XIAOZHI_WAKE_DEFAULT_PHRASE};
+            if (err == ESP_OK) err = nvs_set_blob(h, "wake_config", &defaults, sizeof(defaults));
             if (err == ESP_OK) err = nvs_commit(h);
             nvs_close(h);
         }
@@ -404,6 +439,7 @@ static void handle_command(command_t *c)
         pairing = false; disconnect_session();
         xSemaphoreTake(lock, portMAX_DELAY); status.enabled = false; status.volume = 50; status.wake_enabled = false; status.dialog_timeout = 30;
         status.emoji_style = 0;
+        status.wake_config = (xiaozhi_wake_config_t){.phrase = XIAOZHI_WAKE_DEFAULT_PHRASE};
         status.code[0] = status.text[0] = status.recognized[0] = status.reply[0] = status.emotion[0] = 0; xSemaphoreGive(lock);
         set_state("disabled"); return;
     }
@@ -484,10 +520,10 @@ static void poll_wake(void)
         if (!wake_pcm) goto error;
     }
     /* Disconnect releases the detector independently of this PCM allocation. */
-    if (!xiaozhi_wake_init()) goto error;
+    if (!xiaozhi_wake_init(status.wake_config.word, status.wake_config.phrase)) goto error;
     if (!idle_capture) {
         if (xiaozhi_audio_open(0) != ESP_OK || xiaozhi_audio_mic(true) != ESP_OK) goto error;
-        idle_capture = true; set_state("ready");
+        idle_capture = true; wake_last_loud = 0; set_state("ready");
     }
     xSemaphoreTake(lock, portMAX_DELAY); status.wake_ready = status.wake_running = true; xSemaphoreGive(lock);
     int n = xiaozhi_wake_chunk();
@@ -495,6 +531,7 @@ static void poll_wake(void)
     int mic_peak, ref_peak;
     xiaozhi_pcm_mono(wake_pcm, n, &mic_peak, &ref_peak);
     int64_t started = esp_timer_get_time();
+    if (mic_peak >= 256) wake_last_loud = started;
     bool detected = xiaozhi_wake_detect(wake_pcm);
     int detect_us = (int)(esp_timer_get_time() - started);
     xSemaphoreTake(lock, portMAX_DELAY);
@@ -504,6 +541,11 @@ static void poll_wake(void)
     if (detected) ++status.wake_hits;
     xSemaphoreGive(lock);
     if (detected) {
+        /* An energy marker, not a measured human speech endpoint. No idle
+         * recording or transcript is retained in these timing diagnostics. */
+        ESP_LOGI("xiaozhi", "Local wake detected (word=%d, chunk=%d, loud_age_ms=%d)",
+                 status.wake_config.word, n,
+                 wake_last_loud ? (int)((esp_timer_get_time() - wake_last_loud) / 1000) : -1);
         show_dialog();
         if (connect_session()) {
             auto_listen = want_listen = true; conversation(true);
@@ -546,6 +588,7 @@ static void worker(void *unused)
                 xiaozhi_audio_mic(want_listen) != ESP_OK) failed = true;
             xSemaphoreTake(lock, portMAX_DELAY); status.listening = want_listen; xSemaphoreGive(lock);
             set_state(want_listen ? "listening" : "waiting");
+            if (want_listen && auto_listen) ESP_LOGI("xiaozhi", "Voice session listening");
         }
         if (ready && status.listening && !failed) {
             if (xiaozhi_audio_read(pcm, FRAME_SAMPLES) != ESP_OK) failed = true;
@@ -564,6 +607,21 @@ static void worker(void *unused)
     }
 }
 
+static esp_err_t enqueue_command(command_t *c)
+{
+    const char *action = c->action;
+    if (!commands) return ESP_ERR_INVALID_STATE;
+    xSemaphoreTake(lock, portMAX_DELAY);
+    /* Screen teardown must not allocate an audio worker while disabled. */
+    if (!worker_task && !status.enabled && strcmp(action, "enable") && strcmp(action, "reset") && strcmp(action, "wake") && strcmp(action, "timeout") && strcmp(action, "wake_config")) {
+        xSemaphoreGive(lock); return ESP_OK;
+    }
+    if (!worker_task && xTaskCreate(worker, "xiaozhi", 32768, NULL, 4, &worker_task) != pdPASS) {
+        xSemaphoreGive(lock); return ESP_ERR_NO_MEM;
+    }
+    xSemaphoreGive(lock);
+    return xQueueSend(commands, c, 0) == pdTRUE ? ESP_OK : ESP_ERR_TIMEOUT;
+}
 esp_err_t xiaozhi_command(const char *action, int value)
 {
     if (!action || !commands || strlen(action) >= sizeof(((command_t *)0)->action)) return ESP_ERR_INVALID_STATE;
@@ -572,17 +630,16 @@ esp_err_t xiaozhi_command(const char *action, int value)
     if (!strcmp(action, "volume") && (value < 0 || value > 80)) return ESP_ERR_INVALID_ARG;
     if (!strcmp(action, "wake") && value != 0 && value != 1) return ESP_ERR_INVALID_ARG;
     if (!strcmp(action, "timeout") && (value < 10 || value > 300)) return ESP_ERR_INVALID_ARG;
-    xSemaphoreTake(lock, portMAX_DELAY);
-    /* Screen teardown must not allocate an audio worker while disabled. */
-    if (!worker_task && !status.enabled && strcmp(action, "enable") && strcmp(action, "reset") && strcmp(action, "wake") && strcmp(action, "timeout")) {
-        xSemaphoreGive(lock); return ESP_OK;
-    }
-    if (!worker_task && xTaskCreate(worker, "xiaozhi", 32768, NULL, 4, &worker_task) != pdPASS) {
-        xSemaphoreGive(lock); return ESP_ERR_NO_MEM;
-    }
-    xSemaphoreGive(lock);
     command_t c = {.value = value}; strlcpy(c.action, action, sizeof(c.action));
-    return xQueueSend(commands, &c, 0) == pdTRUE ? ESP_OK : ESP_ERR_TIMEOUT;
+    return enqueue_command(&c);
+}
+esp_err_t xiaozhi_configure_wake(int word, const char *phrase)
+{
+    if (word < 0 || word > XIAOZHI_WAKE_WORD_COUNT || !xiaozhi_wake_phrase_valid(phrase)) return ESP_ERR_INVALID_ARG;
+    if (word == XIAOZHI_WAKE_WORD_COUNT && !xiaozhi_custom_model_available()) return ESP_ERR_INVALID_STATE;
+    command_t c = {.action = "wake_config", .value = word};
+    strlcpy(c.phrase, phrase, sizeof(c.phrase));
+    return enqueue_command(&c);
 }
 
 void xiaozhi_init(void)
@@ -601,6 +658,10 @@ void xiaozhi_init(void)
         nvs_get_u8(h, "wake", &wake); status.wake_enabled = wake == 1;
         nvs_get_u16(h, "dialog_timeout", &timeout); status.dialog_timeout = timeout >= 10 && timeout <= 300 ? timeout : 30;
         uint8_t emoji = 0; nvs_get_u8(h, "emoji", &emoji); status.emoji_style = emoji == 1 ? 1 : 0;
+        xiaozhi_wake_config_t saved = {0}; size_t config_len = sizeof(saved);
+        if (nvs_get_blob(h, "wake_config", &saved, &config_len) == ESP_OK && config_len == sizeof(saved) &&
+            saved.word >= 0 && saved.word <= XIAOZHI_WAKE_WORD_COUNT &&
+            memchr(saved.phrase, 0, sizeof(saved.phrase)) && xiaozhi_wake_phrase_valid(saved.phrase)) status.wake_config = saved;
         size_t len = sizeof(uuid);
         esp_err_t identity_err = nvs_get_str(h, "uuid", uuid, &len);
         if (identity_err != ESP_OK || strlen(uuid) != 36) {
@@ -627,6 +688,7 @@ void xiaozhi_init(void)
     }
 }
 #else
+esp_err_t xiaozhi_configure_wake(int word, const char *phrase) { (void)word; (void)phrase; return ESP_ERR_NOT_SUPPORTED; }
 esp_err_t xiaozhi_set_emoji_style(int value) { (void)value; return ESP_ERR_NOT_SUPPORTED; }
 void xiaozhi_init(void) {}
 void xiaozhi_status(xiaozhi_status_t *out) { memset(out, 0, sizeof(*out)); strcpy(out->state, "unsupported"); }

@@ -1313,9 +1313,6 @@ bool layout_validate_json(const char *json, layout_validation_result_t *result)
     }
 
     int page_count = cJSON_GetArraySize(pages);
-    if (page_count <= 0) {
-        layout_validation_add(result, "at least one page required");
-    }
     if (page_count > APP_MAX_PAGES) {
         layout_validation_add(result, "too many pages");
     }

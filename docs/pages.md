@@ -89,8 +89,15 @@ existing samples still follow the normal history retention limit.
 
 The panel skips hidden pages during automatic cycling and cannot open them via
 room links or remote navigation. If the current page is hidden, it shows the
-first visible page. If all pages are hidden, the dashboard and bottom tabs are
-empty; the top bar and web editor remain available. Existing pages default to
+first visible page. If all pages are hidden, or the layout has no pages, a
+centred flip clock shows hours, minutes, seconds, weekday and date. It follows
+the system theme, appearance and local time zone. **Settings → Display →
+24-hour clock** switches between 24-hour time and 12-hour time with AM/PM.
+Seconds and date are always shown on this default page; screensaver options
+remain separate. Until time is synchronised, the clock shows placeholders.
+Restoring or creating a visible page replaces the clock with the dashboard.
+The clock adds no saved page or bottom tab; the top bar and editor remain available.
+New installations start with an empty layout. Existing pages default to
 visible. Hidden pages still count toward the saved page and widget limits.
 
 | | 4-inch panel | 10-inch and Tab5 (1280 px wide) |

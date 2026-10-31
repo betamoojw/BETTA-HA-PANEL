@@ -79,6 +79,8 @@ A fixture is the layout's `pages` plus `states`. Get the pages from an authentic
 - `popup_scroll_bottom: true` scrolls an overflowing detail container to its end,
   for checking fields below the fold while the action buttons remain visible.
 - A page of type `house_dashboard` (with `house.rooms`) or `energy_dashboard` (with `energy`) renders like on the panel.
+- Empty `pages`, or all pages with `visible: false`, render the default flip clock. The optional fixture-root
+  `clock: {"format_24h": false}` selects AM/PM; `BETTA_SIM_NOW` and `TZ` supply its time. Explicit `--page` still requires a visible page.
 
 Regression fixtures: `matte_reference.json` (light, cover, climate, dimmer, German long titles, unavailable and unit
 edge cases; `check_widget_layout.py --fixture` checks it) and `dutch-characters.json` (long `25.4926 kWh`, `ë`, `95.4 €`,

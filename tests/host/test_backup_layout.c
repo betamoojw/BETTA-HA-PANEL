@@ -55,6 +55,8 @@ static void expect_entities(const cJSON *node, const char *key, const ha_layout_
 
 int main(void)
 {
+    layout_validation_result_t empty;
+    CHECK(layout_validate_json("{\"version\":1,\"pages\":[]}", &empty), "empty dashboard uses the default clock");
     /* Hidden pages remain valid stored pages; reject ambiguous visibility values. */
     const char *values[] = {"true", "false", "null", "0", "\"false\"", "{}"};
     for (size_t i = 0; i < sizeof(values) / sizeof(values[0]); i++) {

@@ -22,6 +22,8 @@ typedef struct {
 void ui_pages_init(void);
 void ui_pages_reset(void);
 lv_obj_t *ui_pages_add(const char *page_id, const char *title);
+/* Finalize a layout with no visible pages; the clock is not a saved/nav page. */
+lv_obj_t *ui_pages_show_default(void);
 /* Nav icon of a page: a key (room, floorplan, house, energy, dashboard, bed, weather, music, climate, sofa, tv,
  * garage, light), "none" or "" for automatic (the first page gets the room icon). */
 void ui_pages_set_icon(const char *page_id, const char *icon_key);

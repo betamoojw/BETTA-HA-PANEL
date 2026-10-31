@@ -83,3 +83,50 @@ for its 48 registered geometry/mode/rotation cases.
 
 Firmware and the SDL2 simulator share the LVGL widget sources; the editor has its own checks. Run the local checks
 first, then review on hardware.
+
+### Empty-dashboard flip clock
+
+The simulator's `--regression transitions` includes the default flip clock:
+six content geometries, four themes and four appearances, Standard/Largest text,
+English/Chinese, 12/24-hour changes, midnight/noon, date rollover, unsynchronised
+time, initial date font sizing, folding frames and deletion during an animation.
+It also checks replacement of the clock by a real page and timer/animation cleanup.
+On 2026-10-31, the Windows SDL run passed 22,010 clock checks and 604 navigation checks.
+All 466 editor tests and 14 local-editor Python tests passed. Native C checks passed
+522 backup/layout assertions, graph-history storage/merge cases, and 215 injected
+runtime-storage faults. The graph-store test retains history bytes and a queued
+snapshot while every saved page is hidden. Empty-layout deletion intentionally
+remains different from hiding pages. These host results do not establish device
+graph-history retention without an actual graph on that device.
+
+The 2026-10-31 COM24 check used the Waveshare ESP32-P4-WIFI6-Touch-LCD-10.1,
+revision 3.2, ESP-IDF 6.1, with the 6,455,056-byte application SHA256
+`9be10a3fba54b5f15e2ecc2383b879f3f917e975dd7b285da39f31becd9a18f8`.
+The active application was backed up; readback verified the new image, with
+metadata/NVS, retained-crash partition and complete LittleFS unchanged before boot.
+The running source stamp was `b1f1fcff-dirty`, Oct 31 2026 09:06:22; the image hash
+identifies this build because the incremental build retained the earlier source stamp.
+OTA stayed valid, HA connected, and no crash or unexpected reboot occurred during
+the bounded checks. All-hidden and empty layouts showed the clock, seconds advanced,
+12/24-hour and theme/appearance changes applied, and restoring a visible page restored
+its content and navigation. The web checkbox Save/reload round trip also passed.
+The owner confirmed a centred display without visible artifacts on the first image;
+the final image additionally fixes the initial date font sizing, checked in LVGL captures.
+All eight saved pages and 35 widgets were restored exactly to their original hidden
+state, retaining the owner's 12-hour selection. Other settings differed only in live
+time/RSSI. This panel had no graph widgets; graph retention evidence remains host-only.
+Reported minimum free stacks after exercising the final image were 7,556 bytes for
+HTTP, 13,712 for LVGL and 10,084 for the UI task. Captures are LVGL snapshots, not
+physical-framebuffer or touch measurements; this was not a stress test.
+
+Pre-commit review on 2026-10-31 aligned the editor's failed-first-load fallback
+with the firmware's empty layout and made clock allocation failure fail the layout
+reload instead of marking it applied. Timer creation failure also deletes the clock.
+The expanded regression checks both folding halves, settling an unchanged target,
+and all captions even when the test geometry exceeds the host display. Each of the
+panel4, Tab5 and paneljc simulator builds passed 25,082 clock and 604 navigation checks.
+All 467 editor tests passed; the four native C suites above were rebuilt with strict
+warnings and passed again. The fixed-clock Glow render remained byte-identical.
+Web/source/field checks and the strict documentation build passed. The panel10-only
+firmware build passed (6,455,136-byte app). This review did not access or flash the
+device: the image identified above remains installed with the owner's saved settings.

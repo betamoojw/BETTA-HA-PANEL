@@ -50,6 +50,8 @@ static void tap(lv_indev_t *input, lv_obj_t *object)
 
 int sim_page_transition_regression(void)
 {
+    extern void sim_flip_clock_regression(void);
+    sim_flip_clock_regression();
     ticks = lv_tick_get();
     lv_tick_set_cb(now);
     lv_indev_t *input = lv_indev_create();
@@ -61,9 +63,13 @@ int sim_page_transition_regression(void)
         lv_display_set_resolution(lv_display_get_default(), APP_VIEW_WIDTH, APP_VIEW_HEIGHT);
         ui_transition_configure(true);
         ui_pages_init();
+        lv_obj_t *fallback = ui_pages_show_default();
+        CHECK(fallback && fallback == ui_pages_show_default());
+        CHECK(ui_pages_count() == 0 && !ui_pages_show_index(0) && !ui_pages_next());
         lv_obj_update_layout(lv_screen_active());
         CHECK(visible_nav_buttons(lv_screen_active()) == 0); /* all pages hidden */
         lv_obj_t *a = ui_pages_add("home", "Home");
+        CHECK(ui_pages_show_default() == NULL); /* adding a real page retires the clock */
         lv_obj_t *b = ui_pages_add("house", "House");
         lv_obj_t *c = ui_pages_add("energy", "Energy");
         lv_obj_t *b_button = lv_button_create(b), *c_button = lv_button_create(c);

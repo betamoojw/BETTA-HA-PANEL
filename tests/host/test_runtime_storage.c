@@ -156,6 +156,10 @@ int main(void)
     baseline(); validation_ok = false; assert(layout_store_init() == ESP_OK); assert(writes == 0);
     baseline(); fail_alloc = 2; assert(layout_store_init() == ESP_OK); assert(writes == 0);
     baseline(); layout_file[0] = 0; assert(layout_store_init() == ESP_OK); assert(writes == 1);
+    cJSON *default_layout = cJSON_Parse(layout_file);
+    assert(default_layout && cJSON_GetArraySize(cJSON_GetObjectItemCaseSensitive(default_layout, "pages")) == 0);
+    cJSON_Delete(default_layout);
+    writes = 0; assert(layout_store_init() == ESP_OK && writes == 0); /* empty is a saved layout */
     baseline(); namespace_missing = true; loaded = changed();
     assert(runtime_secrets_load(0, &loaded) == ESP_OK);
     assert(!loaded.wifi_password[0] && !loaded.ha_access_token[0] && !loaded.mqtt_password[0]);

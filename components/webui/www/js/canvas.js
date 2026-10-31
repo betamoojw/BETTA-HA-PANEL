@@ -1767,16 +1767,12 @@ function offerUndo(message, restore) {
 function deletePage() {
   layoutHistoryBoundary();
   if (!editor.layout.pages.length || !editor.selectedPageId) return;
-  if (editor.layout.pages.length === 1) {
-    setStatus(t("layout.status.at_least_one_page"), true);
-    return;
-  }
   const page = editor.layout.pages.find((p) => p.id === editor.selectedPageId);
   if (!page) return;
   const name = page.title || page.id;
   if (!window.confirm(t("layout.pages.confirm_delete", { name }))) return;
   editor.layout.pages = editor.layout.pages.filter((p) => p.id !== editor.selectedPageId);
-  editor.selectedPageId = editor.layout.pages[0].id;
+  editor.selectedPageId = editor.layout.pages[0]?.id || null;
   editor.selectedWidgetId = null;
   renderAll();
   offerUndo(t("layout.pages.deleted_undo", { name }), () => layoutHistoryStep(-1));

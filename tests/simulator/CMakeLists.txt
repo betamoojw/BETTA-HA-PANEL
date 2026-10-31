@@ -97,6 +97,7 @@ add_executable(betta-widget-sim
     font_budget_regression.c
     notification_regression.c
     page_transition_regression.c
+    flip_clock_regression.c
     popup_transition_regression.c
     screen_settings_regression.c
     alert_center_regression.c
@@ -162,6 +163,7 @@ add_executable(betta-widget-sim
     "${REPO_ROOT}/main/ui/ui_camera_view.c"
     "${REPO_ROOT}/main/ui/ui_widget_factory.c"
     "${REPO_ROOT}/main/ui/ui_pages.c"
+    "${REPO_ROOT}/main/ui/ui_flip_clock.c"
     "${REPO_ROOT}/main/ui/ui_transition.c"
     "${REPO_ROOT}/main/ui/ui_screen_settings.c"
     "${REPO_ROOT}/main/settings/display_clock.c"

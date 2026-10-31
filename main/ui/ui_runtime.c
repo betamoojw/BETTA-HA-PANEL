@@ -1358,6 +1358,9 @@ static esp_err_t ui_runtime_apply_layout(const char *layout_json, const runtime_
     const int64_t built_us = esp_timer_get_time() - build_start_us;
 
     const int64_t show_start_us = esp_timer_get_time();
+    if (ui_pages_count() == 0 && ui_pages_show_default() == NULL) {
+        build_err = ESP_ERR_NO_MEM;
+    }
     if (ui_pages_count() > 0 && (shown_page[0] == '\0' || !ui_pages_show(shown_page))) {
         ui_pages_show_index(0);
     }

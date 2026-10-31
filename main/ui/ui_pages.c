@@ -9,6 +9,7 @@
 #endif
 #include "ui/display_geometry.h"
 #include "ui/ui_pages.h"
+#include "ui/ui_flip_clock.h"
 #include "ui/ui_alert_center.h"
 
 #include <inttypes.h>
@@ -62,6 +63,7 @@ void ui_pages_set_show_callback(ui_pages_show_cb_t cb)
 static lv_obj_t *s_background = NULL;
 static lv_obj_t *s_topbar = NULL;
 static lv_obj_t *s_content_box = NULL;
+static lv_obj_t *s_default_clock = NULL;
 static lv_obj_t *s_date_label = NULL;
 static lv_obj_t *s_time_label = NULL;
 static lv_obj_t *s_stock_chip = NULL;
@@ -1091,6 +1093,7 @@ void ui_pages_init(void)
     s_settings_chip = NULL;
     s_clock_shift = 0;
     s_content_box = NULL;
+    s_default_clock = NULL; /* lv_obj_clean below deletes its timer and animations. */
     s_date_label = NULL;
     s_time_label = NULL;
     s_stock_chip = NULL;
@@ -1208,8 +1211,16 @@ lv_obj_t *ui_pages_add(const char *page_id, const char *title)
     s_pages[index].container = container;
 
     s_page_count++;
+    if (s_default_clock) { lv_obj_delete(s_default_clock); s_default_clock = NULL; }
     ui_pages_apply_tab_style((uint16_t)(s_current_index >= 0 ? s_current_index : 0));
     return container;
+}
+
+lv_obj_t *ui_pages_show_default(void)
+{
+    if (s_page_count == 0 && s_content_box && !s_default_clock)
+        s_default_clock = ui_flip_clock_create(s_content_box, s_clock_24h);
+    return s_default_clock;
 }
 
 void ui_pages_set_icon(const char *page_id, const char *icon_key)
@@ -1420,6 +1431,7 @@ void ui_pages_set_topbar_left_slots(const char *slot_1, const char *slot_2, cons
 void ui_pages_set_clock_24h(bool format_24h)
 {
     s_clock_24h = format_24h;
+    ui_flip_clock_set_format(s_default_clock, format_24h);
 }
 
 void ui_pages_set_topbar_datetime(const struct tm *timeinfo)

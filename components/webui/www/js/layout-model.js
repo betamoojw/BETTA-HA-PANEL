@@ -10,13 +10,7 @@
 function defaultLayout() {
   return {
     version: 1,
-    pages: [
-      {
-        id: "living",
-        title: t("layout.default_page.title"),
-        widgets: [],
-      },
-    ],
+    pages: [],
   };
 }
 
@@ -1132,7 +1126,7 @@ async function loadLayout() {
       editor.layout = candidate;
       applyCanvasGeometry(candidate, true);
       normalizeLayoutWidgets(candidate);
-      editor.selectedPageId = candidate.pages[0].id;
+      editor.selectedPageId = candidate.pages[0]?.id || null;
       editor.selectedWidgetId = null;
       renderAll();
       clearDirty();
@@ -1161,7 +1155,7 @@ async function loadLayout() {
     // failure status. A failed reload must preserve model, selection and history.
     if (!editor.layout) {
       editor.layout = defaultLayout();
-      editor.selectedPageId = editor.layout.pages[0].id;
+      editor.selectedPageId = editor.layout.pages[0]?.id || null;
       editor.selectedWidgetId = null;
       renderAll();
       clearDirty();

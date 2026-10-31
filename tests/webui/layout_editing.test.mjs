@@ -81,6 +81,43 @@ function setup() {
 }
 const state = run => JSON.parse(run('layoutSnapshot()'));
 
+test('failed first load keeps the firmware empty default and adding a page survives save/reload', async () => {
+  const run = setup();
+  run(`globalThis.workingFetch=fetch; editor.layout=null; editor.selectedPageId=null;
+    fetch=async()=>{throw new Error('offline')};`);
+  assert.equal(await run('loadLayout()'), false);
+  assert.deepEqual(state(run), {version: 1, pages: []});
+  assert.equal(run('editor.selectedPageId'), null);
+  assert.equal(run('savedLayout'), null, 'failed loading must not write a layout');
+  run('fetch=workingFetch');
+  await run('saveLayout()');
+  assert.equal(await run('loadLayout()'), true);
+  assert.deepEqual(state(run), {version: 1, pages: []});
+  run('el.addPageBtn.click()');
+  assert.equal(run('editor.layout.pages.length'), 1);
+  assert.equal(run('editor.selectedPageId'), run('editor.layout.pages[0].id'));
+  const created = state(run);
+  await run('saveLayout()');
+  assert.equal(await run('loadLayout()'), true);
+  assert.deepEqual(state(run), created);
+});
+
+test('deleting the last page saves an empty layout and undo restores its complete content', async () => {
+  const run = setup();
+  run(`editor.layout.pages=editor.layout.pages.slice(0,1);renderAll();clearDirty();layoutHistoryReset();
+    globalThis.original=layoutSnapshot();el.deletePageBtn.click();`);
+  assert.equal(run('editor.layout.pages.length'), 0);
+  assert.equal(run('editor.selectedPageId'), null);
+  await run('saveLayout()');
+  assert.equal(await run('loadLayout()'), true);
+  assert.equal(run('editor.layout.pages.length'), 0);
+  run(`importLayoutFromText(original);el.deletePageBtn.click();nodes.layoutUndoBtn.click();`);
+  assert.deepEqual(state(run), JSON.parse(run('original')));
+  await run('saveLayout()');
+  await run('loadLayout()');
+  assert.deepEqual(state(run), JSON.parse(run('original')));
+});
+
 test('page visibility event saves and reloads without losing content, including fixed pages and undo', async () => {
   const run = setup();
   const house = JSON.parse(readFileSync(new URL('../fixtures/backup_layout.json', import.meta.url), 'utf8'))
@@ -179,7 +216,7 @@ test('invalid response and interrupted installation cannot replace the current m
   run(`fetch = async () => ({ok:true,json:async()=>({pages:[{id:'bad',widgets:[{id:'x'}]}]})});`);
   assert.equal(await run('loadLayout()'), false);
   assert.equal(run('layoutSnapshot()'), run('baseline'));
-  run(`fetch = async () => ({ok:true,json:async()=>({pages:[]})});`);
+  run(`fetch = async () => ({ok:true,json:async()=>({pages:null})});`);
   assert.equal(await run('loadLayout()'), false);
   assert.equal(run('layoutSnapshot()'), run('baseline'));
   run(`fetch = async () => ({ok:true,json:async()=>({pages:[{id:'new',widgets:[]}],canvas_w:720,canvas_h:600})});
@@ -209,7 +246,8 @@ test('startup failure offers an empty editable canvas with the failure still vis
   const run = setup();
   run(`editor.layout = null; fetch = async () => { throw new Error('offline'); };`);
   assert.equal(await run('loadLayout()'), false);
-  assert.equal(state(run).pages.length, 1);
+  assert.equal(state(run).pages.length, 0);
+  assert.equal(run('editor.selectedPageId'), null);
   assert.match(run('el.status.textContent'), /offline/);
 });
 

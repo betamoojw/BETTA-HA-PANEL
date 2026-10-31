@@ -44,6 +44,8 @@ representation: check the panel itself for exact fonts, clipping and touch. The
 Click an empty spot (or press Esc) to leave a widget and edit the page itself.
 Use **Navigation → Visible on panel** to hide or restore the selected page, then
 **Save**. Hidden pages remain editable and keep their content; see [page visibility](pages.md#navigation-and-limits).
+You can also delete the last page and save an empty layout. The panel then shows
+its default flip clock. Use hiding when you want to retain page content and graph history.
 
 The header groups the page title, status and **Text size** on the left. Undo, Redo, Reload and Save are icon buttons on the
 right, beside the JSON menu and the dark/light toggle. Hover an icon to read its action; JSON offers Export and

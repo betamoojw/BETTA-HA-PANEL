@@ -1109,7 +1109,7 @@ int main(int argc, char **argv)
         if (cJSON_IsFalse(cJSON_GetObjectItemCaseSensitive(page, "visible"))) continue;
         if (page_id == NULL || strcmp(json_string(page, "id"), page_id) == 0) break;
     }
-    if (!cJSON_IsObject(page)) {
+    if (!cJSON_IsArray(pages) || (!cJSON_IsObject(page) && page_id != NULL)) {
         fprintf(stderr, "Page %s not found in %s\n", page_id != NULL ? page_id : "(first)", fixture_path);
         cJSON_Delete(root);
         return 1;
@@ -1119,7 +1119,7 @@ int main(int argc, char **argv)
     const char *page_type = json_string(page, "type");
     const bool house_page = strcmp(page_type, "house_dashboard") == 0;
     const bool energy_page = strcmp(page_type, "energy_dashboard") == 0;
-    if (!cJSON_IsArray(widgets_json) && !house_page && !energy_page) {
+    if (page && !cJSON_IsArray(widgets_json) && !house_page && !energy_page) {
         fprintf(stderr, "Selected page has no widgets array\n");
         cJSON_Delete(root);
         return 1;
@@ -1201,6 +1201,8 @@ int main(int argc, char **argv)
     /* The firmware's own top bar, navigation and page containers (ui_pages.c), so the frame is the real one. */
     lv_obj_t *screen = lv_screen_active();
     ui_pages_init();
+    ui_pages_set_clock_24h(!cJSON_IsFalse(cJSON_GetObjectItemCaseSensitive(
+        cJSON_GetObjectItemCaseSensitive(root, "clock"), "format_24h")));
     lv_obj_t *content = NULL;
     /* The navigation holds APP_MAX_PAGES pages: a fixture with more (the gallery) shows a window that ends at the selected one. */
     int selected_index = 0;
@@ -1228,7 +1230,8 @@ int main(int argc, char **argv)
         ui_pages_set_icon(json_string(nav_page, "id"), icon);
         if (nav_page == page) content = container;
     }
-    if (content == NULL) {
+    ui_pages_show_default();
+    if (content == NULL && page != NULL) {
         fprintf(stderr, "Cannot create the page container\n");
         cJSON_Delete(root);
         return 1;

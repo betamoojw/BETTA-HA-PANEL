@@ -109,8 +109,14 @@ class LocalEditorTest(unittest.TestCase):
         for path in ('/api/reboot', '/api/ota/upload', '/api/ha/service', '/api/wifi'):
             self.assertEqual(self.request(path, 'POST', {})[0], 405)
         self.assertFalse(self.state.exists())
-        self.assertEqual(self.request('/api/layout', 'PUT', {'pages':[]})[0], 400)
+        self.assertEqual(self.request('/api/layout', 'PUT', {'pages':None})[0], 400)
         self.assertFalse(self.state.exists())
+
+    def test_empty_layout_survives_save_and_restart(self):
+        layout = {'version':1, 'pages':[]}
+        self.assertEqual(self.request('/api/layout', 'PUT', layout)[0], 200)
+        self.stop(); self.start()
+        self.assertEqual(json.loads(self.request('/api/layout')[1]), layout)
 
     def test_quote_search_offers_ten_values_and_filters_by_name(self):
         status, raw = self.request('/api/ha/light_entities?domain=sensor&search=demo')

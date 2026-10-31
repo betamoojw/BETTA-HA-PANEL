@@ -432,6 +432,7 @@ test("unsaved changes are shown only when the layout differs from the loaded or 
   const { run } = loadEditor();
   run(`
     editor.layout = defaultLayout();
+    editor.layout.pages.push({id: "page", title: "", widgets: []});
     normalizeLayoutWidgets(editor.layout);
     clearDirty();
   `);

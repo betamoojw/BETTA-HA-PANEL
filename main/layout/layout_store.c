@@ -19,13 +19,7 @@
 static const char *s_default_layout =
     "{"
     "\"version\":1,"
-    "\"pages\":["
-    "{"
-    "\"id\":\"living\","
-    "\"title\":\"Living Room\","
-    "\"widgets\":[]"
-    "}"
-    "]"
+    "\"pages\":[]"
     "}";
 
 esp_err_t layout_store_save(const char *json)

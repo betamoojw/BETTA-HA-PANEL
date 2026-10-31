@@ -55,7 +55,8 @@ stays smaller below the time. Turning seconds off gives the digits more room.
 Both styles use the configured local time zone and share the idle delay,
 brightness, optional date, seconds display, automatic screen-off and wake gesture.
 For the analog dial, **Show seconds** controls the coral second hand. The
-12/24-hour preference continues to control the digital clock and header;
+12/24-hour preference controls the digital clock, header and the default
+[flip clock shown when no pages are visible](pages.md#navigation-and-limits);
 analog hands always use a 12-hour dial. Before time is synchronised the dial
 has no hands. It moves periodically within the screen to reduce static pixels.
 Night mode retains priority. Turning the clock off preserves its saved options.

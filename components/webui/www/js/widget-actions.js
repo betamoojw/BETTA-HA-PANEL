@@ -3,7 +3,6 @@
  */
 function validateLayoutStructure(layout) {
   if (!layout || !Array.isArray(layout.pages)) throw new Error(t("layout.status.invalid_json"));
-  if (!layout.pages.length) throw new Error(t("layout.status.at_least_one_page"));
   if (layout.pages.length > maxPages()) throw new Error(t("layout.status.max_pages", { max: maxPages() }));
   const pages = new Set(), widgets = new Set();
   const validId = (id) => typeof id === "string" && id.length > 0 && !id.includes("\0") && layoutJsonBytes(id) < 32;

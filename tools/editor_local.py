@@ -324,7 +324,7 @@ def build_server(port=8766, variant='paneljc', fixture_path=None, state_path=Non
                     return self.reply(store.display_test_status())
                 if path == '/api/layout' and self.command == 'PUT':
                     pages = body.get('pages')
-                    if not isinstance(pages, list) or not pages or len(pages) > responses['/api/version']['max_pages']:
+                    if not isinstance(pages, list) or len(pages) > responses['/api/version']['max_pages']:
                         return self.reply({'errors': ['Invalid page count']}, 400)
                     if len(json.dumps(body, ensure_ascii=False).encode()) > 32768:
                         return self.reply({'errors': ['Layout exceeds 32 KiB']}, 400)

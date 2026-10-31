@@ -2015,5 +2015,8 @@
   "knx.state.starting": "Démarrage",
   "knx.state.running": "Routage actif (bus non confirmé)",
   "knx.state.waiting_for_network": "En attente du réseau",
-  "knx.state.error": "Erreur"
+  "knx.state.error": "Erreur",
+  "layout.pages.visible": "Visible sur le panneau",
+  "layout.pages.hidden": "Masquée",
+  "layout.pages.visible_hint": "Enregistrez pour masquer ou rétablir cette page et son onglet de navigation. Les pages masquées conservent leur contenu et restent modifiables ici."
 }

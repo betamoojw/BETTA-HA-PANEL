@@ -14,6 +14,18 @@ static uint32_t ticks;
 static unsigned clicks;
 static lv_point_t point;
 static bool pressed;
+static unsigned visible_nav_buttons(lv_obj_t *root)
+{
+    if (!lv_obj_is_visible(root)) return 0;
+    lv_area_t bounds;
+    lv_obj_get_coords(root, &bounds);
+    unsigned count = lv_obj_is_clickable(root) && bounds.y1 >= APP_VIEW_HEIGHT - 60 &&
+                     lv_obj_get_height(root) < 60; /* exclude the bar itself */
+    for (uint32_t i = 0; i < lv_obj_get_child_count(root); i++) {
+        count += visible_nav_buttons(lv_obj_get_child(root, i));
+    }
+    return count;
+}
 #define CHECK(c) do { checks++; if (!(c)) { fprintf(stderr, "Transition line %d: %s\n", __LINE__, #c); exit(1); } } while (0)
 static uint32_t now(void) { return ticks; }
 static void advance(unsigned ms) { for (unsigned i = 0; i < ms; i += 20) { ticks += 20; lv_timer_handler(); } }
@@ -49,6 +61,8 @@ int sim_page_transition_regression(void)
         lv_display_set_resolution(lv_display_get_default(), APP_VIEW_WIDTH, APP_VIEW_HEIGHT);
         ui_transition_configure(true);
         ui_pages_init();
+        lv_obj_update_layout(lv_screen_active());
+        CHECK(visible_nav_buttons(lv_screen_active()) == 0); /* all pages hidden */
         lv_obj_t *a = ui_pages_add("home", "Home");
         lv_obj_t *b = ui_pages_add("house", "House");
         lv_obj_t *c = ui_pages_add("energy", "Energy");
@@ -61,6 +75,8 @@ int sim_page_transition_regression(void)
         lv_obj_update_layout(lv_screen_active());
         uint32_t children = lv_obj_get_child_count(viewport);
         CHECK(ui_pages_show("home"));
+        lv_obj_update_layout(lv_screen_active());
+        CHECK(visible_nav_buttons(lv_screen_active()) == 3); /* restored pages */
         CHECK(lv_obj_get_style_translate_x(a, 0) == 0); /* no boot/rebuild entrance */
         CHECK(lv_obj_get_child_count(viewport) == children);
         CHECK(ui_pages_show_index(1));

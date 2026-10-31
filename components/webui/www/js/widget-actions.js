@@ -12,6 +12,9 @@ function validateLayoutStructure(layout) {
       throw new Error(t("layout.status.invalid_ids"));
     }
     pages.add(page.id);
+    if (page.visible !== undefined && typeof page.visible !== "boolean") {
+      throw new Error(t("layout.status.invalid_json"));
+    }
     if (page.widgets === undefined) page.widgets = [];
     if (!Array.isArray(page.widgets)) throw new Error(t("layout.status.invalid_json"));
     if (page.widgets.length > MAX_WIDGETS_PER_PAGE) throw new Error(t("layout.status.max_widgets_page", { max: MAX_WIDGETS_PER_PAGE }));

@@ -100,7 +100,7 @@ function pageIconKey(page) {
   if (own) return own;
   if (isEnergyPage(page)) return "energy";
   if (isHousePage(page)) return "house";
-  return editor.layout.pages[0] === page ? "room" : "";
+  return editor.layout.pages.find(item => item.visible !== false) === page ? "room" : "";
 }
 
 function pageIconEmoji(page) {

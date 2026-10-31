@@ -2019,5 +2019,8 @@ WEB_I18N_BUILTIN["pl"] = {
   "knx.state.starting": "Uruchamianie",
   "knx.state.running": "Routing aktywny (magistrala niepotwierdzona)",
   "knx.state.waiting_for_network": "Oczekiwanie na sieć",
-  "knx.state.error": "Błąd"
+  "knx.state.error": "Błąd",
+  "layout.pages.visible": "Widoczna na panelu",
+  "layout.pages.hidden": "Ukryta",
+  "layout.pages.visible_hint": "Zapisz, aby ukryć lub przywrócić tę stronę i jej kartę nawigacji. Ukryte strony zachowują zawartość i można je tutaj edytować."
 };

@@ -55,6 +55,15 @@ static void expect_entities(const cJSON *node, const char *key, const ha_layout_
 
 int main(void)
 {
+    /* Hidden pages remain valid stored pages; reject ambiguous visibility values. */
+    const char *values[] = {"true", "false", "null", "0", "\"false\"", "{}"};
+    for (size_t i = 0; i < sizeof(values) / sizeof(values[0]); i++) {
+        char json[256];
+        snprintf(json, sizeof(json), "{\"version\":1,\"pages\":[{\"id\":\"p\",\"visible\":%s,\"widgets\":[]}]}", values[i]);
+        layout_validation_result_t validation;
+        layout_validation_clear(&validation);
+        CHECK(layout_validate_json(json, &validation) == (i < 2), "visibility value %s", values[i]);
+    }
     char *text = read_file("tests/fixtures/backup_layout.json");
     if (text == NULL) { printf("cannot read tests/fixtures/backup_layout.json (run from the repository root)\n"); return 2; }
     cJSON *fixture = cJSON_Parse(text);
@@ -87,6 +96,29 @@ int main(void)
         ha_layout_entity_set_t set = { .ids = ids, .capacity = 160 };
         ha_layout_entities_collect(layout, &set);
         expect_entities(layout, NULL, &set, id != NULL ? id : "?");
+        /* Visibility must not discard content or entity subscriptions, including
+         * fixed house/energy pages and every widget in the backup fixture. */
+        for (int visible = 0; visible <= 1; visible++) {
+            cJSON *stored_page = cJSON_GetArrayItem(cJSON_GetObjectItemCaseSensitive(layout, "pages"), 0);
+            cJSON_DeleteItemFromObjectCaseSensitive(stored_page, "visible");
+            cJSON_AddBoolToObject(stored_page, "visible", visible != 0);
+            json = cJSON_PrintUnformatted(layout);
+            layout_validation_clear(&result);
+            CHECK(layout_validate_json(json, &result), "page %s visible=%d rejected", id, visible);
+            cJSON *reloaded = cJSON_Parse(json);
+            free(json);
+            CHECK(reloaded && cJSON_Compare(layout, reloaded, true), "page %s changed on reload", id);
+            cJSON_Delete(layout);
+            layout = reloaded;
+            if (layout == NULL) break;
+            memset(ids, 0, sizeof(ids));
+            set.count = 0;
+            ha_layout_entities_collect(layout, &set);
+            expect_entities(layout, NULL, &set, id != NULL ? id : "?");
+        }
+        cJSON *restored = cJSON_GetArrayItem(cJSON_GetObjectItemCaseSensitive(layout, "pages"), 0);
+        cJSON_DeleteItemFromObjectCaseSensitive(restored, "visible");
+        CHECK(cJSON_Compare(page, restored, true), "page %s content changed after restore", id);
         cJSON_Delete(layout);
     }
     cJSON_Delete(fixture);

@@ -2019,5 +2019,8 @@ WEB_I18N_BUILTIN["es"] = {
   "knx.state.starting": "Iniciando",
   "knx.state.running": "Routing activo (bus sin confirmar)",
   "knx.state.waiting_for_network": "Esperando red",
-  "knx.state.error": "Error"
+  "knx.state.error": "Error",
+  "layout.pages.visible": "Visible en el panel",
+  "layout.pages.hidden": "Oculta",
+  "layout.pages.visible_hint": "Guarda para ocultar o restaurar esta página y su pestaña de navegación. Las páginas ocultas conservan su contenido y se pueden editar aquí."
 };

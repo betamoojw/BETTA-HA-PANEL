@@ -41,3 +41,25 @@ test("Panel follows retries a page after HTTP rejection", async () => {
   run("syncPanelPage()");
   assert.equal(run("sent"), 2);
 });
+
+test("Panel follows skips a saved hidden page and resumes after restoring it", () => {
+  const { run } = loadEditor();
+  run(`followPageEnabled=()=>true; editor.selectedPageId='hidden';
+    savedLayoutSnapshot=JSON.stringify({pages:[{id:'hidden',visible:false}]});
+    globalThis.sent=0; globalThis.fetch=async()=>{sent++;return {ok:true};}; syncPanelPage();`);
+  assert.equal(run('sent'), 0);
+  run(`savedLayoutSnapshot=JSON.stringify({pages:[{id:'hidden',visible:true}]});syncPanelPage();`);
+  assert.equal(run('sent'), 1);
+});
+
+test("Panel follows forgets a previously shown page when it is hidden, then follows its restoration", () => {
+  const { run } = loadEditor();
+  run(`followPageEnabled=()=>true; editor.selectedPageId='living';
+    savedLayoutSnapshot=JSON.stringify({pages:[{id:'living'}]});
+    globalThis.sent=0; globalThis.fetch=async()=>{sent++;return {ok:true};}; syncPanelPage();`);
+  assert.equal(run('sent'), 1);
+  run(`savedLayoutSnapshot=JSON.stringify({pages:[{id:'living',visible:false}]});syncPanelPage();`);
+  assert.equal(run('sent'), 1);
+  run(`savedLayoutSnapshot=JSON.stringify({pages:[{id:'living',visible:true}]});syncPanelPage();`);
+  assert.equal(run('sent'), 2);
+});

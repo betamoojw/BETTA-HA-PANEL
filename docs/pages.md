@@ -80,6 +80,19 @@ larger text sizes open the popup instead, whatever the page setting says. Nothin
 
 ## Navigation and limits
 
+Select a page in the web editor and clear **Navigation → Visible on panel** to
+hide it. **Save** rebuilds the panel's pages and bottom bar immediately. Hidden
+pages stay marked **Hidden** in the editor; their widgets, settings, order and
+saved graph history are retained. Check the box and save to restore them.
+Local graphs do not collect new samples while their page is hidden. Their
+existing samples still follow the normal history retention limit.
+
+The panel skips hidden pages during automatic cycling and cannot open them via
+room links or remote navigation. If the current page is hidden, it shows the
+first visible page. If all pages are hidden, the dashboard and bottom tabs are
+empty; the top bar and web editor remain available. Existing pages default to
+visible. Hidden pages still count toward the saved page and widget limits.
+
 | | 4-inch panel | 10-inch and Tab5 (1280 px wide) |
 | --- | --- | --- |
 | Pages | up to **8** | up to **12** |

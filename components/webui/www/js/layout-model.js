@@ -1348,18 +1348,23 @@ function normalizeRoomExtra(target, primary, extras) {
 function effectivePageIcon(layout, index) {
   const key = typeof layout.pages[index].icon === "string" ? layout.pages[index].icon : "";
   if (key === "none") return "";
-  if (key === "") return index === 0 ? "room" : "";
+  if (key === "") {
+    if (isEnergyPage(layout.pages[index])) return "energy";
+    if (isHousePage(layout.pages[index])) return "house";
+    return layout.pages.findIndex(page => page.visible !== false) === index ? "room" : "";
+  }
   return key;
 }
 
 // What is wrong with one page's tab in a layout that needs the compact bar: "missing" (it would show its number) or "shared"
 // (another page has the same icon); "" when all is well or the bar is not compact.
 function navIconIssue(layout, index, fullPages) {
-  if (!layout || !Array.isArray(layout.pages) || layout.pages.length <= fullPages) return "";
+  if (!layout || !Array.isArray(layout.pages) || !layout.pages[index] || layout.pages[index].visible === false ||
+      layout.pages.filter(page => page.visible !== false).length <= fullPages) return "";
   const mine = effectivePageIcon(layout, index);
   if (mine === "") return "missing";
   for (let i = 0; i < layout.pages.length; i++) {
-    if (i !== index && effectivePageIcon(layout, i) === mine) return "shared";
+    if (i !== index && layout.pages[i].visible !== false && effectivePageIcon(layout, i) === mine) return "shared";
   }
   return "";
 }

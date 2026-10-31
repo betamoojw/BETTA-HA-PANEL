@@ -1106,6 +1106,7 @@ int main(int argc, char **argv)
     const cJSON *pages = cJSON_GetObjectItemCaseSensitive(root, "pages");
     const cJSON *page = NULL;
     cJSON_ArrayForEach(page, pages) {
+        if (cJSON_IsFalse(cJSON_GetObjectItemCaseSensitive(page, "visible"))) continue;
         if (page_id == NULL || strcmp(json_string(page, "id"), page_id) == 0) break;
     }
     if (!cJSON_IsObject(page)) {
@@ -1206,12 +1207,17 @@ int main(int argc, char **argv)
     {
         const cJSON *walk = NULL;
         int i = 0;
-        cJSON_ArrayForEach(walk, pages) { if (walk == page) selected_index = i; i++; }
+        cJSON_ArrayForEach(walk, pages) {
+            if (cJSON_IsFalse(cJSON_GetObjectItemCaseSensitive(walk, "visible"))) continue;
+            if (walk == page) selected_index = i;
+            i++;
+        }
     }
     const int first_nav_page = selected_index >= APP_MAX_PAGES ? selected_index - APP_MAX_PAGES + 1 : 0;
     const cJSON *nav_page = NULL;
     int nav_index = -1;
     cJSON_ArrayForEach(nav_page, pages) {
+        if (cJSON_IsFalse(cJSON_GetObjectItemCaseSensitive(nav_page, "visible"))) continue;
         if (++nav_index < first_nav_page) continue;
         lv_obj_t *container = ui_pages_add(json_string(nav_page, "id"), json_string(nav_page, "title"));
         if (container == NULL) continue;

@@ -148,6 +148,8 @@ function applyWebTranslations() {
   setTextById("applyPageBtn", "layout.pages.apply_title");
   setTextById("pageTitleLabel", "layout.pages.title_label");
   setTextById("pageIconLabel", "layout.pages.icon_label");
+  setTextById("pageVisibleLabel", "layout.pages.visible");
+  setTextById("pageVisibleHint", "layout.pages.visible_hint");
   setTextById("pageIconHint", "layout.pages.icon_hint");
   renderPageIconOptions();
   setTextById("pageInspectorHint", "layout.pages.inspector_hint");

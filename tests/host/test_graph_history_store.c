@@ -10,6 +10,32 @@
 #include "ui/graph_history_store.h"
 #include "util/atomic_file.h"
 #include "util/transfer_deadline.h"
+
+static void expect_file(const char *path, const void *expected, size_t length)
+{
+    FILE *file = fopen(path, "rb");
+    assert(file);
+    unsigned char *actual = malloc(length);
+    assert(actual);
+    assert(fread(actual, 1, length, file) == length);
+    assert(fgetc(file) == EOF && !ferror(file));
+    assert(fclose(file) == 0);
+    assert(memcmp(actual, expected, length) == 0);
+    free(actual);
+}
+
+/* The worker reads the saved layout again, after the page has been hidden. */
+static cJSON *reload_layout(cJSON *layout)
+{
+    char *json = cJSON_PrintUnformatted(layout);
+    assert(json);
+    cJSON *reloaded = cJSON_Parse(json);
+    free(json);
+    assert(reloaded && cJSON_Compare(layout, reloaded, true));
+    cJSON_Delete(layout);
+    return reloaded;
+}
+
 int main(void)
 {
     char directory[] = "/tmp/betta-graph-store-XXXXXX";
@@ -30,6 +56,28 @@ int main(void)
     assert(access(orphan,F_OK) == 0);
     assert(graph_history_store_cleanup(directory,layout) == ESP_OK);
     assert(access(retained,F_OK) == 0 && access(orphan,F_OK) != 0 && access(temp,F_OK) != 0 && access(unrelated,F_OK) == 0);
+    /* Binary snapshots, including zero bytes, survive hide/save/reload/restore.
+     * This layout has no visible pages while hidden. A queued final snapshot
+     * from widget teardown must still be accepted against that saved layout. */
+    static const unsigned char snapshot[] = {0x48, 0x50, 0x52, 0x47, 0, 1, 0, 0, 0x81, 0xff};
+    for (int cycle = 0; cycle < 2; cycle++) {
+        cJSON *page = cJSON_GetArrayItem(cJSON_GetObjectItemCaseSensitive(layout, "pages"), 0);
+        cJSON_DeleteItemFromObjectCaseSensitive(page, "visible");
+        assert(cJSON_AddBoolToObject(page, "visible", false));
+        layout = reload_layout(layout);
+        assert(graph_history_store_cleanup(directory, layout) == ESP_OK);
+        expect_file(retained, "old", 3);
+        assert(graph_history_store_save(directory, pending, layout, snapshot, sizeof(snapshot), 4*1024*1024, 3) == ESP_OK);
+        assert(graph_history_store_cleanup(directory, layout) == ESP_OK);
+        expect_file(pending, snapshot, sizeof(snapshot));
+        page = cJSON_GetArrayItem(cJSON_GetObjectItemCaseSensitive(layout, "pages"), 0);
+        assert(cJSON_ReplaceItemInObjectCaseSensitive(page, "visible", cJSON_CreateBool(true)));
+        layout = reload_layout(layout);
+        assert(graph_history_store_cleanup(directory, layout) == ESP_OK);
+        expect_file(retained, "old", 3);
+        expect_file(pending, snapshot, sizeof(snapshot));
+    }
+    assert(unlink(pending) == 0);
     assert(graph_history_store_save(directory,orphan,layout,"stale",5,4*1024*1024,0) == ESP_ERR_NOT_FOUND);
     assert(access(orphan,F_OK) != 0);
     assert(graph_history_store_save(directory,retained,layout,"new",3,4*1024*1024,4*1024*1024-512*1024) == ESP_ERR_NO_MEM);
@@ -56,6 +104,6 @@ int main(void)
     transfer_deadline_progress(&d,25000); assert(!transfer_deadline_expired(&d,54000));
     for(int64_t now=25000; now<180100; now+=10000) transfer_deadline_progress(&d,now);
     assert(transfer_deadline_expired(&d,180100));
-    puts("graph history store: quota, reserve, cleanup, stale jobs, atomic failure and transfer deadlines passed");
+    puts("graph history store: hide/restore bytes and queued saves, quota, reserve, cleanup, stale jobs, atomic failure and transfer deadlines passed");
     return 0;
 }

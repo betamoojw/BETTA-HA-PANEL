@@ -2,6 +2,7 @@
 // Copyright (c) 2026 andre68723 -- see docs/release-notes.md
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { loadEditor } from './load_editor.mjs';
 
 // Presentation is stubbed; real bindUi, model handlers, normalization, requests
@@ -34,7 +35,7 @@ function setup() {
     for (const key of Object.keys(el)) if (!Array.isArray(el[key])) el[key] = makeNode(key);
     for (const id of ['layoutUndoBtn', 'layoutRedoBtn', 'widgetActionsMenu', 'widgetTransferDialog',
       'widgetTransferTitle', 'widgetTransferName', 'widgetTransferPageLabel', 'widgetTransferPage',
-      'widgetTransferCancel', 'widgetTransferConfirm', 'widgetTransferError']) nodes[id] = makeNode(id);
+      'widgetTransferCancel', 'widgetTransferConfirm', 'widgetTransferError', 'pageVisible']) nodes[id] = makeNode(id);
     nodes.widgetTransferPage.tagName = 'SELECT';
     nodes.widgetTransferDialog.children = [nodes.widgetTransferPage, nodes.widgetTransferCancel, nodes.widgetTransferConfirm];
     document.getElementById = id => nodes[id] || el[id] || null;
@@ -79,6 +80,80 @@ function setup() {
   return run;
 }
 const state = run => JSON.parse(run('layoutSnapshot()'));
+
+test('page visibility event saves and reloads without losing content, including fixed pages and undo', async () => {
+  const run = setup();
+  const house = JSON.parse(readFileSync(new URL('../fixtures/backup_layout.json', import.meta.url), 'utf8'))
+    .pages.find(page => page.type === 'house_dashboard');
+  run(`editor.layout.pages.push(${JSON.stringify(house)});renderAll();clearDirty();layoutHistoryReset();`);
+  run(`editor.selectedWidgetId=null;
+    globalThis.originalPages=JSON.stringify(editor.layout.pages);
+    nodes.pageVisible.checked=false; nodes.pageVisible.dispatch('change');`);
+  assert.equal(run('selectedPage().visible'), false);
+  assert.equal(run('editor.dirty'), true);
+  run('nodes.layoutUndoBtn.click()');
+  assert.equal(run('JSON.stringify(editor.layout.pages)'), run('originalPages'));
+  run('nodes.layoutRedoBtn.click()');
+  await run('saveLayout()');
+  await run('loadLayout()');
+  assert.equal(run('editor.layout.pages[0].visible'), false);
+  assert.equal(run('JSON.stringify(editor.layout.pages[0].widgets)'), run('JSON.stringify(JSON.parse(originalPages)[0].widgets)'));
+  run(`editor.selectedPageId='one'; nodes.pageVisible.checked=true; nodes.pageVisible.dispatch('change');`);
+  await run('saveLayout()');
+  await run('loadLayout()');
+  assert.equal(run('editor.layout.pages[0].visible'), true);
+  run('delete editor.layout.pages[0].visible');
+  assert.equal(run('JSON.stringify(editor.layout.pages)'), run('originalPages'));
+  run(`for (const page of editor.layout.pages) {
+    editor.selectedPageId=page.id; nodes.pageVisible.checked=false; nodes.pageVisible.dispatch('change');
+  }`);
+  await run('saveLayout()');
+  await run('loadLayout()');
+  assert.equal(run('editor.layout.pages.every(page=>page.visible===false)'), true);
+  run(`for (const page of editor.layout.pages) {
+    editor.selectedPageId=page.id; nodes.pageVisible.checked=true; nodes.pageVisible.dispatch('change');
+  }`);
+  await run('saveLayout()');
+  await run('loadLayout()');
+  run('editor.layout.pages.forEach(page=>delete page.visible)');
+  assert.equal(run('JSON.stringify(editor.layout.pages)'), run('originalPages'));
+});
+
+test('hidden pages keep saved limits but do not consume navigation slots or icons', () => {
+  const run = setup();
+  run(`editor.layout.pages=Array.from({length:8},(_,i)=>({id:'p'+i,widgets:[],icon:i===0?'room':'light'}));
+    editor.layout.pages[0].visible=false; delete editor.layout.pages[1].icon;`);
+  assert.equal(run('pageIconKey(editor.layout.pages[1])'), 'room');
+  assert.equal(run('navIconIssue(editor.layout,0,5)'), '');
+  assert.equal(run('navIconIssue(editor.layout,1,5)'), '');
+  assert.equal(run('navIconIssue(editor.layout,2,5)'), 'shared');
+  run('editor.layout.pages.slice(5).forEach(page=>page.visible=false)');
+  assert.equal(run('navIconIssue(editor.layout,2,5)'), '');
+  run('editor.layout.pages[1].visible="false"');
+  assert.throws(()=>run('validateLayoutStructure(editor.layout)'));
+  run('editor.layout.pages=Array.from({length:13},(_,i)=>({id:"p"+i,visible:false,widgets:[]}))');
+  assert.throws(()=>run('validateLayoutStructure(editor.layout)'), /12/);
+});
+
+test('visibility saves allow panel following to resume for the same restored page', async () => {
+  const run = setup();
+  run(`followPageEnabled=()=>true;
+    globalThis.layoutFetch=fetch;globalThis.navigation=[];
+    globalThis.fetch=async(url,options)=>{
+      if(url==='/api/navigate'){navigation.push(JSON.parse(options.body).page);return {ok:true};}
+      return layoutFetch(url,options);
+    };renderAll();`);
+  assert.equal(run('JSON.stringify(navigation)'), '["one"]');
+  run(`nodes.pageVisible.checked=false;nodes.pageVisible.dispatch('change');`);
+  await run('saveLayout()');
+  run('renderAll()');
+  assert.equal(run('JSON.stringify(navigation)'), '["one"]');
+  run(`nodes.pageVisible.checked=true;nodes.pageVisible.dispatch('change');`);
+  assert.equal(run('JSON.stringify(navigation)'), '["one"]');
+  await run('saveLayout()');
+  run('renderAll()');
+  assert.equal(run('JSON.stringify(navigation)'), '["one","one"]');
+});
 
 test('failed HTTP reload retains edits, selection and undo; successful reload resets them', async () => {
   const run = setup();

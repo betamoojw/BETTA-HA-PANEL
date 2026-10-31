@@ -2019,5 +2019,8 @@ WEB_I18N_BUILTIN["zh-cn"] = {
   "knx.state.starting": "正在启动",
   "knx.state.running": "路由已启动（尚未确认总线连接）",
   "knx.state.waiting_for_network": "等待网络连接",
-  "knx.state.error": "错误"
+  "knx.state.error": "错误",
+  "layout.pages.visible": "在面板上显示",
+  "layout.pages.hidden": "已隐藏",
+  "layout.pages.visible_hint": "保存后隐藏或恢复此页面及其底部导航项。隐藏的页面会保留内容，仍可在此编辑。"
 };

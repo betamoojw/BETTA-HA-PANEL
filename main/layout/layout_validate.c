@@ -1346,6 +1346,11 @@ bool layout_validate_json(const char *json, layout_validation_result_t *result)
         char msg[96];
         bool is_energy_dashboard_page = false;
         bool is_house_page = false;
+        const cJSON *visible = cJSON_GetObjectItemCaseSensitive(page, "visible");
+        if (visible != NULL && !cJSON_IsBool(visible)) {
+            snprintf(msg, sizeof(msg), "page[%u]: visible must be boolean", (unsigned)i);
+            layout_validation_add(result, msg);
+        }
 
         if (!cJSON_IsString(page_id) || page_id->valuestring == NULL || strlen(page_id->valuestring) == 0U) {
             snprintf(msg, sizeof(msg), "page[%u]: invalid id", (unsigned)i);

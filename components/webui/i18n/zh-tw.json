@@ -2015,5 +2015,8 @@
   "knx.state.starting": "正在啟動",
   "knx.state.running": "路由已啟動（尚未確認匯流排連線）",
   "knx.state.waiting_for_network": "等待網路連線",
-  "knx.state.error": "錯誤"
+  "knx.state.error": "錯誤",
+  "layout.pages.visible": "在面板上顯示",
+  "layout.pages.hidden": "已隱藏",
+  "layout.pages.visible_hint": "儲存後隱藏或恢復此頁面及其底部導覽項目。隱藏的頁面會保留內容，仍可在此編輯。"
 }

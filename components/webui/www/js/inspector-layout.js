@@ -119,6 +119,7 @@ function initInspectorLayout() {
     ["page_rooms", "layout.inspector.section_rooms"], ["page_navigation", "layout.inspector.section_navigation"]]) section(name, key);
   pageForm.prepend(...PAGE_SECTIONS.map(name => sections[name]));
   move("page_navigation", label(byId("pageIconSelect")), byId("pageIconHint"));
+  move("page_navigation", label(byId("pageVisible")), byId("pageVisibleHint"));
   const energyOptions = byId("energyPageOptions");
   const pageBattery = group("inspectorPageBattery", [byId("energyBatterySoc")], energyOptions);
   const batteryManual = make("div", "inspector-extra-fields");

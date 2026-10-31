@@ -49,6 +49,7 @@ forecast keeps it off, so it shows the running 24 hours until the buttons are sw
 
 ### Panel and editor
 
+- **Page visibility:** the page inspector's **Visible on panel** checkbox hides or restores a page and its bottom tab on Save. Hidden pages retain their content and saved graph history, stay editable and are skipped by panel navigation and cycling.
 - **Home Assistant connection:** the HA popup shows rejected access and offers **Reconnect**. Camera snapshots use the panel credential.
 - **ESP-Hosted 3.0.10:** a C6 on another firmware version is updated once after the first boot of this image, with one extra restart. Settings → Firmware lists the version the C6 reports; Device status hides the C6 memory row when its firmware has no memory monitor.
 - **10-inch JC panel:** short taps are no longer lost, and the screen rotates with the PPA again (an ESP-IDF driver bug is fixed in the firmware), freeing 17-34 % of one core.

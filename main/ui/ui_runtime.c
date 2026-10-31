@@ -1266,6 +1266,8 @@ static esp_err_t ui_runtime_apply_layout(const char *layout_json, const runtime_
     int page_count = cJSON_GetArraySize(pages);
     for (int p = 0; p < page_count; p++) {
         cJSON *page = cJSON_GetArrayItem(pages, p);
+        /* Keep hidden pages in storage (including graph history), not in the live UI. */
+        if (cJSON_IsFalse(cJSON_GetObjectItemCaseSensitive(page, "visible"))) continue;
         cJSON *page_id = cJSON_GetObjectItemCaseSensitive(page, "id");
         cJSON *page_title = cJSON_GetObjectItemCaseSensitive(page, "title");
         cJSON *page_type = cJSON_GetObjectItemCaseSensitive(page, "type");

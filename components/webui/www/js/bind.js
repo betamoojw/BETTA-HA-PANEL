@@ -36,6 +36,15 @@ function bindUi() {
   el.deletePageBtn.onclick = deletePage;
   el.applyPageBtn.onclick = applyPageName;
   const pageIconSelect = document.getElementById("pageIconSelect");
+  const pageVisible = document.getElementById("pageVisible");
+  if (pageVisible) {
+    pageVisible.addEventListener("change", () => {
+      const page = selectedPage();
+      if (!page) return;
+      page.visible = pageVisible.checked;
+      renderAll();
+    });
+  }
   if (pageIconSelect) {
     pageIconSelect.addEventListener("change", () => {
       const page = selectedPage();

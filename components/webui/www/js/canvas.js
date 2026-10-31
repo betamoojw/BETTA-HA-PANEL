@@ -171,7 +171,7 @@ function renderPages() {
 
     const label = document.createElement("span");
     const badge = pageIconEmoji(page);
-    label.textContent = `${badge ? badge + " " : ""}${page.title || page.id}`;
+    label.textContent = `${badge ? badge + " " : ""}${page.title || page.id}${page.visible === false ? " · " + t("layout.pages.hidden") : ""}`;
     label.title = `[${page.id}] ${isEnergyPage(page) ? "energy" : (isHousePage(page) ? "house" : "page")}`;
     label.className = "list-item-label";
     li.appendChild(label);
@@ -271,7 +271,7 @@ function renderPagesMini() {
     button.type = "button";
     button.className = `mini-page-btn ${page.id === editor.selectedPageId ? "active" : ""}`;
     const badge = pageIconEmoji(page);
-    button.textContent = `${badge ? badge + " " : ""}${page.title || page.id}`;
+    button.textContent = `${badge ? badge + " " : ""}${page.title || page.id}${page.visible === false ? " · " + t("layout.pages.hidden") : ""}`;
     button.title = `${page.title || page.id} [${page.id}]`;
     button.onclick = () => {
       editor.selectedPageId = page.id;
@@ -355,6 +355,11 @@ function updateInspectorPanels() {
   const heading = document.getElementById("pageInspectorHeading");
   const page = selectedPage();
   const iconSelect = document.getElementById("pageIconSelect");
+  const visible = document.getElementById("pageVisible");
+  if (visible) {
+    visible.checked = !!page && page.visible !== false;
+    visible.disabled = !page;
+  }
   if (iconSelect && page) iconSelect.value = typeof page.icon === "string" ? page.icon : "";
   const navWarning = document.getElementById("pageNavWarning");
   if (navWarning) {
@@ -1321,10 +1326,14 @@ function followPageEnabled() {
 
 function syncPanelPage() {
   const id = editor.selectedPageId;
-  if (!followPageEnabled() || !id || id === followPageSent) return;
+  if (!followPageEnabled() || !id) return;
   let saved = null;
   try { saved = savedLayoutSnapshot ? JSON.parse(savedLayoutSnapshot) : null; } catch (_) { saved = null; }
-  if (!saved?.pages?.some(page => page?.id === id)) return;
+  if (!saved?.pages?.some(page => page?.id === id && page.visible !== false)) {
+    if (followPageSent === id) followPageSent = null;
+    return;
+  }
+  if (id === followPageSent) return;
   followPageSent = id;
   fetch("/api/navigate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ page: id }) })
     .then(response => { if (!response.ok && followPageSent === id) followPageSent = null; })

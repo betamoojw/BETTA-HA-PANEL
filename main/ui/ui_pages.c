@@ -303,7 +303,7 @@ static void ui_pages_apply_tab_style(uint16_t selected_index)
     lv_obj_set_size(s_nav_home_button, home.w, nav_btn_h);
     lv_obj_set_pos(s_nav_home_button, home.x, nav_btn_y);
     ui_pages_style_nav_button(s_nav_home_button, s_nav_home_label, (selected_index == 0), true);
-    lv_obj_set_hidden(s_nav_home_button, false);
+    lv_obj_set_hidden(s_nav_home_button, s_page_count == 0);
 
     uint16_t slot = 0;
     for (uint16_t page_index = 1; page_index < s_page_count && page_index < NAV_MAX_TABS && slot < (APP_MAX_PAGES - 1);

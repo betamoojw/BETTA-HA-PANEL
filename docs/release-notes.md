@@ -22,6 +22,8 @@ All features and the partition layout are retained; the restored C6 image is ver
   checksum-verified MultiNet resource avoids changing the flash partitions.
 - Ni hao Xiao Zhi, Hi ESP and Jarvis presets are also selectable. Disabling the
   assistant retains the selected phrase; custom input failures retain the previous choice.
+- Spanish, French and Polish now translate the wake-phrase controls, pinyin
+  guidance, model installation and save/error messages, including offline use.
 
 ### Widgets: new and changed
 

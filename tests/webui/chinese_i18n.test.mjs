@@ -20,7 +20,7 @@ const englishSource = store.match(/static const char \*I18N_BUILTIN_EN\s*=\s*((?
 const english = flatten(JSON.parse([...englishSource.matchAll(/"(?:\\.|[^"\\])*"/g)].map(m => JSON.parse(m[0])).join('')).lvgl);
 
 for (const code of ['es', 'fr', 'pl', 'zh-cn', 'zh-tw']) {
-  test(`${code}: every current browser key and interpolation is translated`, () => {
+  test(`${code}: every current browser key and interpolation is present`, () => {
     const source = JSON.parse(read(`components/webui/i18n/${code}.json`));
     assert.deepEqual(catalogs[code], source);
     assert.deepEqual(Object.keys(source).sort(), Object.keys(catalogs.en).sort());
@@ -54,7 +54,7 @@ for (const code of ['es', 'fr', 'pl', 'zh-cn', 'zh-tw']) {
 }
 
 
-for (const lang of ['zh-cn', 'zh-tw']) {
+for (const lang of ['es', 'fr', 'pl', 'zh-cn', 'zh-tw']) {
   test(`${lang}: local Xiaozhi translations survive unavailable translation APIs`, async () => {
     const requests = [];
     const sandbox = vm.createContext({
@@ -73,7 +73,9 @@ for (const lang of ['zh-cn', 'zh-tw']) {
     assert.equal(sandbox.document.documentElement.lang, lang);
     for (const key of Object.keys(catalogs.en).filter(key => key.startsWith('xiaozhi.'))) {
       assert.equal(sandbox.editor.i18nMap[key], catalogs[lang][key], key);
-      assert.match(sandbox.editor.i18nMap[key], /\p{Script=Han}/u, key);
+      if (lang.startsWith('zh-')) assert.match(sandbox.editor.i18nMap[key], /\p{Script=Han}/u, key);
+      // Brand names can match English; user-facing instructions and states cannot.
+      if (key !== 'xiaozhi.title') assert.notEqual(sandbox.editor.i18nMap[key], catalogs.en[key], key);
     }
     const panel = JSON.parse(read(`main/i18n/${lang}.json`)).lvgl.xiaozhi;
     assert.equal(panel.title, catalogs[lang]['xiaozhi.title']);

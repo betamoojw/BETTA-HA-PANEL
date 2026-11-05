@@ -87,3 +87,4 @@ main/idf_component.yml
 !tools/pack_xiaozhi_model.py
 !tools/prepare_custom_wake_model.py
 !tools/install_custom_wake_model.py
+!tools/pack_lvgl_images.py

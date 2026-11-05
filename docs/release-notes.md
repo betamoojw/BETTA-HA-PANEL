@@ -14,6 +14,8 @@ are retained; new upstream labels fall back to English until their additional-la
 Late weather detail responses are discarded safely after their popup closes, including responses already queued for the UI task.
 The combined `panel10` build fits its existing 6.5 MiB OTA slot by losslessly compressing the bundled C6 updater.
 All features and the partition layout are retained; the restored C6 image is verified before transfer.
+Panel10 additionally packs notification and light-control bitmaps losslessly,
+freeing application space while retaining every image, setting and data partition.
 
 ### Xiaozhi AI
 

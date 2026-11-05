@@ -22,3 +22,39 @@ Firmware uses the shared runtime font manager. If a new panel translation needs
 a character absent from `main/ui/fonts/cjk_codepoints.txt`, regenerate the
 manifest and Noto subset as described in `main/ui/fonts/README.md`.
 Changing a translation never changes a user's saved title or entity name.
+
+## v0.9.1 translation coverage
+
+All seven languages have 2,031 browser keys and 732 panel keys. The Spanish,
+French, Polish, Simplified Chinese and Traditional Chinese catalogs now localize
+the v0.9.1 additions: entity selection and source validation, stock/portfolio and
+price widgets, device classes, previews, memory diagnostics, appearance, history,
+connection feedback and printer states. The wake-phrase correction adds 12
+Spanish, French and Polish strings per language, including offline feedback.
+
+Compared with the wake-phrase correction at `ac8f6197`, this follow-up changes:
+
+| Language | Browser values | Panel values |
+| --- | ---: | ---: |
+| Spanish | 354 | 160 |
+| French | 345 | 162 |
+| Polish | 348 | 160 |
+| Simplified Chinese | 360 | 168 |
+| Traditional Chinese | 360 | 168 |
+
+The portfolio preview uses es-ES, fr-FR, pl-PL, zh-CN and zh-TW number locales.
+Context corrections distinguish current data from electrical current, minimum
+prices from minutes, stock variation from an edit action, and low battery states
+from minimum values.
+Technical keys, interpolation fields, printf argument order, entity IDs and
+executable YAML examples remain intact. No recognition, networking or saved-data
+logic changes. The shared UI font subset adds 115 characters for translated
+panel labels; it contains 917 codepoints and retains the existing glyphs.
+
+`tests/webui/i18n_shared_values.json` records the reviewed English-equal values:
+product/protocol names, units, domain identifiers, native language names, code
+examples and valid shared words such as French "Mode" or Spanish "Error".
+The existing catalog tests now reject other English-equal browser and panel
+values. This detects copied English placeholders in new labels; it does not
+replace semantic review or detect every partially translated sentence. Do not
+expand the allowlist merely to make a new untranslated label pass.

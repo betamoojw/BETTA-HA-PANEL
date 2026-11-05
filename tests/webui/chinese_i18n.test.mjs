@@ -18,9 +18,19 @@ const flatten = (obj, prefix = '') => Object.fromEntries(Object.entries(obj).fla
 const store = read('main/settings/i18n_store.c');
 const englishSource = store.match(/static const char \*I18N_BUILTIN_EN\s*=\s*((?:"(?:\\.|[^"\\])*"\s*)+);/)[1];
 const english = flatten(JSON.parse([...englishSource.matchAll(/"(?:\\.|[^"\\])*"/g)].map(m => JSON.parse(m[0])).join('')).lvgl);
+const sharedValues = JSON.parse(read('tests/webui/i18n_shared_values.json')).values;
 
 for (const code of ['es', 'fr', 'pl', 'zh-cn', 'zh-tw']) {
-  test(`${code}: every current browser key and interpolation is translated`, () => {
+  test(`${code}: browser and panel English-equal values have been reviewed`, () => {
+    const allowed = new Set(sharedValues.filter(entry => entry.languages.includes(code)).map(entry => entry.text));
+    const panel = flatten(JSON.parse(read(`main/i18n/${code}.json`)).lvgl);
+    for (const [area, values, reference] of [['browser', catalogs[code], catalogs.en], ['panel', panel, english]]) {
+      for (const [key, value] of Object.entries(values)) {
+        if (value && value === reference[key]) assert.ok(allowed.has(value), `${area} ${key}: untranslated ${value}`);
+      }
+    }
+  });
+  test(`${code}: every current browser key and interpolation is present`, () => {
     const source = JSON.parse(read(`components/webui/i18n/${code}.json`));
     assert.deepEqual(catalogs[code], source);
     assert.deepEqual(Object.keys(source).sort(), Object.keys(catalogs.en).sort());
@@ -53,8 +63,35 @@ for (const code of ['es', 'fr', 'pl', 'zh-cn', 'zh-tw']) {
   });
 }
 
+test('number locales, current-data labels and minimum values match their language and context', () => {
+  for (const [code, locale, current, amperage] of [
+    ['es', 'es-ES', 'Actual', 'Corriente'], ['fr', 'fr-FR', 'Actuel', 'Courant'],
+    ['pl', 'pl-PL', 'Aktualne', 'Prąd'], ['zh-cn', 'zh-CN', '最新', '电流'], ['zh-tw', 'zh-TW', '最新', '電流'],
+  ]) {
+    assert.equal(catalogs[code]['preview.parqet.locale'], locale);
+    assert.equal(new Intl.NumberFormat(catalogs[code]['preview.parqet.locale']).resolvedOptions().locale, locale);
+    assert.equal(catalogs[code]['settings.status.c6_fresh'], current);
+    assert.equal(catalogs[code]['device_class.current'], amperage);
+  }
+  for (const code of ['zh-cn', 'zh-tw']) {
+    const panel = JSON.parse(read(`main/i18n/${code}.json`)).lvgl;
+    assert.equal(panel.price.min, '最低');
+    assert.equal(panel.graph.min, '最低');
+    assert.equal(panel.sensor.dur.min, code === 'zh-cn' ? '分钟' : '分鐘');
+  }
+  for (const [code, change, low] of [
+    ['es', 'Variación', 'Bajo'], ['fr', 'Variation', 'Faible'], ['pl', 'Zmiana', 'Niski'],
+    ['zh-cn', '变动', '低'], ['zh-tw', '變動', '低'],
+  ]) {
+    const panel = JSON.parse(read(`main/i18n/${code}.json`)).lvgl;
+    assert.equal(catalogs[code]['layout.inspector.stock_delta'], change);
+    assert.equal(catalogs[code]['preview.binary_state.low'], low);
+    assert.equal(panel.binary.low, low);
+  }
+});
 
-for (const lang of ['zh-cn', 'zh-tw']) {
+
+for (const lang of ['es', 'fr', 'pl', 'zh-cn', 'zh-tw']) {
   test(`${lang}: local Xiaozhi translations survive unavailable translation APIs`, async () => {
     const requests = [];
     const sandbox = vm.createContext({
@@ -73,7 +110,9 @@ for (const lang of ['zh-cn', 'zh-tw']) {
     assert.equal(sandbox.document.documentElement.lang, lang);
     for (const key of Object.keys(catalogs.en).filter(key => key.startsWith('xiaozhi.'))) {
       assert.equal(sandbox.editor.i18nMap[key], catalogs[lang][key], key);
-      assert.match(sandbox.editor.i18nMap[key], /\p{Script=Han}/u, key);
+      if (lang.startsWith('zh-')) assert.match(sandbox.editor.i18nMap[key], /\p{Script=Han}/u, key);
+      // Brand names can match English; user-facing instructions and states cannot.
+      if (key !== 'xiaozhi.title') assert.notEqual(sandbox.editor.i18nMap[key], catalogs.en[key], key);
     }
     const panel = JSON.parse(read(`main/i18n/${lang}.json`)).lvgl.xiaozhi;
     assert.equal(panel.title, catalogs[lang]['xiaozhi.title']);

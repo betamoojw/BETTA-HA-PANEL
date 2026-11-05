@@ -13,6 +13,9 @@
 #define LV_USE_SDL 1
 #define LV_SDL_DIRECT_EXIT 1
 #define LV_USE_LODEPNG 1
+#define LV_USE_LZ4 1
+#define LV_USE_LZ4_INTERNAL 1
+#define LV_BIN_DECODER_RAM_LOAD 1
 #define LV_USE_IMGFONT 1 /* the notification popup draws a few color emoji (ui/notification_emoji.c) */
 #define LV_USE_SNAPSHOT 1
 #define LV_USE_GIF 1

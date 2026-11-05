@@ -102,6 +102,37 @@ and possible levers:
   easter egg used it here; the animated weather icons of upstream release images have no assets in this repository,
   `main/ui/weather_icons/UPSTREAM_LINK.txt`).
 
+## Panel10 bitmap compression
+
+The panel10 build losslessly compresses the 148 notification emoji bitmaps and
+three light-control images with LZ4. All 151 images keep their dimensions,
+RGB565/A8 pixels and transparency. `tools/pack_lvgl_images.py` uses only Python's
+standard library and emits build-only C files; the maintained image sources and
+their attribution stay unchanged. Other firmware profiles retain their raw images.
+
+These payloads shrink from 460,224 to 183,667 bytes before decoder code and
+flash alignment. LVGL's built-in safe decoder expands an image when needed and
+releases the temporary buffer when decoding closes. The largest raw image is
+91,200 bytes; allocations follow the existing PSRAM-first LVGL policy. No model,
+font, language, camera, voice, update or crash-diagnostic feature is removed.
+No partition is moved or resized, and no resource is written to LittleFS.
+
+Measured on the Waveshare ESP32-P4-WIFI6-Touch-LCD-10.1 on 2026-11-01
+(ESP-IDF 6.1, ELF `f8f546107`): the app is 6,532,048 bytes instead of
+6,806,096 bytes, leaving 283,696 bytes (277.0 KiB) in the unchanged 6.5 MiB
+slot instead of 9,648 bytes (9.4 KiB). Application-only USB flashing on COM24
+passed image verification and full-region checksums for unchanged metadata/NVS,
+coredump and LittleFS before boot. After boot, the running build passed OTA
+validation; saved layout/settings, HA connection, camera and wake-engine
+readiness were checked, along with a notification containing all 37 emoji.
+The owner confirmed normal display, touch and voice wake.
+This is a bounded panel10 check, not qualification of other boards.
+
+Run `python -m unittest discover -s tests/tools -p test_pack_lvgl_images.py`
+for encoder boundaries and full payload checks. The simulator CTest
+`lossless-image-compression` independently uses the real LVGL decoder and
+compares raw/packed rendering on light and dark backgrounds for every image.
+
 ## Crash diagnostics (coredump partition)
 
 `panel4` and `panel10` have a `coredump` partition (`config/partitions.csv`) and `CONFIG_ESP_COREDUMP_ENABLE_TO_FLASH`:

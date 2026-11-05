@@ -154,6 +154,22 @@ if(NOT APP_GEN_COMPONENT_VERSIONS_RESULT EQUAL 0)
 ")
 endif()
 
+# Keep panel10 images embedded, but use LVGL's lossless on-demand decoder.
+set(NOTIFICATION_EMOJI_SOURCE "${CMAKE_CURRENT_LIST_DIR}/ui/fonts/notification_emoji_data.c")
+if(CONFIG_APP_PANEL_VARIANT_10INCH_1280)
+    if(NOT CONFIG_LV_USE_LZ4 OR NOT CONFIG_LV_USE_LZ4_INTERNAL OR NOT CONFIG_LV_BIN_DECODER_RAM_LOAD)
+        message(FATAL_ERROR "panel10 requires LV_USE_LZ4, LV_USE_LZ4_INTERNAL and LV_BIN_DECODER_RAM_LOAD; regenerate its sdkconfig from defaults")
+    endif()
+    set(PACKED_IMAGES_DIR "${CMAKE_CURRENT_BINARY_DIR}/packed_images")
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+        "${PROJECT_DIR}/tools/pack_lvgl_images.py" "${NOTIFICATION_EMOJI_SOURCE}"
+        "${CMAKE_CURRENT_LIST_DIR}/ui/assets/Temp.c" "${CMAKE_CURRENT_LIST_DIR}/ui/assets/RGB.c"
+        "${CMAKE_CURRENT_LIST_DIR}/ui/assets/visiblecolor.c")
+    execute_process(COMMAND ${PYTHON} "${PROJECT_DIR}/tools/pack_lvgl_images.py"
+        --output-dir "${PACKED_IMAGES_DIR}" COMMAND_ERROR_IS_FATAL ANY)
+    set(NOTIFICATION_EMOJI_SOURCE "${PACKED_IMAGES_DIR}/notification_emoji_data.c")
+endif()
+
 # Recompile build_stamp.c on every build so /api/version reports the real build time.
 idf_component_register(
     SRCS
@@ -383,7 +399,7 @@ idf_component_register(
         "ui/notification_markup.c"
         "ui/notification_message.c"
         "ui/notification_emoji.c"
-        "ui/fonts/notification_emoji_data.c"
+        "${NOTIFICATION_EMOJI_SOURCE}"
         "ui/text_scale.c"
         "ui/theme/theme_default.c"
         "ui/theme/theme_palette.c"
@@ -662,6 +678,11 @@ target_compile_definitions(${COMPONENT_LIB} PRIVATE APP_HAVE_WEATHER_PNG_ICONS=$
 set(LIGHT_TEMP_BUTTON_IMAGE_SOURCE "${CMAKE_CURRENT_LIST_DIR}/ui/assets/Temp.c")
 set(LIGHT_RGB_BUTTON_IMAGE_SOURCE "${CMAKE_CURRENT_LIST_DIR}/ui/assets/RGB.c")
 set(LIGHT_RGB_SLIDER_IMAGE_SOURCE "${CMAKE_CURRENT_LIST_DIR}/ui/assets/visiblecolor.c")
+if(CONFIG_APP_PANEL_VARIANT_10INCH_1280)
+    set(LIGHT_TEMP_BUTTON_IMAGE_SOURCE "${PACKED_IMAGES_DIR}/Temp.c")
+    set(LIGHT_RGB_BUTTON_IMAGE_SOURCE "${PACKED_IMAGES_DIR}/RGB.c")
+    set(LIGHT_RGB_SLIDER_IMAGE_SOURCE "${PACKED_IMAGES_DIR}/visiblecolor.c")
+endif()
 set(LIGHT_COLOR_BUTTON_IMAGES_AVAILABLE 0)
 set(LIGHT_RGB_SLIDER_IMAGE_AVAILABLE 0)
 if(EXISTS "${LIGHT_TEMP_BUTTON_IMAGE_SOURCE}" AND EXISTS "${LIGHT_RGB_BUTTON_IMAGE_SOURCE}")

@@ -31,6 +31,12 @@ and releases the buffer on completion or failure. Other profiles retain their ex
 Regression checks: `python -m unittest discover -s tests/tools -p test_pack_c6_image.py` and `tools/test_host.sh`
 (the native decoder checks need zlib development files, or the fetched zlib component).
 
+Panel10 also generates lossless LZ4 versions of notification/light bitmaps during
+configuration. It requires `CONFIG_LV_USE_LZ4`, `CONFIG_LV_USE_LZ4_INTERNAL` and
+`CONFIG_LV_BIN_DECODER_RAM_LOAD`, enabled by its defaults. For an existing build,
+back up its sdkconfig and regenerate from the maintained defaults. Compare
+any previous local overrides before flashing. See [bitmap storage](../hardware/storage.md#panel10-bitmap-compression).
+
 ## Build and flash a variant
 
 ```bash

@@ -14,8 +14,8 @@ are retained; the v0.9.1 interface additions are localized in Spanish, French, P
 Late weather detail responses are discarded safely after their popup closes, including responses already queued for the UI task.
 The `panel10` build losslessly compresses the bundled C6 updater.
 All features and the partition layout are retained; the restored C6 image is verified before transfer.
-The expanded translation/font resources currently exceed the 6.5 MiB OTA slot by 27.2 KiB;
-the pending image-storage optimization must be integrated and the combined build checked before release.
+Panel10 additionally packs notification and light-control bitmaps losslessly,
+freeing application space while retaining every image, setting and data partition.
 
 ### Xiaozhi AI
 

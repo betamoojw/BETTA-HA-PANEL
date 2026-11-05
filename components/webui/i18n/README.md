@@ -23,46 +23,38 @@ a character absent from `main/ui/fonts/cjk_codepoints.txt`, regenerate the
 manifest and Noto subset as described in `main/ui/fonts/README.md`.
 Changing a translation never changes a user's saved title or entity name.
 
-## v0.9.1 translation audit
+## v0.9.1 translation coverage
 
-Audit of `dev` at `728d3484` on 2026-11-01, with this wake-phrase correction:
-all seven languages have exactly 2,031 browser keys and 732 panel keys, with no
-missing or extra keys. Key completeness does not establish translation completeness.
-The Spanish, French and Polish catalogs each had 12 English wake-phrase strings;
-these are now translated, with the generated JavaScript updated alongside the JSON.
-The offline-loader regression rejects English Xiaozhi instructions/status messages
-while allowing the unchanged product name. Voice recognition code is unchanged.
+All seven languages have 2,031 browser keys and 732 panel keys. The Spanish,
+French, Polish, Simplified Chinese and Traditional Chinese catalogs now localize
+the v0.9.1 additions: entity selection and source validation, stock/portfolio and
+price widgets, device classes, previews, memory diagnostics, appearance, history,
+connection feedback and printer states. The wake-phrase correction adds 12
+Spanish, French and Polish strings per language, including offline feedback.
 
-Compared with the first parent of merge `d77b053`, the audited dev revision adds
-454 browser keys, including later page-visibility and wake-phrase additions.
-The following exact-English comparisons are review candidates, **not counts of
-translation defects**: units, brands, technical identifiers and cognates can match.
-The panel column compares the entire current panel catalog, not just new keys.
+Compared with the wake-phrase correction at `ac8f6197`, this follow-up changes:
 
-| Language | New browser values equal to English | Panel values equal to English |
+| Language | Browser values | Panel values |
 | --- | ---: | ---: |
-| English | Reference | Reference |
-| German | 32 | 54 |
-| Spanish | 374 | 195 |
-| French | 375 | 204 |
-| Polish | 372 | 197 |
-| Simplified Chinese | 368 | 175 |
-| Traditional Chinese | 368 | 175 |
+| Spanish | 354 | 160 |
+| French | 345 | 162 |
+| Polish | 348 | 160 |
+| Simplified Chinese | 360 | 168 |
+| Traditional Chinese | 360 | 168 |
 
-Confirmed remaining English text in all five additional-language catalogs includes:
+The portfolio preview uses es-ES, fr-FR, pl-PL, zh-CN and zh-TW number locales.
+Context corrections distinguish current data from electrical current, minimum
+prices from minutes, stock variation from an edit action, and low battery states
+from minimum values.
+Technical keys, interpolation fields, printf argument order, entity IDs and
+executable YAML examples remain intact. No recognition, networking or saved-data
+logic changes. The shared UI font subset adds 115 characters for translated
+panel labels; it contains 917 codepoints and retains the existing glyphs.
 
-| Area | Browser keys to translate |
-| --- | --- |
-| Entity selection and validation | `entity_picker.rule_numeric`, `entity_source.invalid_summary_many`, `entity_source.price_help` |
-| New widgets and Inspector help | `layout.widgets.add_stock_quotes`, `layout.inspector.stock_hint`, `inspector.help.widget_parqet_portfolio` |
-| Device classes and previews | `device_class.signal_strength`, `preview.sensor.tomorrow`, `preview.weather.report` |
-| Device and appearance settings | `settings.status.c6_hint`, `settings.theme.editing_id` |
-
-Panel examples include `history.range_empty_12m`, `parqet.no_answer`,
-`conn.retry_hint` and `conn.forbidden`. These are translation gaps, not missing
-keys or evidence of a recognition failure. `preview.parqet.locale` also still
-uses `en-US` in the five additional browser catalogs and needs locale review.
-Keep technical values such as `XIRR`, `TTWROR`, `CO₂`, `PM2.5`, `UTC`, units,
-entity IDs and executable YAML fields intact; string equality alone must not
-trigger a replacement. The v0.9.1 release note about remaining English fallback
-therefore still applies outside the corrected Xiaozhi controls.
+`tests/webui/i18n_shared_values.json` records the reviewed English-equal values:
+product/protocol names, units, domain identifiers, native language names, code
+examples and valid shared words such as French "Mode" or Spanish "Error".
+The existing catalog tests now reject other English-equal browser and panel
+values. This detects copied English placeholders in new labels; it does not
+replace semantic review or detect every partially translated sentence. Do not
+expand the allowlist merely to make a new untranslated label pass.

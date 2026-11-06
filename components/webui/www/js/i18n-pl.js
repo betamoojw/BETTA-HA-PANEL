@@ -2036,5 +2036,12 @@ WEB_I18N_BUILTIN["pl"] = {
   "xiaozhi.wake_saving": "Sprawdzanie i zapisywanie…",
   "xiaozhi.model_ready": "Model zainstalowany. Możesz teraz zapisać hasło.",
   "xiaozhi.model_failed": "Instalacja modelu nie powiodła się. Użyj odpowiedniego pliku i spróbuj ponownie.",
-  "xiaozhi.state.wake_config_error": "Hasło wybudzające odrzucone lub model niedostępny; zachowano poprzednie hasło."
+  "xiaozhi.state.wake_config_error": "Hasło wybudzające odrzucone lub model niedostępny; zachowano poprzednie hasło.",
+  "xiaozhi.you": "Ty",
+  "xiaozhi.assistant": "Xiaozhi",
+  "xiaozhi.hint_duplex": "Mówię i słucham",
+  "xiaozhi.hint_listening": "Mów dalej, słucham",
+  "xiaozhi.hint_thinking": "Chwileczkę",
+  "xiaozhi.hint_ready": "Wypowiedz hasło wybudzania, aby rozpocząć rozmowę",
+  "xiaozhi.hint_error": "Wybudź mnie ponownie, aby spróbować jeszcze raz"
 };

@@ -41,8 +41,11 @@
 #include "host_adapters.h"
 #include "simulator_frame.h"
 #include "xiaozhi/xiaozhi.h"
+#include "xiaozhi/xiaozhi_font_store.h"
+#include "ui/fonts/cjk_reply_resource.h"
 static xiaozhi_status_t demo_assistant;
 void xiaozhi_status(xiaozhi_status_t *s) { *s = demo_assistant; }
+bool xiaozhi_status_try(xiaozhi_status_t *s) { xiaozhi_status(s); return true; }
 esp_err_t xiaozhi_command(const char *action, int value) { (void)action; (void)value; return ESP_OK; }
 #include "ui/ui_conn_popup.h"
 #include "popup_contract_regression.h"
@@ -1136,6 +1139,19 @@ int main(int argc, char **argv)
         cJSON_Delete(root);
         return 1;
     }
+    /* Opt-in simulation of the installed reply resource. Keep the firmware's
+     * pinned byte count and SHA256 checks; no arbitrary font enters the parser.
+     * Without this setting, the existing compact-font fallback stays visible. */
+    const char *reply_font_path = getenv("BETTA_SIM_REPLY_FONT");
+    if (reply_font_path && reply_font_path[0]) {
+        xiaozhi_font_test_paths(reply_font_path, CJK_REPLY_BYTES, CJK_REPLY_SHA256);
+        xiaozhi_font_store_init();
+        if (!xiaozhi_font_available()) {
+            fprintf(stderr, "BETTA_SIM_REPLY_FONT failed the pinned resource verification\n");
+            cJSON_Delete(root);
+            return 2;
+        }
+    }
     lv_init();
     if (!check_text_font_coverage()) {
         cJSON_Delete(root);
@@ -1396,6 +1412,25 @@ int main(int argc, char **argv)
         demo_assistant.duplex_enabled=demo_assistant.duplex_active=demo_assistant.listening=duplex_demo;
         demo_assistant.speaking=true;
         snprintf(demo_assistant.state,sizeof(demo_assistant.state),"%s",duplex_demo ? "speaking_listening" : "speaking");
+        const char *demo_state = json_string(ai_demo, "state");
+        if (demo_state[0]) snprintf(demo_assistant.state, sizeof(demo_assistant.state), "%s", demo_state);
+        demo_assistant.speaking = !strcmp(demo_assistant.state, "speaking") || !strcmp(demo_assistant.state, "speaking_listening");
+        demo_assistant.listening = !strcmp(demo_assistant.state, "listening") || !strcmp(demo_assistant.state, "speaking_listening");
+        demo_assistant.conversation = demo_assistant.speaking || demo_assistant.listening || !strcmp(demo_assistant.state, "thinking");
+        if (cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(ai_demo, "manual")))
+            demo_assistant.wake_enabled = demo_assistant.wake_ready = false;
+        /* Explicit synthetic bands for renders; never generate motion from a
+         * status string. Production spectrum samples come from actual PCM. */
+        const cJSON *spectrum = cJSON_GetObjectItemCaseSensitive(ai_demo, "spectrum");
+        const cJSON *mic = cJSON_GetObjectItemCaseSensitive(spectrum, "microphone");
+        const cJSON *speaker = cJSON_GetObjectItemCaseSensitive(spectrum, "speaker");
+        demo_assistant.spectrum_mic_active = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(spectrum, "mic_active"));
+        demo_assistant.spectrum_speaker_active = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(spectrum, "speaker_active"));
+        for (unsigned band = 0; band < XIAOZHI_SPECTRUM_BANDS; ++band) {
+            const cJSON *m = cJSON_GetArrayItem(mic, (int)band), *s = cJSON_GetArrayItem(speaker, (int)band);
+            demo_assistant.spectrum_mic[band] = cJSON_IsNumber(m) ? LV_CLAMP(0, m->valueint, 255) : 0;
+            demo_assistant.spectrum_speaker[band] = cJSON_IsNumber(s) ? LV_CLAMP(0, s->valueint, 255) : 0;
+        }
         snprintf(demo_assistant.emotion,sizeof(demo_assistant.emotion),"%s",json_string(ai_demo,"emotion"));
         snprintf(demo_assistant.recognized,sizeof(demo_assistant.recognized),"%s",json_string(ai_demo,"recognized"));
         snprintf(demo_assistant.reply,sizeof(demo_assistant.reply),"%s",json_string(ai_demo,"reply"));

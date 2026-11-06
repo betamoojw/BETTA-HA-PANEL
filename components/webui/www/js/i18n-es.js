@@ -2036,5 +2036,12 @@ WEB_I18N_BUILTIN["es"] = {
   "xiaozhi.wake_saving": "Validando y guardando…",
   "xiaozhi.model_ready": "Modelo instalado. Ya puedes guardar tu frase.",
   "xiaozhi.model_failed": "No se pudo instalar el modelo. Usa el archivo correspondiente y vuelve a intentarlo.",
-  "xiaozhi.state.wake_config_error": "Frase de activación rechazada o modelo no disponible; se conserva la frase anterior."
+  "xiaozhi.state.wake_config_error": "Frase de activación rechazada o modelo no disponible; se conserva la frase anterior.",
+  "xiaozhi.you": "Tú",
+  "xiaozhi.assistant": "Xiaozhi",
+  "xiaozhi.hint_duplex": "Estoy hablando y escuchando",
+  "xiaozhi.hint_listening": "Adelante, te escucho",
+  "xiaozhi.hint_thinking": "Un momento",
+  "xiaozhi.hint_ready": "Di la palabra de activación para iniciar una conversación",
+  "xiaozhi.hint_error": "Vuelve a activarme para intentarlo de nuevo"
 };

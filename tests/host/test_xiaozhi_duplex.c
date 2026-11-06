@@ -17,6 +17,19 @@ static TickType_t ticks = 100;
 static jmp_buf worker_return;
 static aec_handle_t aec_instance;
 static vad_handle_with_trigger_t vad_instance;
+static uint32_t spectrum_generation[XZ_SPECTRUM_SOURCES];
+static unsigned spectrum_feeds[XZ_SPECTRUM_SOURCES];
+uint32_t xiaozhi_spectrum_generation(xiaozhi_spectrum_source_t source) { return spectrum_generation[source]; }
+void xiaozhi_spectrum_clear(xiaozhi_spectrum_source_t source) { ++spectrum_generation[source]; }
+void xiaozhi_spectrum_feed(xiaozhi_spectrum_source_t source, const int16_t *pcm, size_t count, uint32_t generation)
+{
+    assert(generation == spectrum_generation[source] && count > 0);
+    if (source == XZ_SPECTRUM_MIC) {
+        int start = source_sample - (int)count;
+        for (unsigned i = 0; i < count; ++i) assert(pcm[i] == 700 + start + (int)i - (start + (int)i) % 7);
+    } else assert(!fail_write && pcm[0] == 123);
+    ++spectrum_feeds[source];
+}
 
 static void checked_free(void *p) { if (p) { assert(live_allocations); --live_allocations; free(p); } }
 void *heap_caps_malloc(size_t size, unsigned caps)
@@ -131,6 +144,7 @@ static void reset_trial(void)
     tasks_created = fail_task = allocations = fail_allocation = 0;
     reads = source_sample = writes = flush_write = 0;
     read_limit = 4; fail_read = fail_write = false; join_workers = true;
+    memset(spectrum_feeds, 0, sizeof(spectrum_feeds));
 }
 int main(void)
 {
@@ -139,6 +153,7 @@ int main(void)
     reset_trial(); assert(xiaozhi_duplex_start() == ESP_OK);
     assert(xiaozhi_duplex_start() == ESP_ERR_INVALID_STATE);
     run_worker(0);
+    assert(spectrum_feeds[XZ_SPECTRUM_MIC] == 4 && !spectrum_feeds[XZ_SPECTRUM_SPEAKER]);
     assert(xiaozhi_duplex_take(&received) && received.speech && !received.playback && received.sequence == 1);
     for (int i = 0; i < 960; ++i) assert(received.pcm[i] == 700 + i - i % 7);
     assert(!xiaozhi_duplex_take(&received));
@@ -160,11 +175,13 @@ int main(void)
     reset_trial(); flush_write = 2;
     assert(xiaozhi_duplex_start() == ESP_OK && xiaozhi_duplex_play(reply, 1920));
     run_worker(1); assert(writes == 2); /* In-flight invalidation, not just queue clearing. */
+    assert(spectrum_feeds[XZ_SPECTRUM_SPEAKER] == 1); /* A cancelled in-flight write cannot reappear. */
     assert(xiaozhi_duplex_stop() == ESP_OK);
 
     reset_trial(); fail_write = true;
     assert(xiaozhi_duplex_start() == ESP_OK && xiaozhi_duplex_play(reply, 960));
     run_worker(1); xiaozhi_duplex_stats(&stats); assert(stats.failed && writes == 1);
+    assert(!spectrum_feeds[XZ_SPECTRUM_SPEAKER]);
     assert(xiaozhi_duplex_stop() == ESP_OK);
 
     reset_trial(); fail_read = true;

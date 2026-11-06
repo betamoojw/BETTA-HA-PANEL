@@ -83,6 +83,10 @@ cc -std=gnu11 -Wall -Wextra -Werror -DXIAOZHI_CUSTOM_MODEL_TEST -I main tests/ho
 cc -std=c11 -Wall -Wextra -Werror -I main tests/host/test_xiaozhi_session.c \
   -o "$out/test_xiaozhi_session"
 "$out/test_xiaozhi_session"
+cc -std=c11 -Wall -Wextra -Werror -I main/xiaozhi -I tests/host/duplex_stubs \
+  tests/host/test_xiaozhi_spectrum.c main/xiaozhi/xiaozhi_spectrum_dsp.c -lm \
+  -o "$out/test_xiaozhi_spectrum"
+"$out/test_xiaozhi_spectrum"
 # Use the codec's public interface types with injected I2C gain failures.
 codec="managed_components/espressif__esp_codec_dev"
 if [ -f "$codec/interface/audio_codec_if.h" ]; then

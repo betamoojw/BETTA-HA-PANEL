@@ -21,6 +21,19 @@ static esp_err_t get_status(httpd_req_t *req)
     cJSON_AddBoolToObject(j, "duplex_enabled", s.duplex_enabled);
     cJSON_AddBoolToObject(j, "duplex_active", s.duplex_active);
     cJSON_AddBoolToObject(j, "speaking", s.speaking);
+    cJSON *spectrum = cJSON_AddObjectToObject(j, "spectrum");
+    if (!spectrum) { cJSON_Delete(j); return httpd_resp_send_500(req); }
+    cJSON *microphone = cJSON_AddArrayToObject(spectrum, "microphone");
+    cJSON *speaker = cJSON_AddArrayToObject(spectrum, "speaker");
+    if (!microphone || !speaker) { cJSON_Delete(j); return httpd_resp_send_500(req); }
+    cJSON_AddBoolToObject(spectrum, "mic_active", s.spectrum_mic_active);
+    cJSON_AddBoolToObject(spectrum, "speaker_active", s.spectrum_speaker_active);
+    for (unsigned i = 0; i < XIAOZHI_SPECTRUM_BANDS; ++i) {
+        if (!cJSON_AddItemToArray(microphone, cJSON_CreateNumber(s.spectrum_mic[i])) ||
+            !cJSON_AddItemToArray(speaker, cJSON_CreateNumber(s.spectrum_speaker[i]))) {
+            cJSON_Delete(j); return httpd_resp_send_500(req);
+        }
+    }
     cJSON_AddNumberToObject(j, "audio_tx_frames", s.audio_tx_frames);
     cJSON_AddNumberToObject(j, "audio_rx_frames", s.audio_rx_frames);
     cJSON_AddNumberToObject(j, "audio_tx_during_playback", s.audio_tx_during_playback);

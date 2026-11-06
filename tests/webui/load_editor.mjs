@@ -18,7 +18,7 @@ const SCRIPTS = [...HTML.matchAll(/<script src="\/js\/([^"]+)"/g)].map(([, file]
 
 export function loadEditor({ width = 1280, height = 680, now } = {}) {
   const document = {
-    getElementById: id => /^(xiaozhi|knx|camera)/.test(id) ? { addEventListener() {}, classList: { contains: () => true }, style: {}, dataset: {} } : null,
+    getElementById: id => /^(xiaozhi|knx|camera)/.test(id) ? { addEventListener() {}, appendChild() {}, classList: { contains: () => true }, style: {}, dataset: {} } : null,
     querySelector: () => null,
     querySelectorAll: () => [],
     createElement: () => ({ getContext: () => ({font: "", measureText: (text) => ({width: text.length * 15})}), style: {}, dataset: {}, classList: { add() {}, remove() {}, toggle() {} }, append() {}, appendChild() {} }),

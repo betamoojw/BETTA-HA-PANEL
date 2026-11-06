@@ -510,8 +510,9 @@ setTextById("addBambuPrinterBtn", "layout.widgets.add_bambu_printer");
   setTextById("xiaozhiEmojiLabel", "xiaozhi.emoji_style");
   setTextById("xiaozhiEmojiOtto", "xiaozhi.emoji_otto");
   setTextById("xiaozhiEmojiClassic", "xiaozhi.emoji_classic");
-  setTextById("xiaozhiRecognizedLabel", "xiaozhi.recognized");
-  setTextById("xiaozhiReplyLabel", "xiaozhi.reply");
+  setTextById("xiaozhiAssistantLabel", "xiaozhi.assistant");
+  setTextById("xiaozhiRecognizedLabel", "xiaozhi.you");
+  setTextById("xiaozhiReplyLabel", "xiaozhi.assistant");
 
   setTextById("settingsSoundHeading", "settings.sound.heading");
   setTextById("settingsSoundEnabledLabel", "settings.sound.enabled");

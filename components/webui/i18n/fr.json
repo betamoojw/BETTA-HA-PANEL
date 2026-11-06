@@ -2032,5 +2032,12 @@
   "xiaozhi.wake_saving": "Validation et enregistrement…",
   "xiaozhi.model_ready": "Modèle installé. Vous pouvez maintenant enregistrer votre phrase.",
   "xiaozhi.model_failed": "Échec de l’installation du modèle. Utilisez le fichier correspondant et réessayez.",
-  "xiaozhi.state.wake_config_error": "Phrase de réveil refusée ou modèle indisponible ; la phrase précédente est conservée."
+  "xiaozhi.state.wake_config_error": "Phrase de réveil refusée ou modèle indisponible ; la phrase précédente est conservée.",
+  "xiaozhi.you": "Vous",
+  "xiaozhi.assistant": "Xiaozhi",
+  "xiaozhi.hint_duplex": "Je parle et je vous écoute",
+  "xiaozhi.hint_listening": "Allez-y, je vous écoute",
+  "xiaozhi.hint_thinking": "Un instant",
+  "xiaozhi.hint_ready": "Dites le mot de réveil pour commencer une conversation",
+  "xiaozhi.hint_error": "Réactivez-moi pour réessayer"
 }

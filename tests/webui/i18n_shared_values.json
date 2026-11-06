@@ -104,6 +104,7 @@
     {"text": "Widgets", "languages": ["es", "fr"], "reason": "Shared word or accepted technical abbreviation"},
     {"text": "XIRR", "languages": ["es", "fr", "pl", "zh-cn", "zh-tw"], "reason": "Shared word or accepted technical abbreviation"},
     {"text": "Xiaozhi AI", "languages": ["es", "fr", "pl"], "reason": "Product or protocol name"},
+    {"text": "Xiaozhi", "languages": ["es", "fr", "pl"], "reason": "Assistant product name in conversation bubbles"},
     {"text": "YTD", "languages": ["es", "fr", "pl"], "reason": "Shared word or accepted technical abbreviation"},
     {"text": "action: mqtt.publish\ndata:\n  topic: \"<topic_prefix>/<device_id>/notify/set\"\n  payload: >-\n    {\"message\": \"Hello from Home Assistant!\", \"title\": \"Kitchen\",\n     \"message_id\": \"reminder-1\", \"timeout_sec\": 15}", "languages": ["es", "fr", "pl", "zh-cn", "zh-tw"], "reason": "Executable example; API fields and sample payload stay portable"},
     {"text": "action: mqtt.publish\ndata:\n  topic: \"{topic}\"\n  payload: >-\n    {\"message\": \"Hello from Home Assistant!\", \"title\": \"Kitchen\",\n     \"message_id\": \"reminder-1\", \"timeout_sec\": 15}", "languages": ["es", "fr", "pl", "zh-cn", "zh-tw"], "reason": "Executable example; API fields and sample payload stay portable"},

@@ -87,6 +87,8 @@ int main(void)
         .connection_socket_errno = 104, .connection_http_status = 401};
     strcpy(snapshot.connection_end, "transport_error");
     strcpy(snapshot.state, "speaking_listening");
+    snapshot.spectrum_mic_active = snapshot.spectrum_speaker_active = true;
+    snapshot.spectrum_mic[3] = 128; snapshot.spectrum_speaker[23] = 255;
     httpd_req_t req = {0};
     assert(routes[0].handler(&req) == ESP_OK);
     cJSON *j = cJSON_Parse(response);
@@ -95,6 +97,13 @@ int main(void)
     assert(cJSON_IsTrue(cJSON_GetObjectItem(j, "speaking")));
     assert(cJSON_IsTrue(cJSON_GetObjectItem(j, "duplex_active")));
     assert(cJSON_IsTrue(cJSON_GetObjectItem(j, "duplex_enabled")));
+    cJSON *spectrum = cJSON_GetObjectItem(j, "spectrum");
+    assert(cJSON_IsTrue(cJSON_GetObjectItem(spectrum, "mic_active")));
+    assert(cJSON_IsTrue(cJSON_GetObjectItem(spectrum, "speaker_active")));
+    cJSON *mic = cJSON_GetObjectItem(spectrum, "microphone"), *speaker = cJSON_GetObjectItem(spectrum, "speaker");
+    assert(cJSON_GetArraySize(mic) == 24 && cJSON_GetArraySize(speaker) == 24);
+    assert(cJSON_GetArrayItem(mic, 0)->valueint == 0 && cJSON_GetArrayItem(mic, 3)->valueint == 128);
+    assert(cJSON_GetArrayItem(speaker, 23)->valueint == 255);
     assert(cJSON_GetObjectItem(j, "audio_tx_during_playback")->valueint == 35);
     assert(cJSON_GetObjectItem(j, "aec_ref_peak")->valueint == 1234);
     assert(cJSON_GetObjectItem(j, "barge_ins")->valueint == 2);

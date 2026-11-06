@@ -4,6 +4,7 @@
  */
 #include "xiaozhi_duplex.h"
 #include "xiaozhi_audio.h"
+#include "xiaozhi_spectrum.h"
 #include <stdatomic.h>
 #include <stdlib.h>
 #include <string.h>
@@ -82,6 +83,7 @@ static void capture_worker(void *unused)
     uint32_t sequence = 0;
     bool overlap = false;
     while (!atomic_load(&stop_requested) && !atomic_load(&pipeline_failed)) {
+        uint32_t spectrum_generation = xiaozhi_spectrum_generation(XZ_SPECTRUM_MIC);
         if (xiaozhi_audio_read(stereo, aec_samples) != ESP_OK) {
             if (!atomic_load(&stop_requested)) atomic_store(&pipeline_failed, true);
             break;
@@ -98,6 +100,7 @@ static void capture_worker(void *unused)
         int64_t before = esp_timer_get_time();
         aec_process(aec, microphone, reference, clean);
         int elapsed = (int)(esp_timer_get_time() - before);
+        xiaozhi_spectrum_feed(XZ_SPECTRUM_MIC, clean, aec_samples, spectrum_generation);
         bool playing = playback_active();
         for (int i = 0; i < aec_samples; ++i) {
             int c = peak(clean[i]);
@@ -161,7 +164,10 @@ static void playback_worker(void *unused)
             portENTER_CRITICAL(&stats_lock);
             output_busy = true;
             portEXIT_CRITICAL(&stats_lock);
+            uint32_t spectrum_generation = xiaozhi_spectrum_generation(XZ_SPECTRUM_SPEAKER);
             esp_err_t err = xiaozhi_audio_write(play_frame->pcm + offset, count);
+            if (err == ESP_OK && play_frame->generation == atomic_load(&output_generation) && !atomic_load(&stop_requested))
+                xiaozhi_spectrum_feed(XZ_SPECTRUM_SPEAKER, play_frame->pcm + offset, count, spectrum_generation);
             portENTER_CRITICAL(&stats_lock);
             output_busy = false;
             /* Includes the BSP's queued DMA frames after a successful write. */
@@ -186,6 +192,7 @@ static void playback_worker(void *unused)
 void xiaozhi_duplex_flush(void)
 {
     atomic_fetch_add(&output_generation, 1);
+    xiaozhi_spectrum_clear(XZ_SPECTRUM_SPEAKER);
     if (play_queue) xQueueReset(play_queue);
 }
 
@@ -212,6 +219,7 @@ static void release_resources(void)
 esp_err_t xiaozhi_duplex_stop(void)
 {
     atomic_store(&stop_requested, true);
+    xiaozhi_spectrum_clear(XZ_SPECTRUM_MIC);
     xiaozhi_duplex_flush();
     TickType_t started = xTaskGetTickCount();
     if (capture_task) {
@@ -236,6 +244,8 @@ esp_err_t xiaozhi_duplex_stop(void)
 esp_err_t xiaozhi_duplex_start(void)
 {
     if (capture_task || play_task || aec) return ESP_ERR_INVALID_STATE;
+    xiaozhi_spectrum_clear(XZ_SPECTRUM_MIC);
+    xiaozhi_spectrum_clear(XZ_SPECTRUM_SPEAKER);
     atomic_store(&stop_requested, false);
     atomic_store(&pipeline_failed, false);
     atomic_fetch_add(&output_generation, 1);

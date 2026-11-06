@@ -703,7 +703,14 @@
       "privacy": "默认关闭。可选的唤醒词识别在面板本地进行。唤醒或按住说话后，对话音频会发送至小智。配对会共享设备标识。",
       "emoji_style": "AI 表情样式",
       "emoji_otto": "Otto 机器人",
-      "emoji_classic": "经典表情"
+      "emoji_classic": "经典表情",
+      "you": "你",
+      "assistant": "小智",
+      "hint_duplex": "我在回答，也在听你说",
+      "hint_listening": "我在听，请继续说",
+      "hint_thinking": "稍等片刻",
+      "hint_ready": "说出唤醒词，开启新的对话",
+      "hint_error": "请重新唤醒小智再试"
     },
     "ota": {
       "title": "固件更新",

@@ -703,7 +703,14 @@
       "privacy": "預設關閉。選用的喚醒詞辨識在面板本機進行。喚醒或按住說話後，對話音訊會傳送至小智。配對會分享裝置識別資訊。",
       "emoji_style": "AI 表情樣式",
       "emoji_otto": "Otto 機器人",
-      "emoji_classic": "經典表情"
+      "emoji_classic": "經典表情",
+      "you": "你",
+      "assistant": "小智",
+      "hint_duplex": "我在回答，也在聽你說",
+      "hint_listening": "我在聽，請繼續說",
+      "hint_thinking": "稍等片刻",
+      "hint_ready": "說出喚醒詞，開啟新的對話",
+      "hint_error": "請重新喚醒小智再試"
     },
     "ota": {
       "title": "韌體更新",

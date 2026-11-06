@@ -19,6 +19,11 @@ freeing application space while retaining every image, setting and data partitio
 
 ### Xiaozhi AI
 
+- The panel and web editor show recognized speech and replies in separate chat
+  bubbles, with live segmented frequency bars derived from conversation audio.
+  Long text scrolls independently of the sound display. Silent, stale and ended
+  audio does not produce decorative activity; full-duplex capture, interruption
+  and echo cancellation retain their existing behavior.
 - Normal server closes return to standby without a transient connection error,
   including a close received while microphone upload waits to send. Abnormal
   closes and transport/time-out failures retain diagnostics across the next wake.

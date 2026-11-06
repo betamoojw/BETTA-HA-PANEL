@@ -703,7 +703,14 @@
       "privacy": "Desactivado por defecto. La detección opcional de activación es local. Tras activarlo por voz o pulsar Hablar, el audio se envía a Xiaozhi. La vinculación comparte la identidad del dispositivo.",
       "emoji_style": "Estilo de emociones de IA",
       "emoji_otto": "Robot Otto",
-      "emoji_classic": "Emojis clásicos"
+      "emoji_classic": "Emojis clásicos",
+      "you": "Tú",
+      "assistant": "Xiaozhi",
+      "hint_duplex": "Estoy hablando y escuchando",
+      "hint_listening": "Adelante, te escucho",
+      "hint_thinking": "Un momento",
+      "hint_ready": "Di la palabra de activación para iniciar una conversación",
+      "hint_error": "Vuelve a activarme para intentarlo de nuevo"
     },
     "ota": {
       "title": "Actualización de firmware",

@@ -13,14 +13,16 @@
 #include "xiaozhi/xiaozhi_dialog.h"
 #include "ui/ui_transition.h"
 #include "xiaozhi/xiaozhi_emoji.h"
+#include "xiaozhi/xiaozhi_spectrum.h"
 
 /* Fail in the test runner instead of opening the Windows CRT assertion dialog. */
 #undef assert
 #define assert(condition) do { if (!(condition)) { \
-    fprintf(stderr, "Xiaozhi check %d: %s\n", __LINE__, #condition); exit(1); \
+    fprintf(stderr, "Xiaozhi check %d: %s\n", __LINE__, #condition); fflush(stderr); _Exit(1); \
 } } while (0)
 
 static bool enabled;
+static bool snapshot_busy;
 static xiaozhi_status_t mock;
 static unsigned wakeups;
 static const theme_palette_t palette = {.content_bg=0x101820,.text_primary=0xeeeeee,
@@ -33,6 +35,29 @@ const lv_font_t *ui_font_emoji_for_text(int px) { (void)px; return LV_FONT_DEFAU
 const lv_font_t *ui_font_emotion(int height) { (void)height; return LV_FONT_DEFAULT; }
 const lv_font_t *ui_font_reply(const lv_font_t *base) { return base; }
 void ui_popup_style_frame(lv_obj_t *card) { (void)card; }
+lv_obj_t *ui_popup_card_create(lv_obj_t *parent)
+{
+    lv_obj_t *card = lv_obj_create(parent);
+    lv_obj_set_style_bg_color(card, lv_color_hex(palette.content_bg), 0);
+    lv_obj_set_style_bg_opa(card, LV_OPA_COVER, 0);
+    lv_obj_set_scrollable(card, false);
+    return card;
+}
+lv_obj_t *ui_popup_label_create(lv_obj_t *parent, const char *text, ui_popup_label_role_t role)
+{
+    (void)role;
+    lv_obj_t *label = lv_label_create(parent); lv_label_set_text(label, text);
+    return label;
+}
+void ui_style_action_button(lv_obj_t *button, lv_obj_t *label, ui_control_role_t role, bool available)
+{ (void)button; (void)label; (void)role; (void)available; }
+void xiaozhi_spectrum_snapshot(xiaozhi_spectrum_snapshot_t *out)
+{
+    memcpy(out->microphone, mock.spectrum_mic, sizeof(out->microphone));
+    memcpy(out->speaker, mock.spectrum_speaker, sizeof(out->speaker));
+    out->mic_active = mock.spectrum_mic_active;
+    out->speaker_active = mock.spectrum_speaker_active;
+}
 lv_obj_t *ui_popup_close_button(lv_obj_t *parent, lv_color_t color, lv_event_cb_t cb, void *data)
 {
     (void)color; lv_obj_t *b=lv_button_create(parent);lv_obj_set_size(b,48,48);
@@ -58,6 +83,8 @@ void xiaozhi_status(xiaozhi_status_t *s)
     *s=mock; s->supported = true; s->enabled = enabled;
     if (!enabled || !s->state[0]) strcpy(s->state, enabled ? "ready" : "disabled");
 }
+bool xiaozhi_status_try(xiaozhi_status_t *s)
+{ if (snapshot_busy) return false; xiaozhi_status(s); return true; }
 esp_err_t xiaozhi_command(const char *action, int value)
 {
     (void)value;
@@ -79,11 +106,47 @@ static void assert_header_active(lv_obj_t *button, bool active)
     assert(lv_obj_has_state(button, LV_STATE_CHECKED) == active);
     assert(lv_obj_has_state(lv_obj_get_child(button, 0), LV_STATE_CHECKED) == active);
 }
+
+static void spectrum_drawn(lv_event_t *event)
+{
+    unsigned *cells = lv_event_get_user_data(event);
+    lv_draw_task_t *task = lv_event_get_draw_task(event);
+    assert(task && lv_draw_task_get_type(task) == LV_DRAW_TASK_TYPE_FILL);
+    lv_area_t cell, bounds;
+    lv_draw_task_get_area(task, &cell);
+    lv_obj_get_coords(lv_event_get_target_obj(event), &bounds);
+    assert(cell.x1 >= bounds.x1 && cell.x2 <= bounds.x2);
+    assert(cell.y1 >= bounds.y1 && cell.y2 <= bounds.y2);
+    ++*cells;
+}
+
+static void assert_spectrum_draw_bounds(lv_obj_t *spectrum)
+{
+    /* Inspect the production renderer's actual rectangles before clipping.
+     * The cell count also catches fully clipped cells omitted by LVGL. */
+    const int heights[] = {44,45,46,47,48,49,50,51,52,61,70,79,96};
+    int original_height = lv_obj_get_height(spectrum);
+    unsigned cells = 0;
+    lv_obj_set_send_draw_task_events(spectrum, true);
+    lv_obj_add_event_cb(spectrum, spectrum_drawn, LV_EVENT_DRAW_TASK_ADDED, &cells);
+    for (unsigned i = 0; i < sizeof(heights) / sizeof(heights[0]); ++i) {
+        lv_obj_set_height(spectrum, heights[i]); lv_obj_update_layout(spectrum);
+        cells = 0;
+        lv_draw_buf_t *shot = lv_snapshot_take(spectrum, LV_COLOR_FORMAT_RGB888);
+        assert(shot);
+        assert(cells == XIAOZHI_SPECTRUM_BANDS * 9);
+        lv_draw_buf_destroy(shot);
+    }
+    lv_obj_remove_event_cb(spectrum, spectrum_drawn);
+    lv_obj_set_send_draw_task_events(spectrum, false);
+    lv_obj_set_height(spectrum, original_height);
+}
+
 int main(void)
 {
     lv_init();
     lv_display_t *display = lv_display_create(1280, 800);
-    /* No pixels are needed: only real object lifetime and timer dispatch. */
+    /* Refresh is explicit; snapshots below exercise real spectrum drawing. */
     lv_timer_pause(lv_display_get_refr_timer(display));
     unsigned baseline = timer_count();
     lv_obj_t *screen = lv_screen_active();
@@ -174,6 +237,17 @@ int main(void)
         assert(lv_obj_is_hidden(talk));
         assert(lv_obj_get_y(chat)>lv_obj_get_y(emoji)+lv_obj_get_height(emoji));
         assert(lv_obj_get_y(chat)+lv_obj_get_height(chat)<=lv_obj_get_content_height(panel));
+        lv_obj_t *question=lv_obj_get_child(lv_obj_get_child(chat,0),0);
+        lv_obj_t *answer=lv_obj_get_child(lv_obj_get_child(chat,1),0);
+        assert(lv_obj_get_x(question)>lv_obj_get_x(answer));
+        assert(!strcmp(lv_label_get_text(lv_obj_get_child(question,0)),"You"));
+        assert(!strcmp(lv_label_get_text(lv_obj_get_child(answer,0)),"Xiaozhi"));
+        assert(!strcmp(lv_label_get_text(lv_obj_get_child(question,1)),"hello"));
+        assert(!strcmp(lv_label_get_text(lv_obj_get_child(answer,1)),"welcome"));
+        lv_obj_t *spectrum=lv_obj_get_child(panel,6);
+        assert(lv_obj_get_child_count(spectrum)==0); /* one bounded drawing surface */
+        assert(lv_obj_get_y(chat)+lv_obj_get_height(chat)<=lv_obj_get_y(spectrum));
+        assert(lv_obj_get_y(spectrum)+lv_obj_get_height(spectrum)<=lv_obj_get_content_height(panel));
         /* Full-duplex status must update while the voice-opened view keeps its
          * controls and content geometry; close/timeout below still work. */
         mock.duplex_enabled=mock.duplex_active=mock.listening=mock.speaking=true;
@@ -182,18 +256,46 @@ int main(void)
         lv_obj_t *state_label=lv_obj_get_child(panel,0);
         assert(!strcmp(lv_label_get_text(state_label),"Speaking and listening"));
         assert(lv_obj_get_width(state_label)<=lv_obj_get_content_width(panel));
-        assert(lv_obj_get_y(state_label)+lv_obj_get_height(state_label)<=lv_obj_get_y(emoji));
+        assert(lv_obj_get_y(state_label)+lv_obj_get_height(state_label)<lv_obj_get_y(chat));
         assert(lv_obj_is_hidden(talk)&&!lv_obj_is_hidden(panel));
+        assert(!strcmp(lv_label_get_text(lv_obj_get_child(panel,7)),"I'm speaking and listening"));
+        unsigned before_status=disconnects;
+        mock.spectrum_speaker_active=true;
+        memset(mock.spectrum_speaker,255,sizeof(mock.spectrum_speaker));
+        mock.spectrum_mic_active=true;mock.spectrum_mic[3]=170;
+        lv_tick_inc(100);lv_timer_handler();
+        assert(timer_count()==baseline+2&&lv_obj_get_child_count(spectrum)==0);
+        assert_spectrum_draw_bounds(spectrum);
+        mock.spectrum_mic_active=mock.spectrum_speaker_active=false;
+        mock.listening=mock.speaking=mock.conversation=false;
+        strcpy(mock.state,"ready");lv_tick_inc(300);lv_timer_handler();
+        assert(!strcmp(lv_label_get_text(state_label),"ready")&&disconnects==before_status);
+        strcpy(mock.state,"connection_error");lv_tick_inc(300);lv_timer_handler();
+        assert(!strcmp(lv_label_get_text(state_label),"connection_error"));
+        assert(!strcmp(lv_label_get_text(lv_obj_get_child(panel,7)),"Wake me again to retry"));
+        assert(disconnects==before_status); /* presentation does not reconnect or abort */
+        strcpy(mock.state,"audio_or_connection_error");lv_tick_inc(300);lv_timer_handler();
+        assert(!strcmp(lv_label_get_text(lv_obj_get_child(panel,7)),"Wake me again to retry"));
+        assert(lv_color_eq(lv_obj_get_style_text_color(state_label,0),lv_color_hex(palette.error)));
+        memset(mock.reply,'W',sizeof(mock.reply)-1);mock.reply[sizeof(mock.reply)-1]=0;
+        for (unsigned line=1;line<sizeof(mock.reply)-1;line+=2) mock.reply[line]='\n';
+        lv_tick_inc(300);lv_timer_handler();lv_obj_update_layout(screen);
+        assert(lv_obj_get_scroll_bottom(chat)>0);
+        assert(lv_obj_get_y(chat)+lv_obj_get_height(chat)<=lv_obj_get_y(spectrum));
+        assert(lv_obj_get_width(answer)<=lv_obj_get_width(chat));
+        strcpy(mock.reply,"welcome");strcpy(mock.state,"listening");mock.listening=true;
+        lv_tick_inc(300);lv_timer_handler();lv_obj_update_layout(screen);
+        assert(!strcmp(lv_label_get_text(state_label),"listening"));
         assert(lv_color_eq(lv_obj_get_style_bg_color(panel,0),lv_color_hex(palette.content_bg)));
-        lv_obj_t *otto=lv_obj_get_child(panel,5);
+        lv_obj_t *otto=lv_obj_get_child(panel,8);
         assert(lv_obj_check_type(otto,&lv_gif_class)&&lv_gif_is_loaded(otto));
         assert(lv_obj_is_hidden(emoji)&&lv_gif_get_frame_count(otto)>1);
         lv_tick_inc(100);lv_timer_handler();assert(lv_gif_get_current_frame_index(otto)>0);
         mock.emoji_style=1;lv_tick_inc(300);lv_timer_handler();
-        assert(lv_obj_get_child_count(panel)==5&&!lv_obj_is_hidden(emoji));
+        assert(lv_obj_get_child_count(panel)==8&&!lv_obj_is_hidden(emoji));
         assert(timer_count()==baseline+1);
         mock.emoji_style=0;lv_tick_inc(300);lv_timer_handler();
-        assert(lv_obj_get_child_count(panel)==6&&lv_obj_is_hidden(emoji));
+        assert(lv_obj_get_child_count(panel)==9&&lv_obj_is_hidden(emoji));
         lv_tick_inc(9000);++mock.activity_seq;lv_timer_handler();assert(!lv_obj_is_hidden(panel));
         lv_tick_inc(9000);lv_timer_handler();assert(!lv_obj_is_hidden(panel));
         lv_tick_inc(1100);lv_timer_handler();assert(lv_obj_is_hidden(panel));
@@ -255,8 +357,21 @@ int main(void)
         assert(timer_count() == baseline);
     }
     ui_transition_configure(false);
+    /* A contended first read must not permanently remove a supported action.
+     * Later contention retains the last text and cannot disable idle expiry. */
+    enabled=true;memset(&mock,0,sizeof(mock));mock.dialog_timeout=10;mock.emoji_style=1;
+    snapshot_busy=true;xiaozhi_ui_create(screen);assert(timer_count()==baseline+1);
+    root=lv_obj_get_child(screen,0);button=lv_obj_get_child(root,0);panel=lv_obj_get_child(root,1);
+    snapshot_busy=false;lv_tick_inc(300);lv_timer_handler();assert(!lv_obj_is_hidden(button));
+    lv_obj_send_event(button,LV_EVENT_CLICKED,NULL);lv_tick_inc(300);lv_timer_handler();
+    assert(!strcmp(lv_label_get_text(lv_obj_get_child(panel,0)),"ready"));
+    snapshot_busy=true;strcpy(mock.state,"connection_error");
+    lv_tick_inc(300);lv_timer_handler();
+    assert(!strcmp(lv_label_get_text(lv_obj_get_child(panel,0)),"ready"));
+    lv_tick_inc(10100);lv_timer_handler();assert(lv_obj_is_hidden(panel));
+    snapshot_busy=false;lv_obj_clean(screen);assert(timer_count()==baseline);
     lv_display_delete(display);
     lv_deinit();
-    puts("PASS: manual/wake origins, duplex status, press/release/cancel, 100 rebuilds, Otto/classic, timeout, five geometries and popup fades");
+    puts("PASS: bubbles, long-text scrolling, spectrum drawing bounds/lifetime, normal/error/wake states, nonblocking snapshots, manual/wake origins, 100 rebuilds, Otto/classic, five geometries and popup fades");
     return 0;
 }

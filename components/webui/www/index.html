@@ -292,11 +292,19 @@
             <button class="btn small" id="xiaozhiTalk" type="button" data-i18n-key="xiaozhi.talk">Hold to talk</button>
             <button class="btn small" id="xiaozhiStop" type="button" data-i18n-key="xiaozhi.stop">Disconnect</button>
           </div>
-          <p id="xiaozhiStatus" role="status"></p>
-          <div id="xiaozhiEmotion" class="xiaozhi-emotion" aria-hidden="true"></div>
-          <img id="xiaozhiOtto" class="xiaozhi-otto" alt="" width="128" height="128" hidden />
-          <p><span id="xiaozhiRecognizedLabel" data-i18n-key="xiaozhi.recognized">Recognized speech</span><br /><span id="xiaozhiRecognized"></span></p>
-          <p><span id="xiaozhiReplyLabel" data-i18n-key="xiaozhi.reply">AI reply</span><br /><span id="xiaozhiText"></span></p>
+          <div id="xiaozhiConversation" class="xiaozhi-conversation" hidden>
+            <div class="xiaozhi-conversation-header">
+              <div id="xiaozhiEmotion" class="xiaozhi-emotion" aria-hidden="true"></div>
+              <img id="xiaozhiOtto" class="xiaozhi-otto" alt="" width="48" height="48" hidden />
+              <div><strong id="xiaozhiAssistantLabel" data-i18n-key="xiaozhi.assistant">Xiaozhi</strong><p id="xiaozhiStatus" role="status"></p></div>
+            </div>
+            <div class="xiaozhi-messages" aria-live="polite" aria-atomic="false">
+              <div id="xiaozhiUserBubble" class="xiaozhi-bubble xiaozhi-user" hidden><span id="xiaozhiRecognizedLabel" class="xiaozhi-role" data-i18n-key="xiaozhi.you">You</span><p id="xiaozhiRecognized"></p></div>
+              <div id="xiaozhiReplyBubble" class="xiaozhi-bubble xiaozhi-reply" hidden><span id="xiaozhiReplyLabel" class="xiaozhi-role" data-i18n-key="xiaozhi.assistant">Xiaozhi</span><p id="xiaozhiText"></p></div>
+            </div>
+            <div id="xiaozhiSpectrum" class="xiaozhi-spectrum" aria-hidden="true"></div>
+            <p id="xiaozhiConversationHint" class="xiaozhi-conversation-hint"></p>
+          </div>
           <button class="btn small" id="xiaozhiReset" type="button" data-i18n-key="xiaozhi.reset">Reset to defaults</button>
           </div>
         </section>

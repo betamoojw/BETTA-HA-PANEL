@@ -113,6 +113,11 @@ Use `"alert_demo": true` and `"open_popup": "alerts"` for synthetic alert detail
 It defaults to animated Otto Robot; `style: "classic"` selects the original emoji.
 It opens the production dialogue with a mocked status source, without audio or
 a cloud connection. Label screenshots as local simulations.
+Set `BETTA_SIM_REPLY_FONT` to the absolute path of the generated
+`build/simulator/<variant>/reply-font.ttf` to represent an installed Chinese
+transcript font. The simulator verifies the same size and SHA256 as the device
+and rejects an invalid configured file. Without it, the compact UI font remains
+the fallback and arbitrary Chinese replies may contain missing glyphs.
 
 `--regression transitions` exercises shared page animations, interruption and
 popup fades at all four native rotations. `--regression popups` covers real

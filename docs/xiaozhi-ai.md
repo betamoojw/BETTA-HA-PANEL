@@ -94,10 +94,20 @@ to manual controls. The browser offers Talk when wake detection is off or
 unavailable; it uses the **panel microphone**. Manual capture ends after
 at most 60 seconds even if the browser disappears.
 
-The reply plays through the panel speaker. A centered emotion follows the
-assistant response, with separate recognized-speech and AI-reply text below it.
-The existing status and pairing code remain at the top. The popup follows the
-system palette and appearance; long transcripts scroll inside it.
+The reply plays through the panel speaker. The face and connection status stay
+in the header. Your recognized words appear in a right-aligned bubble and the
+assistant's answer in a left-aligned bubble. Long text scrolls within the
+conversation; the sound display and manual Talk control remain below it.
+The popup follows the system palette, appearance and text-size setting.
+
+Segmented sound bars show live frequency bands from the panel audio, including
+in the web editor. They follow speaker output during a reply and the microphone
+otherwise. Full-duplex microphone capture continues during replies even though
+the bars show the speaker. Silence, stale data and ended conversations stop the
+bars; they are not a connection-quality or speech-recognition indicator.
+The display does not record audio or change echo cancellation or interruption.
+Implementation and validation limits are in the
+[conversation display reference](development/xiaozhi-spectrum.md).
 
 **Otto Robot** is the default emotion style, with 21 animated expressions.
 The original **Classic Emoji** remains available. Select **Emotion style** in

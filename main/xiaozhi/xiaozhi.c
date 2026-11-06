@@ -166,11 +166,31 @@ static void set_state(const char *value)
     xSemaphoreGive(lock);
 }
 
+static void status_spectrum(xiaozhi_status_t *out)
+{
+    xiaozhi_spectrum_snapshot_t spectrum;
+    xiaozhi_spectrum_snapshot(&spectrum);
+    memcpy(out->spectrum_mic, spectrum.microphone, sizeof(out->spectrum_mic));
+    memcpy(out->spectrum_speaker, spectrum.speaker, sizeof(out->spectrum_speaker));
+    out->spectrum_mic_active = spectrum.mic_active;
+    out->spectrum_speaker_active = spectrum.speaker_active;
+}
 void xiaozhi_status(xiaozhi_status_t *out)
 {
     if (!lock) { memset(out, 0, sizeof(*out)); out->supported = true; return; }
     xSemaphoreTake(lock, portMAX_DELAY); *out = status; xSemaphoreGive(lock);
     out->wake_model_ready = xiaozhi_custom_model_available();
+    status_spectrum(out);
+}
+bool xiaozhi_status_try(xiaozhi_status_t *out)
+{
+    if (!out) return false;
+    if (!lock) { memset(out, 0, sizeof(*out)); out->supported = true; return true; }
+    if (xSemaphoreTake(lock, 0) != pdTRUE) return false;
+    *out = status;
+    xSemaphoreGive(lock);
+    status_spectrum(out);
+    return true;
 }
 
 static bool save_enabled(bool enabled)
@@ -472,6 +492,7 @@ static void receive_packet(packet_t *p)
                 /* A server-side interruption may replace a reply before its
                  * already-decoded tail has drained. Never play that old tail. */
                 if (stream.realtime) xiaozhi_duplex_flush();
+                else xiaozhi_spectrum_clear(XZ_SPECTRUM_SPEAKER);
                 xiaozhi_session_tts_start(&stream);
                 opus_decoder_ctl(decoder, OPUS_RESET_STATE);
             }
@@ -524,8 +545,10 @@ static void receive_packet(packet_t *p)
         if (p->data[0] != 0 || len != p->len - 4) { failed = true; return; }
         /* Opus can decode the server's 24/48 kHz stream directly at 16 kHz. */
         int n = opus_decode(decoder, p->data + 4, len, pcm, 1920, 0);
+        uint32_t spectrum_generation = xiaozhi_spectrum_generation(XZ_SPECTRUM_SPEAKER);
         if (n <= 0 || (stream.realtime ? !xiaozhi_duplex_play(pcm, n) : xiaozhi_audio_write(pcm, n) != ESP_OK)) failed = true;
         else {
+            if (!stream.realtime) xiaozhi_spectrum_feed(XZ_SPECTRUM_SPEAKER, pcm, n, spectrum_generation);
             xSemaphoreTake(lock, portMAX_DELAY); ++status.audio_rx_frames; xSemaphoreGive(lock);
             activity();
         }
@@ -715,6 +738,7 @@ static void change_capture(void)
 {
     if (want_listen) {
         if (!control("abort", NULL)) return;
+        xiaozhi_spectrum_clear(XZ_SPECTRUM_SPEAKER);
         drain_packets(true);
         xiaozhi_session_reset(&stream, auto_listen && status.duplex_enabled);
         if (stream.realtime && !duplex_frame)
@@ -741,8 +765,10 @@ static bool send_capture(void)
         samples = duplex_frame->pcm; overlap = duplex_frame->playback;
         if (duplex_frame->speech) activity();
     } else {
+        uint32_t spectrum_generation = xiaozhi_spectrum_generation(XZ_SPECTRUM_MIC);
         if (xiaozhi_audio_read(pcm, FRAME_SAMPLES) != ESP_OK) { failed = true; return true; }
         xiaozhi_pcm_mono(pcm, FRAME_SAMPLES, NULL, NULL);
+        xiaozhi_spectrum_feed(XZ_SPECTRUM_MIC, pcm, FRAME_SAMPLES, spectrum_generation);
         if (!auto_listen || xiaozhi_voice_active(pcm, FRAME_SAMPLES)) activity();
     }
     int n = opus_encode(encoder, samples, FRAME_SAMPLES, encoded + 4, 1500);
@@ -887,5 +913,6 @@ esp_err_t xiaozhi_configure_wake(int word, const char *phrase) { (void)word; (vo
 esp_err_t xiaozhi_set_emoji_style(int value) { (void)value; return ESP_ERR_NOT_SUPPORTED; }
 void xiaozhi_init(void) {}
 void xiaozhi_status(xiaozhi_status_t *out) { memset(out, 0, sizeof(*out)); strcpy(out->state, "unsupported"); }
+bool xiaozhi_status_try(xiaozhi_status_t *out) { if (!out) return false; xiaozhi_status(out); return true; }
 esp_err_t xiaozhi_command(const char *action, int value) { (void)action; (void)value; return ESP_ERR_NOT_SUPPORTED; }
 #endif

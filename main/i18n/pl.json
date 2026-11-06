@@ -703,7 +703,14 @@
       "privacy": "Domyślnie wyłączone. Opcjonalne rozpoznawanie hasła wybudzającego działa lokalnie. Po wybudzeniu lub naciśnięciu przycisku dźwięk rozmowy trafia do Xiaozhi. Parowanie udostępnia identyfikator urządzenia.",
       "emoji_style": "Styl emocji AI",
       "emoji_otto": "Robot Otto",
-      "emoji_classic": "Klasyczne emoji"
+      "emoji_classic": "Klasyczne emoji",
+      "you": "Ty",
+      "assistant": "Xiaozhi",
+      "hint_duplex": "Mówię i słucham",
+      "hint_listening": "Mów dalej, słucham",
+      "hint_thinking": "Chwileczkę",
+      "hint_ready": "Wypowiedz hasło wybudzania, aby rozpocząć rozmowę",
+      "hint_error": "Wybudź mnie ponownie, aby spróbować jeszcze raz"
     },
     "ota": {
       "title": "Aktualizacja oprogramowania",

@@ -2032,5 +2032,12 @@
   "xiaozhi.wake_saving": "正在校验并保存…",
   "xiaozhi.model_ready": "模型安装成功，现在可以保存短语。",
   "xiaozhi.model_failed": "模型安装失败，请使用配套模型文件重试。",
-  "xiaozhi.state.wake_config_error": "短语无效或模型不可用，已保留原短语。"
+  "xiaozhi.state.wake_config_error": "短语无效或模型不可用，已保留原短语。",
+  "xiaozhi.you": "你",
+  "xiaozhi.assistant": "小智",
+  "xiaozhi.hint_duplex": "我在回答，也在听你说",
+  "xiaozhi.hint_listening": "我在听，请继续说",
+  "xiaozhi.hint_thinking": "稍等片刻",
+  "xiaozhi.hint_ready": "说出唤醒词，开启新的对话",
+  "xiaozhi.hint_error": "请重新唤醒小智再试"
 }

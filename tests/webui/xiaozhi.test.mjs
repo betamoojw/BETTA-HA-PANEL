@@ -8,16 +8,15 @@ import vm from 'node:vm';
 const source = fs.readFileSync(new URL('../../components/webui/www/js/xiaozhi.js', import.meta.url), 'utf8');
 function setup(saved = {}, overrides = {}) {
   const model = {supported:true, enabled:false, paired:false, volume:50, duplex_enabled:true, state:'disabled', code:'', text:'', wake_config_revision:0, ...saved};
-  const nodes = new Map(), events = {}, requests = [];
+  const nodes = new Map(), events = {}, requests = [], intervals = new Map();
   function node(id) {
-    if (!nodes.has(id)) nodes.set(id, {listeners:{}, attrs:{}, getAttribute(k){return this.attrs[k];}, setAttribute(k,v){this.attrs[k]=v;}, removeAttribute(k){delete this.attrs[k];}, classList:{contains:()=>false}, addEventListener(type, cb){this.listeners[type]=cb;}});
+    if (!nodes.has(id)) nodes.set(id, {listeners:{}, attrs:{}, style:{}, children:[], appendChild(child){this.children.push(child);}, getAttribute(k){return this.attrs[k];}, setAttribute(k,v){this.attrs[k]=v;}, removeAttribute(k){delete this.attrs[k];}, classList:{contains:()=>false}, addEventListener(type, cb){this.listeners[type]=cb;}});
     return nodes.get(id);
   }
-  let poll;
-  const document = {getElementById:node, hidden:false, addEventListener:(type, cb)=>events[type]=cb};
+  const document = {getElementById:node, createElement:()=>({style:{}}), hidden:false, addEventListener:(type, cb)=>events[type]=cb};
   const context = {document, window:{addEventListener:(type, cb)=>events[type]=cb},
     AbortController, setTimeout, clearTimeout,
-    setInterval:cb=>poll=cb, t:key=>key, apiGet:async()=>({...model}),
+    setInterval:(cb,ms)=>intervals.set(ms,cb), t:key=>key, apiGet:async()=>({...model}),
     fetch:async(url, options)=>{
       assert.equal(url, '/api/xiaozhi');
       const body = JSON.parse(options.body); requests.push(body);
@@ -38,7 +37,7 @@ function setup(saved = {}, overrides = {}) {
     const target=node(id); await target.listeners[type]({target,type,preventDefault(){},...extra});
     await Promise.resolve();
   }
-  return {model,node,events,requests,poll:()=>poll(),fire,document};
+  return {model,node,events,requests,poll:async()=>{await intervals.get(1000)();await intervals.get(200)();},tick:ms=>intervals.get(ms)(),fire,document};
 }
 test('enable, volume, disable and reload preserve the saved volume and pairing',async()=>{
   const s=setup({paired:true}); await s.poll();
@@ -108,7 +107,7 @@ test('all Xiaozhi HTML labels are wired into the existing translation refresh',(
   const html=fs.readFileSync(new URL('../../components/webui/www/index.html',import.meta.url),'utf8');
   const translations=fs.readFileSync(new URL('../../components/webui/www/js/translations.js',import.meta.url),'utf8');
   const labels=[...html.matchAll(/<[^>]+id="([^"]+)"[^>]+data-i18n-key="(xiaozhi\.[^"]+)"/g)];
-  assert.equal(labels.length,24);
+  assert.equal(labels.length,25);
   for (const [,id,key] of labels) assert.ok(translations.includes(`setTextById("${id}", "${key}")`),`${id} must refresh when language changes`);
 });
 
@@ -353,4 +352,86 @@ test('a stalled upload response body expires and restores settings polling', asy
  assert.equal(s.node('xiaozhiModelFile').disabled,false);
  assert.equal(s.node('xiaozhiWakeResult').textContent,'xiaozhi.model_failed');
  await s.poll();assert.equal(s.node('xiaozhiWakePhrase').value,'ni hao xiao bei');
+});
+
+test('spectrum uses measured playback bands before microphone and expires old snapshots', async()=>{
+  let now=1000;
+  const mic=Array(24).fill(0), speaker=Array(24).fill(0); mic[2]=255;speaker[17]=255;
+  const s=setup({enabled:true,conversation:true,speaking:true,listening:true,state:'speaking_listening',
+    spectrum:{microphone:mic,speaker,mic_active:true,speaker_active:true}}, {Date:{now:()=>now}});
+  await s.poll();
+  const bars=s.node('xiaozhiSpectrum').children;
+  assert.equal(bars.length,24);
+  assert.equal(bars[17].style.height,'64px');assert.equal(bars[2].style.height,'4px');
+  now=1349;s.tick(100);assert.equal(bars[17].style.height,'64px');
+  now=1350;s.tick(100);assert.ok(bars.every(b=>b.style.height==='4px'));
+  s.model.spectrum.speaker_active=false;await s.poll();
+  assert.equal(bars[2].style.height,'64px');assert.equal(bars[17].style.height,'4px');
+});
+
+test('silence, invalid spectrum, errors, goodbye and hiding cannot leave moving bars', async()=>{
+  const s=setup({enabled:true,conversation:true,listening:true,state:'listening',
+    spectrum:{microphone:Array(24).fill(255),mic_active:true}});
+  const bars=s.node('xiaozhiSpectrum').children;
+  const quiet=()=>assert.ok(bars.every(b=>b.style.height==='4px'));
+  await s.poll();assert.equal(bars[0].style.height,'64px');
+  s.model.spectrum.microphone=Array(24).fill(0);await s.poll();quiet();
+  for(const data of [Array(23).fill(255),Array(24).fill(NaN),Array(24).fill(-1),Array(24).fill(256)]) {
+    s.model.spectrum.microphone=data;await s.poll();quiet();
+  }
+  s.model.spectrum.microphone=Array(24).fill(255);
+  for(const state of ['connection_error','audio_or_connection_error','ready','disabled']) {
+    s.model.state='listening';await s.poll();assert.equal(bars[0].style.height,'64px');
+    s.model.state=state;await s.poll();quiet();
+  }
+  s.model.state='listening';await s.poll();s.document.hidden=true;s.events.visibilitychange();quiet();
+  s.document.hidden=false;await s.poll();s.node('settingsXiaozhiSection').classList.contains=()=>true;s.tick(100);quiet();
+});
+
+test('active polls are bounded, leave settings idle polls slow, and command failures clear spectrum', async()=>{
+  let calls=0, reject;
+  const s=setup({enabled:true,conversation:true,listening:true,state:'listening',
+    spectrum:{microphone:Array(24).fill(255),mic_active:true}},
+    {apiGet:async()=>{calls++;return {...s.model};}});
+  await s.tick(1000);assert.equal(calls,1);
+  await s.tick(1000);assert.equal(calls,1);
+  await s.tick(200);assert.equal(calls,2);
+  s.model.conversation=false;s.model.listening=false;s.model.state='ready';await s.tick(200);
+  const idleCalls=calls;await s.tick(200);assert.equal(calls,idleCalls);
+  await s.tick(1000);assert.equal(calls,idleCalls+1);
+  const f=setup({enabled:true,conversation:true,listening:true,state:'listening',
+    spectrum:{microphone:Array(24).fill(255),mic_active:true}}, {fetch:async()=>({ok:false})});
+  await f.poll();await f.fire('xiaozhiStop','click');
+  assert.ok(f.node('xiaozhiSpectrum').children.every(b=>b.style.height==='4px'));
+});
+
+test('bubble labels, visibility and hints follow actual duplex and wake availability', async()=>{
+  const s=setup({enabled:true,recognized:'<b>hello</b>',reply:'A long response',duplex_active:true,
+    speaking:true,listening:true,state:'speaking_listening',wake_enabled:true,wake_ready:true});
+  await s.poll();assert.equal(s.node('xiaozhiConversationHint').textContent,'xiaozhi.hint_duplex');
+  assert.equal(s.node('xiaozhiUserBubble').hidden,false);assert.equal(s.node('xiaozhiReplyBubble').hidden,false);
+  assert.equal(s.node('xiaozhiRecognized').innerHTML,undefined);
+  s.model.state='ready';s.model.listening=false;s.model.speaking=false;await s.poll();
+  assert.equal(s.node('xiaozhiConversationHint').textContent,'xiaozhi.hint_ready');
+  s.model.state='connection_error';await s.poll();assert.equal(s.node('xiaozhiConversationHint').textContent,'xiaozhi.hint_error');
+  s.model.wake_ready=false;await s.poll();assert.equal(s.node('xiaozhiConversationHint').textContent,'xiaozhi.talk');
+  s.model.recognized='';s.model.reply='';await s.poll();
+  assert.equal(s.node('xiaozhiUserBubble').hidden,true);assert.equal(s.node('xiaozhiReplyBubble').hidden,true);
+});
+
+test('late HTTP spectrum is discarded and unchanged live text is not announced again', async()=>{
+  let now=1000, resolve;
+  const s=setup({enabled:true,conversation:true,listening:true,state:'listening',recognized:'Hello',reply:'Hi',
+    spectrum:{microphone:Array(24).fill(255),mic_active:true}},
+    {Date:{now:()=>now},apiGet:()=>new Promise(r=>resolve=r)});
+  const pending=s.tick(1000);now=1400;resolve({...s.model});await pending;
+  assert.ok(s.node('xiaozhiSpectrum').children.every(b=>!b.style.height || b.style.height==='4px'));
+  const writes=[];
+  for(const id of ['xiaozhiStatus','xiaozhiText','xiaozhiRecognized','xiaozhiConversationHint']) {
+    let value=s.node(id).textContent;
+    Object.defineProperty(s.node(id),'textContent',{get:()=>value,set:text=>{writes.push(id);value=text;}});
+  }
+  const fresh=s.tick(200);resolve({...s.model});await fresh;
+  assert.equal(s.node('xiaozhiSpectrum').children[0].style.height,'64px');
+  assert.deepEqual(writes,[]);
 });

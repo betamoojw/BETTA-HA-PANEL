@@ -112,7 +112,7 @@ for (const lang of ['es', 'fr', 'pl', 'zh-cn', 'zh-tw']) {
       assert.equal(sandbox.editor.i18nMap[key], catalogs[lang][key], key);
       if (lang.startsWith('zh-')) assert.match(sandbox.editor.i18nMap[key], /\p{Script=Han}/u, key);
       // Brand names can match English; user-facing instructions and states cannot.
-      if (key !== 'xiaozhi.title') assert.notEqual(sandbox.editor.i18nMap[key], catalogs.en[key], key);
+      if (!['xiaozhi.title', 'xiaozhi.assistant'].includes(key)) assert.notEqual(sandbox.editor.i18nMap[key], catalogs.en[key], key);
     }
     const panel = JSON.parse(read(`main/i18n/${lang}.json`)).lvgl.xiaozhi;
     assert.equal(panel.title, catalogs[lang]['xiaozhi.title']);

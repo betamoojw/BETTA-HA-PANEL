@@ -111,6 +111,7 @@ nav = [
       { "Text size and readability" = "text-size-readability.md" },
       { "Notification implementation" = "notifications-implementation.md" },
       { "Xiaozhi AI" = "development/xiaozhi-ai.md" },
+      { "Xiaozhi conversation display" = "development/xiaozhi-spectrum.md" },
       { "Xiaozhi MCP tools" = "development/xiaozhi-mcp-tools.md" },
       { "KNX" = "development/knx.md" },
       { "Xiaozhi resources" = "development/xiaozhi-resources.md" },

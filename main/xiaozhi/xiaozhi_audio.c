@@ -6,6 +6,7 @@
 #include <stdbool.h>
 #include "xiaozhi_audio.h"
 #include "xiaozhi_audio_gain.h"
+#include "xiaozhi_spectrum.h"
 #include "bsp/esp32_p4_wifi6_touch_lcd_x.h"
 #include "esp_codec_dev.h"
 #include "esp_codec_dev_defaults.h"
@@ -101,6 +102,7 @@ error:
 esp_err_t xiaozhi_audio_open(int volume)
 {
     if (volume < 0 || volume > 80) return ESP_ERR_INVALID_ARG;
+    xiaozhi_spectrum_init();
     esp_err_t err = initialize();
     if (err != ESP_OK) return err;
     if (!opened) {
@@ -129,6 +131,7 @@ esp_err_t xiaozhi_audio_mic(bool on)
         }
     } else {
         if (esp_codec_dev_close(mic) != ESP_CODEC_DEV_OK) return ESP_FAIL;
+        xiaozhi_spectrum_clear(XZ_SPECTRUM_MIC);
     }
     recording = on;
     return ESP_OK;
@@ -150,6 +153,8 @@ esp_err_t xiaozhi_audio_write(int16_t *mono, int samples)
 
 void xiaozhi_audio_close(void)
 {
+    xiaozhi_spectrum_clear(XZ_SPECTRUM_MIC);
+    xiaozhi_spectrum_clear(XZ_SPECTRUM_SPEAKER);
     if (recording) xiaozhi_audio_mic(false);
     if (opened) esp_codec_dev_close(speaker);
     opened = false;

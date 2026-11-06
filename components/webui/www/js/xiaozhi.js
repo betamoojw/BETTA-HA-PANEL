@@ -3,9 +3,57 @@
  */
 (() => {
   const node = (id) => document.getElementById(id);
+  const setText = (id, value) => {
+    const element = node(id), text = String(value ?? "");
+    if (element.textContent !== text) element.textContent = text;
+  };
   let busy = 0, talking = false, pending = Promise.resolve(), refreshing = false, revision = 0;
   let wakeDirty = false, wakePending = null, wakeRevision = 0, pendingRevision = 0, wakePendingAt = 0;
   let savedWakePhrase = "ni hao xiao zhi";
+  let voiceActive = false, spectrumAt = 0, spectrumVisible = false;
+  const spectrumNow = () => typeof performance !== "undefined" ? performance.now() : Date.now();
+  const spectrumBars = [];
+  const spectrum = node("xiaozhiSpectrum");
+  if (spectrum && document.createElement) for (let i = 0; i < 24; i++) {
+    const bar = document.createElement("span");
+    spectrum.appendChild(bar); spectrumBars.push(bar);
+  }
+  function pageVisible() {
+    const section = node("settingsXiaozhiSection");
+    return !document.hidden && section && !section.classList.contains("hidden") &&
+      (!section.checkVisibility || section.checkVisibility());
+  }
+  function clearSpectrum() {
+    spectrumAt = 0;
+    if (!spectrumVisible) return;
+    for (const bar of spectrumBars) { bar.style.height = "4px"; bar.style.opacity = "0.3"; }
+    spectrumVisible = false;
+  }
+  function updateSpectrum(s, requestedAt) {
+    if (!voiceActive || !pageVisible() || spectrumNow() - requestedAt >= 350) { clearSpectrum(); return; }
+    const data = s.spectrum;
+    const bands = data?.speaker_active ? data.speaker : data?.mic_active ? data.microphone : null;
+    if (!Array.isArray(bands) || bands.length !== 24 || bands.some(n => !Number.isFinite(n) || n < 0 || n > 255)) {
+      clearSpectrum(); return;
+    }
+    spectrumAt = requestedAt; spectrumVisible = true;
+    spectrumBars.forEach((bar, i) => {
+      // Keep the central segment and grow equally upward/downward in whole cells.
+      const rows = Math.round(bands[i] / 255 * 5);
+      bar.style.height = `${4 + rows * 12}px`;
+      bar.style.opacity = rows ? "0.9" : "0.3";
+    });
+  }
+  function conversationHint(s) {
+    if (!s.enabled) return "";
+    if (s.state === "connection_error" || s.state === "audio_or_connection_error")
+      return t(s.wake_enabled && s.wake_ready ? "xiaozhi.hint_error" : "xiaozhi.talk");
+    if (s.duplex_active && s.speaking && s.listening) return t("xiaozhi.hint_duplex");
+    if (s.listening) return t("xiaozhi.hint_listening");
+    if (s.state === "waiting" || s.state === "connecting") return t("xiaozhi.hint_thinking");
+    if (s.speaking) return "";
+    return t(s.wake_enabled && s.wake_ready ? "xiaozhi.hint_ready" : "xiaozhi.talk");
+  }
   const normalizePhrase = (value) => value.trim().toLowerCase().replace(/\s+/g, " ");
   const validPhrase = (phrase) => phrase.length <= 95 && /^[a-z]{1,6}( [a-z]{1,6}){2,11}$/.test(phrase);
   function wakeFields() {
@@ -13,16 +61,19 @@
   }
   async function refresh() {
     const section = node("settingsXiaozhiSection");
-    if (!section || section.classList.contains("hidden") || document.hidden) { stop(); return; }
+    if (!section || !pageVisible()) {
+      voiceActive = false; clearSpectrum(); stop(); node("xiaozhiOtto").removeAttribute("src"); return;
+    }
     if (busy || refreshing) return;
     refreshing = true;
     const started = revision;
+    const requestedAt = spectrumNow();
     const controller = new AbortController();
     const deadline = setTimeout(() => controller.abort(), 8000);
     try {
       const s = await apiGet("/api/xiaozhi", controller.signal);
       // A delayed poll must not undo a user's newer edit or re-open hidden UI.
-      if (started !== revision || busy || section.classList.contains("hidden") || document.hidden) return;
+      if (started !== revision || busy || !pageVisible()) return;
       node("xiaozhiEnabled").checked = s.enabled;
       node("xiaozhiEnabled").disabled = !s.supported;
       node("xiaozhiReset").disabled = !s.supported;
@@ -57,10 +108,18 @@
       node("xiaozhiTalk").hidden = !!s.wake_enabled && !!s.wake_ready;
       if (document.activeElement !== node("xiaozhiTimeout")) node("xiaozhiTimeout").value = s.dialog_timeout || 30;
       if (document.activeElement !== node("xiaozhiEmoji")) node("xiaozhiEmoji").value = s.emoji_style === 1 ? 1 : 0;
-      node("xiaozhiRecognized").textContent = s.recognized || "";
-      node("xiaozhiText").textContent = s.reply ?? s.text;
+      setText("xiaozhiRecognized", s.recognized);
+      setText("xiaozhiText", s.reply ?? s.text);
+      node("xiaozhiConversation").hidden = false;
+      node("xiaozhiUserBubble").hidden = !s.enabled || !s.recognized;
+      node("xiaozhiReplyBubble").hidden = !s.enabled || !(s.reply ?? s.text);
+      node("xiaozhiSpectrum").hidden = !s.enabled || !s.supported;
+      setText("xiaozhiConversationHint", conversationHint(s));
+      voiceActive = !!(s.supported && s.enabled && (s.conversation || s.listening || s.speaking) &&
+        ["listening", "speaking", "speaking_listening", "waiting"].includes(s.state));
+      updateSpectrum(s, requestedAt);
       const emotions = {neutral:"😐",happy:"🙂",laughing:"😆",funny:"😂",sad:"😔",angry:"😠",crying:"😭",loving:"😍",embarrassed:"😳",surprised:"😮",shocked:"😱",thinking:"🤔",winking:"😉",cool:"😎",relaxed:"😌",delicious:"😋",kissy:"😘",confident:"😏",sleepy:"😴",silly:"😜",confused:"😕"};
-      node("xiaozhiEmotion").textContent = emotions[s.emotion] || emotions.neutral;
+      setText("xiaozhiEmotion", emotions[s.emotion] || emotions.neutral);
       const otto = s.supported && s.enabled && s.emoji_style !== 1;
       node("xiaozhiEmotion").hidden = otto;
       node("xiaozhiOtto").hidden = !otto;
@@ -69,14 +128,21 @@
       if (otto && node("xiaozhiOtto").getAttribute("src") !== src) node("xiaozhiOtto").setAttribute("src", src);
       if (!otto) node("xiaozhiOtto").removeAttribute("src");
       const key = `xiaozhi.state.${s.state}`;
-      node("xiaozhiStatus").textContent = t(key) === key ? s.state : t(key);
+      setText("xiaozhiStatus", t(key) === key ? s.state : t(key));
     } catch (_) {
-      if (started === revision && !busy) node("xiaozhiStatus").textContent = t("xiaozhi.state.connection_error");
+      voiceActive = false; clearSpectrum();
+      if (started === revision && !busy && pageVisible()) {
+        node("xiaozhiConversation").hidden = false;
+        node("xiaozhiStatus").textContent = t("xiaozhi.state.connection_error");
+        node("xiaozhiConversationHint").textContent = "";
+      }
     } finally { clearTimeout(deadline); refreshing = false; }
   }
   function command(action, value = 0) {
     revision++;
     busy++;
+    clearSpectrum();
+    if (["disable", "disconnect", "reset"].includes(action)) voiceActive = false;
     // Keep rapid edits and start/release in order; never silently discard an edit.
     pending = pending.then(async () => {
       const controller = new AbortController();
@@ -164,6 +230,14 @@
   window.addEventListener("pointerup", stop);
   window.addEventListener("pointercancel", stop);
   window.addEventListener("blur", stop);
-  document.addEventListener("visibilitychange", () => { if (document.hidden) stop(); });
-  setInterval(refresh, 1000);
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) { voiceActive = false; clearSpectrum(); stop(); node("xiaozhiOtto").removeAttribute("src"); }
+  });
+  // Idle settings poll slowly. Active conversations share the same bounded,
+  // single-flight status request; no additional audio or WebSocket connection.
+  setInterval(() => { if (!voiceActive) return refresh(); }, 1000);
+  setInterval(() => { if (voiceActive) return refresh(); }, 200);
+  setInterval(() => {
+    if (spectrumVisible && (!pageVisible() || spectrumNow() - spectrumAt >= 350)) clearSpectrum();
+  }, 100);
 })();

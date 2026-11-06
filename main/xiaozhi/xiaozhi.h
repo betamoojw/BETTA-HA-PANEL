@@ -7,11 +7,14 @@
 #include "esp_http_server.h"
 #include "lvgl.h"
 #include "xiaozhi_custom_wake.h"
+#include "xiaozhi_spectrum.h"
 typedef struct { int word; char phrase[XIAOZHI_WAKE_PHRASE_SIZE]; } xiaozhi_wake_config_t;
 
 typedef struct {
     bool supported, enabled, paired, listening, wake_enabled, wake_ready, wake_running, conversation;
     bool duplex_enabled, duplex_active, speaking;
+    uint8_t spectrum_mic[XIAOZHI_SPECTRUM_BANDS], spectrum_speaker[XIAOZHI_SPECTRUM_BANDS];
+    bool spectrum_mic_active, spectrum_speaker_active;
     uint32_t audio_tx_frames, audio_rx_frames, audio_tx_during_playback, barge_ins;
     uint32_t aec_frames, aec_playback_frames, audio_capture_drops;
     int aec_mic_peak, aec_ref_peak, aec_clean_peak, aec_processing_us;
@@ -33,6 +36,9 @@ typedef struct {
 
 void xiaozhi_init(void);
 void xiaozhi_status(xiaozhi_status_t *out);
+/* UI snapshot: never waits or checks resource files. On contention, leaves
+ * out unchanged; callers retain their previous view until the next refresh. */
+bool xiaozhi_status_try(xiaozhi_status_t *out);
 /* Commands are serialized by a worker; these never call LVGL or wait on audio. */
 esp_err_t xiaozhi_command(const char *action, int value);
 esp_err_t xiaozhi_configure_wake(int word, const char *phrase);

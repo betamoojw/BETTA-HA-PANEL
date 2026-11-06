@@ -19,6 +19,9 @@
 #include "util/flash_gate.h"
 
 #if CONFIG_APP_PANEL_VARIANT_10INCH_1280
+#ifdef CONFIG_ESP_WS_CLIENT_SEPARATE_TX_LOCK
+#error "Xiaozhi TLS requires the shared WebSocket lock; regenerate sdkconfig from project defaults"
+#endif
 #include "xiaozhi_audio.h"
 #include "xiaozhi_duplex.h"
 #include "xiaozhi_session.h"

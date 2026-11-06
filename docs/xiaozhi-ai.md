@@ -192,7 +192,10 @@ playback successfully interrupted the answer. Diagnostics showed concurrent
 microphone upload and playback, an active hardware echo-reference channel and
 no capture queue drops. Display and touch had been confirmed normal in the
 initial trial. Other rooms, volume levels, boards and all-day operation remain
-unverified.
+unverified. A later `de6dc171` test passed the same acoustic checks but recorded
+a connection crash afterward; that voice result alone is not a stability pass.
+The transport correction is described in the [component notes](development/components.md#websocket-tls-ownership).
+If a connection stalls, the conversation ends; use the wake phrase again to reconnect.
 
 COM24 voice trials accepted status, volume, brightness, theme and network
 queries (IP, Wi-Fi name and signal strength). These bounded checks do not

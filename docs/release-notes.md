@@ -19,6 +19,10 @@ freeing application space while retaining every image, setting and data partitio
 
 ### Xiaozhi AI
 
+- Encrypted WebSocket traffic shares one transport lock, including polling and
+  connection teardown. Stalled incoming frames terminate the conversation instead
+  of holding the connection indefinitely; full-duplex capture and echo cancellation
+  remain enabled during replies.
 - Waveshare LCD-X `panel10` adds full-duplex hands-free conversations with local
   echo cancellation, continued microphone upload during replies and speech
   interruption. The saved full-duplex preference defaults to on; the assistant

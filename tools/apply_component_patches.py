@@ -16,6 +16,7 @@ import os
 import re
 import sys
 from pathlib import Path
+from patch_websocket_transport import patch_websocket_transport
 
 ROOT = Path(__file__).resolve().parent.parent
 MC = Path(os.environ.get("COMPONENTS_DIR", ROOT / "managed_components"))
@@ -63,6 +64,9 @@ def ensure_requires(path, keyword, tokens):
 
 # (component directory, file inside it, what, edit function, its arguments[, optional: the place may not exist])
 PATCHES = [
+    ("espressif__esp_websocket_client", "esp_websocket_client.c",
+     "esp_websocket_client: serialize TLS polling/close and bound stalled receives",
+     patch_websocket_transport, ()),
     ("espressif__bmi270", "src/bmi270.c",
      "bmi270: bounded I2C reads on the shared Tab5 touch/backlight bus",
      replace, ("i2c_master_transmit_receive(dev_handle->i2c_handle, &reg, 1, data, data_len, -1)",

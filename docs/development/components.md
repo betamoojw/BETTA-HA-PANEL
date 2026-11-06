@@ -104,6 +104,8 @@ build at a commit whose manifest differs from the lock). The small edits needed 
 
 - two esp_hosted SDIO fixes (byte-mode TX workaround, bounded `esp_hosted_tx()` queue wait instead of an infinite one),
 - compatibility fixes for the older fetched Waveshare BSPs, including panel10,
+- serialized WebSocket polling/close, post-lock connection checks and stalled-frame
+  handling in `tools/patch_websocket_transport.py`,
 - a bounded wait for the PPA screen rotation in `esp_lvgl_port` (see
   [UI stall watchdog](learnings.md#watchdogs-and-crash-evidence)).
 
@@ -123,6 +125,30 @@ tools/apply_component_patches.py           # apply without a build
   gets fresh ones. This fixed the Tab5 rotation trial of 2026-10-05: rebuilt media widgets hit a late callback into a
   deleted context (`tlsf_free` assertion in `mp_release_cover`, OTA rollback after 20 s; the panic PC read "Illegal
   instruction", the decoded core dump showed the double free).
+
+### WebSocket TLS ownership
+
+Keep `CONFIG_ESP_WS_CLIENT_SEPARATE_TX_LOCK` disabled: TLS receive-buffer replacement,
+send, polling and close access the same TLS context. On COM24, `de6dc171` crashed
+on 2026-11-06 at `ssl_check_ctr_renegotiate()` reading a null receive counter during
+audio upload (matching ELF `bd29dfb0f`, dump `9d73336a83529206...`). This is separate
+from the owner's successful acoustic test. The exact receive-side interleaving was
+not captured; the unprotected shared context and null read were confirmed.
+
+The component patch uses the shared lock for a 20 ms poll and yields after each
+receive pass. Sends recheck the connection after acquiring the lock. A zero-progress
+nonempty frame fails, and successive reads share the configured receive-time budget;
+individual transport calls can still consume their own timeout. Xiaozhi retains its
+500 ms send wait and 5 s network timeout. A delayed connection can end the current
+conversation instead of blocking the worker indefinitely; a new wake starts a new
+connection. Do not extend send waits to hide receive contention.
+
+Regressions compile the fetched component's actual send/receive/poll functions with
+injected scheduling, partial-frame and timeout faults, including negative controls
+against the original implementation:
+`python -m unittest discover -s tests/tools -p test_websocket_transport.py`
+(host C compiler via `CC`). Regenerate an existing
+saved sdkconfig from project defaults; panel10 rejects the unsafe old lock setting.
 
 ### Variant lock files
 

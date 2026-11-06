@@ -39,6 +39,7 @@ tools/*
 !tools/test_layout_cases.json
 !tools/test_layout_entities_demo.json
 !tools/apply_component_patches.py
+!tools/patch_websocket_transport.py
 !tools/generate_gallery.py
 !tools/gallery_content.py
 !tools/generate_simulator_gallery.py

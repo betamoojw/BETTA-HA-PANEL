@@ -44,6 +44,7 @@
 #include "xiaozhi/xiaozhi_font_store.h"
 #include "ui/fonts/cjk_reply_resource.h"
 static xiaozhi_status_t demo_assistant;
+static lv_obj_t *demo_assistant_root;
 void xiaozhi_status(xiaozhi_status_t *s) { *s = demo_assistant; }
 bool xiaozhi_status_try(xiaozhi_status_t *s) { xiaozhi_status(s); return true; }
 esp_err_t xiaozhi_command(const char *action, int value) { (void)action; (void)value; return ESP_OK; }
@@ -891,6 +892,16 @@ static bool dump_layout(const char *path, const sim_widget_t *widgets, int count
         fprintf(out, "{\"widget\":\"popup\",\"type\":\"popup\",\"depth\":0,\"kind\":\"card\",\"x1\":0,\"y1\":0,\"x2\":%d,\"y2\":%d}\n", APP_VIEW_WIDTH - 1, APP_VIEW_HEIGHT - 1);
         dump_object(out, &def, layer, 1, NULL);
     }
+    /* The assistant owns a screen child instead of the shared popup layer.
+     * Include its actual tree; dump_object clips scrollable dialogue content. */
+    if (demo_assistant_root != NULL) {
+        ui_widget_def_t def = {0};
+        snprintf(def.id, sizeof(def.id), "assistant"); snprintf(def.type, sizeof(def.type), "popup");
+        lv_area_t a; lv_obj_get_coords(demo_assistant_root, &a);
+        fprintf(out, "{\"widget\":\"assistant\",\"type\":\"popup\",\"depth\":0,\"kind\":\"card\",\"x1\":%d,\"y1\":%d,\"x2\":%d,\"y2\":%d}\n",
+                (int)a.x1, (int)a.y1, (int)a.x2, (int)a.y2);
+        dump_object(out, &def, demo_assistant_root, 1, NULL);
+    }
     fclose(out);
     return true;
 }
@@ -1406,7 +1417,11 @@ int main(int argc, char **argv)
     if (cJSON_IsObject(ai_demo)) {
         demo_assistant.enabled = true; demo_assistant.supported = true;
         demo_assistant.wake_enabled = demo_assistant.wake_ready = true;
-        demo_assistant.dialog_timeout = 300;
+        demo_assistant.dialog_timeout = 30;
+        demo_assistant.dialog_active = true;
+        demo_assistant.dialog_voice_opened = !cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(ai_demo, "manual"));
+        const cJSON *remaining = cJSON_GetObjectItemCaseSensitive(ai_demo, "silence_remaining_ms");
+        demo_assistant.silence_remaining_ms = cJSON_IsNumber(remaining) ? LV_CLAMP(0, remaining->valueint, 30000) : 30000;
         demo_assistant.emoji_style = !strcmp(json_string(ai_demo,"style"),"classic") ? 1 : 0;
         bool duplex_demo=cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(ai_demo,"duplex"));
         demo_assistant.duplex_enabled=demo_assistant.duplex_active=demo_assistant.listening=duplex_demo;
@@ -1434,7 +1449,9 @@ int main(int argc, char **argv)
         snprintf(demo_assistant.emotion,sizeof(demo_assistant.emotion),"%s",json_string(ai_demo,"emotion"));
         snprintf(demo_assistant.recognized,sizeof(demo_assistant.recognized),"%s",json_string(ai_demo,"recognized"));
         snprintf(demo_assistant.reply,sizeof(demo_assistant.reply),"%s",json_string(ai_demo,"reply"));
+        uint32_t before = lv_obj_get_child_count(screen);
         xiaozhi_ui_create(screen); ++demo_assistant.dialog_seq;
+        if (lv_obj_get_child_count(screen) > before) demo_assistant_root = lv_obj_get_child(screen, (int32_t)before);
     }
     if (cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(root, "alert_demo"))) {
         coredump_record_t report = {0};

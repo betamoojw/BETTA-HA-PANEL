@@ -43,7 +43,7 @@ rotation 90). Snapshots, MJPEG and native camera views share rotated output;
 quarter turns swap image dimensions. Saved motion regions stay in sensor
 coordinates, with rotated preview overlays. See [Local camera](local-camera.md).
 
-The optional Xiaozhi action shares the right-hand topbar layout with connection
+The optional AI Assistant action shares the right-hand topbar layout with connection
 and settings icons. Its actual width is reserved before positioning the clock
 and left-hand slots, including AP, MQTT and crash-warning combinations. A fixed
 offset from screen center overlapped HA in the enabled 800-pixel portrait view.

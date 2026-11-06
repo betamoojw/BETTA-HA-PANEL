@@ -90,13 +90,13 @@ Cached state becomes valid only after an incoming write/response from another
 individual address, never from a local send or multicast loopback.
 After reconnect, consider the cached timestamp before using an old value.
 
-On panels supporting [Xiaozhi AI](xiaozhi-ai.md), enable/pair the assistant as usual.
+On panels supporting [AI Assistant](xiaozhi-ai.md), enable/pair the assistant as usual.
 For example, ask it to turn on the configured living room light or read its
-temperature. Xiaozhi discovers IDs, names and permissions through MCP.
+temperature. AI Assistant discovers IDs, names and permissions through MCP.
 Configuration changes and enabling KNX belong to the editor, not AI tools.
 Existing wake-up, dialogue, emoji and timeout behavior remains.
 Other profiles provide KNX through the editor/API; this does not add audio
-drivers to hardware without Xiaozhi support.
+drivers to hardware without assistant audio support.
 
 ## Validation
 

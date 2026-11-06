@@ -23,7 +23,7 @@ The size-optimized build keeps camera and voice support within the existing OTA 
 | Flash / PSRAM | 32 MB flash / Hex PSRAM at 200 MHz |
 | Display / touch controller | JD9365 / GT9271 |
 | Navigation | Up to 12 pages |
-| Camera / sound | OV5647 light/presence sensing, off by default; ES8311/ES7210 audio for optional Xiaozhi |
+| Camera / sound | OV5647 light/presence sensing, off by default; ES8311/ES7210 audio for optional AI Assistant |
 
 ## Firmware and revisions
 
@@ -108,9 +108,9 @@ The earlier ROM-only storage digests are not valid full-filesystem evidence:
 ROM cannot address beyond 16 MiB. Use the [stub preservation procedure](../development/build.md#32-mib-p4-preservation-checks).
 This verifies bytes before boot; normal boot diagnostics may subsequently write NVS.
 
-[Xiaozhi AI](../xiaozhi-ai.md) adds optional cloud-paired voice conversation using
+[AI Assistant](../xiaozhi-ai.md) adds optional cloud-paired voice conversation using
 the onboard audio codecs. It defaults to off. This is the only profile that
-advertises Xiaozhi Common, KNX and User Only MCP tools because it is the only
+advertises the assistant's Common, KNX and User Only MCP tools because it is the only
 profile with supported microphone and speaker drivers.
 
 On 2026-10-24, the localization and overlay-lifetime build based on `af827c0`

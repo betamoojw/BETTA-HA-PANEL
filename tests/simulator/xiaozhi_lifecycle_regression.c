@@ -23,6 +23,7 @@
 
 static bool enabled;
 static bool snapshot_busy;
+static const char *reject_command;
 static xiaozhi_status_t mock;
 static unsigned wakeups;
 static const theme_palette_t palette = {.content_bg=0x101820,.text_primary=0xeeeeee,
@@ -85,13 +86,37 @@ void xiaozhi_status(xiaozhi_status_t *s)
 }
 bool xiaozhi_status_try(xiaozhi_status_t *s)
 { if (snapshot_busy) return false; xiaozhi_status(s); return true; }
+static void mock_open(bool voice)
+{
+    ++mock.dialog_seq; mock.dialog_active = true; mock.dialog_voice_opened = voice;
+    mock.silence_remaining_ms = 30000; mock.dialog_timeout = 30;
+    mock.dialog_end_reason[0] = 0;
+}
+static void mock_end(const char *reason)
+{
+    mock.dialog_active = false; mock.dialog_end_seq = mock.dialog_seq;
+    mock.silence_remaining_ms = 0;
+    snprintf(mock.dialog_end_reason, sizeof(mock.dialog_end_reason), "%s", reason);
+}
+static void reset_mock(void)
+{
+    /* Production generations survive settings and view rebuilds for this boot. */
+    uint32_t sequence = mock.dialog_seq;
+    memset(&mock, 0, sizeof(mock)); mock.dialog_seq = sequence;
+}
 esp_err_t xiaozhi_command(const char *action, int value)
 {
-    (void)value;
+    if (reject_command && !strcmp(action, reject_command)) return ESP_ERR_TIMEOUT;
     if (!strcmp(action,"open")) ++opens;
-    else if (!strcmp(action,"disconnect")) ++disconnects;
-    else if (!strcmp(action,"start")) ++starts;
-    else if (!strcmp(action,"stop")) ++stops;
+    else if (!strcmp(action,"dialog_turn")) {
+        assert((uint32_t)value == mock.dialog_seq && !mock.dialog_active); mock_open(false);
+    }
+    else if (!strcmp(action,"dismiss")) {
+        assert((uint32_t)value == mock.dialog_seq);
+        ++disconnects; mock_end("manual");
+    }
+    else if (!strcmp(action,"start_turn")) { assert((uint32_t)value == mock.dialog_seq); ++starts; }
+    else if (!strcmp(action,"stop_turn")) { assert((uint32_t)value == mock.dialog_seq); ++stops; }
     else assert(!"Unexpected assistant command");
     return ESP_OK;
 }
@@ -168,7 +193,7 @@ int main(void)
         assert(timer_count() == baseline + 1);
         lv_tick_inc(300); lv_timer_handler();
         lv_obj_clean(screen);
-        assert(disconnects == i + 1);
+        assert(disconnects == 0); /* hidden views cannot cancel another conversation */
         assert(timer_count() == baseline);
         lv_tick_inc(300); lv_timer_handler();
     }
@@ -181,21 +206,22 @@ int main(void)
     lv_color_t idle_bg = lv_obj_get_style_bg_color(button, LV_PART_MAIN);
     lv_color_t idle_glyph = lv_obj_get_style_text_color(lv_obj_get_child(button, 0), LV_PART_MAIN);
     lv_obj_send_event(button, LV_EVENT_CLICKED, NULL);
+    lv_tick_inc(300); lv_timer_handler();
     assert(!lv_obj_is_hidden(panel));
     assert_header_active(button, true);
     assert(lv_color_eq(lv_obj_get_style_bg_color(button, LV_PART_MAIN), lv_color_hex(palette.nav_btn_bg_active)));
     assert(lv_color_eq(lv_obj_get_style_text_color(lv_obj_get_child(button, 0), LV_PART_MAIN), lv_color_hex(palette.nav_tab_active)));
     lv_obj_send_event(button, LV_EVENT_CLICKED, NULL);
-    assert(lv_obj_is_hidden(panel) && disconnects == 101);
+    assert(lv_obj_is_hidden(panel) && disconnects == 1);
     assert_header_active(button, false);
     assert(lv_color_eq(lv_obj_get_style_bg_color(button, LV_PART_MAIN), idle_bg));
     assert(lv_color_eq(lv_obj_get_style_text_color(lv_obj_get_child(button, 0), LV_PART_MAIN), idle_glyph));
     lv_obj_delete(other);
-    assert(disconnects == 102 && timer_count() == baseline);
+    assert(disconnects == 1 && timer_count() == baseline);
     const int sizes[][2]={{480,480},{720,720},{1280,800},{800,1280},{720,1280}};
     for (unsigned i=0;i<5;++i) {
         lv_display_set_resolution(display,sizes[i][0],sizes[i][1]);
-        enabled=true;memset(&mock,0,sizeof(mock));mock.dialog_timeout=10;
+        enabled=true;reset_mock();mock.dialog_timeout=30;
         xiaozhi_ui_create(screen);
         root=lv_obj_get_child(screen,0);panel=lv_obj_get_child(root,1);
         button=lv_obj_get_child(root,0);
@@ -216,6 +242,37 @@ int main(void)
         lv_obj_send_event(talk,LV_EVENT_PRESSED,NULL);
         lv_obj_send_event(talk,LV_EVENT_PRESS_LOST,NULL);
         assert(starts==prior_starts+2&&stops==prior_stops+2);
+        /* Queue contention must not hide active capture or lose a release. */
+        reject_command="dismiss";
+        lv_obj_send_event(button,LV_EVENT_CLICKED,NULL);
+        assert(!lv_obj_is_hidden(panel)&&mock.dialog_active);
+        reject_command=NULL;
+        lv_obj_send_event(talk,LV_EVENT_PRESSED,NULL);
+        unsigned before_busy_stop=stops;
+        reject_command="stop_turn";
+        lv_obj_send_event(talk,LV_EVENT_RELEASED,NULL);
+        lv_tick_inc(300);lv_timer_handler();assert(stops==before_busy_stop);
+        reject_command=NULL;
+        lv_tick_inc(300);lv_timer_handler();assert(stops==before_busy_stop+1);
+        /* A release from an old hold cannot stop a newly opened voice turn. */
+        lv_obj_send_event(talk,LV_EVENT_PRESSED,NULL);
+        unsigned prior_release=stops;
+        mock_open(true);lv_tick_inc(300);lv_timer_handler();
+        lv_obj_send_event(talk,LV_EVENT_RELEASED,NULL);assert(stops==prior_release);
+        /* A failure before the first active snapshot must still open recovery
+         * guidance. A quick retry tap must not start capture after release. */
+        lv_obj_send_event(button,LV_EVENT_CLICKED,NULL);assert(lv_obj_is_hidden(panel));
+        mock_open(false);mock_end("error");strcpy(mock.state,"connection_error");
+        lv_tick_inc(300);lv_timer_handler();lv_obj_update_layout(screen);
+        assert(!lv_obj_is_hidden(panel)&&!lv_obj_is_hidden(talk));
+        lv_obj_t *manual_hint=lv_obj_get_child(panel,7);
+        assert(!lv_obj_is_hidden(manual_hint)&&!strcmp(lv_label_get_text(manual_hint),"Hold to talk to retry"));
+        assert(lv_obj_get_y(manual_hint)+lv_obj_get_height(manual_hint)<=lv_obj_get_y(talk));
+        unsigned before_retry=starts;
+        lv_obj_send_event(talk,LV_EVENT_PRESSED,NULL);
+        lv_obj_send_event(talk,LV_EVENT_RELEASED,NULL);
+        lv_tick_inc(300);lv_timer_handler();assert(starts==before_retry);
+        strcpy(mock.state,"ready");lv_tick_inc(300);lv_timer_handler();
         mock.wake_ready=false;lv_tick_inc(300);lv_timer_handler();
         assert(!lv_obj_is_hidden(talk));
         mock.wake_ready=true;lv_tick_inc(300);lv_timer_handler();
@@ -227,7 +284,7 @@ int main(void)
         lv_obj_send_event(button,LV_EVENT_CLICKED,NULL);
         assert(lv_obj_is_hidden(panel)&&timer_count()==baseline+1);
         assert_header_active(button, false);
-        ++mock.dialog_seq;
+        mock_open(true);
         strcpy(mock.emotion,"happy");strcpy(mock.recognized,"hello");strcpy(mock.reply,"welcome");
         lv_tick_inc(300);lv_timer_handler();lv_obj_update_layout(screen);
         assert(!lv_obj_is_hidden(panel));assert(wakeups>0);
@@ -241,7 +298,7 @@ int main(void)
         lv_obj_t *answer=lv_obj_get_child(lv_obj_get_child(chat,1),0);
         assert(lv_obj_get_x(question)>lv_obj_get_x(answer));
         assert(!strcmp(lv_label_get_text(lv_obj_get_child(question,0)),"You"));
-        assert(!strcmp(lv_label_get_text(lv_obj_get_child(answer,0)),"Xiaozhi"));
+        assert(!strcmp(lv_label_get_text(lv_obj_get_child(answer,0)),"AI Assistant"));
         assert(!strcmp(lv_label_get_text(lv_obj_get_child(question,1)),"hello"));
         assert(!strcmp(lv_label_get_text(lv_obj_get_child(answer,1)),"welcome"));
         lv_obj_t *spectrum=lv_obj_get_child(panel,6);
@@ -296,24 +353,53 @@ int main(void)
         assert(timer_count()==baseline+1);
         mock.emoji_style=0;lv_tick_inc(300);lv_timer_handler();
         assert(lv_obj_get_child_count(panel)==9&&lv_obj_is_hidden(emoji));
-        lv_tick_inc(9000);++mock.activity_seq;lv_timer_handler();assert(!lv_obj_is_hidden(panel));
-        lv_tick_inc(9000);lv_timer_handler();assert(!lv_obj_is_hidden(panel));
-        lv_tick_inc(1100);lv_timer_handler();assert(lv_obj_is_hidden(panel));
+        lv_obj_t *hint_label=lv_obj_get_child(panel,7);
+        mock.silence_remaining_ms=5001;lv_tick_inc(300);lv_timer_handler();
+        assert(!strcmp(lv_label_get_text(hint_label),"Go ahead, I'm listening"));
+        mock.silence_remaining_ms=5000;lv_tick_inc(300);lv_timer_handler();
+        assert(strstr(lv_label_get_text(hint_label),"5 s"));
+        mock.silence_remaining_ms=1;lv_tick_inc(300);lv_timer_handler();
+        assert(strstr(lv_label_get_text(hint_label),"1 s"));
+        assert(!lv_obj_is_hidden(panel));
+        mock.silence_remaining_ms=30000;++mock.activity_seq;lv_tick_inc(300);lv_timer_handler();
+        assert(!strcmp(lv_label_get_text(hint_label),"Go ahead, I'm listening"));
+        /* Time passing on the UI is never an independent session deadline. */
+        lv_tick_inc(40000);lv_timer_handler();assert(!lv_obj_is_hidden(panel));
+        unsigned before_end=disconnects;
+        mock_end("silence");lv_tick_inc(300);lv_timer_handler();assert(lv_obj_is_hidden(panel));
+        assert(disconnects==before_end); /* backend close must not enqueue a second stop */
         assert_header_active(button, false);
+        mock_open(true);lv_tick_inc(300);lv_timer_handler();assert(!lv_obj_is_hidden(panel));
+        mock_end("farewell");mock_open(true);
+        strcpy(mock.dialog_end_reason,"farewell"); /* old end generation survives a fast wake */
+        lv_tick_inc(300);lv_timer_handler();assert(!lv_obj_is_hidden(panel));
+        assert(disconnects==before_end);
+        mock_end("error");strcpy(mock.state,"connection_error");
+        lv_tick_inc(300);lv_timer_handler();assert(!lv_obj_is_hidden(panel));
+        assert(!strcmp(lv_label_get_text(hint_label),"Wake me again to retry"));
+        lv_tick_inc(40000);lv_timer_handler();assert(!lv_obj_is_hidden(panel));
+        mock_open(true);strcpy(mock.state,"listening");lv_tick_inc(300);lv_timer_handler();
+        mock_end("farewell");lv_tick_inc(300);lv_timer_handler();assert(lv_obj_is_hidden(panel));
+        assert(disconnects==before_end);
         /* A voice-opened window must not leave the next header open hands-free. */
         lv_obj_send_event(button,LV_EVENT_CLICKED,NULL);
+        lv_tick_inc(300);lv_timer_handler();
         assert(!lv_obj_is_hidden(panel)&&!lv_obj_is_hidden(talk));
-        lv_tick_inc(300);lv_timer_handler();assert(!lv_obj_is_hidden(talk));
-        ++mock.dialog_seq;lv_tick_inc(300);lv_timer_handler();
+        mock.silence_remaining_ms=4500;lv_tick_inc(300);lv_timer_handler();lv_obj_update_layout(screen);
+        assert(!lv_obj_is_hidden(hint_label)&&!lv_obj_is_hidden(talk));
+        assert(strstr(lv_label_get_text(hint_label),"Hold to talk to continue"));
+        assert(lv_obj_get_y(hint_label)+lv_obj_get_height(hint_label)<=lv_obj_get_y(talk));
+        assert(lv_obj_get_y(spectrum)+lv_obj_get_height(spectrum)<=lv_obj_get_y(hint_label));
+        mock_open(true);lv_tick_inc(300);lv_timer_handler();
         assert(!lv_obj_is_hidden(panel)&&lv_obj_is_hidden(talk));
         lv_obj_send_event(button,LV_EVENT_CLICKED,NULL);
         assert(lv_obj_is_hidden(panel));
-        mock.wake_ready=false;++mock.dialog_seq;lv_tick_inc(300);lv_timer_handler();
+        mock.wake_ready=false;mock_open(true);lv_tick_inc(300);lv_timer_handler();
         assert(!lv_obj_is_hidden(panel)&&!lv_obj_is_hidden(talk));
         lv_obj_send_event(lv_obj_get_child(panel,1),LV_EVENT_CLICKED,NULL);assert(lv_obj_is_hidden(panel));
         assert_header_active(button, false);
-        lv_obj_send_event(button,LV_EVENT_CLICKED,NULL);assert_header_active(button, true);
-        enabled=false;lv_tick_inc(300);lv_timer_handler();
+        lv_obj_send_event(button,LV_EVENT_CLICKED,NULL);lv_tick_inc(300);lv_timer_handler();assert_header_active(button, true);
+        enabled=false;mock_end("disabled");lv_tick_inc(300);lv_timer_handler();
         assert(lv_obj_is_hidden(panel));assert_header_active(button, false);
         enabled=true;lv_tick_inc(300);lv_timer_handler();
         assert(lv_obj_is_hidden(panel));assert_header_active(button, false);
@@ -325,13 +411,14 @@ int main(void)
      * rebuild. Closing must disconnect once and reject a late Talk press. */
     for (unsigned style = 0; style < 2; style++) {
         ui_transition_configure(true);
-        enabled = true; memset(&mock, 0, sizeof(mock));
-        mock.emoji_style = style; mock.dialog_timeout = 10;
+        enabled = true; reset_mock();
+        mock.emoji_style = style; mock.dialog_timeout = 30;
         xiaozhi_ui_create(screen);
         root = lv_obj_get_child(screen, 0);
         button = lv_obj_get_child(root, 0); panel = lv_obj_get_child(root, 1);
         lv_obj_t *talk = lv_obj_get_child(panel, 4);
         lv_obj_send_event(button, LV_EVENT_CLICKED, NULL);
+        lv_tick_inc(300); lv_timer_handler();
         assert(lv_obj_get_style_opa(panel, 0) == 0);
         lv_tick_inc(200); lv_timer_handler();
         assert(lv_obj_get_style_opa(panel, 0) == 255);
@@ -341,25 +428,28 @@ int main(void)
         lv_obj_send_event(talk, LV_EVENT_PRESSED, NULL); assert(starts == prior);
         assert(disconnects == before + 1);
         lv_obj_send_event(button, LV_EVENT_CLICKED, NULL); /* reopen during fade */
+        lv_tick_inc(300); lv_timer_handler();
         lv_tick_inc(200); lv_timer_handler();
         assert(!lv_obj_is_hidden(panel) && !ui_transition_is_closing(panel));
-        lv_tick_inc(10100); lv_timer_handler();
+        before=disconnects;mock_end("silence");lv_tick_inc(300); lv_timer_handler();
         assert(ui_transition_is_closing(panel));
+        assert(disconnects==before);
         lv_tick_inc(200); lv_timer_handler(); assert(lv_obj_is_hidden(panel));
         lv_obj_send_event(button, LV_EVENT_CLICKED, NULL);
-        enabled = false; lv_tick_inc(300); lv_timer_handler();
+        enabled = false; mock_end("disabled");lv_tick_inc(300); lv_timer_handler();
         ui_transition_configure(false); assert(lv_obj_is_hidden(panel));
         enabled = true; lv_tick_inc(300); lv_timer_handler();
         ui_transition_configure(true);
         lv_obj_send_event(button, LV_EVENT_CLICKED, NULL);
+        lv_tick_inc(300);lv_timer_handler();
         lv_obj_send_event(button, LV_EVENT_CLICKED, NULL);
         lv_obj_clean(screen); lv_tick_inc(300); lv_timer_handler();
         assert(timer_count() == baseline);
     }
     ui_transition_configure(false);
     /* A contended first read must not permanently remove a supported action.
-     * Later contention retains the last text and cannot disable idle expiry. */
-    enabled=true;memset(&mock,0,sizeof(mock));mock.dialog_timeout=10;mock.emoji_style=1;
+     * Later contention retains the last text and cannot invent an idle expiry. */
+    enabled=true;reset_mock();mock.dialog_timeout=30;mock.emoji_style=1;
     snapshot_busy=true;xiaozhi_ui_create(screen);assert(timer_count()==baseline+1);
     root=lv_obj_get_child(screen,0);button=lv_obj_get_child(root,0);panel=lv_obj_get_child(root,1);
     snapshot_busy=false;lv_tick_inc(300);lv_timer_handler();assert(!lv_obj_is_hidden(button));
@@ -368,10 +458,34 @@ int main(void)
     snapshot_busy=true;strcpy(mock.state,"connection_error");
     lv_tick_inc(300);lv_timer_handler();
     assert(!strcmp(lv_label_get_text(lv_obj_get_child(panel,0)),"ready"));
-    lv_tick_inc(10100);lv_timer_handler();assert(lv_obj_is_hidden(panel));
-    snapshot_busy=false;lv_obj_clean(screen);assert(timer_count()==baseline);
+    lv_tick_inc(31000);lv_timer_handler();assert(!lv_obj_is_hidden(panel));
+    mock_end("silence");snapshot_busy=false;lv_tick_inc(300);lv_timer_handler();assert(lv_obj_is_hidden(panel));
+    lv_obj_clean(screen);assert(timer_count()==baseline);
+    /* An existing active session remains reachable after a view rebuild. */
+    mock_open(true);strcpy(mock.state,"ready");
+    xiaozhi_ui_create(screen);lv_tick_inc(300);lv_timer_handler();
+    root=lv_obj_get_child(screen,0);panel=lv_obj_get_child(root,1);
+    assert(!lv_obj_is_hidden(panel));
+    lv_obj_clean(screen);assert(timer_count()==baseline&&!mock.dialog_active);
+    /* Rebuilds also retain a current failure that happened before any view
+     * observed an active conversation. Closing it is sticky during ack delay. */
+    mock_open(true);mock_end("error");strcpy(mock.state,"audio_or_connection_error");
+    mock.wake_enabled=mock.wake_ready=true;
+    xiaozhi_ui_create(screen);lv_tick_inc(300);lv_timer_handler();
+    root=lv_obj_get_child(screen,0);panel=lv_obj_get_child(root,1);button=lv_obj_get_child(root,0);
+    assert(!lv_obj_is_hidden(panel)&&lv_obj_is_hidden(lv_obj_get_child(panel,4)));
+    assert(!strcmp(lv_label_get_text(lv_obj_get_child(panel,7)),"Wake me again to retry"));
+    lv_obj_send_event(button,LV_EVENT_CLICKED,NULL);assert(lv_obj_is_hidden(panel));
+    mock_end("error"); /* Simulate the old snapshot until the queued close runs. */
+    lv_obj_clean(screen);xiaozhi_ui_create(screen);lv_tick_inc(300);lv_timer_handler();
+    root=lv_obj_get_child(screen,0);panel=lv_obj_get_child(root,1);
+    assert(lv_obj_is_hidden(panel));
+    mock_end("manual");strcpy(mock.state,"ready");lv_tick_inc(300);lv_timer_handler();
+    assert(lv_obj_is_hidden(panel));
+    mock_open(true);lv_tick_inc(300);lv_timer_handler();assert(!lv_obj_is_hidden(panel));
+    lv_obj_clean(screen);assert(timer_count()==baseline);
     lv_display_delete(display);
     lv_deinit();
-    puts("PASS: bubbles, long-text scrolling, spectrum drawing bounds/lifetime, normal/error/wake states, nonblocking snapshots, manual/wake origins, 100 rebuilds, Otto/classic, five geometries and popup fades");
+    puts("PASS: AI Assistant bubbles, spectrum bounds, authoritative countdown/end generations, error recovery, fast rewake, manual/wake origins, 100 rebuilds, Otto/classic, five geometries and popup fades");
     return 0;
 }

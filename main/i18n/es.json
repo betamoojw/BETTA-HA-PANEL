@@ -673,7 +673,7 @@
       "offline_mode": "Modo sin conexion"
     },
     "xiaozhi": {
-      "title": "Xiaozhi AI",
+      "title": "AI Assistant",
       "talk": "Mantener para hablar",
       "state": {
         "disabled": "Desactivado",
@@ -697,20 +697,23 @@
       },
       "wake": "Activación por voz",
       "wake_hint": "Di «Ni hao Xiao Zhi» para empezar. La palabra de activación se reconoce localmente.",
-      "timeout": "Cerrar diálogo por inactividad (segundos)",
+      "timeout": "La conversación termina al despedirse o tras 30 segundos sin voz ni reproducción.",
       "recognized": "Voz reconocida",
       "reply": "Respuesta de IA",
-      "privacy": "Desactivado por defecto. La detección opcional de activación es local. Tras activarlo por voz o pulsar Hablar, el audio se envía a Xiaozhi. La vinculación comparte la identidad del dispositivo.",
+      "privacy": "Desactivado por defecto. La detección opcional de activación es local. Tras activarlo por voz o pulsar Hablar, el audio se envía al servicio de voz vinculado. La vinculación comparte la identidad del dispositivo.",
       "emoji_style": "Estilo de emociones de IA",
       "emoji_otto": "Robot Otto",
       "emoji_classic": "Emojis clásicos",
       "you": "Tú",
-      "assistant": "Xiaozhi",
+      "assistant": "AI Assistant",
       "hint_duplex": "Estoy hablando y escuchando",
       "hint_listening": "Adelante, te escucho",
       "hint_thinking": "Un momento",
       "hint_ready": "Di la palabra de activación para iniciar una conversación",
-      "hint_error": "Vuelve a activarme para intentarlo de nuevo"
+      "hint_error": "Vuelve a activarme para intentarlo de nuevo",
+      "hint_timeout": "Volver al inicio en %u s · Habla para continuar",
+      "hint_manual_error": "Mantén pulsado para hablar e intentarlo de nuevo",
+      "hint_timeout_manual": "Volver al inicio en %u s · Mantén pulsado para hablar"
     },
     "ota": {
       "title": "Actualización de firmware",

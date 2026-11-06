@@ -1,5 +1,5 @@
 <!-- SPDX-License-Identifier: LicenseRef-FNCL-1.1 | Copyright (c) 2026 andre68723 -->
-# Xiaozhi MCP tools
+# AI Assistant MCP tools
 
 The Common Tools and User Only Tools model follows
 [`betamoojw/xiaozhi-esp32`](https://github.com/betamoojw/xiaozhi-esp32/tree/c435f99a88066029ec2dbd2d758c8cc9d051565b),
@@ -19,7 +19,7 @@ Capability registration is deliberate. `panel10` currently exposes:
 Common tools are listed before board tools for a stable cloud prompt prefix.
 User Only Tools are omitted by default and serialized with
 `annotations.audience = ["user"]` when requested. Other variants return no
-device-tool capabilities because their Xiaozhi audio path is unsupported.
+device-tool capabilities because their assistant audio path is unsupported.
 
 The upstream camera, snapshot upload, remote image preview and asset-download
 URL tools are not registered. The local panel lacks the corresponding safe
@@ -34,7 +34,7 @@ mislead the model.
 properties, wrong types and out-of-range integers are rejected.
 
 `main/xiaozhi/xiaozhi_mcp_tools.c` adapts supported calls to existing project
-services. Tool callbacks run in the Xiaozhi worker, never the WebSocket event
+services. Tool callbacks run in the assistant worker, never the WebSocket event
 task. Theme changes publish a UI rebuild event, and storage operations run
 outside the display lock.
 

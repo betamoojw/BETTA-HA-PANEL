@@ -138,7 +138,7 @@ not captured; the unprotected shared context and null read were confirmed.
 The component patch uses the shared lock for a 20 ms poll and yields after each
 receive pass. Sends recheck the connection after acquiring the lock. A zero-progress
 nonempty frame fails, and successive reads share the configured receive-time budget;
-individual transport calls can still consume their own timeout. Xiaozhi retains its
+individual transport calls can still consume their own timeout. AI Assistant retains its
 500 ms send wait and 5 s network timeout. A delayed connection can end the current
 conversation instead of blocking the worker indefinitely; a new wake starts a new
 connection. Do not extend send waits to hide receive contention.
@@ -150,7 +150,7 @@ against the original implementation:
 (host C compiler via `CC`). Regenerate an existing
 saved sdkconfig from project defaults; panel10 rejects the unsafe old lock setting.
 
-### Xiaozhi connection endings
+### AI Assistant connection endings {#xiaozhi-connection-endings}
 
 The application reads the raw CLOSE payload in the DATA callback. In WebSocket
 client 1.8.0 this callback runs before `close_status_code` is updated; that field
@@ -161,12 +161,16 @@ CLOSE suppresses only the send rejection caused by closing while upload waits on
 the shared lock. Earlier errors and errors delivered while stopping remain errors;
 even an intentional user/idle stop retains a concurrent fault's diagnostics.
 
-`GET /api/xiaozhi` retains the last completed connection's `connection_end`,
+`GET /api/xiaozhi` retains `connection_end`,
 `connection_close_code` (0 for no code), transport error type, TLS/socket errors
-and HTTP handshake status across the next wake. `normal_closes` and
+and HTTP handshake status across the next wake. Before any fault these describe
+normal peer closes; once a fault occurs, normal closes preserve its details and
+only a later fault replaces them. `normal_closes` and
 `connection_errors` count peer endings/failures since boot; local user/idle stops
 are excluded. Logs record these numeric diagnostics without server reason text
 or credentials. A new wake clears active transport state and opens a new connection.
+The [session policy](assistant-session.md) separately reports local farewell,
+silence and manual endings; those reasons do not replace retained fault details.
 
 `python -m unittest discover -s tests/tools -p test_xiaozhi_connection.py`
 compiles the actual callback, send, teardown and worker-ending functions. It covers normal

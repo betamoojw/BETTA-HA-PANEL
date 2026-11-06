@@ -47,8 +47,10 @@ clock and the Home Assistant chip and only appears while MQTT runs.
 
 Wi-Fi uses the same framed height and normal width as Home Assistant. Its frame widens for **AP** during setup. The rightmost gear opens **System settings**. On compact panels the clock and left items make room for these controls; optional left items disappear when space runs out.
 
-The Xiaozhi robot icon highlights in the selected theme while its dialogue is
-open. Closing the dialogue or reaching its idle timeout restores the normal icon.
+The AI Assistant robot icon highlights in the selected theme while its dialogue
+is open. Closing it, saying goodbye or reaching 30 seconds of audio silence
+returns to the dashboard and restores the normal icon. The saved wake phrase
+can start another conversation; see [AI Assistant](xiaozhi-ai.md#conversation).
 
 ## System settings
 

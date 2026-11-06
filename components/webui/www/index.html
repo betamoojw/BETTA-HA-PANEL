@@ -228,7 +228,7 @@
           <p class="meta" data-i18n-key="knx.about">Routing on your existing Wi-Fi network. Requires a multicast-capable KNX/IP router; tunneling and KNX Secure are not supported.</p>
           <label class="row"><input id="knxEnabled" type="checkbox" disabled /><span data-i18n-key="knx.enable">Enable KNXnet/IP</span></label>
           <p id="knxStatus" role="status"></p>
-          <p class="meta" data-i18n-key="knx.permissions">Xiaozhi can use only configured objects and their read/write permissions. Sent commands are not confirmation of actuator state.</p>
+          <p class="meta" data-i18n-key="knx.permissions">AI Assistant can use only configured objects and their read/write permissions. Sent commands are not confirmation of actuator state.</p>
           <label><span data-i18n-key="knx.configuration">Configuration (knxConfig.json)</span>
             <textarea id="knxConfig" rows="18" spellcheck="false" autocomplete="off" style="width:100%;min-width:0;box-sizing:border-box;font-family:monospace"></textarea>
           </label>
@@ -256,10 +256,10 @@
           </div>
         </section>
         <section class="display-settings">
-          <h2 id="settingsXiaozhiHeading" data-i18n-key="xiaozhi.title">Xiaozhi AI</h2>
+          <h2 id="settingsXiaozhiHeading" data-i18n-key="xiaozhi.title">AI Assistant</h2>
           <div class="form">
-          <p class="meta" id="xiaozhiPrivacy" data-i18n-key="xiaozhi.privacy">Off by default. Optional wake-word detection stays on the panel. After wake-up or Talk, conversation audio is sent to Xiaozhi. Pairing shares device identity.</p>
-          <label class="row"><input type="checkbox" id="xiaozhiEnabled" /> <span id="xiaozhiEnableLabel" data-i18n-key="xiaozhi.enable">Enable Xiaozhi AI</span></label>
+          <p class="meta" id="xiaozhiPrivacy" data-i18n-key="xiaozhi.privacy">Off by default. Optional wake-word detection stays on the panel. After wake-up or Talk, conversation audio is sent to the paired voice service. Pairing shares device identity.</p>
+          <label class="row"><input type="checkbox" id="xiaozhiEnabled" /> <span id="xiaozhiEnableLabel" data-i18n-key="xiaozhi.enable">Enable AI Assistant</span></label>
           <div id="xiaozhiFields" class="form" hidden>
             <button class="btn small" id="xiaozhiPair" type="button" data-i18n-key="xiaozhi.pair">Pair / check pairing</button>
             <a href="https://xiaozhi.me" target="_blank" rel="noopener noreferrer">xiaozhi.me</a>
@@ -287,20 +287,21 @@
             <p id="xiaozhiWakeHint" class="meta" data-i18n-key="xiaozhi.wake_hint">Say the saved wake phrase to start. Recognition runs locally.</p>
             <label class="row"><input type="checkbox" id="xiaozhiDuplex" aria-describedby="xiaozhiDuplexHint" /><span id="xiaozhiDuplexLabel" data-i18n-key="xiaozhi.duplex">Full-duplex conversation</span></label>
             <p id="xiaozhiDuplexHint" class="meta" data-i18n-key="xiaozhi.duplex_hint">In hands-free conversations, keep listening while replies play so you can interrupt. Uses local echo cancellation. Hold to talk remains manual.</p>
-            <label class="field-narrow"><span id="xiaozhiTimeoutLabel" data-i18n-key="xiaozhi.timeout">Dialogue idle timeout (seconds)</span><input id="xiaozhiTimeout" type="number" min="10" max="300" value="30" /></label>
+            <p class="meta" id="xiaozhiTimeoutLabel" data-i18n-key="xiaozhi.timeout">Conversations end after a farewell or 30 seconds without speech or playback.</p>
             <label class="field-narrow"><span id="xiaozhiEmojiLabel" data-i18n-key="xiaozhi.emoji_style">AI emotion style</span><select id="xiaozhiEmoji"><option value="0" id="xiaozhiEmojiOtto" data-i18n-key="xiaozhi.emoji_otto">Otto Robot</option><option value="1" id="xiaozhiEmojiClassic" data-i18n-key="xiaozhi.emoji_classic">Classic Emoji</option></select></label>
             <button class="btn small" id="xiaozhiTalk" type="button" data-i18n-key="xiaozhi.talk">Hold to talk</button>
             <button class="btn small" id="xiaozhiStop" type="button" data-i18n-key="xiaozhi.stop">Disconnect</button>
           </div>
+          <p id="xiaozhiStatus" class="meta" role="status"></p>
           <div id="xiaozhiConversation" class="xiaozhi-conversation" hidden>
             <div class="xiaozhi-conversation-header">
               <div id="xiaozhiEmotion" class="xiaozhi-emotion" aria-hidden="true"></div>
               <img id="xiaozhiOtto" class="xiaozhi-otto" alt="" width="48" height="48" hidden />
-              <div><strong id="xiaozhiAssistantLabel" data-i18n-key="xiaozhi.assistant">Xiaozhi</strong><p id="xiaozhiStatus" role="status"></p></div>
+              <div><strong id="xiaozhiAssistantLabel" data-i18n-key="xiaozhi.assistant">AI Assistant</strong><p id="xiaozhiConversationState" role="status"></p></div>
             </div>
             <div class="xiaozhi-messages" aria-live="polite" aria-atomic="false">
               <div id="xiaozhiUserBubble" class="xiaozhi-bubble xiaozhi-user" hidden><span id="xiaozhiRecognizedLabel" class="xiaozhi-role" data-i18n-key="xiaozhi.you">You</span><p id="xiaozhiRecognized"></p></div>
-              <div id="xiaozhiReplyBubble" class="xiaozhi-bubble xiaozhi-reply" hidden><span id="xiaozhiReplyLabel" class="xiaozhi-role" data-i18n-key="xiaozhi.assistant">Xiaozhi</span><p id="xiaozhiText"></p></div>
+              <div id="xiaozhiReplyBubble" class="xiaozhi-bubble xiaozhi-reply" hidden><span id="xiaozhiReplyLabel" class="xiaozhi-role" data-i18n-key="xiaozhi.assistant">AI Assistant</span><p id="xiaozhiText"></p></div>
             </div>
             <div id="xiaozhiSpectrum" class="xiaozhi-spectrum" aria-hidden="true"></div>
             <p id="xiaozhiConversationHint" class="xiaozhi-conversation-hint"></p>

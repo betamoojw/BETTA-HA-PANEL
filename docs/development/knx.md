@@ -44,10 +44,10 @@ bus_confirmed=false. Queue/send rejection counts and transport errors appear in
 status. No raw APDU or arbitrary-address endpoint is exposed.
 Normal editor backups add optional knx.configuration and knx.enabled.
 
-## Xiaozhi MCP
+## AI Assistant MCP {#xiaozhi-mcp}
 
 The existing WebSocket hello advertises MCP. JSON-RPC initialize, ping,
-tools/list and tools/call run on the Xiaozhi worker; commands enqueue without
+tools/list and tools/call run on the assistant worker; commands enqueue without
 waiting for bus feedback. Metadata comes from the current registry.
 Tools under self.knx are get_status, list_objects, get_object, set_object, read
 and write. List responses are limited to five objects for bounded audio frames.

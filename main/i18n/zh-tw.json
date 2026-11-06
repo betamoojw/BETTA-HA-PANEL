@@ -673,7 +673,7 @@
       "offline_mode": "離線模式"
     },
     "xiaozhi": {
-      "title": "小智 AI",
+      "title": "AI Assistant",
       "talk": "按住說話",
       "state": {
         "disabled": "已停用",
@@ -697,20 +697,23 @@
       },
       "wake": "語音喚醒",
       "wake_hint": "說「你好小智」開始對話。喚醒詞在面板本機辨識。",
-      "timeout": "對話閒置逾時（秒）",
+      "timeout": "說出告別語，或連續 30 秒沒有語音及播放聲音時，自動結束對話。",
       "recognized": "辨識到的語音",
       "reply": "AI 回覆",
-      "privacy": "預設關閉。選用的喚醒詞辨識在面板本機進行。喚醒或按住說話後，對話音訊會傳送至小智。配對會分享裝置識別資訊。",
+      "privacy": "預設關閉。選用的喚醒詞辨識在面板本機進行。喚醒或按住說話後，對話音訊會傳送至配對的語音服務。配對會分享裝置識別資訊。",
       "emoji_style": "AI 表情樣式",
       "emoji_otto": "Otto 機器人",
       "emoji_classic": "經典表情",
       "you": "你",
-      "assistant": "小智",
+      "assistant": "AI Assistant",
       "hint_duplex": "我在回答，也在聽你說",
       "hint_listening": "我在聽，請繼續說",
       "hint_thinking": "稍等片刻",
       "hint_ready": "說出喚醒詞，開啟新的對話",
-      "hint_error": "請重新喚醒小智再試"
+      "hint_error": "請重新喚醒再試",
+      "hint_timeout": "%u 秒後返回主畫面 · 說話即可繼續",
+      "hint_manual_error": "按住說話重試",
+      "hint_timeout_manual": "%u 秒後返回主畫面 · 按住說話即可繼續"
     },
     "ota": {
       "title": "韌體更新",

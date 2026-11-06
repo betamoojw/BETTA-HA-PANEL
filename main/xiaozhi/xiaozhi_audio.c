@@ -4,6 +4,7 @@
  * TDM routing follows BoxAudioCodec in betamoojw/xiaozhi-esp32 a73e9a7e.
  */
 #include <stdbool.h>
+#include <stdatomic.h>
 #include "xiaozhi_audio.h"
 #include "xiaozhi_audio_gain.h"
 #include "xiaozhi_spectrum.h"
@@ -16,6 +17,7 @@
 
 static esp_codec_dev_handle_t speaker, mic;
 static bool opened, recording;
+static atomic_bool output_audible;
 static i2s_chan_handle_t tx, rx;
 static const audio_codec_data_if_t *data_if;
 static const audio_codec_gpio_if_t *gpio_if;
@@ -110,7 +112,9 @@ esp_err_t xiaozhi_audio_open(int volume)
         if (esp_codec_dev_open(speaker, &info) != ESP_CODEC_DEV_OK) return ESP_FAIL;
         opened = true;
     }
-    return esp_codec_dev_set_out_vol(speaker, volume) == ESP_CODEC_DEV_OK ? ESP_OK : ESP_FAIL;
+    if (esp_codec_dev_set_out_vol(speaker, volume) != ESP_CODEC_DEV_OK) return ESP_FAIL;
+    atomic_store(&output_audible, volume > 0);
+    return ESP_OK;
 }
 
 esp_err_t xiaozhi_audio_mic(bool on)
@@ -150,6 +154,7 @@ esp_err_t xiaozhi_audio_write(int16_t *mono, int samples)
     if (!mono || samples <= 0 || samples > 1920) return ESP_ERR_INVALID_ARG;
     return esp_codec_dev_write(speaker, mono, samples * 2) == ESP_CODEC_DEV_OK ? ESP_OK : ESP_FAIL;
 }
+bool xiaozhi_audio_output_audible(void) { return atomic_load(&output_audible); }
 
 void xiaozhi_audio_close(void)
 {
@@ -158,4 +163,5 @@ void xiaozhi_audio_close(void)
     if (recording) xiaozhi_audio_mic(false);
     if (opened) esp_codec_dev_close(speaker);
     opened = false;
+    atomic_store(&output_audible, false);
 }

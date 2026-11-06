@@ -673,7 +673,7 @@
       "offline_mode": "Mode hors ligne"
     },
     "xiaozhi": {
-      "title": "Xiaozhi AI",
+      "title": "AI Assistant",
       "talk": "Maintenir pour parler",
       "state": {
         "disabled": "Désactivé",
@@ -697,20 +697,23 @@
       },
       "wake": "Réveil vocal",
       "wake_hint": "Dites « Ni hao Xiao Zhi » pour commencer. Le mot de réveil est reconnu localement.",
-      "timeout": "Fermer le dialogue après inactivité (secondes)",
+      "timeout": "La conversation se termine après un au revoir ou 30 secondes sans voix ni lecture audio.",
       "recognized": "Parole reconnue",
       "reply": "Réponse de l’IA",
-      "privacy": "Désactivé par défaut. La détection facultative du mot de réveil reste locale. Après le réveil ou la touche de parole, le son est envoyé à Xiaozhi. L’association partage l’identité de l’appareil.",
+      "privacy": "Désactivé par défaut. La détection facultative du mot de réveil reste locale. Après le réveil ou la touche de parole, le son est envoyé au service vocal associé. L’association partage l’identité de l’appareil.",
       "emoji_style": "Style des émotions de l’IA",
       "emoji_otto": "Robot Otto",
       "emoji_classic": "Emojis classiques",
       "you": "Vous",
-      "assistant": "Xiaozhi",
+      "assistant": "AI Assistant",
       "hint_duplex": "Je parle et je vous écoute",
       "hint_listening": "Allez-y, je vous écoute",
       "hint_thinking": "Un instant",
       "hint_ready": "Dites le mot de réveil pour commencer une conversation",
-      "hint_error": "Réactivez-moi pour réessayer"
+      "hint_error": "Réactivez-moi pour réessayer",
+      "hint_timeout": "Retour à l’accueil dans %u s · Parlez pour continuer",
+      "hint_manual_error": "Maintenez pour parler et réessayer",
+      "hint_timeout_manual": "Retour à l’accueil dans %u s · Maintenez pour parler"
     },
     "ota": {
       "title": "Mise à jour du micrologiciel",

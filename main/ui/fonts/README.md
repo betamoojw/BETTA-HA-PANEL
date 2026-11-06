@@ -20,11 +20,11 @@ tool, commit the result.
 
 ## Chinese subset
 
-`cjk_codepoints.txt` contains 922 codepoints: every Chinese character and
+`cjk_codepoints.txt` contains 924 codepoints: every Chinese character and
 punctuation mark in the built-in panel catalogs, plus common room and device
 names from `cjk_extra.txt`. It is not full Unicode CJK coverage. Both languages share Noto Sans SC
 outlines; regional traditional glyph-shape variants are not selected dynamically.
-The subset is 269,256 bytes. Keep it compact: S3 XIP copies it into PSRAM at boot,
+The subset is 269,876 bytes. Keep it compact: S3 XIP copies it into PSRAM at boot,
 so a large font reduces memory available to widgets and Live Display.
 Each requested size has a 32-glyph cache;
 the shared font budget is 96 instances, including text, icons and emoji.
@@ -40,12 +40,12 @@ resulting app within each board's OTA slot. The browser uses installed CJK fonts
 ## How the firmware uses them
 
 Waveshare P4 can install the pinned `noto_cjk_reply.ttf.gz` resource for free-form
-Xiaozhi speech and replies. `cjk_reply_manifest.json` records its source and hashes;
+AI Assistant speech and replies. `cjk_reply_manifest.json` records its source and hashes;
 `tools/prepare_reply_font.py --check` validates it. The OFL license above also
 covers this resource. Its 29,417 codepoints are read from a verified local file
 with small caches; it is not embedded in the OTA image or loaded wholesale into
 PSRAM. The compact UI subset stays unchanged. See
-[Xiaozhi resources](../../../docs/development/xiaozhi-resources.md) for installation
+[AI Assistant resources](../../../docs/development/xiaozhi-resources.md) for installation
 and coverage limits.
 
 `ui/text_font.c` (the font manager) makes `lv_tiny_ttf` fonts on demand and keeps them for the session (at most `UI_FONT_MAX_INSTANCES`): the text font at a
@@ -129,7 +129,7 @@ python3 tools/generate_notification_emoji.py --cache /private/tmp/betta-noto128 
 python3 tools/generate_notification_emoji.py --check
 ```
 
-The Xiaozhi dialogue's Classic Emoji style uses the bundled monochrome emoji for protocol emotions.
+The AI Assistant dialogue's Classic Emoji style uses the bundled monochrome emoji for protocol emotions.
 Its default Otto Robot style uses separate animated assets in `ui/assets/otto/`.
 `ui_font_emotion()` derives its size from the hero role and available height,
 capped at 128 pixels; instances share the existing font budget.

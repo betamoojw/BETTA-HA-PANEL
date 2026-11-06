@@ -61,6 +61,6 @@ this configured device.
 
 The same image includes the AI Agent robot header action. Its earlier COM24
 click, portrait and physical-output checks are recorded in
-[Xiaozhi AI](../xiaozhi-ai.md#validation-limits). These measurements describe
+[AI Assistant](../xiaozhi-ai.md#validation-limits). These measurements describe
 the pre-commit images identified above; committing the sources does not change
 the build identity of the firmware already running on the panel.

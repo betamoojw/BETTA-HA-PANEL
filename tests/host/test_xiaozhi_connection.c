@@ -36,6 +36,7 @@ static int64_t wake_retry;
 static char session[128];
 static int stream;
 static void *encoder, *decoder, *pcm, *encoded, *duplex_frame;
+static void *manual_vad;
 static int64_t deadline;
 static void *ws;
 static uint8_t *rx;
@@ -100,11 +101,14 @@ static void xiaozhi_audio_close(void) {}
 static void xiaozhi_session_reset(int *s, bool realtime) { assert(s == &stream && !realtime); }
 static void drain_packets(bool preserve) { assert(!preserve); }
 static void update_audio_status(void) {}
+static void vad_destroy(void *p) { assert(p); }
+static void xiaozhi_activity_end(uint32_t generation) { assert(generation == status.dialog_seq); }
 static void set_state(const char *s) { strlcpy(status.state, s, sizeof(status.state)); }
 #include "xiaozhi_connection_functions.h"
 
 static void start(void)
 {
+    status.enabled = true;
     connection_reset();
     ready = true; deadline = 1000; ws = &connection;
     rx = malloc(MAX_FRAME); assert(rx);
@@ -112,6 +116,7 @@ static void start(void)
     send_return = 4; late_error = false;
     event(WEBSOCKET_EVENT_CONNECTED);
     status.listening = status.speaking = status.duplex_active = true;
+    status.dialog_active = true; ++status.dialog_seq;
     set_state("speaking_listening");
     assert(connection_can_send());
 }
@@ -120,6 +125,8 @@ static void end(bool error, const char *reason)
     finish_connection(10);
     assert(!ws && stop_calls == 1 && !connection_can_send());
     assert(!status.speaking && !status.listening && !status.duplex_active);
+    assert(!status.dialog_active && status.dialog_end_seq == status.dialog_seq);
+    assert(!strcmp(status.dialog_end_reason, error ? "error" : "peer_close"));
     assert(!strcmp(status.state, error ? "connection_error" : "ready"));
     assert(!strcmp(status.connection_end, reason));
     uint32_t errors = status.connection_errors, normal = status.normal_closes;
@@ -234,11 +241,11 @@ static void rewake(void)
     assert(!strcmp(status.connection_end, "transport_error"));
     assert(send_packet("test", 4, true));
     finish_connection(100); assert(ws && stop_calls == 0 && !failed);
-    close_event(1000); end(false, "normal_close");
+    close_event(1000); end(false, "transport_error");
     start();
     assert(status.normal_closes == 1 && status.connection_errors == 1);
     assert(send_packet("test", 4, false) && !failed && status.duplex_active);
-    assert(!strcmp(status.connection_end, "normal_close"));
+    assert(!strcmp(status.connection_end, "transport_error"));
 }
 static void local_stop(void)
 {
@@ -253,7 +260,22 @@ static void local_stop(void)
     assert(!strcmp(status.connection_end, "transport_error"));
     start(); close_event(1000); disconnect_session();
     assert(status.connection_errors == 1 && status.normal_closes == 1);
-    assert(!strcmp(status.connection_end, "normal_close"));
+    assert(!strcmp(status.connection_end, "transport_error"));
+}
+static void dialog_close(void)
+{
+    start(); close_dialog("farewell");
+    assert(!ws && !status.dialog_active && !status.connection_errors);
+    assert(!strcmp(status.dialog_end_reason, "farewell") && !strcmp(status.state, "ready"));
+    start(); late_error = true; close_dialog("silence");
+    assert(!ws && !status.dialog_active && status.connection_errors == 1);
+    assert(!strcmp(status.dialog_end_reason, "error") && !strcmp(status.state, "connection_error"));
+    start(); close_dialog("manual");
+    assert(!strcmp(status.dialog_end_reason, "manual") && !strcmp(status.state, "ready"));
+    assert(status.connection_errors == 1 && !strcmp(status.connection_end, "transport_error"));
+    start(); failed = true; close_dialog("farewell");
+    assert(!strcmp(status.dialog_end_reason, "error") && !strcmp(status.state, "connection_error"));
+    assert(status.connection_errors == 2 && !strcmp(status.connection_end, "local_error"));
 }
 int main(int argc, char **argv)
 {
@@ -271,6 +293,7 @@ int main(int argc, char **argv)
     }
     else if (!strcmp(argv[1], "rewake")) rewake();
     else if (!strcmp(argv[1], "local-stop")) local_stop();
+    else if (!strcmp(argv[1], "dialog-close")) dialog_close();
     else assert(false);
     assert(mutex_depth == 0);
     puts(argv[1]);

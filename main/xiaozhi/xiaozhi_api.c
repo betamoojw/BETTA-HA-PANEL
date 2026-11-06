@@ -18,6 +18,13 @@ static esp_err_t get_status(httpd_req_t *req)
     cJSON_AddBoolToObject(j, "paired", s.paired);
     cJSON_AddBoolToObject(j, "listening", s.listening);
     cJSON_AddBoolToObject(j, "conversation", s.conversation);
+    cJSON_AddBoolToObject(j, "dialog_active", s.dialog_active);
+    cJSON_AddNumberToObject(j, "dialog_epoch", s.dialog_epoch);
+    cJSON_AddBoolToObject(j, "dialog_voice_opened", s.dialog_voice_opened);
+    cJSON_AddNumberToObject(j, "dialog_seq", s.dialog_seq);
+    cJSON_AddNumberToObject(j, "dialog_end_seq", s.dialog_end_seq);
+    cJSON_AddStringToObject(j, "dialog_end_reason", s.dialog_end_reason);
+    cJSON_AddNumberToObject(j, "silence_remaining_ms", s.silence_remaining_ms);
     cJSON_AddBoolToObject(j, "duplex_enabled", s.duplex_enabled);
     cJSON_AddBoolToObject(j, "duplex_active", s.duplex_active);
     cJSON_AddBoolToObject(j, "speaking", s.speaking);
@@ -98,7 +105,19 @@ static esp_err_t command(httpd_req_t *req)
     cJSON *j = cJSON_Parse(body), *a = cJSON_GetObjectItemCaseSensitive(j, "action");
     cJSON *v = cJSON_GetObjectItemCaseSensitive(j, "value");
     esp_err_t err = ESP_ERR_INVALID_ARG;
-    if (cJSON_IsString(a) && !strcmp(a->valuestring, "wake_config")) {
+    if (cJSON_IsString(a) && (!strcmp(a->valuestring, "dismiss") || !strcmp(a->valuestring, "dialog_turn") ||
+        !strcmp(a->valuestring, "start_turn") || !strcmp(a->valuestring, "stop_turn"))) {
+        cJSON *epoch = cJSON_GetObjectItemCaseSensitive(j, "epoch");
+        if (cJSON_IsNumber(v) && v->valuedouble >= 0 && v->valuedouble <= UINT32_MAX &&
+            v->valuedouble == (double)(uint32_t)v->valuedouble && cJSON_IsNumber(epoch) &&
+            epoch->valuedouble > 0 && epoch->valuedouble <= UINT32_MAX &&
+            epoch->valuedouble == (double)(uint32_t)epoch->valuedouble) {
+            xiaozhi_status_t current; xiaozhi_status(&current);
+            if (current.dialog_epoch == (uint32_t)epoch->valuedouble)
+                err = xiaozhi_command(a->valuestring, (int)(uint32_t)v->valuedouble);
+        }
+    }
+    else if (cJSON_IsString(a) && !strcmp(a->valuestring, "wake_config")) {
         cJSON *word = cJSON_GetObjectItemCaseSensitive(v, "word");
         cJSON *phrase = cJSON_GetObjectItemCaseSensitive(v, "phrase");
         if (cJSON_IsNumber(word) && word->valuedouble == word->valueint && cJSON_IsString(phrase))

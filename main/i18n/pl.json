@@ -673,7 +673,7 @@
       "offline_mode": "Tryb offline"
     },
     "xiaozhi": {
-      "title": "Xiaozhi AI",
+      "title": "AI Assistant",
       "talk": "Przytrzymaj, aby mówić",
       "state": {
         "disabled": "Wyłączono",
@@ -697,20 +697,23 @@
       },
       "wake": "Wybudzanie głosem",
       "wake_hint": "Powiedz «Ni hao Xiao Zhi», aby rozpocząć. Hasło wybudzające jest rozpoznawane lokalnie.",
-      "timeout": "Zamknij rozmowę po bezczynności (sekundy)",
+      "timeout": "Rozmowa kończy się po pożegnaniu lub 30 sekundach bez mowy i odtwarzania dźwięku.",
       "recognized": "Rozpoznana mowa",
       "reply": "Odpowiedź AI",
-      "privacy": "Domyślnie wyłączone. Opcjonalne rozpoznawanie hasła wybudzającego działa lokalnie. Po wybudzeniu lub naciśnięciu przycisku dźwięk rozmowy trafia do Xiaozhi. Parowanie udostępnia identyfikator urządzenia.",
+      "privacy": "Domyślnie wyłączone. Opcjonalne rozpoznawanie hasła wybudzającego działa lokalnie. Po wybudzeniu lub naciśnięciu przycisku dźwięk rozmowy trafia do sparowanej usługi głosowej. Parowanie udostępnia identyfikator urządzenia.",
       "emoji_style": "Styl emocji AI",
       "emoji_otto": "Robot Otto",
       "emoji_classic": "Klasyczne emoji",
       "you": "Ty",
-      "assistant": "Xiaozhi",
+      "assistant": "AI Assistant",
       "hint_duplex": "Mówię i słucham",
       "hint_listening": "Mów dalej, słucham",
       "hint_thinking": "Chwileczkę",
       "hint_ready": "Wypowiedz hasło wybudzania, aby rozpocząć rozmowę",
-      "hint_error": "Wybudź mnie ponownie, aby spróbować jeszcze raz"
+      "hint_error": "Wybudź mnie ponownie, aby spróbować jeszcze raz",
+      "hint_timeout": "Powrót do ekranu głównego za %u s · Mów, aby kontynuować",
+      "hint_manual_error": "Przytrzymaj, aby mówić i spróbować ponownie",
+      "hint_timeout_manual": "Powrót za %u s · Przytrzymaj, aby mówić"
     },
     "ota": {
       "title": "Aktualizacja oprogramowania",

@@ -1,10 +1,10 @@
 <!-- SPDX-License-Identifier: LicenseRef-FNCL-1.1 | Copyright (c) 2026 andre68723 -->
-# Xiaozhi conversation display
+# AI Assistant conversation display
 
-For operation, see [Xiaozhi AI](../xiaozhi-ai.md#conversation). The panel and
+For operation, see [AI Assistant](../xiaozhi-ai.md#conversation). The panel and
 editor present the current recognized speech and answer as separate bubbles.
-The panel retains its manual-versus-wake origin, idle timeout, emotion preference
-and close semantics. A bounded scroll area keeps long text above the spectrum
+The panel retains its manual-versus-wake origin and emotion preference.
+A bounded scroll area keeps long text above the spectrum
 and manual Talk button. Display updates do not acknowledge speech or interrupt it.
 
 ## Audio observations
@@ -44,9 +44,12 @@ only while a conversation is active and the settings section is visible; it
 discards stale samples and stops on hidden, disabled or failed status reads.
 Neither view adds fabricated activity during silence or waiting.
 
-Normal closes retain the established standby behavior. Real connection failures
-retain diagnostic fields and show the recovery hint. These visual distinctions
-do not alter transport recovery or the retained crash archive.
+The [session policy](assistant-session.md) owns the fixed 30-second audio
+inactivity deadline and farewell closure. Both views consume its remaining time
+for the last-five-second hint; the spectrum is not a speech detector or timer.
+Normal ends close the conversation view and clear its bars. Real connection
+failures retain diagnostic fields and show the recovery hint. The web settings
+page remains available after its conversation view closes.
 
 ## Validation boundary
 
@@ -55,6 +58,6 @@ snapshot freshness and reset behavior. Native lifecycle tests cover bubble
 bounds, long text, source selection, manual controls and object teardown. Editor
 tests cover valid and stale spectrum payloads and conversation-state transitions.
 These checks and a panel10 build do not establish real-device scheduling cost,
-physical display appearance or acoustic acceptance. The prior
-[7ec2109 acceptance baseline](xiaozhi-acceptance.md) remains the hardware reference
-until the new image receives a separately authorized device trial.
+physical display appearance or acoustic acceptance of later session changes.
+Retain the [7ec2109 acceptance baseline](xiaozhi-acceptance.md) and other accepted
+images; a session-policy change needs its own authorized device trial.

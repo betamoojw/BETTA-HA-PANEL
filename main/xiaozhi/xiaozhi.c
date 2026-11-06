@@ -11,6 +11,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdatomic.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "freertos/queue.h"
@@ -31,6 +32,9 @@
 #include "xiaozhi_custom_model_store.h"
 #include "xiaozhi_pcm.h"
 #include "xiaozhi_dialog.h"
+#include "xiaozhi_activity.h"
+#include "xiaozhi_farewell.h"
+#include "esp_vad.h"
 #include "esp_crt_bundle.h"
 #include "esp_http_client.h"
 #include "esp_websocket_client.h"
@@ -46,11 +50,16 @@
 #define MAX_FRAME 8192
 #define FRAME_SAMPLES 960
 #define NS "xiaozhi"
-typedef struct { char action[16]; int value; char phrase[XIAOZHI_WAKE_PHRASE_SIZE]; } command_t;
+typedef struct { char action[16]; int value; uint32_t stop_revision; char phrase[XIAOZHI_WAKE_PHRASE_SIZE]; } command_t;
 typedef struct { int opcode, len; uint8_t *data; } packet_t;
 static SemaphoreHandle_t lock;
 static QueueHandle_t commands, packets;
 static TaskHandle_t worker_task;
+static atomic_bool worker_started;
+static portMUX_TYPE pending_lock = portMUX_INITIALIZER_UNLOCKED;
+static command_t pending_end[2]; /* Dismiss and release retain separate bounded slots. */
+static bool pending_end_valid[2], stop_generation_valid;
+static uint32_t stop_generation, stop_revision;
 static xiaozhi_status_t status = {.supported = true, .duplex_enabled = true, .volume = 50, .dialog_timeout = 30, .wake_config = {.phrase = XIAOZHI_WAKE_DEFAULT_PHRASE}};
 static char endpoint[256], token[1024], device[18], uuid[37], session[128];
 static esp_websocket_client_handle_t ws;
@@ -66,12 +75,13 @@ static uint8_t *encoded;
 static bool hello_sent, ready, want_listen;
 static int64_t deadline, listen_deadline, pair_deadline, next_pair;
 static bool pairing, identity_ready, auto_listen, idle_capture;
-static int64_t last_activity, wake_retry;
+static int64_t wake_retry;
 static int16_t *wake_pcm;
 static int64_t wake_last_loud;
 static xiaozhi_session_t stream;
 static xiaozhi_duplex_frame_t *duplex_frame;
 static bool audio_stopping;
+static vad_handle_t manual_vad;
 
 static xiaozhi_connection_t connection_snapshot(void)
 {
@@ -113,10 +123,13 @@ static void record_connection_end(void)
     if (link.end == XZ_END_NONE) return; /* An intentional local stop has no peer diagnosis. */
     bool error = xiaozhi_connection_error(&link);
     xSemaphoreTake(lock, portMAX_DELAY);
-    status.connection_close_code = link.close_code;
-    status.connection_error_type = link.error_type; status.connection_tls_error = link.tls_error;
-    status.connection_socket_errno = link.socket_errno; status.connection_http_status = link.http_status;
-    strlcpy(status.connection_end, xiaozhi_connection_reason(&link), sizeof(status.connection_end));
+    /* A later normal exit must not erase the last real failure diagnosis. */
+    if (error || !status.connection_errors) {
+        status.connection_close_code = link.close_code;
+        status.connection_error_type = link.error_type; status.connection_tls_error = link.tls_error;
+        status.connection_socket_errno = link.socket_errno; status.connection_http_status = link.http_status;
+        strlcpy(status.connection_end, xiaozhi_connection_reason(&link), sizeof(status.connection_end));
+    }
     if (error) ++status.connection_errors; else ++status.normal_closes;
     xSemaphoreGive(lock);
     ESP_LOGI("xiaozhi", "Connection ended: %s code=%d type=%d tls=%d socket=%d http=%d",
@@ -144,15 +157,24 @@ static void update_audio_status(void)
     xSemaphoreGive(lock);
 }
 
-static void activity(void)
+static void show_dialog(bool voice_opened)
 {
-    last_activity = esp_timer_get_time();
-    xSemaphoreTake(lock, portMAX_DELAY); ++status.activity_seq; xSemaphoreGive(lock);
+    xSemaphoreTake(lock, portMAX_DELAY);
+    ++status.dialog_seq; status.dialog_active = true; status.dialog_voice_opened = voice_opened;
+    status.text[0] = status.recognized[0] = status.reply[0] = status.emotion[0] = 0;
+    strlcpy(status.state, "ready", sizeof(status.state));
+    xiaozhi_activity_begin(status.dialog_seq);
+    xSemaphoreGive(lock);
 }
-static void show_dialog(void)
+static void end_dialog(const char *reason)
 {
-    activity();
-    xSemaphoreTake(lock, portMAX_DELAY); ++status.dialog_seq; xSemaphoreGive(lock);
+    xSemaphoreTake(lock, portMAX_DELAY);
+    xiaozhi_activity_end(status.dialog_seq);
+    if (status.dialog_active) {
+        status.dialog_active = false; status.dialog_end_seq = status.dialog_seq;
+        strlcpy(status.dialog_end_reason, reason, sizeof(status.dialog_end_reason));
+    }
+    xSemaphoreGive(lock);
 }
 static void conversation(bool active)
 {
@@ -168,6 +190,8 @@ static void set_state(const char *value)
 
 static void status_spectrum(xiaozhi_status_t *out)
 {
+    out->activity_seq = xiaozhi_activity_revision();
+    out->silence_remaining_ms = out->dialog_active ? xiaozhi_activity_remaining_ms(out->dialog_seq) : 0;
     xiaozhi_spectrum_snapshot_t spectrum;
     xiaozhi_spectrum_snapshot(&spectrum);
     memcpy(out->spectrum_mic, spectrum.microphone, sizeof(out->spectrum_mic));
@@ -243,6 +267,7 @@ static void drain_packets(bool preserve_mcp)
 static void disconnect_session(void)
 {
     bool had_connection = ws != NULL;
+    xiaozhi_activity_end(status.dialog_seq);
     want_listen = auto_listen = idle_capture = false;
     conversation(false);
     knx_mcp_session_reset();
@@ -262,6 +287,8 @@ static void disconnect_session(void)
     free(pcm); pcm = NULL;
     free(encoded); encoded = NULL;
     free(duplex_frame); duplex_frame = NULL;
+    if (manual_vad) vad_destroy(manual_vad);
+    manual_vad = NULL;
     ready = hello_sent = false;
     session[0] = 0;
     xSemaphoreTake(lock, portMAX_DELAY);
@@ -271,6 +298,17 @@ static void disconnect_session(void)
     update_audio_status();
     /* Stop/destroy joined every callback, including errors racing a local stop. */
     if (had_connection) record_connection_end();
+}
+
+static void close_dialog(const char *reason)
+{
+    bool had_connection = ws != NULL;
+    if (had_connection && failed) connection_fail(XZ_END_LOCAL);
+    disconnect_session();
+    xiaozhi_connection_t link = connection_snapshot();
+    bool error = had_connection && xiaozhi_connection_error(&link);
+    end_dialog(error ? "error" : reason);
+    set_state(error ? "connection_error" : status.enabled ? "ready" : "disabled");
 }
 
 /* Event task only assembles bounded messages. The worker owns audio and JSON. */
@@ -339,12 +377,14 @@ static bool control(const char *type, const char *state)
 
 static bool connect_session(void)
 {
-    if (audio_stopping) { set_state("audio_or_connection_error"); return false; }
+    if (audio_stopping) { end_dialog("error"); set_state("audio_or_connection_error"); return false; }
     /* Discard the idle capture stream before the cloud handshake. Resume only
      * on listen/start, so buffered wake audio is not treated as the question. */
     if (idle_capture && xiaozhi_audio_mic(false) != ESP_OK) goto error;
     idle_capture = false;
-    if (!identity_ready || strncmp(endpoint, "wss://", 6) || !token[0]) return false;
+    if (!identity_ready || strncmp(endpoint, "wss://", 6) || !token[0]) {
+        end_dialog("error"); set_state("audio_or_connection_error"); return false;
+    }
     rx = heap_caps_malloc(MAX_FRAME, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     pcm = heap_caps_malloc(3840 * sizeof(int16_t), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     encoded = heap_caps_malloc(1504, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
@@ -372,7 +412,7 @@ static bool connect_session(void)
     if (esp_websocket_client_start(ws) != ESP_OK) goto error;
     set_state("connecting"); return true;
 error:
-    disconnect_session(); set_state("audio_or_connection_error"); return false;
+    disconnect_session(); end_dialog("error"); set_state("audio_or_connection_error"); return false;
 }
 
 typedef struct { char *data; size_t len; bool overflow; } response_t;
@@ -459,7 +499,6 @@ static void receive_mcp(const cJSON *message)
 {
     cJSON *response = knx_mcp_message(message, session);
     if (!response) return;
-    activity();
     const char *method = str(cJSON_GetObjectItemCaseSensitive(message, "payload"), "method");
     char *text = cJSON_PrintUnformatted(response);
     bool sent = text && send_text(text);
@@ -497,6 +536,12 @@ static void receive_packet(packet_t *p)
                 opus_decoder_ctl(decoder, OPUS_RESET_STATE);
             }
             const char *text = str(j, "text");
+            if (!tts && status.dialog_active && text[0] && xiaozhi_farewell(text)) {
+                xSemaphoreTake(lock, portMAX_DELAY);
+                strlcpy(status.recognized, text, sizeof(status.recognized));
+                xSemaphoreGive(lock);
+                cJSON_Delete(j); close_dialog("farewell"); return;
+            }
             if (!tts && text[0] && stream.realtime) {
                 xiaozhi_duplex_stats_t audio;
                 xiaozhi_duplex_stats(&audio);
@@ -510,14 +555,12 @@ static void receive_packet(packet_t *p)
                 }
             }
             if (text[0] && (!tts || !stream.drop_audio)) {
-                activity();
                 xSemaphoreTake(lock, portMAX_DELAY);
                 strlcpy(status.text, text, sizeof(status.text));
                 strlcpy(!strcmp(type, "stt") ? status.recognized : status.reply, text, sizeof(status.text));
                 xSemaphoreGive(lock);
             }
             if (tts) {
-                if (!stream.drop_audio) activity();
                 if (!strcmp(phase, "start")) {
                     if (!stream.realtime) {
                         want_listen = false;
@@ -546,11 +589,13 @@ static void receive_packet(packet_t *p)
         /* Opus can decode the server's 24/48 kHz stream directly at 16 kHz. */
         int n = opus_decode(decoder, p->data + 4, len, pcm, 1920, 0);
         uint32_t spectrum_generation = xiaozhi_spectrum_generation(XZ_SPECTRUM_SPEAKER);
+        uint32_t activity_generation = xiaozhi_activity_generation();
         if (n <= 0 || (stream.realtime ? !xiaozhi_duplex_play(pcm, n) : xiaozhi_audio_write(pcm, n) != ESP_OK)) failed = true;
         else {
             if (!stream.realtime) xiaozhi_spectrum_feed(XZ_SPECTRUM_SPEAKER, pcm, n, spectrum_generation);
+            if (!stream.realtime && status.volume > 0 && xiaozhi_activity_has_sound(pcm, n))
+                xiaozhi_activity_note_playback(activity_generation, esp_timer_get_time());
             xSemaphoreTake(lock, portMAX_DELAY); ++status.audio_rx_frames; xSemaphoreGive(lock);
-            activity();
         }
     }
 }
@@ -561,12 +606,80 @@ static void wake_config_result(bool failed_config)
     status.wake_config_failed = failed_config; ++status.wake_config_revision;
     xSemaphoreGive(lock);
 }
+static bool prepare_turn_start(command_t *c)
+{
+    portENTER_CRITICAL(&pending_lock);
+    bool blocked = false;
+    for (unsigned i = 0; i < 2; ++i)
+        blocked |= pending_end_valid[i] && (uint32_t)pending_end[i].value == (uint32_t)c->value;
+    c->stop_revision = stop_generation_valid && stop_generation == (uint32_t)c->value ? stop_revision : 0;
+    portEXIT_CRITICAL(&pending_lock);
+    return !blocked;
+}
+static bool turn_start_current(const command_t *c)
+{
+    portENTER_CRITICAL(&pending_lock);
+    bool current = !stop_generation_valid || stop_generation != (uint32_t)c->value || c->stop_revision == stop_revision;
+    portEXIT_CRITICAL(&pending_lock);
+    return current;
+}
+static bool defer_turn_end(const command_t *c)
+{
+    int slot = !strcmp(c->action, "dismiss") ? 0 : !strcmp(c->action, "stop_turn") ? 1 : -1;
+    if (slot < 0) return false;
+    uint32_t generation = (uint32_t)c->value;
+    /* Guard before updating cancellation history: an arbitrary future sequence
+     * must not poison the current dialog's release. This read takes no status lock. */
+    if (generation != xiaozhi_activity_generation()) return true;
+    portENTER_CRITICAL(&pending_lock);
+    /* A delayed UI teardown must never replace a newer generation's release. */
+    if (!stop_generation_valid || (int32_t)(generation - stop_generation) >= 0) {
+        stop_generation = generation; stop_generation_valid = true; ++stop_revision;
+        pending_end[slot] = *c; pending_end_valid[slot] = true;
+    }
+    portEXIT_CRITICAL(&pending_lock);
+    return true;
+}
+static bool take_turn_end(command_t *out)
+{
+    bool found = false;
+    portENTER_CRITICAL(&pending_lock);
+    for (unsigned i = 0; i < 2; ++i) {
+        if (!pending_end_valid[i]) continue;
+        *out = pending_end[i]; pending_end_valid[i] = false; found = true; break;
+    }
+    portEXIT_CRITICAL(&pending_lock);
+    return found;
+}
 static void handle_command(command_t *c)
 {
+    if (!strcmp(c->action, "dismiss") && !status.dialog_active) {
+        /* A failed session is already torn down. Acknowledge its visible
+         * recovery view without losing diagnosis or touching another session. */
+        if ((uint32_t)c->value == status.dialog_seq && status.dialog_end_seq == status.dialog_seq &&
+            !strcmp(status.dialog_end_reason, "error")) {
+            xSemaphoreTake(lock, portMAX_DELAY);
+            strlcpy(status.dialog_end_reason, "manual", sizeof(status.dialog_end_reason));
+            if (!strcmp(status.state, "connection_error") || !strcmp(status.state, "audio_or_connection_error"))
+                strlcpy(status.state, status.enabled ? "ready" : "disabled", sizeof(status.state));
+            xSemaphoreGive(lock);
+        }
+        return;
+    }
+    if (!strcmp(c->action, "dialog_turn")) {
+        if (status.dialog_active || (uint32_t)c->value != status.dialog_seq) return;
+        strlcpy(c->action, "dialog", sizeof(c->action));
+    }
+    if (!strcmp(c->action, "start_turn") || !strcmp(c->action, "stop_turn")) {
+        if (!status.dialog_active || (uint32_t)c->value != status.dialog_seq) return;
+        bool start = !strcmp(c->action, "start_turn");
+        if (start && !turn_start_current(c)) return;
+        strlcpy(c->action, start ? "start" : "stop", sizeof(c->action));
+    }
     if (!strcmp(c->action, "wake_config")) {
         xiaozhi_wake_config_t next = {.word = c->value};
         strlcpy(next.phrase, c->phrase, sizeof(next.phrase));
-        disconnect_session();
+        close_dialog("manual");
         /* Validate with the real engine before persisting; rejected words retain
          * the previous configuration. Only this worker ever owns either model. */
         bool valid = xiaozhi_wake_init(next.word, next.phrase);
@@ -604,7 +717,7 @@ static void handle_command(command_t *c)
         }
         flash_gate_leave();
         if (err != ESP_OK) { set_state("storage_error"); return; }
-        pairing = false; disconnect_session();
+        pairing = false; close_dialog("disabled");
         xSemaphoreTake(lock, portMAX_DELAY); status.enabled = false; status.volume = 50; status.wake_enabled = false; status.dialog_timeout = 30;
         status.emoji_style = 0;
         status.duplex_enabled = true;
@@ -616,51 +729,55 @@ static void handle_command(command_t *c)
         bool enable = !strcmp(c->action, "enable");
         if (!save_enabled(enable)) { set_state("storage_error"); return; }
         xSemaphoreTake(lock, portMAX_DELAY); status.enabled = enable; xSemaphoreGive(lock);
-        if (!enable) { pairing = false; disconnect_session(); }
+        if (!enable) { pairing = false; close_dialog("disabled"); }
         set_state(enable ? "ready" : "disabled"); return;
     }
-    if (!strcmp(c->action, "wake") || !strcmp(c->action, "duplex") || !strcmp(c->action, "timeout")) {
+    /* Retain the legacy command/range without rewriting old persisted values.
+     * Audio inactivity is now fixed at 30 seconds for every client. */
+    if (!strcmp(c->action, "timeout")) return;
+    if (!strcmp(c->action, "wake") || !strcmp(c->action, "duplex")) {
         nvs_handle_t h;
         if (!flash_gate_enter(1000)) { set_state("storage_error"); return; }
         esp_err_t err = nvs_open(NS, NVS_READWRITE, &h);
         if (err == ESP_OK) {
-            err = !strcmp(c->action, "timeout") ? nvs_set_u16(h, "dialog_timeout", c->value) : nvs_set_u8(h, c->action, c->value);
+            err = nvs_set_u8(h, c->action, c->value);
             if (err == ESP_OK) err = nvs_commit(h);
             nvs_close(h);
         }
         flash_gate_leave();
         if (err != ESP_OK) { set_state("storage_error"); return; }
-        if (strcmp(c->action, "timeout")) {
-            disconnect_session();
-            xSemaphoreTake(lock, portMAX_DELAY);
-            if (!strcmp(c->action, "wake")) status.wake_enabled = c->value != 0;
-            else status.duplex_enabled = c->value != 0;
-            xSemaphoreGive(lock);
-            wake_retry = 0;
-        } else {
-            xSemaphoreTake(lock, portMAX_DELAY); status.dialog_timeout = c->value; xSemaphoreGive(lock);
-        }
+        close_dialog("manual");
+        xSemaphoreTake(lock, portMAX_DELAY);
+        if (!strcmp(c->action, "wake")) status.wake_enabled = c->value != 0;
+        else status.duplex_enabled = c->value != 0;
+        xSemaphoreGive(lock);
+        wake_retry = 0;
         set_state(status.enabled ? "ready" : "disabled"); return;
     }
     if (!status.enabled) return;
-    if (!strcmp(c->action, "pair")) {
+    if (!strcmp(c->action, "dialog")) {
+        if (status.dialog_active || ws) close_dialog("manual");
+        show_dialog(false);
+    } else if (!strcmp(c->action, "pair")) {
         if (!identity_ready) { set_state("storage_error"); return; }
-        disconnect_session(); pairing = true;
+        close_dialog("manual"); pairing = true;
         pair_deadline = esp_timer_get_time() + 180000000; next_pair = 0; set_state("pairing");
     } else if (!strcmp(c->action, "start") || !strcmp(c->action, "open")) {
         if (!strcmp(c->action, "open") && (!status.wake_enabled || !status.wake_ready)) return;
         if (!status.paired || pairing) { set_state("pair_first"); return; }
         bool automatic = !strcmp(c->action, "open");
-        if (ws && auto_listen != automatic) disconnect_session();
+        if (ws && auto_listen != automatic) close_dialog("manual");
+        if (!status.dialog_active) show_dialog(automatic);
         if (!ws && !connect_session()) return;
         auto_listen = automatic;
-        conversation(true); activity();
+        conversation(true);
         want_listen = true;
         listen_deadline = esp_timer_get_time() + 60000000;
     } else if (!strcmp(c->action, "stop")) {
         want_listen = false;
-    } else if (!strcmp(c->action, "disconnect")) {
-        pairing = false; disconnect_session(); set_state("ready");
+    } else if (!strcmp(c->action, "disconnect") ||
+               (!strcmp(c->action, "dismiss") && status.dialog_active && (uint32_t)c->value == status.dialog_seq)) {
+        pairing = false; close_dialog("manual");
     } else if (!strcmp(c->action, "volume")) {
         nvs_handle_t h;
         bool gate = flash_gate_enter(1000);
@@ -721,7 +838,7 @@ static void poll_wake(void)
         ESP_LOGI("xiaozhi", "Local wake detected (word=%d, chunk=%d, loud_age_ms=%d)",
                  status.wake_config.word, n,
                  wake_last_loud ? (int)((esp_timer_get_time() - wake_last_loud) / 1000) : -1);
-        show_dialog();
+        show_dialog(true);
         if (connect_session()) {
             auto_listen = want_listen = true; conversation(true);
             listen_deadline = esp_timer_get_time() + 60000000;
@@ -741,12 +858,13 @@ static void change_capture(void)
         xiaozhi_spectrum_clear(XZ_SPECTRUM_SPEAKER);
         drain_packets(true);
         xiaozhi_session_reset(&stream, auto_listen && status.duplex_enabled);
+        if (!stream.realtime && !manual_vad) manual_vad = vad_create(VAD_MODE_3);
         if (stream.realtime && !duplex_frame)
             duplex_frame = heap_caps_malloc(sizeof(*duplex_frame), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-        if ((stream.realtime && !duplex_frame) || xiaozhi_audio_mic(true) != ESP_OK ||
+        if ((stream.realtime ? !duplex_frame : !manual_vad) || xiaozhi_audio_mic(true) != ESP_OK ||
             (stream.realtime && xiaozhi_duplex_start() != ESP_OK)) { failed = true; return; }
     } else {
-        if (stream.realtime) { disconnect_session(); set_state("ready"); return; }
+        if (stream.realtime) { close_dialog("manual"); return; }
         if (xiaozhi_audio_mic(false) != ESP_OK) { failed = true; return; }
     }
     if (!control("listen", want_listen ? "start" : "stop")) return;
@@ -763,13 +881,17 @@ static bool send_capture(void)
     if (stream.realtime) {
         if (!xiaozhi_duplex_take(duplex_frame)) return false;
         samples = duplex_frame->pcm; overlap = duplex_frame->playback;
-        if (duplex_frame->speech) activity();
     } else {
         uint32_t spectrum_generation = xiaozhi_spectrum_generation(XZ_SPECTRUM_MIC);
+        uint32_t activity_generation = xiaozhi_activity_generation();
         if (xiaozhi_audio_read(pcm, FRAME_SAMPLES) != ESP_OK) { failed = true; return true; }
         xiaozhi_pcm_mono(pcm, FRAME_SAMPLES, NULL, NULL);
         xiaozhi_spectrum_feed(XZ_SPECTRUM_MIC, pcm, FRAME_SAMPLES, spectrum_generation);
-        if (!auto_listen || xiaozhi_voice_active(pcm, FRAME_SAMPLES)) activity();
+        bool speech = false;
+        for (int offset = 0; manual_vad && offset < FRAME_SAMPLES; offset += 480)
+            speech |= vad_process(manual_vad, pcm + offset, 16000, 30) == VAD_SPEECH;
+        if (speech && xiaozhi_activity_has_sound(pcm, FRAME_SAMPLES))
+            xiaozhi_activity_note(activity_generation, esp_timer_get_time());
     }
     int n = opus_encode(encoder, samples, FRAME_SAMPLES, encoded + 4, 1500);
     if (n <= 0) { failed = true; return true; }
@@ -792,6 +914,7 @@ static void finish_connection(int64_t now)
     disconnect_session();
     link = connection_snapshot(); /* stop/destroy joined the final callback */
     bool error = xiaozhi_connection_error(&link);
+    end_dialog(error ? "error" : "peer_close");
     set_state(error ? "connection_error" : "ready");
 }
 
@@ -803,7 +926,9 @@ static void worker(void *unused)
             audio_stopping = false; xiaozhi_audio_close();
         }
         command_t c;
+        while (take_turn_end(&c)) handle_command(&c);
         while (xQueueReceive(commands, &c, 0) == pdTRUE) handle_command(&c);
+        while (take_turn_end(&c)) handle_command(&c);
         int64_t now = esp_timer_get_time();
         if (pairing && now >= pair_deadline) { pairing = false; set_state("pairing_expired"); }
         if (pairing && now >= next_pair) { pair_step(); next_pair = esp_timer_get_time() + 5000000; }
@@ -814,9 +939,9 @@ static void worker(void *unused)
         packet_t p;
         bool received = ws && xQueueReceive(packets, &p, 0) == pdTRUE;
         if (received) { receive_packet(&p); free(p.data); }
-        if (ws && xiaozhi_dialog_expired(esp_timer_get_time()/1000, last_activity/1000, status.dialog_timeout)) {
-            disconnect_session(); set_state("ready");
-        }
+        /* The atomic claim arbitrates a simultaneous real audio observation.
+         * Empty PCM, text, network traffic and UI refreshes cannot extend it. */
+        if (status.dialog_active && xiaozhi_activity_expire(status.dialog_seq)) close_dialog("silence");
         if (want_listen && !stream.realtime && now >= listen_deadline) want_listen = false;
         if (ready && !failed && want_listen != status.listening) change_capture();
         bool sent = ready && status.listening && !failed && connection_can_send() && send_capture();
@@ -830,7 +955,17 @@ static esp_err_t enqueue_command(command_t *c)
 {
     const char *action = c->action;
     if (!commands) return ESP_ERR_INVALID_STATE;
-    xSemaphoreTake(lock, portMAX_DELAY);
+    if (!strcmp(action, "start_turn") && !prepare_turn_start(c)) return ESP_ERR_TIMEOUT;
+    /* The long-lived worker needs no state-lock round trip for an enqueue.
+     * In particular a Talk release or a generation-tagged dismiss is not lost
+     * merely because an HTTP status copy currently owns the mutex. */
+    if (atomic_load(&worker_started)) {
+        /* All guarded endings use the same bounded path, even with queue space.
+         * This orders a delayed start producer against an accepted release. */
+        if (defer_turn_end(c)) return ESP_OK;
+        return xQueueSend(commands, c, 0) == pdTRUE ? ESP_OK : ESP_ERR_TIMEOUT;
+    }
+    if (xSemaphoreTake(lock, 0) != pdTRUE) return ESP_ERR_TIMEOUT;
     /* Screen teardown must not allocate an audio worker while disabled. */
     if (!worker_task && !status.enabled && strcmp(action, "enable") && strcmp(action, "reset") && strcmp(action, "wake") && strcmp(action, "duplex") && strcmp(action, "timeout") && strcmp(action, "wake_config")) {
         xSemaphoreGive(lock); return ESP_OK;
@@ -838,14 +973,16 @@ static esp_err_t enqueue_command(command_t *c)
     if (!worker_task && xTaskCreate(worker, "xiaozhi", 32768, NULL, 4, &worker_task) != pdPASS) {
         xSemaphoreGive(lock); return ESP_ERR_NO_MEM;
     }
+    atomic_store(&worker_started, true);
     xSemaphoreGive(lock);
+    if (defer_turn_end(c)) return ESP_OK;
     return xQueueSend(commands, c, 0) == pdTRUE ? ESP_OK : ESP_ERR_TIMEOUT;
 }
 esp_err_t xiaozhi_command(const char *action, int value)
 {
     if (!action || !commands || strlen(action) >= sizeof(((command_t *)0)->action)) return ESP_ERR_INVALID_STATE;
     if (strcmp(action, "reset") && strcmp(action, "enable") && strcmp(action, "disable") && strcmp(action, "pair") &&
-        strcmp(action, "wake") && strcmp(action, "duplex") && strcmp(action, "timeout") && strcmp(action, "open") && strcmp(action, "start") && strcmp(action, "stop") && strcmp(action, "disconnect") && strcmp(action, "volume")) return ESP_ERR_INVALID_ARG;
+        strcmp(action, "wake") && strcmp(action, "duplex") && strcmp(action, "timeout") && strcmp(action, "open") && strcmp(action, "start") && strcmp(action, "stop") && strcmp(action, "start_turn") && strcmp(action, "stop_turn") && strcmp(action, "disconnect") && strcmp(action, "dialog") && strcmp(action, "dialog_turn") && strcmp(action, "dismiss") && strcmp(action, "volume")) return ESP_ERR_INVALID_ARG;
     if (!strcmp(action, "volume") && (value < 0 || value > 80)) return ESP_ERR_INVALID_ARG;
     if (!strcmp(action, "wake") && value != 0 && value != 1) return ESP_ERR_INVALID_ARG;
     if (!strcmp(action, "duplex") && value != 0 && value != 1) return ESP_ERR_INVALID_ARG;
@@ -867,17 +1004,20 @@ void xiaozhi_init(void)
     if (lock) return;
     lock = xSemaphoreCreateMutex(); commands = xQueueCreate(8, sizeof(command_t)); packets = xQueueCreate(24, sizeof(packet_t));
     if (!lock || !commands || !packets) return;
+    status.dialog_epoch = esp_random();
+    if (!status.dialog_epoch) status.dialog_epoch = 1;
     uint8_t mac[6] = {0}; bool mac_ok = esp_read_mac(mac, ESP_MAC_BASE) == ESP_OK;
     snprintf(device, sizeof(device), "%02x:%02x:%02x:%02x:%02x:%02x", mac[0],mac[1],mac[2],mac[3],mac[4],mac[5]);
     nvs_handle_t h;
     bool init_gate = flash_gate_enter(1000);
     if (init_gate && nvs_open(NS, NVS_READWRITE, &h) == ESP_OK) {
-        uint8_t enabled = 0, volume = 50, wake = 0, duplex = 1; uint16_t timeout = 30;
+        uint8_t enabled = 0, volume = 50, wake = 0, duplex = 1;
         nvs_get_u8(h, "enabled", &enabled); status.enabled = enabled == 1;
         nvs_get_u8(h, "volume", &volume); status.volume = volume <= 80 ? volume : 50;
         nvs_get_u8(h, "wake", &wake); status.wake_enabled = wake == 1;
         nvs_get_u8(h, "duplex", &duplex); status.duplex_enabled = duplex != 0;
-        nvs_get_u16(h, "dialog_timeout", &timeout); status.dialog_timeout = timeout >= 10 && timeout <= 300 ? timeout : 30;
+        /* Keep the saved legacy timeout untouched; every current client uses 30 seconds. */
+        status.dialog_timeout = XIAOZHI_SILENCE_TIMEOUT_MS / 1000;
         uint8_t emoji = 0; nvs_get_u8(h, "emoji", &emoji); status.emoji_style = emoji == 1 ? 1 : 0;
         xiaozhi_wake_config_t saved = {0}; size_t config_len = sizeof(saved);
         if (nvs_get_blob(h, "wake_config", &saved, &config_len) == ESP_OK && config_len == sizeof(saved) &&
@@ -907,6 +1047,7 @@ void xiaozhi_init(void)
     if (status.enabled && xTaskCreate(worker, "xiaozhi", 32768, NULL, 4, &worker_task) != pdPASS) {
         vQueueDelete(commands); commands = NULL; set_state("memory_error");
     }
+    if (worker_task) atomic_store(&worker_started, true);
 }
 #else
 esp_err_t xiaozhi_configure_wake(int word, const char *phrase) { (void)word; (void)phrase; return ESP_ERR_NOT_SUPPORTED; }

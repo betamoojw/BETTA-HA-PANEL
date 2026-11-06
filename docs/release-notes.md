@@ -9,7 +9,7 @@ Changes of **this fork**, compared with upstream v0.8.2. The release notes of th
 Changes since [v0.9.0](#v090).
 
 The development branch combines these updates with its existing S3/LCD-X support, seven-language catalogs,
-Live Display, native settings, clocks and animations, Xiaozhi, KNX and saved camera sources. Existing translations
+Live Display, native settings, clocks and animations, AI Assistant, KNX and saved camera sources. Existing translations
 are retained; the v0.9.1 interface additions are localized in Spanish, French, Polish and both Chinese catalogs.
 Late weather detail responses are discarded safely after their popup closes, including responses already queued for the UI task.
 The `panel10` build losslessly compresses the bundled C6 updater.
@@ -17,7 +17,18 @@ All features and the partition layout are retained; the restored C6 image is ver
 Panel10 additionally packs notification and light-control bitmaps losslessly,
 freeing application space while retaining every image, setting and data partition.
 
-### Xiaozhi AI
+### AI Assistant
+
+- Product labels in the panel, editor, settings and seven-language catalogs use
+  **AI Assistant**. Saved wake phrases, pairing, compatible API/storage identifiers,
+  service attribution and historical acceptance records retain their identity.
+- Recognized user farewells close the popup and return to standby; quoted,
+  negated or explanatory uses and assistant replies do not trigger that path.
+  A fixed 30-second audio-silence deadline replaces the configurable activity
+  timeout, with a last-five-second hint. Effective user speech and actual audible
+  playback renew it; silent frames, text, queued audio and network messages do not.
+  The backend owns closure so late updates cannot reopen an ended dialogue.
+  Genuine connection faults retain diagnostics and recovery guidance.
 
 - The panel and web editor show recognized speech and replies in separate chat
   bubbles, with live segmented frequency bars derived from conversation audio.

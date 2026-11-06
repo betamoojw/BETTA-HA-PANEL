@@ -7,7 +7,9 @@ import vm from 'node:vm';
 
 const source = fs.readFileSync(new URL('../../components/webui/www/js/xiaozhi.js', import.meta.url), 'utf8');
 function setup(saved = {}, overrides = {}) {
-  const model = {supported:true, enabled:false, paired:false, volume:50, duplex_enabled:true, state:'disabled', code:'', text:'', wake_config_revision:0, ...saved};
+  const model = {supported:true, enabled:false, paired:false, volume:50, duplex_enabled:true, state:'disabled', code:'', text:'', wake_config_revision:0,
+    dialog_epoch:197,dialog_seq:1,dialog_end_seq:0,dialog_active:!!(saved.conversation||saved.listening||saved.speaking),
+    dialog_voice_opened:!!saved.wake_enabled,silence_remaining_ms:30000,dialog_end_reason:'',...saved};
   const nodes = new Map(), events = {}, requests = [], intervals = new Map();
   function node(id) {
     if (!nodes.has(id)) nodes.set(id, {listeners:{}, attrs:{}, style:{}, children:[], appendChild(child){this.children.push(child);}, getAttribute(k){return this.attrs[k];}, setAttribute(k,v){this.attrs[k]=v;}, removeAttribute(k){delete this.attrs[k];}, classList:{contains:()=>false}, addEventListener(type, cb){this.listeners[type]=cb;}});
@@ -22,6 +24,15 @@ function setup(saved = {}, overrides = {}) {
       const body = JSON.parse(options.body); requests.push(body);
       if (body.action==='enable') model.enabled=true;
       if (body.action==='disable') model.enabled=false;
+      if (['disable','reset','disconnect'].includes(body.action) || (body.action==='dismiss'&&body.value===model.dialog_seq&&body.epoch===model.dialog_epoch)) {
+        model.dialog_active=false;model.dialog_end_seq=model.dialog_seq;model.dialog_end_reason='manual';
+        model.conversation=model.listening=model.speaking=false;
+        if (body.action==='dismiss'&&['connection_error','audio_or_connection_error'].includes(model.state)) model.state='ready';
+      }
+      if (body.action==='start'&&!model.dialog_active) {model.dialog_active=true;model.dialog_seq++;model.dialog_end_reason='';}
+      if (body.action==='dialog_turn'&&!model.dialog_active&&body.value===model.dialog_seq&&body.epoch===model.dialog_epoch) {
+        model.dialog_active=true;model.dialog_seq=(model.dialog_seq+1)>>>0;model.dialog_voice_opened=false;model.dialog_end_reason='';
+      }
       if (body.action==='volume') model.volume=body.value;
       if (body.action==='wake_config') {model.wake_word=body.value.word;model.wake_phrase=body.value.phrase;model.wake_config_revision++;model.wake_config_failed=false;}
       if (body.action==='wake') model.wake_enabled=!!body.value;
@@ -49,27 +60,27 @@ test('enable, volume, disable and reload preserve the saved volume and pairing',
   assert.equal(reloaded.node('xiaozhiFields').hidden,true);
   assert.equal(reloaded.node('xiaozhiVolume').value,65); assert.equal(reloaded.model.paired,true);
 });
-test('pointer release sends stop after start',async()=>{
+test('manual press opens a guarded dialogue and release targets the same generation',async()=>{
   const s=setup({enabled:true,paired:true});await s.poll();await s.fire('xiaozhiTalk','pointerdown');
   await s.events.pointerup();
-  assert.deepEqual(s.requests.map(r=>r.action),['start','stop']);
+  assert.deepEqual(s.requests,[{action:'dialog_turn',value:1,epoch:197},{action:'start_turn',value:2,epoch:197},{action:'stop_turn',value:2,epoch:197}]);
 });
 test('leaving the settings page stops recording',async()=>{
   const s=setup({enabled:true,paired:true});await s.poll();await s.fire('xiaozhiTalk','pointerdown');
   s.node('settingsXiaozhiSection').classList.contains=()=>true;await s.poll();
-  assert.equal(s.requests.at(-1).action,'stop');
+  assert.equal(s.requests.at(-1).action,'stop_turn');
 });
 test('unsupported board disables enable and hides dependent controls',async()=>{
   const s=setup({supported:false});await s.poll();
   assert.equal(s.node('xiaozhiEnabled').disabled,true);assert.equal(s.node('xiaozhiFields').hidden,true);
 });
-test('reset is scoped to Xiaozhi and preserves cloud pairing',async()=>{
+test('reset is scoped to AI Assistant and preserves cloud pairing',async()=>{
   const s=setup({enabled:true,paired:true,volume:70});await s.fire('xiaozhiReset','click');await s.poll();
   assert.equal(s.model.enabled,false);assert.equal(s.model.volume,50);assert.equal(s.model.paired,true);
   assert.equal(s.requests.length,1);assert.equal(s.requests[0].action,'reset');
 });
 test('server text is rendered as text, never HTML',async()=>{
-  const s=setup({text:'<img src=x onerror=alert(1)>',code:'123456'});await s.poll();
+  const s=setup({enabled:true,dialog_active:true,text:'<img src=x onerror=alert(1)>',code:'123456'});await s.poll();
   assert.equal(s.node('xiaozhiText').textContent,s.model.text);assert.equal(s.node('xiaozhiText').innerHTML,undefined);
 });
 
@@ -103,7 +114,7 @@ test('leaving the page while polling does not apply its delayed response', async
   assert.equal(s.node('xiaozhiEnabled').checked,undefined);
 });
 
-test('all Xiaozhi HTML labels are wired into the existing translation refresh',()=>{
+test('all AI Assistant HTML labels are wired into the existing translation refresh',()=>{
   const html=fs.readFileSync(new URL('../../components/webui/www/index.html',import.meta.url),'utf8');
   const translations=fs.readFileSync(new URL('../../components/webui/www/js/translations.js',import.meta.url),'utf8');
   const labels=[...html.matchAll(/<[^>]+id="([^"]+)"[^>]+data-i18n-key="(xiaozhi\.[^"]+)"/g)];
@@ -112,7 +123,7 @@ test('all Xiaozhi HTML labels are wired into the existing translation refresh',(
 });
 
 test('Otto is default, classic selection persists and reset restores Otto without changing pairing',async()=>{
-  const s=setup({enabled:true,paired:true,emotion:'happy'});await s.poll();
+  const s=setup({enabled:true,paired:true,dialog_active:true,emotion:'happy'});await s.poll();
   assert.equal(s.node('xiaozhiOtto').hidden,false);
   assert.equal(s.node('xiaozhiOtto').getAttribute('src'),'/api/xiaozhi/emoji?emotion=happy');
   s.node('xiaozhiEmoji').value='1';await s.fire('xiaozhiEmoji','change');await s.poll();
@@ -121,7 +132,7 @@ test('Otto is default, classic selection persists and reset restores Otto withou
   reload.node('xiaozhiEnabled').checked=false;await reload.fire('xiaozhiEnabled','change');await reload.poll();
   assert.equal(reload.model.emoji_style,1);
   await reload.fire('xiaozhiReset','click');assert.equal(reload.model.emoji_style,0);assert.equal(reload.model.paired,true);
-  const invalid=setup({enabled:true,emotion:'../credentials'});await invalid.poll();
+  const invalid=setup({enabled:true,dialog_active:true,emotion:'../credentials'});await invalid.poll();
   assert.equal(invalid.node('xiaozhiOtto').getAttribute('src'),'/api/xiaozhi/emoji?emotion=neutral');
   invalid.node('xiaozhiEmoji').value='2';await invalid.fire('xiaozhiEmoji','change');assert.equal(invalid.requests.length,0);
 });
@@ -148,13 +159,16 @@ for (const lang of ['zh-cn','zh-tw']) {
   });
 }
 
-test('wake and timeout edits survive disable and reload, reset remains scoped',async()=>{
-  const s=setup({enabled:true,paired:true});await s.poll();
+test('fixed silence policy has no editable timeout and preserves wake settings and pairing',async()=>{
+  const s=setup({enabled:true,paired:true,dialog_timeout:45});await s.poll();
   s.node('xiaozhiWake').checked=true;await s.fire('xiaozhiWake','change');
-  s.node('xiaozhiTimeout').value='45';await s.fire('xiaozhiTimeout','change');
+  assert.equal(s.node('xiaozhiTimeout').listeners.change,undefined);
+  const html=fs.readFileSync(new URL('../../components/webui/www/index.html',import.meta.url),'utf8');
+  assert.doesNotMatch(html,/<input[^>]*id="xiaozhiTimeout"/);
+  assert.match(html,/id="xiaozhiTimeoutLabel"[^>]*data-i18n-key="xiaozhi.timeout"/);
   s.node('xiaozhiEnabled').checked=false;await s.fire('xiaozhiEnabled','change');
   const r=setup(s.model);await r.poll();assert.equal(r.node('xiaozhiWake').checked,true);
-  assert.equal(r.node('xiaozhiTimeout').value,45);
+  assert.equal(r.model.dialog_timeout,45);assert.equal(s.requests.some(r=>r.action==='timeout'),false);
   await r.fire('xiaozhiReset','click');assert.equal(r.model.wake_enabled,false);assert.equal(r.model.dialog_timeout,30);
   assert.equal(r.model.paired,true);
 });
@@ -183,7 +197,7 @@ test('duplex preference does not start capture or change manual press and releas
   s.node('xiaozhiDuplex').checked=true;await s.fire('xiaozhiDuplex','change');
   assert.deepEqual(s.requests.map(r=>r.action),['duplex']);
   await s.fire('xiaozhiTalk','pointerdown');await s.events.pointerup();
-  assert.deepEqual(s.requests.map(r=>r.action),['duplex','start','stop']);
+  assert.deepEqual(s.requests.map(r=>r.action),['duplex','dialog_turn','start_turn','stop_turn']);
 });
 test('duplex edits reject delayed status and show the saved value after a failed command',async()=>{
   let resolve;
@@ -208,14 +222,182 @@ test('simultaneous speaking and listening has an offline translation in every ca
   }
 });
 test('talk hides only when local wake engine is ready, with manual fallback on failure',async()=>{
-  const s=setup({enabled:true,paired:true,wake_enabled:true,wake_ready:true,recognized:'hello',reply:'hi',emotion:'happy'});await s.poll();
+  const s=setup({enabled:true,paired:true,dialog_active:true,wake_enabled:true,wake_ready:true,recognized:'hello',reply:'hi',emotion:'happy'});await s.poll();
   assert.equal(s.node('xiaozhiTalk').hidden,true);
   await s.fire('xiaozhiTalk','pointerdown');assert.equal(s.requests.length,0);
   assert.equal(s.node('xiaozhiRecognized').textContent,'hello');assert.equal(s.node('xiaozhiText').textContent,'hi');
   assert.equal(s.node('xiaozhiEmotion').textContent,'🙂');
   s.model.wake_ready=false;await s.poll();assert.equal(s.node('xiaozhiTalk').hidden,false);
-  for(const value of ['0','301','1.2','bad']) {s.node('xiaozhiTimeout').value=value;await s.fire('xiaozhiTimeout','change');}
   assert.equal(s.requests.length,0);
+});
+
+test('only backend silence time drives the last-five-seconds hint and new audio removes it',async()=>{
+  let now=1000;
+  const s=setup({enabled:true,wake_enabled:true,wake_ready:true,dialog_active:true,listening:true,state:'listening',silence_remaining_ms:5001},
+    {Date:{now:()=>now},t:key=>key==='xiaozhi.hint_timeout'?'Returning in %u s':key});
+  await s.poll();assert.equal(s.node('xiaozhiConversationHint').textContent,'xiaozhi.hint_listening');
+  s.model.silence_remaining_ms=5000;await s.poll();assert.equal(s.node('xiaozhiConversationHint').textContent,'Returning in 5 s');
+  now+=20000;s.tick(100);assert.equal(s.node('xiaozhiConversationHint').textContent,'Returning in 5 s');
+  s.model.silence_remaining_ms=1001;await s.poll();assert.equal(s.node('xiaozhiConversationHint').textContent,'Returning in 2 s');
+  s.model.silence_remaining_ms=1;await s.poll();assert.equal(s.node('xiaozhiConversationHint').textContent,'Returning in 1 s');
+  s.model.silence_remaining_ms=30000;await s.poll();assert.equal(s.node('xiaozhiConversationHint').textContent,'xiaozhi.hint_listening');
+  s.model.speaking=true;s.model.duplex_active=true;s.model.state='speaking_listening';
+  await s.poll();assert.equal(s.node('xiaozhiConversationHint').textContent,'xiaozhi.hint_duplex');
+  assert.equal(s.requests.length,0);
+});
+
+test('manual countdown names the press-to-talk action even with wake detection available',async()=>{
+  const s=setup({enabled:true,paired:true,wake_enabled:true,wake_ready:true,dialog_active:true,dialog_voice_opened:false,
+    silence_remaining_ms:5000,state:'ready'}, {t:key=>key==='xiaozhi.hint_timeout_manual'?'Returning in %u s - Hold to talk':key});
+  await s.poll();assert.equal(s.node('xiaozhiTalk').hidden,false);
+  assert.equal(s.node('xiaozhiConversationHint').textContent,'Returning in 5 s - Hold to talk');
+  s.model.silence_remaining_ms=30000;await s.poll();
+  assert.doesNotMatch(s.node('xiaozhiConversationHint').textContent,/Returning/);
+  s.model.dialog_voice_opened=true;s.model.silence_remaining_ms=5000;await s.poll();
+  assert.equal(s.node('xiaozhiTalk').hidden,true);
+  assert.equal(s.node('xiaozhiConversationHint').textContent,'xiaozhi.hint_timeout');
+});
+
+test('farewell, silence and peer close hide only the conversation and clear stale content',async()=>{
+  for(const reason of ['farewell','silence','peer_close','manual']) {
+    const s=setup({enabled:true,paired:true,dialog_active:true,conversation:true,listening:true,state:'listening',recognized:'bye bye',reply:'Old response',
+      spectrum:{microphone:Array(24).fill(255),mic_active:true}});
+    await s.poll();assert.equal(s.node('xiaozhiConversation').hidden,false);
+    assert.equal(s.node('xiaozhiSpectrum').children[0].style.height,'64px');
+    Object.assign(s.model,{dialog_active:false,dialog_end_seq:1,dialog_end_reason:reason,conversation:false,listening:false,state:'ready'});
+    await s.poll();assert.equal(s.node('xiaozhiConversation').hidden,true);
+    assert.equal(s.node('xiaozhiFields').hidden,false);assert.equal(s.node('xiaozhiTalk').disabled,false);
+    assert.equal(s.node('xiaozhiText').textContent,'');assert.equal(s.node('xiaozhiRecognized').textContent,'');
+    assert.equal(s.node('xiaozhiOtto').getAttribute('src'),undefined);
+    assert.ok(s.node('xiaozhiSpectrum').children.every(b=>b.style.height==='4px'));
+    assert.equal(s.node('xiaozhiStatus').hidden,false);assert.equal(s.node('xiaozhiStatus').textContent,'ready');
+  }
+});
+
+test('real connection faults keep recovery guidance without spectrum or a stale timeout',async()=>{
+  for(const state of ['connection_error','audio_or_connection_error']) {
+    const s=setup({enabled:true,paired:true,wake_enabled:true,wake_ready:true,dialog_active:false,dialog_end_seq:1,dialog_end_reason:'error',
+      state,silence_remaining_ms:1000,recognized:'bye bye',reply:'stale reply'});
+    await s.poll();assert.equal(s.node('xiaozhiConversation').hidden,false);
+    assert.equal(s.node('xiaozhiConversationHint').textContent,'xiaozhi.hint_error');
+    assert.equal(s.node('xiaozhiText').textContent,'');assert.equal(s.node('xiaozhiSpectrum').hidden,true);
+    assert.equal(s.node('xiaozhiConversationState').textContent,state);
+  }
+});
+
+test('ending a failed dialogue stays closed after acknowledgment and reload while diagnostics remain',async()=>{
+  const s=setup({enabled:true,paired:true,wake_enabled:false,dialog_active:false,dialog_end_seq:1,
+    dialog_end_reason:'error',state:'connection_error',connection_errors:2,connection_end:'transport_error'});
+  await s.poll();assert.equal(s.node('xiaozhiConversation').hidden,false);
+  await s.fire('xiaozhiStop','click');await s.poll();await s.poll();
+  assert.equal(s.node('xiaozhiConversation').hidden,true);
+  assert.equal(s.node('xiaozhiStatus').textContent,'ready');
+  const reloaded=setup(s.model);await reloaded.poll();
+  assert.equal(reloaded.node('xiaozhiConversation').hidden,true);
+  assert.equal(reloaded.model.connection_errors,2);assert.equal(reloaded.model.connection_end,'transport_error');
+  await reloaded.fire('xiaozhiTalk','pointerdown');await reloaded.poll();
+  assert.equal(reloaded.node('xiaozhiConversation').hidden,false);
+  assert.equal(reloaded.model.dialog_seq,2);
+  await reloaded.events.pointerup();
+});
+
+test('ended generations cannot reopen and a late old close cannot dismiss a new dialogue',async()=>{
+  const s=setup({enabled:true,paired:true,dialog_active:true,dialog_seq:7,listening:true,state:'listening',reply:'First'});
+  await s.poll();
+  Object.assign(s.model,{dialog_active:false,dialog_end_seq:7,dialog_end_reason:'farewell',listening:false,state:'ready'});
+  await s.poll();assert.equal(s.node('xiaozhiConversation').hidden,true);
+  Object.assign(s.model,{dialog_active:true,dialog_end_seq:0,listening:true,state:'listening'});
+  await s.poll();assert.equal(s.node('xiaozhiConversation').hidden,true);
+  Object.assign(s.model,{dialog_seq:8,reply:'New conversation'});await s.poll();
+  assert.equal(s.node('xiaozhiConversation').hidden,false);assert.equal(s.node('xiaozhiText').textContent,'New conversation');
+  Object.assign(s.model,{dialog_seq:7,dialog_active:false,dialog_end_seq:7,state:'ready'});await s.poll();
+  assert.equal(s.node('xiaozhiConversation').hidden,false);assert.equal(s.node('xiaozhiText').textContent,'New conversation');
+});
+
+test('manual end carries the displayed generation and rollback retains disconnect compatibility',async()=>{
+  const s=setup({enabled:true,paired:true,dialog_active:true,dialog_seq:0xffffffff,state:'listening',listening:true});
+  await s.poll();await s.fire('xiaozhiStop','click');
+  assert.deepEqual(s.requests.at(-1),{action:'dismiss',value:0xffffffff,epoch:197});
+  Object.assign(s.model,{dialog_active:true,dialog_seq:0,dialog_end_seq:0xffffffff});await s.poll();
+  assert.equal(s.node('xiaozhiConversation').hidden,false);
+  await s.fire('xiaozhiStop','click');assert.deepEqual(s.requests.at(-1),{action:'dismiss',value:0,epoch:197});
+  const old=setup({enabled:true,paired:true,listening:true,state:'listening',dialog_seq:undefined,dialog_active:undefined});
+  await old.poll();await old.fire('xiaozhiStop','click');assert.deepEqual(old.requests.at(-1),{action:'disconnect',value:0});
+});
+
+test('release while a manual dialogue is opening never starts capture afterward',async()=>{
+  let resolve;const requests=[];
+  const s=setup({enabled:true,paired:true},{fetch:async(_url,options)=>{
+    requests.push(JSON.parse(options.body));return new Promise(r=>resolve=r);
+  }});
+  await s.poll();const press=s.fire('xiaozhiTalk','pointerdown');await Promise.resolve();
+  await s.events.pointerup();
+  Object.assign(s.model,{dialog_active:true,dialog_seq:2});resolve({ok:true});await press;await s.poll();
+  assert.deepEqual(requests,[{action:'dialog_turn',value:1,epoch:197}]);
+});
+
+test('an intervening wake cannot inherit a pending manual press or its release',async()=>{
+  const requests=[];
+  const s=setup({enabled:true,paired:true},{fetch:async(_url,options)=>{
+    requests.push(JSON.parse(options.body));return {ok:true};
+  }});
+  await s.poll();await s.fire('xiaozhiTalk','pointerdown');
+  Object.assign(s.model,{dialog_active:true,dialog_seq:2,dialog_voice_opened:true,listening:true,state:'listening'});
+  await s.poll();await s.events.pointerup();
+  assert.deepEqual(requests,[{action:'dialog_turn',value:1,epoch:197}]);
+});
+
+test('a completed manual generation cannot stop a subsequent wake on late release',async()=>{
+  const s=setup({enabled:true,paired:true,dialog_active:true,dialog_seq:8});
+  await s.poll();await s.fire('xiaozhiTalk','pointerdown');
+  Object.assign(s.model,{dialog_active:true,dialog_seq:9,dialog_end_seq:8,dialog_voice_opened:true});
+  await s.poll();await s.events.pointerup();
+  assert.deepEqual(s.requests,[{action:'start_turn',value:8,epoch:197}]);
+});
+
+test('a restart accepts the new boot generation and cancels the old manual release',async()=>{
+  const s=setup({enabled:true,paired:true,dialog_active:true,dialog_seq:37});
+  await s.poll();await s.fire('xiaozhiTalk','pointerdown');
+  Object.assign(s.model,{dialog_epoch:248,dialog_seq:0,dialog_active:false,dialog_end_seq:0,state:'ready'});
+  await s.poll();await s.events.pointerup();
+  assert.equal(s.node('xiaozhiConversation').hidden,true);
+  Object.assign(s.model,{dialog_seq:1,dialog_active:true,dialog_voice_opened:true,reply:'After reboot'});
+  await s.poll();assert.equal(s.node('xiaozhiText').textContent,'After reboot');
+  await s.fire('xiaozhiStop','click');
+  assert.deepEqual(s.requests,[{action:'start_turn',value:37,epoch:197},{action:'dismiss',value:1,epoch:248}]);
+});
+
+test('failed dismissal permits the authoritative live dialogue to reappear',async()=>{
+  const s=setup({enabled:true,paired:true,dialog_active:true,reply:'Still connected'}, {fetch:async()=>({ok:false})});
+  await s.poll();await s.fire('xiaozhiStop','click');await s.poll();
+  assert.equal(s.node('xiaozhiConversation').hidden,false);assert.equal(s.node('xiaozhiText').textContent,'Still connected');
+});
+
+test('rollback retains manual start and release for images without the generation contract',async()=>{
+  const s=setup({enabled:true,paired:true,dialog_seq:undefined,dialog_epoch:undefined,dialog_active:undefined});
+  await s.poll();await s.fire('xiaozhiTalk','pointerdown');await s.events.pointerup();
+  assert.deepEqual(s.requests,[{action:'start',value:0},{action:'stop',value:0}]);
+});
+
+test('no unguarded start or dismissal is sent before the first status identifies the API',async()=>{
+  const s=setup({enabled:true,paired:true});
+  await s.fire('xiaozhiTalk','pointerdown');await s.events.pointerup();await s.fire('xiaozhiStop','click');
+  assert.deepEqual(s.requests,[]);
+});
+
+test('manual fallback can open after an ended voice-opened dialogue',async()=>{
+  const s=setup({enabled:true,paired:true,dialog_active:false,dialog_voice_opened:true,dialog_end_seq:1,
+    dialog_end_reason:'error',wake_enabled:true,wake_ready:false,state:'connection_error'});
+  await s.poll();await s.fire('xiaozhiTalk','pointerdown');await s.events.pointerup();
+  assert.deepEqual(s.requests.map(r=>r.action),['dialog_turn','start_turn','stop_turn']);
+});
+
+test('manual reopening immediately after End uses a new generation',async()=>{
+  const s=setup({enabled:true,paired:true,dialog_active:true});
+  await s.poll();await s.fire('xiaozhiStop','click');
+  await s.fire('xiaozhiTalk','pointerdown');await s.events.pointerup();
+  assert.deepEqual(s.requests,[{action:'dismiss',value:1,epoch:197},{action:'dialog_turn',value:1,epoch:197},
+    {action:'start_turn',value:2,epoch:197},{action:'stop_turn',value:2,epoch:197}]);
 });
 
  test('custom phrase saves JSON, survives reload/disable and reset restores defaults', async()=>{
@@ -414,7 +596,7 @@ test('bubble labels, visibility and hints follow actual duplex and wake availabi
   s.model.state='ready';s.model.listening=false;s.model.speaking=false;await s.poll();
   assert.equal(s.node('xiaozhiConversationHint').textContent,'xiaozhi.hint_ready');
   s.model.state='connection_error';await s.poll();assert.equal(s.node('xiaozhiConversationHint').textContent,'xiaozhi.hint_error');
-  s.model.wake_ready=false;await s.poll();assert.equal(s.node('xiaozhiConversationHint').textContent,'xiaozhi.talk');
+  s.model.wake_ready=false;await s.poll();assert.equal(s.node('xiaozhiConversationHint').textContent,'xiaozhi.hint_manual_error');
   s.model.recognized='';s.model.reply='';await s.poll();
   assert.equal(s.node('xiaozhiUserBubble').hidden,true);assert.equal(s.node('xiaozhiReplyBubble').hidden,true);
 });

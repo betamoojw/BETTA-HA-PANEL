@@ -1,5 +1,5 @@
 <!-- SPDX-License-Identifier: LicenseRef-FNCL-1.1 | Copyright (c) 2026 andre68723 -->
-# Xiaozhi resources
+# AI Assistant resources
 
 ## HTTP connections
 
@@ -12,7 +12,7 @@ Default profiles now allow 32 sockets. `http_socket_budget.h` caps HTTP clients
 at 12 and reserves at least 12 descriptors, including HTTPD's three internal
 sockets and nine for outbound services. An existing 16-socket sdkconfig uses
 four HTTP clients until reconfigured. The startup log reports both limits.
-The Xiaozhi status poll allows one request at a time, aborts after eight seconds
+The AI Assistant status poll allows one request at a time, aborts after eight seconds
 and rejects a response that predates an edit. Command ordering is unchanged.
 
 ## Local transcript font

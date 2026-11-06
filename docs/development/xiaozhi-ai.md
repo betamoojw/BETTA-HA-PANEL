@@ -1,5 +1,5 @@
 <!-- SPDX-License-Identifier: LicenseRef-FNCL-1.1 | Copyright (c) 2026 andre68723 -->
-# Xiaozhi AI
+# AI Assistant
 
 Protocol reference: [kruzio1985's Guition port](https://github.com/kruzio1985/BETTA-HA-PANEL-10-Guiton-JC8012P4A1C/tree/7668ebe60ed736c838e0ea5b565a5e77df0b0b2f/main/xiaozhi),
 commit `7668ebe60ed736c838e0ea5b565a5e77df0b0b2f`. Its Cpt_Kirk/ForgeUI-derived
@@ -7,7 +7,7 @@ implementation uses activation POSTs, a WebSocket v3 hello and 60 ms mono Opus
 frames. The local integration reimplements those boundaries rather than using
 the Guition audio pins or its direct network-task LVGL calls.
 
-Custom wake configuration and model installation: [Xiaozhi resources](xiaozhi-resources.md#custom-wake-recognition).
+References: [AI Assistant resources](xiaozhi-resources.md#custom-wake-recognition) · [AI Assistant session policy](assistant-session.md).
 
 ## Runtime
 
@@ -23,7 +23,7 @@ Custom wake configuration and model installation: [Xiaozhi resources](xiaozhi-re
   `tools/list` pagination and the ordered Common, KNX and User Only inventory.
   A `withUserTools: true` list request exposes annotated user tools and enables
   their calls for that initialized connection. See
-  [Xiaozhi MCP tools](xiaozhi-mcp-tools.md).
+  [AI Assistant MCP tools](xiaozhi-mcp-tools.md).
 - `main/xiaozhi/xiaozhi_mcp_tools.c`: `panel10` capability adapter for saved
   speaker volume, brightness and theme, device/system status, display geometry,
   reboot and the existing HTTPS OTA installer. Other variants return no device
@@ -36,14 +36,14 @@ Custom wake configuration and model installation: [Xiaozhi resources](xiaozhi-re
 - `xiaozhi_duplex.c`: independent capture and playback tasks with bounded queues.
   The session worker passes cleaned microphone PCM to Opus and queues decoded
   replies. It stops both paths before closing codecs or releasing buffers.
-- `xiaozhi_ui.c`: a UI timer reads a locked status snapshot. A child root owns
+- `xiaozhi_ui.c`: a UI timer reads a nonblocking status snapshot. A child root owns
   the controls and timer; cleaning or deleting the dashboard destroys both and
   requests disconnect. The persistent screen must not own that cleanup callback:
   layout reloads clean its children without deleting the screen. Network tasks
   never call LVGL. The view tracks whether it opened from a wake event or the
-  header: detector readiness alone must not hide manual Talk. Header clicks do
-  not send the automatic-listening `open` command; Talk press/release own manual
-  capture. A later wake event switches the visible view to hands-free mode.
+  header: detector readiness alone must not hide manual Talk. Header clicks send
+  `dialog` to start the backend-owned lifetime without connecting or capturing;
+  Talk press/release own manual capture. Wake events select hands-free mode.
 - `xiaozhi_api.c`: guarded GET/POST `/api/xiaozhi`, with bounded JSON commands.
   The API returns status, pairing code and latest transcript, never credentials.
 - `components/webui/www/js/xiaozhi.js`: immediate-save controls, scoped reset,
@@ -170,14 +170,14 @@ the matching model automatically. Espressif's dependency supplies model and
 inference licensing. Other boards retain unsupported audio status; the common
 UI and protocol settings do not imply microphone-driver support on those boards.
 
-NVS adds `wake` (default false) and `dialog_timeout` (default 30 seconds) under
-the existing Xiaozhi namespace. The guarded API accepts bounded `wake` and
-`timeout` commands. The worker publishes dialog/activity sequence counters;
-only the UI timer changes LVGL or wakes the display. Neither polling nor
-silent microphone frames extend the timeout. Text remains separated as STT
-and latest TTS sentence, with the original `text` API field retained. Unknown
-emotion names use neutral. Classic Emoji use the bundled monochrome Noto outlines,
-with hero-role sizing bounded by popup geometry; Otto Robot is the default.
+NVS `wake` defaults to false; the existing `xiaozhi` namespace and saved
+`dialog_timeout` value are retained for compatibility. Runtime silence expiry
+is fixed at 30 seconds; legacy bounded `timeout` commands do not change it.
+The worker publishes dialogue generations and audio remaining time; only the
+UI task changes LVGL. [Session policy](assistant-session.md) defines farewell,
+silence and fault precedence. Text remains separated as STT and latest TTS
+sentence, with the original `text` API field retained. Unknown emotions use neutral.
+Classic Emoji use bounded hero sizing; Otto Robot is the default.
 
 ## Full-duplex conversations
 
@@ -297,4 +297,4 @@ responses can contain characters outside the compact built-in CJK subset and
 show missing-glyph boxes on the LCD. The web transcript uses browser fonts and
 shows the full response. The UI catalog font checks do not establish coverage
 of unrestricted AI-generated text. The subsequent local transcript resource and
-HTTP connection-budget correction are described in [Xiaozhi resources](xiaozhi-resources.md).
+HTTP connection-budget correction are described in [AI Assistant resources](xiaozhi-resources.md).

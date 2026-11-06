@@ -5,6 +5,7 @@
 #include "xiaozhi_duplex.h"
 #include "xiaozhi_audio.h"
 #include "xiaozhi_spectrum.h"
+#include "xiaozhi_activity.h"
 #include <stdatomic.h>
 #include <stdlib.h>
 #include <string.h>
@@ -83,6 +84,7 @@ static void capture_worker(void *unused)
     uint32_t sequence = 0;
     bool overlap = false;
     while (!atomic_load(&stop_requested) && !atomic_load(&pipeline_failed)) {
+        uint32_t activity_generation = xiaozhi_activity_generation();
         uint32_t spectrum_generation = xiaozhi_spectrum_generation(XZ_SPECTRUM_MIC);
         if (xiaozhi_audio_read(stereo, aec_samples) != ESP_OK) {
             if (!atomic_load(&stop_requested)) atomic_store(&pipeline_failed, true);
@@ -111,6 +113,10 @@ static void capture_worker(void *unused)
                 capture_frame->speech = false;
                 for (int offset = 0; offset < XIAOZHI_DUPLEX_SAMPLES; offset += 480)
                     capture_frame->speech |= vad_process(vad, capture_frame->pcm + offset, 16000, 30) == VAD_SPEECH;
+                /* Timestamp at observation, not later when the network worker
+                 * consumes this frame. VAD alone never interrupts playback. */
+                if (capture_frame->speech && xiaozhi_activity_has_sound(capture_frame->pcm, XIAOZHI_DUPLEX_SAMPLES))
+                    xiaozhi_activity_note(activity_generation, esp_timer_get_time());
                 capture_frame->playback = overlap;
                 capture_frame->sequence = ++sequence;
                 if (xQueueSend(capture_queue, capture_frame, 0) != pdTRUE) {
@@ -165,13 +171,17 @@ static void playback_worker(void *unused)
             output_busy = true;
             portEXIT_CRITICAL(&stats_lock);
             uint32_t spectrum_generation = xiaozhi_spectrum_generation(XZ_SPECTRUM_SPEAKER);
+            uint32_t activity_generation = xiaozhi_activity_generation();
             esp_err_t err = xiaozhi_audio_write(play_frame->pcm + offset, count);
-            if (err == ESP_OK && play_frame->generation == atomic_load(&output_generation) && !atomic_load(&stop_requested))
+            if (err == ESP_OK && play_frame->generation == atomic_load(&output_generation) && !atomic_load(&stop_requested)) {
                 xiaozhi_spectrum_feed(XZ_SPECTRUM_SPEAKER, play_frame->pcm + offset, count, spectrum_generation);
+                if (xiaozhi_audio_output_audible() && xiaozhi_activity_has_sound(play_frame->pcm + offset, count))
+                    xiaozhi_activity_note_playback(activity_generation, esp_timer_get_time());
+            }
             portENTER_CRITICAL(&stats_lock);
             output_busy = false;
             /* Includes the BSP's queued DMA frames after a successful write. */
-            output_tail = xTaskGetTickCount() + pdMS_TO_TICKS(120);
+            output_tail = xTaskGetTickCount() + pdMS_TO_TICKS(XIAOZHI_OUTPUT_TAIL_MS);
             portEXIT_CRITICAL(&stats_lock);
             if (err != ESP_OK) {
                 if (!atomic_load(&stop_requested)) atomic_store(&pipeline_failed, true);

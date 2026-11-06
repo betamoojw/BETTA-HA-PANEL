@@ -1,9 +1,11 @@
 <!-- SPDX-License-Identifier: LicenseRef-FNCL-1.1 | Copyright (c) 2026 andre68723 -->
-# Xiaozhi AI
+# AI Assistant
 
-Xiaozhi is an optional cloud voice assistant for the Waveshare
+AI Assistant is an optional cloud voice assistant for the Waveshare
 ESP32-P4-WIFI6-Touch-LCD-10.1 (LCD-X, `panel10`). It is off by default.
 Other board variants report voice audio as unsupported.
+The display name does not change your saved wake phrase, pairing or the Xiaozhi
+cloud service. Recognized speech and cloud replies are shown without renaming their content.
 
 Configured [KNX communication objects](knx.md) are available to the assistant
 through MCP when KNXnet/IP is enabled. Object permissions apply to voice commands;
@@ -64,7 +66,7 @@ WLED power control and state feedback; other actions currently have local tests.
 
 ## Pairing
 
-1. Open **Settings → Xiaozhi AI** in the web editor.
+1. Open **Settings → AI Assistant** in the web editor.
 2. Enable the assistant, then select **Pair / check pairing**.
 3. Sign in to [xiaozhi.me](https://xiaozhi.me) yourself and enter the code shown
    by the panel. Pairing retries expire after three minutes.
@@ -111,16 +113,30 @@ Implementation and validation limits are in the
 
 **Otto Robot** is the default emotion style, with 21 animated expressions.
 The original **Classic Emoji** remains available. Select **Emotion style** in
-the editor's **Settings → Xiaozhi AI** page, or **AI emotion style** in the
+the editor's **Settings → AI Assistant** page, or **AI emotion style** in the
 panel's **System settings**. Web changes save immediately; panel changes apply
 when you select **Save**, and **Cancel** keeps the previous choice. Both controls
 use the same saved preference. Changing the style does not enable the assistant
 or microphone. The Otto face keeps its black background inside the themed popup.
 
-**Dialogue idle timeout** is 30 seconds by default (10–300 seconds). Recognized
-voice, received speech text and reply audio renew it. Silence closes the popup
-and ends the cloud conversation, then returns to local wake detection. After a
-wake word, automatic end-of-speech detection is used. **Full-duplex conversation**
+**Automatic exit** ends the conversation and closes the popup after **30 seconds
+without effective user speech or actual speaker audio**. New speech or audible
+playback starts that interval again, so a long spoken answer can finish. The last
+five seconds show a gentle return-to-home hint; speaking cancels that hint.
+In manual mode, use **Hold to talk** and speak to continue.
+Background noise, silent audio frames, queued replies, text, network messages
+and scrolling do not extend the interval. Opening manual controls starts the
+same interval even before you speak. This is a fixed timeout, not a setting.
+
+Say **"bye bye"**, **"see you"**, **"再见"** or **"拜拜"** to end a conversation
+without waiting for another answer. The panel closes the popup and resumes the
+saved local wake mode. Only a recognized user farewell triggers this: asking
+what "bye bye" means, quoting it, saying not to say goodbye, or an assistant reply
+containing those words does not close the popup. Recognition still depends on
+the cloud speech service. The web conversation view closes while its settings
+page remains available.
+
+After a wake word, automatic end-of-speech detection is used. **Full-duplex conversation**
 is on by default: the panel keeps listening while the reply plays, so you can
 speak to interrupt and continue the conversation. Local echo cancellation uses
 the speaker reference to reduce the panel hearing its own reply. Conversation
@@ -134,9 +150,9 @@ kind of cloud conversation. Use the icon/close button or Disconnect to cancel.
 Voice wake-up is independently off by default.
 Press the top-bar button again or use **Disconnect** in the editor to end the
 session. Disable the assistant to stop pairing, capture and the cloud connection.
-When the service normally ends a conversation, including after saying goodbye,
-the panel returns to standby without a connection error. Use the wake phrase
-again to start another conversation. An abnormal disconnect or timeout still
+When the service normally ends a conversation, the popup closes and the panel
+returns to standby without a connection error. Use the wake phrase
+again to start another conversation. An abnormal disconnect or connection timeout still
 reports a connection error and retains diagnostic details for troubleshooting.
 Volume is limited to 80%; start low when first testing a connected speaker.
 
@@ -154,8 +170,11 @@ exports and are never returned by the editor API.
    wake phrase. Ask the assistant to count from one to twenty and let it finish.
 2. Ask it to count again. While it is speaking, say "Stop, what is two plus two?"
    Check that it changes to your question without treating its own reply as new speech.
-3. Say goodbye, wait for standby and local wake detection to resume, then wake it
-   again and ask another question. A normal goodbye should not show a connection error.
+3. Say goodbye. Check that the popup closes without a connection error, then wake
+   it again and ask another question. Check that both frequency bars and speech resume.
+4. After an answer finishes, stay quiet for 30 seconds. Check the last-five-second
+   hint and automatic close. In a second trial, speak during that hint and check
+   that the conversation continues.
 
 Use the panel's microphone and speaker. **Hold to talk** remains manual, even
 when full-duplex is enabled. If speaker feedback recurs, lower the volume or
@@ -163,15 +182,15 @@ temporarily turn full-duplex off and start a new conversation; keep the existing
 
 ## Connection recovery
 
-A normal service close returns to standby. A network fault or timeout ends the
+A farewell, silence timeout or normal service close returns to standby. A network fault or connection timeout ends the
 current conversation; it does not erase pairing or the saved full-duplex setting.
 Wait for **Ready**, then use the wake phrase again, or open the robot icon and
 use **Hold to talk**. Each new conversation establishes a new cloud connection.
 
 If failures repeat, check the panel's network connection and service availability.
 Save **Device status**, the panel log and any [crash reports](coredump.md) before
-restarting. The connection diagnosis remains available after the next wake;
-a later completed connection can replace it, so collect it promptly. Resetting
+restarting. A real connection-fault diagnosis remains available after the next
+wake and normal closes; a later fault can replace it, so collect it promptly. Resetting
 assistant preferences or pairing again is not a routine connection-recovery step.
 
 The [accepted firmware and recovery guide](development/xiaozhi-acceptance.md#restore-the-baseline)
@@ -179,7 +198,7 @@ describes returning to the locally retained image if a later firmware introduces
 
 ## Custom wake phrase
 
-Under **Settings → Xiaozhi AI**, enable **Voice wake-up**, choose **Custom Chinese
+Under **Settings → AI Assistant**, enable **Voice wake-up**, choose **Custom Chinese
 phrase**, and enter 3–12 lowercase pinyin syllables separated by spaces, without
 tones (for example `ni hao guan jia` for 你好管家). Select **Save wake phrase** and
 wait for **Wake phrase saved**. This changes actual local recognition; no model

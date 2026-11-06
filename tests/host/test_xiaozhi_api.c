@@ -8,7 +8,7 @@
 #include "cJSON.h"
 
 static httpd_uri_t routes[3];
-static unsigned route_count, calls, guard_calls;
+static unsigned route_count, calls, guard_calls, request_count;
 static int last_value, response_code;
 static char last_action[16], response[4096];
 static xiaozhi_status_t snapshot;
@@ -55,8 +55,10 @@ static void request(const char *body, int code, unsigned forwarded)
     httpd_req_t req = {.content_len = strlen(body), .body = body};
     calls = 0;
     response_code = 200;
+    unsigned guards = guard_calls;
     assert(routes[1].handler(&req) == ESP_OK);
     assert(response_code == code && calls == forwarded);
+    assert(guard_calls == guards + 1); ++request_count;
 }
 
 int main(void)
@@ -64,6 +66,24 @@ int main(void)
     assert(xiaozhi_api_register(NULL) == ESP_OK && route_count == 3);
     assert(routes[0].method == HTTP_GET && routes[1].method == HTTP_POST);
     assert(!strcmp(routes[1].uri, "/api/xiaozhi"));
+    snapshot.dialog_epoch = 7;
+    request("{\"action\":\"dialog\"}", 202, 1);
+    assert(!strcmp(last_action, "dialog"));
+    request("{\"action\":\"dismiss\",\"epoch\":7,\"value\":42}", 202, 1);
+    assert(!strcmp(last_action, "dismiss") && last_value == 42);
+    request("{\"action\":\"dismiss\",\"epoch\":7,\"value\":4294967295}", 202, 1);
+    assert((uint32_t)last_value == UINT32_MAX);
+    request("{\"action\":\"dismiss\",\"value\":-1}", 400, 0);
+    request("{\"action\":\"dismiss\",\"value\":1.5}", 400, 0);
+    request("{\"action\":\"dismiss\",\"value\":\"42\"}", 400, 0);
+    request("{\"action\":\"dismiss\"}", 400, 0);
+    request("{\"action\":\"dismiss\",\"epoch\":6,\"value\":42}", 400, 0);
+    request("{\"action\":\"dismiss\",\"epoch\":7.5,\"value\":42}", 400, 0);
+    request("{\"action\":\"dismiss\",\"epoch\":7,\"value\":4294967296}", 400, 0);
+    request("{\"action\":\"dialog_turn\",\"epoch\":7,\"value\":42}", 202, 1);
+    request("{\"action\":\"start_turn\",\"epoch\":7,\"value\":42}", 202, 1);
+    request("{\"action\":\"stop_turn\",\"epoch\":7,\"value\":42}", 202, 1);
+    request("{\"action\":\"stop_turn\",\"value\":42}", 400, 0);
     request("{\"action\":\"duplex\",\"value\":1}", 202, 1);
     assert(!strcmp(last_action, "duplex") && last_value == 1);
     request("{\"action\":\"duplex\",\"value\":0}", 202, 1);
@@ -79,6 +99,8 @@ int main(void)
     for (unsigned i = 0; i < sizeof(invalid) / sizeof(invalid[0]); ++i)
         request(invalid[i], 400, 0);
     snapshot = (xiaozhi_status_t){.supported = true, .enabled = true,
+        .dialog_active = true, .dialog_voice_opened = true, .dialog_epoch = 7, .dialog_seq = 42, .dialog_end_seq = 41,
+        .silence_remaining_ms = 4999, .dialog_timeout = 30,
         .duplex_enabled = true, .duplex_active = true, .speaking = true, .listening = true,
         .audio_tx_frames = 100, .audio_rx_frames = 50, .audio_tx_during_playback = 35,
         .barge_ins = 2, .aec_ref_peak = 1234, .aec_frames = 100,
@@ -97,6 +119,13 @@ int main(void)
     assert(cJSON_IsTrue(cJSON_GetObjectItem(j, "speaking")));
     assert(cJSON_IsTrue(cJSON_GetObjectItem(j, "duplex_active")));
     assert(cJSON_IsTrue(cJSON_GetObjectItem(j, "duplex_enabled")));
+    assert(cJSON_IsTrue(cJSON_GetObjectItem(j, "dialog_active")));
+    assert(cJSON_GetObjectItem(j, "dialog_epoch")->valuedouble == 7);
+    assert(cJSON_IsTrue(cJSON_GetObjectItem(j, "dialog_voice_opened")));
+    assert(cJSON_GetObjectItem(j, "dialog_seq")->valuedouble == 42);
+    assert(cJSON_GetObjectItem(j, "dialog_end_seq")->valuedouble == 41);
+    assert(cJSON_GetObjectItem(j, "silence_remaining_ms")->valueint == 4999);
+    assert(cJSON_GetObjectItem(j, "dialog_timeout")->valueint == 30);
     cJSON *spectrum = cJSON_GetObjectItem(j, "spectrum");
     assert(cJSON_IsTrue(cJSON_GetObjectItem(spectrum, "mic_active")));
     assert(cJSON_IsTrue(cJSON_GetObjectItem(spectrum, "speaker_active")));
@@ -117,7 +146,17 @@ int main(void)
     assert(!strcmp(cJSON_GetObjectItem(j, "connection_end")->valuestring, "transport_error"));
     assert(!strcmp(cJSON_GetObjectItem(j, "state")->valuestring, "speaking_listening"));
     cJSON_Delete(j);
-    assert(guard_calls == 16);
-    puts("Xiaozhi API: guarded duplex commands, malformed values and simultaneous audio status passed");
+    snapshot.dialog_active = false; snapshot.dialog_end_seq = 42;
+    snapshot.silence_remaining_ms = 0; strcpy(snapshot.dialog_end_reason, "farewell");
+    assert(routes[0].handler(&req) == ESP_OK);
+    j = cJSON_Parse(response); assert(j);
+    assert(cJSON_IsFalse(cJSON_GetObjectItem(j, "dialog_active")));
+    assert(cJSON_GetObjectItem(j, "dialog_end_seq")->valuedouble == 42);
+    assert(!strcmp(cJSON_GetObjectItem(j, "dialog_end_reason")->valuestring, "farewell"));
+    /* A normal local end does not erase the last connection diagnosis. */
+    assert(!strcmp(cJSON_GetObjectItem(j, "connection_end")->valuestring, "transport_error"));
+    cJSON_Delete(j);
+    assert(guard_calls == request_count + 2);
+    puts("AI Assistant API: guarded commands, audio status, authoritative deadline and end generation passed");
     return 0;
 }

@@ -34,7 +34,7 @@ class XiaozhiConnection(unittest.TestCase):
         source = (ROOT / "main/xiaozhi/xiaozhi.c").read_text(encoding="utf-8")
         cls.functions = "".join(function(source, name) for name in (
             "connection_snapshot", "connection_fail", "connection_can_send", "connection_reset",
-            "send_packet", "record_connection_end", "disconnect_session", "ws_event", "finish_connection"))
+            "send_packet", "record_connection_end", "end_dialog", "disconnect_session", "close_dialog", "ws_event", "finish_connection"))
         cls.fixed = cls.compile("fixed", cls.functions)
         # Prove coverage of the ignored CLOSE, stale event code and final callback races.
         cls.mutants = [
@@ -48,7 +48,7 @@ class XiaozhiConnection(unittest.TestCase):
                 "link = connection_snapshot(); /* stop/destroy joined the final callback */", "")), "late-error"),
             (cls.compile("early-diagnosis", cls.functions.replace(
                 "if (had_connection) record_connection_end();", "").replace(
-                "bool had_connection = ws != NULL;", "if (ws) record_connection_end();")), "local-stop"),
+                "bool had_connection = ws != NULL;", "if (ws) record_connection_end();", 1)), "local-stop"),
         ]
 
     @classmethod
@@ -69,7 +69,7 @@ class XiaozhiConnection(unittest.TestCase):
 
     def test_close_faults_and_rewake(self):
         for case in ("normal", "queued-close", "abnormal", "malformed", "transport",
-                     "late-error", "timeout", "unexpected-finish", "rewake", "local-stop"):
+                     "late-error", "timeout", "unexpected-finish", "rewake", "local-stop", "dialog-close"):
             with self.subTest(case=case):
                 result = subprocess.run([str(self.fixed), case], capture_output=True, text=True, timeout=5)
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)

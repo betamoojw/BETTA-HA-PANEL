@@ -23,12 +23,15 @@ typedef struct {
     uint32_t normal_closes, connection_errors;
     int connection_close_code, connection_error_type, connection_tls_error;
     int connection_socket_errno, connection_http_status;
-    char connection_end[32]; /* Last completed connection; retained across wake/reconnect. */
+    char connection_end[32]; /* Last real failure; normal closes never erase its diagnosis. */
     xiaozhi_wake_config_t wake_config;
     bool wake_model_ready, wake_config_failed;
     uint32_t wake_config_revision;
     int volume, dialog_timeout, emoji_style; /* 0 Otto (default), 1 classic */
-    uint32_t dialog_seq, activity_seq;
+    uint32_t dialog_seq, activity_seq, dialog_epoch;
+    bool dialog_active, dialog_voice_opened;
+    uint32_t dialog_end_seq, silence_remaining_ms;
+    char dialog_end_reason[24]; /* End applies only to dialog_end_seq, not a later wake. */
     uint32_t wake_frames, wake_hits;
     int wake_mic_peak, wake_ref_peak, wake_detect_us; /* Diagnostics, no audio retained. */
     char state[32], code[24], text[512], recognized[512], reply[512], emotion[24];

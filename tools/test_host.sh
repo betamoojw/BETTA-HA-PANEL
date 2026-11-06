@@ -83,6 +83,10 @@ cc -std=gnu11 -Wall -Wextra -Werror -DXIAOZHI_CUSTOM_MODEL_TEST -I main tests/ho
 cc -std=c11 -Wall -Wextra -Werror -I main tests/host/test_xiaozhi_session.c \
   -o "$out/test_xiaozhi_session"
 "$out/test_xiaozhi_session"
+cc -std=c11 -Wall -Wextra -Werror -I main -I tests/host/duplex_stubs \
+  tests/host/test_xiaozhi_activity.c main/xiaozhi/xiaozhi_activity.c main/xiaozhi/xiaozhi_farewell.c \
+  -o "$out/test_xiaozhi_activity"
+"$out/test_xiaozhi_activity"
 cc -std=c11 -Wall -Wextra -Werror -I main/xiaozhi -I tests/host/duplex_stubs \
   tests/host/test_xiaozhi_spectrum.c main/xiaozhi/xiaozhi_spectrum_dsp.c -lm \
   -o "$out/test_xiaozhi_spectrum"

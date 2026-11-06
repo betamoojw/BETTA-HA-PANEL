@@ -23,7 +23,7 @@ framebuffer. Ordinary opacity avoids `opa_layered`'s blend buffer. A small fade
 record tracks completion; a closing input shield and event filter prevent repeated
 actions. Owners keep their handles/context until deletion; teardown still deletes
 synchronously. Settings stops its brightness preview before closing. Reusable
-Xiaozhi dialogs hide after fading and can reverse a close when reopened. Disabling
+AI Assistant dialogs hide after fading and can reverse a close when reopened. Disabling
 animations settles active fades. Replacement notifications retire an old dismissal.
 Boot, OTA and screen-off/wake retain their existing lifetimes.
 
@@ -36,7 +36,7 @@ and the reference's same-screen gesture reload were not imported.
 rotations: initial display, repeated/invalid targets, rapid switching, disabled
 animations, parent deletion, rebuild and fade completion. CTest and `check.sh`
 include it. `--regression popups` checks real popup open/close events in both modes,
-duplicate actions, timers, replacement and owner deletion; the Xiaozhi lifecycle
+duplicate actions, timers, replacement and owner deletion; the AI Assistant lifecycle
 test covers reusable dialogs. Settings and storage round trips are tested separately.
 Host and simulator results do not establish physical refresh rate or touch behavior.
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: LicenseRef-FNCL-1.1
 # Copyright (c) 2026 andre68723
-"""Reproduce/check/extract the pinned offline Xiaozhi transcript font resource."""
+"""Reproduce/check/extract the pinned offline AI Assistant transcript font resource."""
 import argparse
 import gzip
 import hashlib

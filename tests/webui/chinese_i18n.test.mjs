@@ -92,7 +92,7 @@ test('number locales, current-data labels and minimum values match their languag
 
 
 for (const lang of ['es', 'fr', 'pl', 'zh-cn', 'zh-tw']) {
-  test(`${lang}: local Xiaozhi translations survive unavailable translation APIs`, async () => {
+  test(`${lang}: local AI Assistant translations survive unavailable translation APIs`, async () => {
     const requests = [];
     const sandbox = vm.createContext({
       WEB_I18N_BUILTIN: catalogs, DEFAULT_UI_LANGUAGE: 'en',
@@ -110,7 +110,7 @@ for (const lang of ['es', 'fr', 'pl', 'zh-cn', 'zh-tw']) {
     assert.equal(sandbox.document.documentElement.lang, lang);
     for (const key of Object.keys(catalogs.en).filter(key => key.startsWith('xiaozhi.'))) {
       assert.equal(sandbox.editor.i18nMap[key], catalogs[lang][key], key);
-      if (lang.startsWith('zh-')) assert.match(sandbox.editor.i18nMap[key], /\p{Script=Han}/u, key);
+      if (lang.startsWith('zh-') && !['xiaozhi.title', 'xiaozhi.assistant'].includes(key)) assert.match(sandbox.editor.i18nMap[key], /\p{Script=Han}/u, key);
       // Brand names can match English; user-facing instructions and states cannot.
       if (!['xiaozhi.title', 'xiaozhi.assistant'].includes(key)) assert.notEqual(sandbox.editor.i18nMap[key], catalogs.en[key], key);
     }

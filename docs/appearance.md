@@ -42,7 +42,7 @@ on the Home Assistant entity.
 **Settings → Design → Page animations** enables a short slide that slows to a
 stop when switching dashboard pages. Popup windows and subpages quickly fade in
 and out: System settings, connectivity and alerts, widget details and history,
-option lists, the PIN pad, notifications, camera fullscreen and Xiaozhi dialogs.
+option lists, the PIN pad, notifications, camera fullscreen and AI Assistant dialogs.
 The same option is available in the panel's **System settings**. It is on by
 default; switch it off for immediate changes. The choice survives restart and
 backup/restore and does not change the selected style, language or layout.

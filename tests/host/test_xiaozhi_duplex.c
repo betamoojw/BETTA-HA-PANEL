@@ -19,6 +19,15 @@ static aec_handle_t aec_instance;
 static vad_handle_with_trigger_t vad_instance;
 static uint32_t spectrum_generation[XZ_SPECTRUM_SOURCES];
 static unsigned spectrum_feeds[XZ_SPECTRUM_SOURCES];
+static unsigned activity_notes, playback_activity_notes;
+static bool silent_activity, muted_output, vad_silence;
+uint32_t xiaozhi_activity_generation(void) { return 9; }
+bool xiaozhi_activity_has_sound(const int16_t *pcm, size_t samples) { return !silent_activity && pcm && samples > 0; }
+void xiaozhi_activity_note(uint32_t generation, int64_t observed_us)
+{ assert(generation == 9 && observed_us > 0); ++activity_notes; }
+void xiaozhi_activity_note_playback(uint32_t generation, int64_t observed_us)
+{ xiaozhi_activity_note(generation, observed_us); ++playback_activity_notes; }
+bool xiaozhi_audio_output_audible(void) { return !muted_output; }
 uint32_t xiaozhi_spectrum_generation(xiaozhi_spectrum_source_t source) { return spectrum_generation[source]; }
 void xiaozhi_spectrum_clear(xiaozhi_spectrum_source_t source) { ++spectrum_generation[source]; }
 void xiaozhi_spectrum_feed(xiaozhi_spectrum_source_t source, const int16_t *pcm, size_t count, uint32_t generation)
@@ -70,7 +79,7 @@ vad_handle_t vad_create(vad_mode_t mode)
 { assert(mode == VAD_MODE_3 && !live_vad); ++live_vad; return &vad_instance; }
 void vad_destroy(vad_handle_t handle) { assert(handle == &vad_instance && live_vad); --live_vad; }
 vad_state_t vad_process(vad_handle_t handle, int16_t *pcm, int rate, int ms)
-{ assert(handle == &vad_instance && rate == 16000 && ms == 30); return pcm[0] > 0 ? VAD_SPEECH : VAD_SILENCE; }
+{ assert(handle == &vad_instance && rate == 16000 && ms == 30); return !vad_silence && pcm[0] > 0 ? VAD_SPEECH : VAD_SILENCE; }
 int64_t esp_timer_get_time(void) { return ticks++ * 1000; }
 TickType_t xTaskGetTickCount(void) { return ticks; }
 unsigned uxTaskGetStackHighWaterMark(TaskHandle_t handle) { assert(!handle); return 3072; }
@@ -145,6 +154,8 @@ static void reset_trial(void)
     reads = source_sample = writes = flush_write = 0;
     read_limit = 4; fail_read = fail_write = false; join_workers = true;
     memset(spectrum_feeds, 0, sizeof(spectrum_feeds));
+    activity_notes = playback_activity_notes = 0;
+    silent_activity = muted_output = vad_silence = false;
 }
 int main(void)
 {
@@ -153,6 +164,7 @@ int main(void)
     reset_trial(); assert(xiaozhi_duplex_start() == ESP_OK);
     assert(xiaozhi_duplex_start() == ESP_ERR_INVALID_STATE);
     run_worker(0);
+    assert(activity_notes == 1 && !playback_activity_notes); /* Capture never gets a speaker tail allowance. */
     assert(spectrum_feeds[XZ_SPECTRUM_MIC] == 4 && !spectrum_feeds[XZ_SPECTRUM_SPEAKER]);
     assert(xiaozhi_duplex_take(&received) && received.speech && !received.playback && received.sequence == 1);
     for (int i = 0; i < 960; ++i) assert(received.pcm[i] == 700 + i - i % 7);
@@ -175,6 +187,7 @@ int main(void)
     reset_trial(); flush_write = 2;
     assert(xiaozhi_duplex_start() == ESP_OK && xiaozhi_duplex_play(reply, 1920));
     run_worker(1); assert(writes == 2); /* In-flight invalidation, not just queue clearing. */
+    assert(activity_notes == 1 && playback_activity_notes == 1); /* Only actual output gets the tail allowance. */
     assert(spectrum_feeds[XZ_SPECTRUM_SPEAKER] == 1); /* A cancelled in-flight write cannot reappear. */
     assert(xiaozhi_duplex_stop() == ESP_OK);
 
@@ -182,7 +195,21 @@ int main(void)
     assert(xiaozhi_duplex_start() == ESP_OK && xiaozhi_duplex_play(reply, 960));
     run_worker(1); xiaozhi_duplex_stats(&stats); assert(stats.failed && writes == 1);
     assert(!spectrum_feeds[XZ_SPECTRUM_SPEAKER]);
+    assert(!activity_notes); /* Failed writes do not claim actual playback. */
     assert(xiaozhi_duplex_stop() == ESP_OK);
+
+    for (int mute = 0; mute < 2; ++mute) {
+        reset_trial(); muted_output = mute; silent_activity = !mute;
+        assert(xiaozhi_duplex_start() == ESP_OK && xiaozhi_duplex_play(reply, 960));
+        run_worker(1); assert(writes == 6 && !activity_notes);
+        assert(xiaozhi_duplex_stop() == ESP_OK);
+    }
+    for (int noise = 0; noise < 2; ++noise) {
+        reset_trial(); vad_silence = noise; silent_activity = !noise;
+        assert(xiaozhi_duplex_start() == ESP_OK);
+        run_worker(0); assert(!activity_notes);
+        assert(xiaozhi_duplex_stop() == ESP_OK);
+    }
 
     reset_trial(); fail_read = true;
     assert(xiaozhi_duplex_start() == ESP_OK);

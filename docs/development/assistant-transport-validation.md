@@ -1,6 +1,8 @@
 <!-- SPDX-License-Identifier: LicenseRef-FNCL-1.1 | Copyright (c) 2026 andre68723 -->
 # AI Assistant transport validation
 
+Latest COM24 hardware acceptance: [commit 8a360e2](#com24-8a360e2).
+
 ## COM24 observation, 2026-11-06
 
 The owner reported interrupted speaker replies and **Connection interrupted; try
@@ -212,9 +214,9 @@ so it is not a source-file manifest for the accepted firmware. The image hashes,
 boot record and runtime stamp above identify that image. The review's separate
 manifest covers both staged and unstaged changed source files.
 
-The two review fixes are **not installed on COM24**. The accepted `21:43:28`
-image remains the hardware baseline; local regression/build results below do
-not extend hardware acceptance to the added boundary fixes.
+At pre-commit review, the two added fixes were **not installed on COM24**.
+The accepted `21:43:28` image remained the hardware baseline; the local results
+below did not establish hardware acceptance for those added boundary fixes.
 
 Review validation passed (all commands exited 0, no C suite skipped):
 
@@ -241,3 +243,48 @@ Use the distinct app/ELF hashes below to identify the unflashed review artifact:
 
 Private logs, evidence reconciliation and the complete review source manifest
 are in `.local/validation/assistant-audio-fix-review-2026-11-06/`.
+
+## Commit 8a360e2 hardware trial, COM24, 2026-11-06 {#com24-8a360e2}
+
+The owner authorized an app-only update and accepted the subsequent voice and
+flip-clock tests. ESP-IDF 6.1 rebuilt the clean `8a360e2` commit for `panel10`,
+with byte-identical sdkconfig and unchanged application size/free space. The
+running source is `8a360e2a`, runtime build stamp `Nov  6 2026 22:30:42`:
+
+| Artifact | SHA256 |
+| --- | --- |
+| Installed app | `9d32a3388c92650f71fa17156828aba9f344e4eb3ad8f588ba0d4a3d1a61370f` |
+| Matching ELF | `1545c0cf9682f2e7f83ee9d0691d2555e75c4d756b91a4f749319d5a8d7cdec8` |
+
+The same ESP32-P4 v3.2 unit and installed partition table were verified before
+writing active `ota_1` at `0x6A0000`. The previous accepted app was verified and
+preserved. New-app verification passed; metadata/NVS, coredump and the entire
+18.625 MiB LittleFS region matched before reboot. The running source/ELF,
+valid OTA state, HA connection and synchronized clock were then confirmed.
+
+The owner confirmed a complete count-to-30 reply, interruption by a new question,
+closing the popup during playback, successful reawakening and farewell exit,
+with continuous sound and no connection-interrupted guidance. Two wake-origin
+sessions and manual/farewell endings were observed. Across 149 read-only samples,
+connection errors, capture drops and HTTP failures stayed zero; final counters
+were 833 received frames, 1,339 uploaded frames and 840 uploads during playback.
+The `barge_ins` counter stayed zero; interruption acceptance is physical owner
+confirmation, not an instrumented count. Voice tasks stayed on core 0 and LVGL
+on core 1. Internal-heap low-water was 75,808 bytes; sampled session/capture/playback
+stack minima were 6,696/6,304/3,332 bytes. No unexpected restart or retained crash
+was observed. The host monitor was intentionally stopped after acceptance.
+
+Natural-idle LVGL snapshots showed the centered themed clock advancing from
+10:42:55 PM to 10:43:01 PM, with Friday and date. The owner confirmed normal
+flips, centering, clear weekday/date, 12-hour format and physical touch wake;
+the post-touch API reported an active display. All eight pages and 35 widgets,
+saved settings, theme, camera/KNX configuration, assistant preferences and pairing
+matched the original snapshots. Settings comparisons exclude live time, signal
+strength and connection state. Flip style, 12-hour format, 60-second start and
+300-second off remained unchanged. No graph widgets were configured, so no live
+graph-history scenario was exercised. The complete unchanged LittleFS region
+establishes storage preservation.
+
+This is a bounded test of this COM24 panel, not an endurance qualification.
+No settings or layout writes were used. Private images, logs, checksums and
+acceptance details are in `.local/validation/assistant-8a360e2-flash-2026-11-06/`.

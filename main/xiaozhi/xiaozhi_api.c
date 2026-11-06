@@ -17,6 +17,24 @@ static esp_err_t get_status(httpd_req_t *req)
     cJSON_AddBoolToObject(j, "enabled", s.enabled);
     cJSON_AddBoolToObject(j, "paired", s.paired);
     cJSON_AddBoolToObject(j, "listening", s.listening);
+    cJSON_AddBoolToObject(j, "conversation", s.conversation);
+    cJSON_AddBoolToObject(j, "duplex_enabled", s.duplex_enabled);
+    cJSON_AddBoolToObject(j, "duplex_active", s.duplex_active);
+    cJSON_AddBoolToObject(j, "speaking", s.speaking);
+    cJSON_AddNumberToObject(j, "audio_tx_frames", s.audio_tx_frames);
+    cJSON_AddNumberToObject(j, "audio_rx_frames", s.audio_rx_frames);
+    cJSON_AddNumberToObject(j, "audio_tx_during_playback", s.audio_tx_during_playback);
+    cJSON_AddNumberToObject(j, "barge_ins", s.barge_ins);
+    cJSON_AddNumberToObject(j, "aec_frames", s.aec_frames);
+    cJSON_AddNumberToObject(j, "aec_playback_frames", s.aec_playback_frames);
+    cJSON_AddNumberToObject(j, "audio_capture_drops", s.audio_capture_drops);
+    cJSON_AddNumberToObject(j, "aec_mic_peak", s.aec_mic_peak);
+    cJSON_AddNumberToObject(j, "aec_ref_peak", s.aec_ref_peak);
+    cJSON_AddNumberToObject(j, "aec_ref_peak_max_playback", s.aec_ref_peak_max_playback);
+    cJSON_AddNumberToObject(j, "aec_clean_peak", s.aec_clean_peak);
+    cJSON_AddNumberToObject(j, "aec_processing_us", s.aec_processing_us);
+    cJSON_AddNumberToObject(j, "capture_stack_free", s.capture_stack_free);
+    cJSON_AddNumberToObject(j, "playback_stack_free", s.playback_stack_free);
     cJSON_AddNumberToObject(j, "volume", s.volume);
     cJSON_AddNumberToObject(j, "wake_word", s.wake_config.word);
     cJSON_AddStringToObject(j, "wake_phrase", s.wake_config.phrase);
@@ -67,7 +85,7 @@ static esp_err_t command(httpd_req_t *req)
     }
     else if (cJSON_IsString(a) && !strcmp(a->valuestring, "emoji") && cJSON_IsNumber(v) && v->valuedouble == v->valueint)
         err = xiaozhi_set_emoji_style(v->valueint);
-    else if (cJSON_IsString(a) && ((strcmp(a->valuestring, "volume") && strcmp(a->valuestring, "wake") && strcmp(a->valuestring, "timeout")) ||
+    else if (cJSON_IsString(a) && ((strcmp(a->valuestring, "volume") && strcmp(a->valuestring, "wake") && strcmp(a->valuestring, "duplex") && strcmp(a->valuestring, "timeout")) ||
         (cJSON_IsNumber(v) && v->valuedouble == v->valueint)))
         err = xiaozhi_command(a->valuestring, cJSON_IsNumber(v) ? v->valueint : 0);
     cJSON_Delete(j);

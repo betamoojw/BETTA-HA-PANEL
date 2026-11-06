@@ -11,6 +11,12 @@ typedef struct { int word; char phrase[XIAOZHI_WAKE_PHRASE_SIZE]; } xiaozhi_wake
 
 typedef struct {
     bool supported, enabled, paired, listening, wake_enabled, wake_ready, wake_running, conversation;
+    bool duplex_enabled, duplex_active, speaking;
+    uint32_t audio_tx_frames, audio_rx_frames, audio_tx_during_playback, barge_ins;
+    uint32_t aec_frames, aec_playback_frames, audio_capture_drops;
+    int aec_mic_peak, aec_ref_peak, aec_clean_peak, aec_processing_us;
+    int aec_ref_peak_max_playback;
+    uint32_t capture_stack_free, playback_stack_free;
     xiaozhi_wake_config_t wake_config;
     bool wake_model_ready, wake_config_failed;
     uint32_t wake_config_revision;

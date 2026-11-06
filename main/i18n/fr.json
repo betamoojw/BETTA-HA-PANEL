@@ -682,6 +682,7 @@
         "listening": "Écoute en cours",
         "waiting": "En attente de réponse",
         "speaking": "Lecture en cours",
+        "speaking_listening": "Parle et écoute",
         "pairing": "Associez sur xiaozhi.me avec le code",
         "pairing_retry": "Service indisponible ; nouvel essai",
         "pairing_error": "Échec de l’association",

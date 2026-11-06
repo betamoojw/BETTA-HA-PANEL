@@ -1392,7 +1392,10 @@ int main(int argc, char **argv)
         demo_assistant.wake_enabled = demo_assistant.wake_ready = true;
         demo_assistant.dialog_timeout = 300;
         demo_assistant.emoji_style = !strcmp(json_string(ai_demo,"style"),"classic") ? 1 : 0;
-        snprintf(demo_assistant.state,sizeof(demo_assistant.state),"speaking");
+        bool duplex_demo=cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(ai_demo,"duplex"));
+        demo_assistant.duplex_enabled=demo_assistant.duplex_active=demo_assistant.listening=duplex_demo;
+        demo_assistant.speaking=true;
+        snprintf(demo_assistant.state,sizeof(demo_assistant.state),"%s",duplex_demo ? "speaking_listening" : "speaking");
         snprintf(demo_assistant.emotion,sizeof(demo_assistant.emotion),"%s",json_string(ai_demo,"emotion"));
         snprintf(demo_assistant.recognized,sizeof(demo_assistant.recognized),"%s",json_string(ai_demo,"recognized"));
         snprintf(demo_assistant.reply,sizeof(demo_assistant.reply),"%s",json_string(ai_demo,"reply"));

@@ -682,6 +682,7 @@
         "listening": "正在聆听",
         "waiting": "等待回复",
         "speaking": "正在播放",
+        "speaking_listening": "播放并聆听",
         "pairing": "请在 xiaozhi.me 输入配对码",
         "pairing_retry": "配对服务不可用，正在重试",
         "pairing_error": "配对失败",

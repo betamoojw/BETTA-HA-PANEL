@@ -682,6 +682,7 @@
         "listening": "Słuchanie",
         "waiting": "Oczekiwanie na odpowiedź",
         "speaking": "Odtwarzanie",
+        "speaking_listening": "Mówi i słucha",
         "pairing": "Sparuj na xiaozhi.me za pomocą kodu",
         "pairing_retry": "Usługa niedostępna; ponawianie",
         "pairing_error": "Parowanie nie powiodło się",

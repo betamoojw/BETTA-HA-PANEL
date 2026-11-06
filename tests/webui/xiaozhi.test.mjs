@@ -7,7 +7,7 @@ import vm from 'node:vm';
 
 const source = fs.readFileSync(new URL('../../components/webui/www/js/xiaozhi.js', import.meta.url), 'utf8');
 function setup(saved = {}, overrides = {}) {
-  const model = {supported:true, enabled:false, paired:false, volume:50, state:'disabled', code:'', text:'', wake_config_revision:0, ...saved};
+  const model = {supported:true, enabled:false, paired:false, volume:50, duplex_enabled:true, state:'disabled', code:'', text:'', wake_config_revision:0, ...saved};
   const nodes = new Map(), events = {}, requests = [];
   function node(id) {
     if (!nodes.has(id)) nodes.set(id, {listeners:{}, attrs:{}, getAttribute(k){return this.attrs[k];}, setAttribute(k,v){this.attrs[k]=v;}, removeAttribute(k){delete this.attrs[k];}, classList:{contains:()=>false}, addEventListener(type, cb){this.listeners[type]=cb;}});
@@ -26,9 +26,10 @@ function setup(saved = {}, overrides = {}) {
       if (body.action==='volume') model.volume=body.value;
       if (body.action==='wake_config') {model.wake_word=body.value.word;model.wake_phrase=body.value.phrase;model.wake_config_revision++;model.wake_config_failed=false;}
       if (body.action==='wake') model.wake_enabled=!!body.value;
+      if (body.action==='duplex') model.duplex_enabled=!!body.value;
       if (body.action==='timeout') model.dialog_timeout=body.value;
       if (body.action==='emoji') model.emoji_style=body.value;
-      if (body.action==='reset') {model.enabled=false;model.volume=50;model.wake_enabled=false;model.dialog_timeout=30;model.emoji_style=0;model.wake_word=0;model.wake_phrase='ni hao xiao zhi';}
+      if (body.action==='reset') {model.enabled=false;model.volume=50;model.wake_enabled=false;model.duplex_enabled=true;model.dialog_timeout=30;model.emoji_style=0;model.wake_word=0;model.wake_phrase='ni hao xiao zhi';}
       return {ok:true};
     }};
   Object.assign(context, overrides);
@@ -107,7 +108,7 @@ test('all Xiaozhi HTML labels are wired into the existing translation refresh',(
   const html=fs.readFileSync(new URL('../../components/webui/www/index.html',import.meta.url),'utf8');
   const translations=fs.readFileSync(new URL('../../components/webui/www/js/translations.js',import.meta.url),'utf8');
   const labels=[...html.matchAll(/<[^>]+id="([^"]+)"[^>]+data-i18n-key="(xiaozhi\.[^"]+)"/g)];
-  assert.equal(labels.length,22);
+  assert.equal(labels.length,24);
   for (const [,id,key] of labels) assert.ok(translations.includes(`setTextById("${id}", "${key}")`),`${id} must refresh when language changes`);
 });
 
@@ -157,6 +158,55 @@ test('wake and timeout edits survive disable and reload, reset remains scoped',a
   assert.equal(r.node('xiaozhiTimeout').value,45);
   await r.fire('xiaozhiReset','click');assert.equal(r.model.wake_enabled,false);assert.equal(r.model.dialog_timeout,30);
   assert.equal(r.model.paired,true);
+});
+test('full-duplex preference saves JSON, survives disable and reload, and reset restores it',async()=>{
+  const s=setup({enabled:true,paired:true,wake_enabled:false});await s.poll();
+  assert.equal(s.node('xiaozhiDuplex').checked,true);
+  s.node('xiaozhiDuplex').checked=false;await s.fire('xiaozhiDuplex','change');
+  assert.deepEqual(s.requests.at(-1),{action:'duplex',value:0});
+  s.node('xiaozhiEnabled').checked=false;await s.fire('xiaozhiEnabled','change');
+  const r=setup(JSON.parse(JSON.stringify(s.model)));await r.poll();
+  assert.equal(r.node('xiaozhiFields').hidden,true);assert.equal(r.node('xiaozhiDuplex').checked,false);
+  r.node('xiaozhiEnabled').checked=true;await r.fire('xiaozhiEnabled','change');await r.poll();
+  assert.equal(r.node('xiaozhiFields').hidden,false);assert.equal(r.node('xiaozhiDuplex').checked,false);
+  assert.equal(r.model.wake_enabled,false);assert.equal(r.model.paired,true);
+  r.node('xiaozhiDuplex').checked=true;await r.fire('xiaozhiDuplex','change');
+  assert.deepEqual(r.requests.at(-1),{action:'duplex',value:1});
+  const reloaded=setup(JSON.parse(JSON.stringify(r.model)));await reloaded.poll();
+  assert.equal(reloaded.node('xiaozhiDuplex').checked,true);
+  reloaded.node('xiaozhiDuplex').checked=false;await reloaded.fire('xiaozhiDuplex','change');
+  await reloaded.fire('xiaozhiReset','click');await reloaded.poll();
+  assert.equal(reloaded.node('xiaozhiDuplex').checked,true);assert.equal(reloaded.model.enabled,false);
+  assert.equal(reloaded.model.paired,true);assert.equal(reloaded.model.wake_enabled,false);
+});
+test('duplex preference does not start capture or change manual press and release',async()=>{
+  const s=setup({enabled:true,paired:true,wake_enabled:false});await s.poll();
+  s.node('xiaozhiDuplex').checked=true;await s.fire('xiaozhiDuplex','change');
+  assert.deepEqual(s.requests.map(r=>r.action),['duplex']);
+  await s.fire('xiaozhiTalk','pointerdown');await s.events.pointerup();
+  assert.deepEqual(s.requests.map(r=>r.action),['duplex','start','stop']);
+});
+test('duplex edits reject delayed status and show the saved value after a failed command',async()=>{
+  let resolve;
+  const s=setup({enabled:true}, {apiGet:()=>new Promise(r=>resolve=r)});
+  const poll=s.poll();s.node('xiaozhiDuplex').checked=false;await s.fire('xiaozhiDuplex','change');
+  resolve({...s.model,duplex_enabled:true});await poll;
+  assert.equal(s.node('xiaozhiDuplex').checked,false);assert.equal(s.model.duplex_enabled,false);
+  const fail=setup({enabled:true}, {fetch:async()=>({ok:false})});await fail.poll();
+  fail.node('xiaozhiDuplex').checked=false;await fail.fire('xiaozhiDuplex','change');
+  assert.equal(fail.node('xiaozhiStatus').textContent,'xiaozhi.failed');
+  await fail.poll();assert.equal(fail.node('xiaozhiDuplex').checked,true);
+});
+test('simultaneous speaking and listening has an offline translation in every catalog',async()=>{
+  for(const lang of ['es','fr','pl','zh-cn','zh-tw']) {
+    const catalog=JSON.parse(fs.readFileSync(new URL(`../../components/webui/i18n/${lang}.json`,import.meta.url),'utf8'));
+    const native=JSON.parse(fs.readFileSync(new URL(`../../main/i18n/${lang}.json`,import.meta.url),'utf8'));
+    const key='xiaozhi.state.speaking_listening';
+    assert.ok(catalog['xiaozhi.duplex']);assert.ok(catalog['xiaozhi.duplex_hint']);assert.ok(catalog[key]);
+    assert.equal(native.lvgl.xiaozhi.state.speaking_listening,catalog[key]);
+    const s=setup({enabled:true,duplex_active:true,listening:true,speaking:true,state:'speaking_listening'}, {t:k=>catalog[k]||k});
+    await s.poll();assert.equal(s.node('xiaozhiStatus').textContent,catalog[key]);
+  }
 });
 test('talk hides only when local wake engine is ready, with manual fallback on failure',async()=>{
   const s=setup({enabled:true,paired:true,wake_enabled:true,wake_ready:true,recognized:'hello',reply:'hi',emotion:'happy'});await s.poll();

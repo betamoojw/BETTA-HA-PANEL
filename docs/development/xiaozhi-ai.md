@@ -11,8 +11,8 @@ Custom wake configuration and model installation: [Xiaozhi resources](xiaozhi-re
 
 ## Runtime
 
-- `main/xiaozhi/xiaozhi.c`: one worker owns pairing, connection lifetime, Opus
-  and audio I/O. HTTP and touch callbacks enqueue commands. The WebSocket event
+- `main/xiaozhi/xiaozhi.c`: one worker owns pairing, connection lifetime and Opus.
+  HTTP and touch callbacks enqueue commands. The WebSocket event
   task only assembles bounded frames into a finite queue; overflow ends the
   session. The shared MCP dispatcher advertises device tools and the configured
   [KNX objects](knx.md).
@@ -29,9 +29,13 @@ Custom wake configuration and model installation: [Xiaozhi resources](xiaozhi-re
   reboot and the existing HTTPS OTA installer. Other variants return no device
   capabilities, so no voice tool is advertised on hardware without supported
   microphone and speaker drivers.
-- `xiaozhi_audio.c`: LCD-X BSP pin definitions, ES8311 output and ES7210 input;
-  MIC1 is selected at 16 kHz, excluding the playback-reference slot. Opus decodes server audio directly
+- `xiaozhi_audio.c`: LCD-X BSP pins, ES8311 output and ES7210 input at 16 kHz.
+  Idle wake/manual capture select MIC1; full-duplex capture also consumes the
+  playback-reference slot through local ESP-SR echo cancellation. Opus decodes
   to 16 kHz. Audio opens lazily on conversation start or enabled local detection.
+- `xiaozhi_duplex.c`: independent capture and playback tasks with bounded queues.
+  The session worker passes cleaned microphone PCM to Opus and queues decoded
+  replies. It stops both paths before closing codecs or releasing buffers.
 - `xiaozhi_ui.c`: a UI timer reads a locked status snapshot. A child root owns
   the controls and timer; cleaning or deleting the dashboard destroys both and
   requests disconnect. The persistent screen must not own that cleanup callback:
@@ -52,7 +56,8 @@ the hardware assistant.
 Pairing uses HTTPS and the certificate bundle; WebSocket endpoints must use
 WSS. A URL/token pair is committed in one NVS blob under `xiaozhi`; flash writes
 use the shared OTA gate. The persisted UUID matches both activation and WS
-headers. Pairing lasts at most 180 seconds and capture at most 60 seconds.
+headers. Pairing lasts at most 180 seconds; manual/alternating capture at most 60.
+Realtime capture continues across replies until idle timeout or explicit cancellation.
 Pairing begins only after an explicit command. Enabling alone does not contact
 the cloud. When independently enabled and paired, local wake detection runs
 while idle; a detected wake starts a cloud conversation. A header click only
@@ -72,6 +77,9 @@ full web test glob, `python tools/check_web.py`, the font/catalog checks and a
 `panel10` build.
 Hardware acceptance must cover off-by-default privacy, pairing, hold/release,
 speaker reply, disable during pairing/listening, reconnect and screen stability.
+Full-duplex acceptance also needs speech during playback, reference-channel
+activity, interruption, silence without false self-interruption, queue/stack
+diagnostics and cancellation during simultaneous capture/playback.
 Do not claim hardware verification from builds or screenshots alone.
 
 The simulator target `betta-xiaozhi-test` runs the production overlay against
@@ -127,13 +135,6 @@ the baseline, including English, Classic Emoji, 180-degree rotation and the
 digital clock screensaver. Local backups remain retained. This bounded trial
 does not resolve the earlier intermittent full-screen white flashes.
 
-Local validation on 2026-10-23: 299 browser tests passed (including eight
-assistant cases), web integrity and strict documentation builds passed, and
-`panel10` compiled with ESP-IDF 6.1. The synthetic editor was checked at desktop
-and phone widths, including enabled controls, pairing status and reset. These
-checks did not contact the cloud or operate a microphone. No firmware was
-flashed in that initial check. Existing device settings and local backups were untouched.
-
 On 2026-10-24, COM24 crash reports from ELF `70f4464c0` identified a stale
 overlay timer accessing deleted controls after the dashboard screen was cleaned.
 This happened before HA client startup, even with the assistant disabled.
@@ -150,12 +151,12 @@ Reference: [feat/knx_ip revision 9cb04bc9](https://github.com/betamoojw/xiaozhi-
 `main/audio/wake_words/esp_wake_word.cc`, `main/application.cc` and
 `main/display/lcd_display.cc`. This integration follows direct WakeNet detection,
 auto listening mode and the `llm.emotion` protocol field, using this project's
-single-worker audio ownership and local theme/font system.
+serialized session ownership and local theme/font system.
 
-`xiaozhi_wake.c` owns WakeNet and VAD. The 16 kHz ES7210 input supplies MIC1 to
-the mono detector; the second slot is playback reference. Idle samples feed only the local detector. During a cloud session the
-same worker owns Opus, playback and VAD activity tracking; detection pauses, so
-speaker output cannot immediately trigger another wake. Disconnect releases the
+`xiaozhi_wake.c` owns WakeNet and manual-session VAD. The 16 kHz ES7210 input
+supplies MIC1 to the mono detector; the second slot is playback reference.
+Idle samples feed only the local detector. Wake detection pauses during cloud
+sessions; full-duplex sessions process both ADC slots separately. Disconnect releases the
 detector, which is recreated after a short rearm delay. Failed initialization retains manual
 Talk and retries after 30 seconds. Disable/reset closes audio and frees the
 model instance; no wake task or model is created while the option is off.
@@ -177,6 +178,33 @@ silent microphone frames extend the timeout. Text remains separated as STT
 and latest TTS sentence, with the original `text` API field retained. Unknown
 emotion names use neutral. Classic Emoji use the bundled monochrome Noto outlines,
 with hero-role sizing bounded by popup geometry; Otto Robot is the default.
+
+## Full-duplex conversations
+
+Reference: [upstream main at a73e9a7e](https://github.com/betamoojw/xiaozhi-esp32/tree/a73e9a7e266e3196d1368ba46c30bee0d81f0a64),
+`main/application.cc` and `main/audio/engines/afe_audio_engine.cc`.
+Hands-free sessions send `listen/start` with `mode: realtime`, keep microphone
+upload active through TTS. Local VAD renews activity only; the server identifies
+new speech. Nonempty STT received during TTS/playback flushes and gates the old
+reply until the next TTS start. No automatic VAD-triggered abort is sent.
+The pinned ESP-SR direct AEC uses `AEC_MODE_FD_LOW_COST` with MIC1 at 24 dB and
+the attenuated hardware reference on MIC3 at 24 dB. Server AEC and its timestamp protocol are
+not used. Manual press/release retains `manual`; disabling duplex restores `auto`.
+Gain writes check the codec callback directly because the generic wrapper masks errors.
+
+NVS `xiaozhi/duplex` defaults to true; the assistant itself remains off by default.
+The guarded `duplex` command accepts 0/1, ends the current conversation and saves
+the preference. Disable/re-enable retains it; Reset restores it. It never starts
+capture by itself. Audio initialization, queue or processing failure ends the
+session rather than uploading untreated simultaneous playback/capture.
+
+`GET /api/xiaozhi` reports `duplex_enabled`, `duplex_active`, `speaking`,
+`audio_tx_frames`, `audio_rx_frames`, `audio_tx_during_playback`, `barge_ins`,
+`aec_frames`, `aec_playback_frames`, `audio_capture_drops`, `aec_ref_peak_max_playback`,
+input/reference/clean peaks, processing time and capture/playback stack margins.
+No audio is retained. `barge_ins` counts server-recognized turns that interrupt
+local playback. Counters show pipeline activity; bounded acoustic acceptance is
+recorded in the [user guide](../xiaozhi-ai.md#validation-limits).
 
 ## Otto Robot assets
 
@@ -207,38 +235,13 @@ Close, timeout, disable and Classic selection delete the decoder and its timer.
 Decode failure falls back to Classic. Animation frames do not extend the voice
 idle timeout. The popup palette, text areas and state/pairing labels are shared.
 
-Local checks on 2026-10-25: 321 browser tests passed, including saved wake/timeout
-controls, disable/re-enable, reset and manual fallback. Real-LVGL checks passed
-100 view rebuilds plus wake-open, activity renewal, timeout, close, theme color
-and bounds at five geometries. System Settings/alert regressions also passed.
-Real-font previews covered 480-square, landscape and portrait, all four styles,
-large text and Chinese labels. The synthetic editor passed 1280- and 390-pixel
-width checks, including control-group bounds, wake/manual visibility and a typed
-timeout surviving reload. Web integrity, catalogs, fonts and strict docs passed.
-
-ESP-IDF 6.1 built `panel10` from `b2b399c6-dirty`: app 6,233,360 bytes,
-582,384 bytes free in the unchanged OTA slot. App SHA256
-`e29b07b2f965626feb5ff681d3a69a7e91b9843799dda9e7c1b4aac04d51c9f1`,
-ELF SHA256 `f511f598d14ac3139c30df7f9ffb7cf65d3fe09e2cd8304390959051a57c87d1`.
-The 290,551-byte embedded model passed offset/bounds and original-payload checks;
-unrelated dependency versions remain locked. This is local validation only:
-no COM24 flash, microphone/cloud session or device-settings write was performed.
-Existing settings, English, rotation and local backups were untouched.
-
-Otto extension checks on 2026-10-25: all 322 browser tests passed. The two
-affected real-LVGL regressions passed, including all 21 GIF decoders/frame
-advancement, switching styles, timeout/timer cleanup, 100 rebuilds and five
-geometries. Native settings exercised Save, Cancel, failure/retry and reopen.
-Asset hashes, dimensions, frame counts and complete loop durations match the
-manifest and pinned originals. A synthetic editor exercised immediate selection
-and reload at desktop and 390-pixel viewport widths; controls stayed within
-their group. These checks used no microphone, cloud service or physical panel.
-
-ESP-IDF 6.1 built the Otto extension for `panel10` from `b2b399c6-dirty`:
-app 6,634,960 bytes, 180,784 bytes free in the unchanged OTA slot. App SHA256
-`1b3ef5f6a407eaf377aae8470f6d18577f865c0b6db9fa048e0cbf9bc9f9e439`,
-ELF SHA256 `59076286c6b598c3eba6a1e65ca28ce16d67e6539f37193f29862cbde0661455`.
-That build was locally validated before the following device trial.
+The 2026-10-25 local checks covered saved controls, reset and manual fallback,
+100 LVGL rebuilds, five geometries, all 21 GIF decoders, native settings and
+1280/390-pixel editor layouts. All 322 browser tests, web/catalog/font checks
+and strict docs passed. The device-trial image used ESP-IDF 6.1, source
+`b2b399c6-dirty`, 6,634,960 bytes, ELF SHA256
+`59076286c6b598c3eba6a1e65ca28ce16d67e6539f37193f29862cbde0661455`.
+These local checks did not establish acoustic behavior.
 
 ## Otto COM24 trial
 

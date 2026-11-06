@@ -258,7 +258,7 @@
         <section class="display-settings">
           <h2 id="settingsXiaozhiHeading" data-i18n-key="xiaozhi.title">Xiaozhi AI</h2>
           <div class="form">
-          <p class="meta" id="xiaozhiPrivacy" data-i18n-key="xiaozhi.privacy">Off by default. Cloud pairing shares the device identity; holding Talk sends microphone audio to Xiaozhi. No wake-word listening.</p>
+          <p class="meta" id="xiaozhiPrivacy" data-i18n-key="xiaozhi.privacy">Off by default. Optional wake-word detection stays on the panel. After wake-up or Talk, conversation audio is sent to Xiaozhi. Pairing shares device identity.</p>
           <label class="row"><input type="checkbox" id="xiaozhiEnabled" /> <span id="xiaozhiEnableLabel" data-i18n-key="xiaozhi.enable">Enable Xiaozhi AI</span></label>
           <div id="xiaozhiFields" class="form" hidden>
             <button class="btn small" id="xiaozhiPair" type="button" data-i18n-key="xiaozhi.pair">Pair / check pairing</button>
@@ -285,6 +285,8 @@
               <p class="meta" id="xiaozhiWakeResult" role="status" aria-live="polite"></p>
             </div>
             <p id="xiaozhiWakeHint" class="meta" data-i18n-key="xiaozhi.wake_hint">Say the saved wake phrase to start. Recognition runs locally.</p>
+            <label class="row"><input type="checkbox" id="xiaozhiDuplex" aria-describedby="xiaozhiDuplexHint" /><span id="xiaozhiDuplexLabel" data-i18n-key="xiaozhi.duplex">Full-duplex conversation</span></label>
+            <p id="xiaozhiDuplexHint" class="meta" data-i18n-key="xiaozhi.duplex_hint">In hands-free conversations, keep listening while replies play so you can interrupt. Uses local echo cancellation. Hold to talk remains manual.</p>
             <label class="field-narrow"><span id="xiaozhiTimeoutLabel" data-i18n-key="xiaozhi.timeout">Dialogue idle timeout (seconds)</span><input id="xiaozhiTimeout" type="number" min="10" max="300" value="30" /></label>
             <label class="field-narrow"><span id="xiaozhiEmojiLabel" data-i18n-key="xiaozhi.emoji_style">AI emotion style</span><select id="xiaozhiEmoji"><option value="0" id="xiaozhiEmojiOtto" data-i18n-key="xiaozhi.emoji_otto">Otto Robot</option><option value="1" id="xiaozhiEmojiClassic" data-i18n-key="xiaozhi.emoji_classic">Classic Emoji</option></select></label>
             <button class="btn small" id="xiaozhiTalk" type="button" data-i18n-key="xiaozhi.talk">Hold to talk</button>

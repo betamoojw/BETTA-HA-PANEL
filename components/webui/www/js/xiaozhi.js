@@ -31,6 +31,7 @@
       if (document.activeElement !== node("xiaozhiVolume")) node("xiaozhiVolume").value = s.volume;
       node("xiaozhiCode").textContent = s.code;
       node("xiaozhiWake").checked = !!s.wake_enabled;
+      node("xiaozhiDuplex").checked = !!s.duplex_enabled;
       node("xiaozhiWakeSettings").hidden = !s.wake_enabled;
       node("xiaozhiModelInstall").hidden = !!s.wake_model_ready;
       if (validPhrase(s.wake_phrase || "")) savedWakePhrase = s.wake_phrase;
@@ -143,6 +144,7 @@
   });
   node("xiaozhiEnabled").addEventListener("change", (e) => command(e.target.checked ? "enable" : "disable"));
   node("xiaozhiWake").addEventListener("change", (e) => command("wake", e.target.checked ? 1 : 0));
+  node("xiaozhiDuplex").addEventListener("change", (e) => command("duplex", e.target.checked ? 1 : 0));
   node("xiaozhiEmoji").addEventListener("change", (e) => {
     const value = Number(e.target.value);
     if (value === 0 || value === 1) return command("emoji", value);

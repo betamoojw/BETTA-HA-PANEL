@@ -19,6 +19,13 @@ freeing application space while retaining every image, setting and data partitio
 
 ### Xiaozhi AI
 
+- Waveshare LCD-X `panel10` adds full-duplex hands-free conversations with local
+  echo cancellation, continued microphone upload during replies and speech
+  interruption. The saved full-duplex preference defaults to on; the assistant
+  and voice wake-up remain off by default. Manual Hold to talk and an optional
+  alternating-speech mode remain available. Other boards still report voice
+  audio as unsupported; acoustic acceptance is device-specific. Failed codec
+  gain writes stop capture setup instead of continuing with uncalibrated input.
 - The web editor can save a custom Chinese wake phrase as pinyin, with local
   validation, restart persistence and reset to defaults. A separately installed,
   checksum-verified MultiNet resource avoids changing the flash partitions.

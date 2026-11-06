@@ -504,6 +504,8 @@ setTextById("addBambuPrinterBtn", "layout.widgets.add_bambu_printer");
   setTextById("xiaozhiModelLabel", "xiaozhi.model_install");
   setTextById("xiaozhiWakeSave", "xiaozhi.wake_save");
   setTextById("xiaozhiWakeHint", "xiaozhi.wake_hint");
+  setTextById("xiaozhiDuplexLabel", "xiaozhi.duplex");
+  setTextById("xiaozhiDuplexHint", "xiaozhi.duplex_hint");
   setTextById("xiaozhiTimeoutLabel", "xiaozhi.timeout");
   setTextById("xiaozhiEmojiLabel", "xiaozhi.emoji_style");
   setTextById("xiaozhiEmojiOtto", "xiaozhi.emoji_otto");

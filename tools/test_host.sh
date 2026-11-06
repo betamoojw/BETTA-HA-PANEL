@@ -80,10 +80,29 @@ cc -std=gnu11 -Wall -Wextra -Werror -DXIAOZHI_FONT_TEST -I main tests/host/test_
 cc -std=gnu11 -Wall -Wextra -Werror -DXIAOZHI_CUSTOM_MODEL_TEST -I main tests/host/test_xiaozhi_custom_model.c \
   main/xiaozhi/xiaozhi_custom_model_store.c main/util/sha256_soft.c -o "$out/test_xiaozhi_custom_model"
 "$out/test_xiaozhi_custom_model" "$out/custom-wake-resource.bin"
+cc -std=c11 -Wall -Wextra -Werror -I main tests/host/test_xiaozhi_session.c \
+  -o "$out/test_xiaozhi_session"
+"$out/test_xiaozhi_session"
+# Use the codec's public interface types with injected I2C gain failures.
+codec="managed_components/espressif__esp_codec_dev"
+if [ -f "$codec/interface/audio_codec_if.h" ]; then
+  cc -std=c11 -Wall -Wextra -Werror -I main -I tests/simulator/stubs \
+    -I "$codec/include" -I "$codec/interface" tests/host/test_xiaozhi_audio_gain.c \
+    -o "$out/test_xiaozhi_audio_gain"
+  "$out/test_xiaozhi_audio_gain"
+fi
+cc -std=c11 -Wall -Wextra -Werror -Wno-sign-compare -I tests/host/xiaozhi_api_stubs -I tests/host/stubs \
+  -I main "${cjson_flags[@]}" tests/host/test_xiaozhi_api.c main/xiaozhi/xiaozhi_api.c \
+  "${cjson_sources[@]}" "${cjson_libs[@]}" -o "$out/test_xiaozhi_api"
+"$out/test_xiaozhi_api"
 # The wake wrapper uses ESP-SR's public types with mocked inference/audio.
 # Run when the panel10 dependency has been fetched; no firmware or device needed.
 sr="managed_components/espressif__esp-sr"
 if [ -d "$sr/include/esp32p4" ]; then
+  cc -std=c11 -Wall -Wextra -Werror -I main \
+    -I tests/host/duplex_stubs -I tests/simulator/stubs -I "$sr/include/esp32p4" \
+    tests/host/test_xiaozhi_duplex.c -o "$out/test_xiaozhi_duplex"
+  "$out/test_xiaozhi_duplex"
   cc -std=gnu11 -Wall -Wextra -Werror -g -I main \
     -I "$sr/include/esp32p4" -I "$sr/src/include" \
     tests/host/test_xiaozhi_wake.c main/xiaozhi/xiaozhi_wake.c \

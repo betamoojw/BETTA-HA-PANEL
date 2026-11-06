@@ -91,7 +91,7 @@ With **Voice wake-up** enabled, say the saved wake phrase (default **Ni hao Xiao
 the Talk button hidden. If the wake engine becomes unavailable, manual Talk
 returns. Closing a voice dialogue and reopening it with the header icon returns
 to manual controls. The browser offers Talk when wake detection is off or
-unavailable; it uses the **panel microphone**. Capture ends after
+unavailable; it uses the **panel microphone**. Manual capture ends after
 at most 60 seconds even if the browser disappears.
 
 The reply plays through the panel speaker. A centered emotion follows the
@@ -110,20 +110,27 @@ or microphone. The Otto face keeps its black background inside the themed popup.
 **Dialogue idle timeout** is 30 seconds by default (10–300 seconds). Recognized
 voice, received speech text and reply audio renew it. Silence closes the popup
 and ends the cloud conversation, then returns to local wake detection. After a
-wake word, automatic end-of-speech detection is used and the panel listens for
-a follow-up after playback until the idle timeout. In manual mode, hold Talk
-again for a follow-up. This is half-duplex: wake detection is
-paused during a cloud conversation and speaker playback. Use the icon/close
-button or Disconnect to cancel. Voice wake-up is independently off by default.
+wake word, automatic end-of-speech detection is used. **Full-duplex conversation**
+is on by default: the panel keeps listening while the reply plays, so you can
+speak to interrupt and continue the conversation. Local echo cancellation uses
+the speaker reference to reduce the panel hearing its own reply. Conversation
+audio continues to the cloud during playback, until you close or disconnect the
+dialogue or its idle timeout expires. This preference alone does not start capture.
+Turn it off for alternating speech and replies; listening then resumes after
+playback. Changing the setting ends the current conversation; start another to
+use the new mode. **Hold to talk** always remains manual: release to request a
+reply and hold again for a follow-up. Wake-word detection pauses during either
+kind of cloud conversation. Use the icon/close button or Disconnect to cancel.
+Voice wake-up is independently off by default.
 Press the top-bar button again or use **Disconnect** in the editor to end the
 session. Disable the assistant to stop pairing, capture and the cloud connection.
 Volume is limited to 80%; start low when first testing a connected speaker.
 
 Controls save immediately except the wake phrase, which has its own Save button.
 **Reset to defaults** disables
-the assistant and voice wake-up, and restores 50% volume and a 30-second idle
-timeout and Otto Robot style while retaining cloud pairing. Disabling
-and re-enabling also preserves pairing, volume and emotion style. Pairing credentials remain
+the assistant and voice wake-up, and restores 50% volume, a 30-second idle
+timeout, full-duplex conversation and Otto Robot style while retaining cloud pairing. Disabling
+and re-enabling also preserves pairing, volume, duplex preference and emotion style. Pairing credentials remain
 on this physical device; they are not included in ordinary layout/settings
 exports and are never returned by the editor API.
 
@@ -176,6 +183,17 @@ hands-free wake/reply, both emotion choices and idle auto-close. The owner
 confirmed Otto animation and stable physical output during speech. These are
 bounded device checks: far-field sensitivity, false-activation rates, speaker
 feedback in other rooms and all-day operation have not been measured.
+
+On 2026-11-06, COM24 `panel10` running `91a703d7-dirty` (ELF `30e1230fe`)
+passed a bounded full-duplex trial at the saved 80% speaker volume. The owner
+confirmed complete answers, including counting from 1 to 20, without observed
+recognition of the speaker's own replies or false interruption. Speaking during
+playback successfully interrupted the answer. Diagnostics showed concurrent
+microphone upload and playback, an active hardware echo-reference channel and
+no capture queue drops. Display and touch had been confirmed normal in the
+initial trial. Other rooms, volume levels, boards and all-day operation remain
+unverified.
+
 COM24 voice trials accepted status, volume, brightness, theme and network
 queries (IP, Wi-Fi name and signal strength). These bounded checks do not
 resolve the previously reported intermittent white flashes. Read-only Home Assistant

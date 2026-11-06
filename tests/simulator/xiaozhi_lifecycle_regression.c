@@ -49,11 +49,14 @@ lv_obj_t *ui_pages_create_topbar_action(lv_obj_t *parent, const char *symbol,
 }
 void ui_pages_set_topbar_auxiliary(lv_obj_t *button) { assert(button != NULL); }
 const lv_font_t *ui_font_role(ui_text_role_t role) { (void)role; return LV_FONT_DEFAULT; }
-const char *ui_i18n_get(const char *key, const char *fallback) { (void)key; return fallback; }
+const char *ui_i18n_get(const char *key, const char *fallback)
+{
+    return !strcmp(key, "xiaozhi.state.speaking_listening") ? "Speaking and listening" : fallback;
+}
 void xiaozhi_status(xiaozhi_status_t *s)
 {
     *s=mock; s->supported = true; s->enabled = enabled;
-    strcpy(s->state, enabled ? "ready" : "disabled");
+    if (!enabled || !s->state[0]) strcpy(s->state, enabled ? "ready" : "disabled");
 }
 esp_err_t xiaozhi_command(const char *action, int value)
 {
@@ -171,6 +174,16 @@ int main(void)
         assert(lv_obj_is_hidden(talk));
         assert(lv_obj_get_y(chat)>lv_obj_get_y(emoji)+lv_obj_get_height(emoji));
         assert(lv_obj_get_y(chat)+lv_obj_get_height(chat)<=lv_obj_get_content_height(panel));
+        /* Full-duplex status must update while the voice-opened view keeps its
+         * controls and content geometry; close/timeout below still work. */
+        mock.duplex_enabled=mock.duplex_active=mock.listening=mock.speaking=true;
+        strcpy(mock.state,"speaking_listening");
+        lv_tick_inc(300);lv_timer_handler();lv_obj_update_layout(screen);
+        lv_obj_t *state_label=lv_obj_get_child(panel,0);
+        assert(!strcmp(lv_label_get_text(state_label),"Speaking and listening"));
+        assert(lv_obj_get_width(state_label)<=lv_obj_get_content_width(panel));
+        assert(lv_obj_get_y(state_label)+lv_obj_get_height(state_label)<=lv_obj_get_y(emoji));
+        assert(lv_obj_is_hidden(talk)&&!lv_obj_is_hidden(panel));
         assert(lv_color_eq(lv_obj_get_style_bg_color(panel,0),lv_color_hex(palette.content_bg)));
         lv_obj_t *otto=lv_obj_get_child(panel,5);
         assert(lv_obj_check_type(otto,&lv_gif_class)&&lv_gif_is_loaded(otto));
@@ -244,6 +257,6 @@ int main(void)
     ui_transition_configure(false);
     lv_display_delete(display);
     lv_deinit();
-    puts("PASS: manual/wake origins, press/release/cancel, 100 rebuilds, Otto/classic, timeout, five geometries and popup fades");
+    puts("PASS: manual/wake origins, duplex status, press/release/cancel, 100 rebuilds, Otto/classic, timeout, five geometries and popup fades");
     return 0;
 }

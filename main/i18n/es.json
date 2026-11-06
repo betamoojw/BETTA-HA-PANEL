@@ -682,6 +682,7 @@
         "listening": "Escuchando",
         "waiting": "Esperando respuesta",
         "speaking": "Hablando",
+        "speaking_listening": "Hablando y escuchando",
         "pairing": "Empareja en xiaozhi.me con el código",
         "pairing_retry": "Servicio no disponible; reintentando",
         "pairing_error": "Error de emparejamiento",

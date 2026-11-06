@@ -82,7 +82,12 @@ The pin review on 2026-10-02 used the manufacturer's documentation: touch I2C on
 
 Device guide: [Waveshare 10.1-inch panel](panel10.md).
 
-The shared ESP32-P4/C6 configuration uses 360 MHz CPU and 200 MHz Hex PSRAM. It does not establish hardware operation or a memory baseline for panel10. Match the exact controller/display assembly and chip revision before flashing. No audio driver is enabled for this variant.
+The shared ESP32-P4/C6 configuration uses 360 MHz CPU and 200 MHz Hex PSRAM. It does not establish hardware operation or a memory baseline for panel10. Match the exact controller/display assembly and chip revision before flashing. Optional [Xiaozhi audio](../development/xiaozhi-ai.md) uses the LCD-X ES8311 speaker and ES7210 microphone drivers, including the playback reference for local echo cancellation.
+
+The [LCD-X schematic](https://files.waveshare.com/wiki/ESP32-P4-WIFI6-Touch-LCD-X/ESP32-P4-WIFI6-Touch-LCD-X-Schematic.pdf)
+routes the ES8311 output reference to ES7210 MIC3; MIC1/MIC2 are acoustic inputs.
+The audio driver selects MIC1 and MIC3 in TDM order. The previous default
+MIC1/MIC2 selection did not supply the hardware echo reference.
 
 `display_init_panel10.c` and `touch_init_panel10.c` use the vendored Waveshare
 LCD-X BSP 2.0.3, with the shared adapter 0.7.3. GPIO26 drives backlight PWM,

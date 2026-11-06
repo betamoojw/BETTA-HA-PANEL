@@ -3,6 +3,7 @@
 """Run the actual fetched WebSocket send/receive functions with transport faults."""
 import importlib.util
 import os
+import re
 from pathlib import Path
 import shutil
 import subprocess
@@ -16,7 +17,7 @@ spec.loader.exec_module(patch)
 
 
 def function(source, name):
-    start = source.index("static ", source.index(name) - 20)
+    start = re.search(r"^(?:static )?\w+ " + re.escape(name), source, re.MULTILINE).start()
     opening = source.index("{", start)
     depth = 1
     end = opening + 1
@@ -38,8 +39,13 @@ class WebSocketTransport(unittest.TestCase):
         cls.directory = Path(cls.temp.name)
         cls.original = source.read_text(encoding="utf-8")
         # Permit a fresh fetched component as well as the current patched tree.
-        if patch.EDITS[-1][1] in cls.original:
-            for old, new in reversed(patch.EDITS):
+        for old, new in reversed(patch.WRITE_EDITS):
+            cls.original = cls.original.replace(new, old, 1)
+        if patch.SEND_WRAPPERS in cls.original:
+            for old, new in reversed(patch.TX_EDITS):
+                cls.original = cls.original.replace(new, old, 1)
+        if patch.BASE_EDITS[-1][1] in cls.original:
+            for old, new in reversed(patch.BASE_EDITS):
                 if new:
                     cls.original = cls.original.replace(new, old, 1)
             cls.original = cls.original.replace(
@@ -52,12 +58,21 @@ class WebSocketTransport(unittest.TestCase):
         cls.fixed = cls.compile(cls.patched, "fixed")
         cls.before = cls.compile(cls.original, "before")
         cls.unsafe = cls.compile(cls.original, "unsafe", separate=True)
+        cls.previous = cls.patched
+        for old, new in reversed(patch.WRITE_EDITS):
+            cls.previous = cls.previous.replace(new, old, 1)
+        cls.short_write = cls.compile(cls.previous, "short-write")
 
     @classmethod
     def compile(cls, source, name, separate=False):
         unit = cls.directory / name
         unit.mkdir()
-        functions = function(source, "esp_websocket_client_send_with_exact_opcode(")
+        functions = ""
+        if patch.SEND_WRAPPERS in source:
+            functions += function(source, "esp_websocket_client_send_with_timeouts(")
+            functions += function(source, "betta_websocket_client_send(")
+            functions += "#define BETTA_TX_RETRY 1\n"
+        functions += function(source, "esp_websocket_client_send_with_exact_opcode(")
         functions += function(source, "esp_websocket_client_recv(")
         functions += function(cls.patched, "esp_websocket_client_poll_connection(")
         (unit / "websocket_functions.h").write_text(functions, encoding="utf-8")
@@ -80,14 +95,17 @@ class WebSocketTransport(unittest.TestCase):
     def test_faults_and_duplex(self):
         for case in ["concurrent", "closed_while_waiting", "send_timeout", "write_failure",
                      "partial_timeout", "trickle_deadline", "stopped_receive", "empty_control",
-                     "poll_recovery", "idle_and_duplex", "fragmented"]:
+                     "poll_recovery", "idle_and_duplex", "fragmented", "busy_retry",
+                     "short_write", "short_continuation", "write_busy_code", "send_fragmented"]:
             with self.subTest(case=case):
                 result = self.execute(self.fixed, case)
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     def test_negative_controls_reproduce_original_failures(self):
         for exe, case in [(self.unsafe, "concurrent"), (self.before, "closed_while_waiting"),
-                          (self.before, "partial_timeout"), (self.before, "trickle_deadline")]:
+                          (self.before, "partial_timeout"), (self.before, "trickle_deadline"),
+                          (self.short_write, "short_write"), (self.short_write, "short_continuation"),
+                          (self.short_write, "write_busy_code")]:
             with self.subTest(case=case):
                 self.assertEqual(self.execute(exe, case).returncode, 99)
 
@@ -97,6 +115,20 @@ class WebSocketTransport(unittest.TestCase):
         self.assertEqual(patch.patch_websocket_transport(target), ("present", None))
         target.write_text(self.original.replace("    int read_select = 0;", "    int changed = 0;"), encoding="utf-8")
         self.assertEqual(patch.patch_websocket_transport(target), ("missing", None))
+        target.write_text(self.previous.replace("ret = wlen;", "ret = wlen - 1;"), encoding="utf-8")
+        self.assertEqual(patch.patch_websocket_transport(target), ("missing", None))
+        target.write_text(self.patched.replace("vTaskDelay(1);", "vTaskDelay(2);"), encoding="utf-8")
+        self.assertEqual(patch.patch_websocket_transport(target), ("missing", None))
+
+    def test_upgrade_previous_patch(self):
+        previous = self.previous
+        for old, new in reversed(patch.TX_EDITS):
+            previous = previous.replace(new, old, 1)
+        target = self.directory / "previous.c"
+        target.write_text(previous, encoding="utf-8")
+        self.assertEqual(patch.patch_websocket_transport(target), ("applied", self.patched))
+        target.write_text(self.previous, encoding="utf-8")
+        self.assertEqual(patch.patch_websocket_transport(target), ("applied", self.patched))
 
 
 if __name__ == "__main__":

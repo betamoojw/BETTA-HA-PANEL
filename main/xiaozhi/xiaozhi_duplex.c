@@ -287,8 +287,9 @@ esp_err_t xiaozhi_duplex_start(void)
     capture_done = xSemaphoreCreateBinaryStatic(&capture_done_control);
     play_done = xSemaphoreCreateBinaryStatic(&play_done_control);
     if (!capture_queue || !play_queue || !capture_done || !play_done) goto error;
-    if (xTaskCreate(capture_worker, "xz_capture", 8192, NULL, 5, &capture_task) != pdPASS) goto error;
-    if (xTaskCreate(playback_worker, "xz_playback", 4096, NULL, 5, &play_task) != pdPASS) goto error;
+    /* Audio deadlines must not share LVGL's high-priority render core. */
+    if (xTaskCreatePinnedToCore(capture_worker, "xz_capture", 8192, NULL, 5, &capture_task, 0) != pdPASS) goto error;
+    if (xTaskCreatePinnedToCore(playback_worker, "xz_playback", 4096, NULL, 5, &play_task, 0) != pdPASS) goto error;
     portENTER_CRITICAL(&stats_lock);
     diagnostics.running = true;
     portEXIT_CRITICAL(&stats_lock);
@@ -310,5 +311,7 @@ bool xiaozhi_duplex_play(const int16_t *pcm, int samples)
     submit_frame->generation = atomic_load(&output_generation);
     submit_frame->samples = samples;
     memcpy(submit_frame->pcm, pcm, samples * sizeof(*pcm));
-    return xQueueSend(play_queue, submit_frame, 0) == pdTRUE;
+    /* Cloud TTS may arrive faster than playback. A full queue is backpressure,
+     * not a broken connection; allow one maximum 120 ms frame to drain. */
+    return xQueueSend(play_queue, submit_frame, pdMS_TO_TICKS(150)) == pdTRUE;
 }

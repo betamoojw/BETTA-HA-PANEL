@@ -3,6 +3,7 @@
 #include "FreeRTOS.h"
 typedef struct mock_task *TaskHandle_t;
 int xTaskCreate(void (*)(void *), const char *, unsigned, void *, unsigned, TaskHandle_t *);
+int xTaskCreatePinnedToCore(void (*)(void *), const char *, unsigned, void *, unsigned, TaskHandle_t *, int);
 TickType_t xTaskGetTickCount(void);
 unsigned uxTaskGetStackHighWaterMark(TaskHandle_t);
 void vTaskDelete(TaskHandle_t);

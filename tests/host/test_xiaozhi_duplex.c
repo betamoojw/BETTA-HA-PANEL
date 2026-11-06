@@ -21,6 +21,8 @@ static uint32_t spectrum_generation[XZ_SPECTRUM_SOURCES];
 static unsigned spectrum_feeds[XZ_SPECTRUM_SOURCES];
 static unsigned activity_notes, playback_activity_notes;
 static bool silent_activity, muted_output, vad_silence;
+static bool drain_on_play_wait;
+static playback_frame_t drained_play;
 uint32_t xiaozhi_activity_generation(void) { return 9; }
 bool xiaozhi_activity_has_sound(const int16_t *pcm, size_t samples) { return !silent_activity && pcm && samples > 0; }
 void xiaozhi_activity_note(uint32_t generation, int64_t observed_us)
@@ -83,9 +85,9 @@ vad_state_t vad_process(vad_handle_t handle, int16_t *pcm, int rate, int ms)
 int64_t esp_timer_get_time(void) { return ticks++ * 1000; }
 TickType_t xTaskGetTickCount(void) { return ticks; }
 unsigned uxTaskGetStackHighWaterMark(TaskHandle_t handle) { assert(!handle); return 3072; }
-int xTaskCreate(void (*fn)(void *), const char *name, unsigned stack, void *arg, unsigned priority, TaskHandle_t *out)
+int xTaskCreatePinnedToCore(void (*fn)(void *), const char *name, unsigned stack, void *arg, unsigned priority, TaskHandle_t *out, int core)
 {
-    (void)name; assert(stack >= 4096 && !arg && priority == 5 && tasks_created < 2);
+    (void)name; assert(stack >= 4096 && !arg && priority == 5 && tasks_created < 2 && core == 0);
     unsigned index = tasks_created++;
     if (tasks_created == fail_task) { *out = NULL; return 0; }
     tasks[index] = (struct mock_task){.fn = fn}; *out = &tasks[index]; return pdPASS;
@@ -101,7 +103,12 @@ QueueHandle_t xQueueCreateStatic(unsigned capacity, unsigned size, uint8_t *stor
 { *control = (StaticQueue_t){.capacity = capacity, .size = size, .storage = storage}; return control; }
 int xQueueSend(QueueHandle_t q, const void *data, TickType_t delay)
 {
-    assert(!delay); if (q->count == q->capacity) return 0;
+    assert(delay == (q == play_queue ? pdMS_TO_TICKS(150) : 0));
+    if (q->count == q->capacity && q == play_queue && drain_on_play_wait) {
+        assert(xQueueReceive(q, &drained_play, 0));
+        ticks += pdMS_TO_TICKS(120); /* One maximum-size frame finishes. */
+    }
+    if (q->count == q->capacity) return 0;
     memcpy(q->storage + ((q->head + q->count) % q->capacity) * q->size, data, q->size);
     ++q->count; return pdTRUE;
 }
@@ -156,6 +163,7 @@ static void reset_trial(void)
     memset(spectrum_feeds, 0, sizeof(spectrum_feeds));
     activity_notes = playback_activity_notes = 0;
     silent_activity = muted_output = vad_silence = false;
+    drain_on_play_wait = false;
 }
 int main(void)
 {
@@ -183,6 +191,22 @@ int main(void)
     assert(stats.ref_peak_max_playback == 306);
     assert(received.pcm[0] == 700 + 3840 - 3840 % 7);
     assert(xiaozhi_duplex_stop() == ESP_OK);
+
+    reset_trial(); assert(xiaozhi_duplex_start() == ESP_OK);
+    for (int i = 0; i < PLAY_QUEUE_LENGTH; ++i) {
+        reply[0] = i; assert(xiaozhi_duplex_play(reply, 1920));
+    }
+    reply[0] = PLAY_QUEUE_LENGTH; drain_on_play_wait = true;
+    assert(xiaozhi_duplex_play(reply, 1920) && drained_play.pcm[0] == 0);
+    assert(play_queue->count == PLAY_QUEUE_LENGTH);
+    drain_on_play_wait = false;
+    assert(!xiaozhi_duplex_play(reply, 1920)); /* A stalled consumer is still bounded. */
+    for (int i = 1; i <= PLAY_QUEUE_LENGTH; ++i) {
+        assert(xQueueReceive(play_queue, &drained_play, 0));
+        assert(drained_play.pcm[0] == i && drained_play.samples == 1920);
+    }
+    assert(xiaozhi_duplex_stop() == ESP_OK);
+    reply[0] = 123;
 
     reset_trial(); flush_write = 2;
     assert(xiaozhi_duplex_start() == ESP_OK && xiaozhi_duplex_play(reply, 1920));

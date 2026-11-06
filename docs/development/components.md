@@ -138,10 +138,26 @@ not captured; the unprotected shared context and null read were confirmed.
 The component patch uses the shared lock for a 20 ms poll and yields after each
 receive pass. Sends recheck the connection after acquiring the lock. A zero-progress
 nonempty frame fails, and successive reads share the configured receive-time budget;
-individual transport calls can still consume their own timeout. AI Assistant retains its
-500 ms send wait and 5 s network timeout. A delayed connection can end the current
-conversation instead of blocking the worker indefinitely; a new wake starts a new
-connection. Do not extend send waits to hide receive contention.
+individual transport calls can still consume their own timeout. AI Assistant uses
+20 ms lock attempts, a 500 ms transport-write budget and a 5 s network timeout.
+The fork send entry point distinguishes lock contention before any bytes are written
+from a failed or partial write. A bounded PSRAM outbox retries only that pre-write
+case, with a fixed 5 s deadline from enqueue; partial writes are never replayed.
+Any short transport payload aborts the incomplete frame instead of starting a
+continuation frame. Transport failures cannot return the pre-write busy sentinel.
+The upstream public send API retains its original timeout and return contract.
+
+The worker frees an incoming queue slot and attempts queued sends before waiting
+for playback space. This lets the receive callback release TLS before the next
+audio frame blocks the worker. Receive waits check cancellation every 50 ms and
+fail after five seconds without space; playback waits up to 150 ms. The 250 ms
+receive deadline failed a real long-reply trial. Voice session/capture/playback
+tasks use core 0 to avoid sharing core 1 with priority-20 LVGL. Sustained stalls
+still fail. TLS serialization, queue limits,
+audio task ownership and normal-close error precedence remain intact. See the
+[COM24 interruption investigation](assistant-transport-validation.md).
+Teardown marks the connection stopping before joining audio tasks, so a full
+receive queue cancels promptly without a false stall error during a local stop.
 
 Regressions compile the fetched component's actual send/receive/poll functions with
 injected scheduling, partial-frame and timeout faults, including negative controls

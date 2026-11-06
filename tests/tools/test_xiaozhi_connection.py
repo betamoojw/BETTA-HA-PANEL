@@ -34,10 +34,20 @@ class XiaozhiConnection(unittest.TestCase):
         source = (ROOT / "main/xiaozhi/xiaozhi.c").read_text(encoding="utf-8")
         cls.functions = "".join(function(source, name) for name in (
             "connection_snapshot", "connection_fail", "connection_can_send", "connection_reset",
-            "send_packet", "record_connection_end", "end_dialog", "disconnect_session", "close_dialog", "ws_event", "finish_connection"))
+            "send_packet", "transmit", "pump_outgoing", "record_connection_end", "end_dialog", "disconnect_session", "close_dialog", "ws_event", "finish_connection"))
         cls.fixed = cls.compile("fixed", cls.functions)
         # Prove coverage of the ignored CLOSE, stale event code and final callback races.
         cls.mutants = [
+            (cls.compile("late-stop-cancel", cls.functions.replace(
+                "xSemaphoreTake(lock, portMAX_DELAY); connection.stopping = true; xSemaphoreGive(lock);", "").replace(
+                "if (ws) { esp_websocket_client_stop(ws);",
+                "connection.stopping = true; if (ws) { esp_websocket_client_stop(ws);")), "stop-backpressure"),
+            (cls.compile("short-rx-deadline", cls.functions.replace(
+                "esp_timer_get_time() - queued_at >= 5000000",
+                "esp_timer_get_time() - queued_at >= 250000")), "backpressure"),
+            (cls.compile("busy-is-fatal", cls.functions.replace(
+                "result == XZ_TX_FAILED || result == XZ_TX_EXPIRED",
+                "result == XZ_TX_BUSY || result == XZ_TX_FAILED || result == XZ_TX_EXPIRED")), "busy-retry"),
             (cls.compile("ignore-close", cls.functions.replace(
                 "esp_websocket_event_data_t *e = data;",
                 "esp_websocket_event_data_t *e = data; if (e && id == WEBSOCKET_EVENT_DATA && e->op_code == 8) return;")), "queued-close"),
@@ -61,7 +71,9 @@ class XiaozhiConnection(unittest.TestCase):
                 "-I", str(unit), "-I", str(ROOT / "main"),
                 "-I", str(ROOT / "tests/host/xiaozhi_api_stubs"),
                 "-I", str(ROOT / "tests/host/stubs"),
-                str(ROOT / "tests/host/test_xiaozhi_connection.c"), "-o", str(exe)]
+                "-I", str(ROOT / "tests/host/duplex_stubs"),
+                str(ROOT / "tests/host/test_xiaozhi_connection.c"),
+                str(ROOT / "main/xiaozhi/xiaozhi_tx.c"), "-o", str(exe)]
         result = subprocess.run(args, capture_output=True, text=True)
         if result.returncode:
             raise AssertionError(result.stdout + result.stderr)
@@ -69,7 +81,7 @@ class XiaozhiConnection(unittest.TestCase):
 
     def test_close_faults_and_rewake(self):
         for case in ("normal", "queued-close", "abnormal", "malformed", "transport",
-                     "late-error", "timeout", "unexpected-finish", "rewake", "local-stop", "dialog-close"):
+                     "late-error", "timeout", "unexpected-finish", "rewake", "local-stop", "dialog-close", "busy-retry", "backpressure", "stop-backpressure"):
             with self.subTest(case=case):
                 result = subprocess.run([str(self.fixed), case], capture_output=True, text=True, timeout=5)
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)

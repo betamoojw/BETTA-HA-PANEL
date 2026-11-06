@@ -13,6 +13,7 @@
 #include "xiaozhi/xiaozhi_session.h"
 #include "xiaozhi/xiaozhi_duplex.h"
 #include "xiaozhi/xiaozhi_pcm.h"
+#include "xiaozhi/xiaozhi_tx.h"
 #define assert(c) do { if (!(c)) { fprintf(stderr, "%d: %s\n", __LINE__, #c); exit(99); } } while (0)
 #define portMAX_DELAY 0
 #define ESP_ERR_INVALID_STATE 0x103
@@ -22,6 +23,7 @@
 #define FRAME_SAMPLES 960
 #define OPUS_RESET_STATE 1
 #define ESP_LOGI(...) ((void)0)
+#define ESP_LOGW(...) ((void)0)
 typedef int nvs_handle_t;
 typedef struct { char action[16]; int value; uint32_t stop_revision; char phrase[XIAOZHI_WAKE_PHRASE_SIZE]; } command_t;
 typedef struct { int opcode, len; uint8_t *data; } packet_t;
@@ -47,6 +49,10 @@ static xiaozhi_duplex_frame_t frame_storage, *duplex_frame = &frame_storage;
 static vad_handle_t manual_vad = (vad_handle_t)1;
 static char session[128];
 static void *ws;
+static xiaozhi_tx_t outgoing;
+static bool outgoing_overlap;
+static bool inject_audio, check_pump_order, pumped_before_play;
+static bool pump_outgoing(void) { if (check_pump_order) { assert(!inject_audio); pumped_before_play = true; } return false; }
 static jmp_buf worker_return;
 static void end_dialog(const char *reason);
 static void set_state(const char *state);
@@ -59,14 +65,19 @@ static size_t strlcpy(char *dst, const char *src, size_t size)
 static int xQueueReceive(int q, void *p, int wait)
 {
     assert(!wait);
+    if (q == packets && inject_audio) {
+        uint8_t *body = calloc(1, 5); assert(body); body[3] = body[4] = 1;
+        *(packet_t *)p = (packet_t){.opcode = 2, .len = 5, .data = body};
+        inject_audio = false; return pdTRUE;
+    }
     if (q != commands || !queue_count) return 0;
     *(command_t *)p = queue[0]; --queue_count;
     memmove(queue, queue + 1, queue_count * sizeof(*queue)); return pdTRUE;
 }
 static int xQueueSend(int q, const command_t *c, int wait)
 { assert(q == commands && !wait); if (queue_count == 8) return 0; queue[queue_count++] = *c; return pdTRUE; }
-static int xTaskCreate(void (*fn)(void *), const char *name, int stack, void *arg, int priority, void **task)
-{ assert(fn && name && stack == 32768 && !arg && priority == 4); *task = &status; return pdPASS; }
+static int xTaskCreatePinnedToCore(void (*fn)(void *), const char *name, int stack, void *arg, int priority, void **task, int core)
+{ assert(fn && name && stack == 32768 && !arg && priority == 4 && core == 0); *task = &status; return pdPASS; }
 static void vTaskDelay(int ms) { assert(ms == 10); }
 static bool flash_gate_enter(int ms) { assert(ms == 1000); return true; }
 static void flash_gate_leave(void) {}
@@ -92,7 +103,7 @@ static void close_dialog(const char *reason)
 void xiaozhi_duplex_flush(void) {}
 void xiaozhi_duplex_stats(xiaozhi_duplex_stats_t *out) { *out = (xiaozhi_duplex_stats_t){0}; }
 bool xiaozhi_duplex_play(const int16_t *samples, int count)
-{ assert(samples == pcm && count == 960); ++queued_audio; return true; }
+{ assert(samples == pcm && count == 960); if (check_pump_order) assert(pumped_before_play); ++queued_audio; return true; }
 bool xiaozhi_duplex_take(xiaozhi_duplex_frame_t *frame) { assert(frame == duplex_frame); return false; }
 esp_err_t xiaozhi_duplex_stop(void) { return ESP_OK; }
 static void xiaozhi_audio_close(void) {}
@@ -326,6 +337,11 @@ int main(int argc, char **argv)
     else if (!strcmp(argv[1], "timeout")) timeout_test();
     else if (!strcmp(argv[1], "queue")) queue_test();
     else if (!strcmp(argv[1], "dismiss-error")) dismiss_error();
+    else if (!strcmp(argv[1], "burst-order")) {
+        start_voice(); packet("tts", "start", NULL);
+        inject_audio = check_pump_order = true;
+        loop_once(); assert(pumped_before_play && queued_audio == 1 && !failed && status.dialog_active);
+    }
     else assert(false);
     printf("AI Assistant production policy passed: %s\n", argv[1]);
 }

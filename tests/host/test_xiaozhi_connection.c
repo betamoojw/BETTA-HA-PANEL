@@ -5,16 +5,18 @@
 #include <string.h>
 #include "xiaozhi/xiaozhi.h"
 #include "xiaozhi/xiaozhi_connection.h"
+#include "xiaozhi/xiaozhi_tx.h"
+#include "esp_heap_caps.h"
 /* Expected negative controls must not open crash-report dialogs on Windows. */
 #undef assert
 #define assert(c) do { if (!(c)) { fprintf(stderr, "%d: %s\n", __LINE__, #c); exit(99); } } while (0)
 #define portMAX_DELAY 0
 #define pdMS_TO_TICKS(n) (n)
 #define pdTRUE 1
-#define MALLOC_CAP_SPIRAM 0
-#define MALLOC_CAP_8BIT 0
 #define MAX_FRAME 2048
 #define ESP_LOGI(...) ((void)0)
+#define ESP_LOGE(...) ((void)0)
+#define ESP_LOGW(...) ((void)0)
 enum { WEBSOCKET_EVENT_CONNECTED, WEBSOCKET_EVENT_ERROR, WEBSOCKET_EVENT_DISCONNECTED,
        WEBSOCKET_EVENT_FINISH, WEBSOCKET_EVENT_CLOSED, WEBSOCKET_EVENT_DATA };
 enum { WEBSOCKET_ERROR_TYPE_TCP_TRANSPORT = 1, WEBSOCKET_ERROR_TYPE_HANDSHAKE };
@@ -44,6 +46,11 @@ static size_t rx_len;
 static int rx_opcode;
 static xiaozhi_connection_t connection;
 static xiaozhi_status_t status;
+static xiaozhi_tx_t outgoing;
+static bool outgoing_overlap, queue_blocked;
+static bool packet_during_audio_stop;
+static unsigned blocked_calls, release_after, stop_after, received_packets;
+static int64_t now_us = 10;
 static void ws_event(void *, esp_event_base_t, int32_t, void *);
 static void event(int id) { ws_event(NULL, NULL, id, NULL); }
 static void close_event(int code)
@@ -66,23 +73,30 @@ static void xSemaphoreTake(int handle, int ticks)
 { (void)handle; (void)ticks; assert(mutex_depth++ == 0); }
 static void xSemaphoreGive(int handle)
 { (void)handle; assert(--mutex_depth == 0); }
-static void *heap_caps_malloc(size_t n, int caps) { (void)caps; return malloc(n); }
+void *heap_caps_malloc(size_t n, unsigned caps) { (void)caps; return malloc(n); }
 static int xQueueSend(int queue, const packet_t *p, int wait)
-{ (void)queue; (void)wait; free(p->data); return pdTRUE; }
+{
+    (void)queue; assert(wait == 50);
+    if (queue_blocked) {
+        now_us += wait * 1000; ++blocked_calls;
+        if (stop_after && blocked_calls == stop_after) connection.stopping = true;
+        if (release_after && blocked_calls == release_after) queue_blocked = false;
+        return 0;
+    }
+    ++received_packets; free(p->data); return pdTRUE;
+}
 static size_t strlcpy(char *dst, const char *src, size_t n)
 { size_t length = strlen(src); snprintf(dst, n, "%s", src); return length; }
-static int send_mock(void *client, const void *data, int n, int wait)
+static int betta_websocket_client_send(void *client, const void *data, int n, bool binary, int lock_wait, int wait)
 {
-    (void)data;
-    assert(client == ws && n > 0 && wait == 500 && mutex_depth == 0);
+    (void)data; (void)binary;
+    assert(client == ws && n > 0 && wait == 500 && lock_wait == 20 && mutex_depth == 0);
     ++send_calls;
     /* Deterministic interleaving: CLOSE is delivered while the sender waits
      * on the SDK's shared lock, before its post-lock connected check. */
     if (close_during_send) close_event(close_during_send);
     return send_return;
 }
-#define esp_websocket_client_send_bin send_mock
-#define esp_websocket_client_send_text send_mock
 static int esp_websocket_client_stop(void *client)
 {
     assert(mutex_depth == 0 && client == ws && connection.stopping);
@@ -94,9 +108,18 @@ static int esp_websocket_client_stop(void *client)
 static void esp_websocket_client_destroy(void *client) { assert(client == ws); }
 static void conversation(bool visible) { assert(!visible); }
 static void knx_mcp_session_reset(void) {}
-static int64_t esp_timer_get_time(void) { return 10; }
+static int64_t esp_timer_get_time(void) { return now_us; }
 static void xiaozhi_wake_reset(void) {}
-static int xiaozhi_duplex_stop(void) { return ESP_OK; }
+static int xiaozhi_duplex_stop(void)
+{
+    if (packet_during_audio_stop) {
+        packet_during_audio_stop = false;
+        esp_websocket_event_data_t e = {.op_code = 2, .data_ptr = "opus", .data_len = 4,
+            .payload_len = 4, .fin = true};
+        ws_event(NULL, NULL, WEBSOCKET_EVENT_DATA, &e);
+    }
+    return ESP_OK;
+}
 static void xiaozhi_audio_close(void) {}
 static void xiaozhi_session_reset(int *s, bool realtime) { assert(s == &stream && !realtime); }
 static void drain_packets(bool preserve) { assert(!preserve); }
@@ -114,6 +137,10 @@ static void start(void)
     rx = malloc(MAX_FRAME); assert(rx);
     send_calls = stop_calls = close_during_send = 0;
     send_return = 4; late_error = false;
+    now_us = 10; queue_blocked = false;
+    packet_during_audio_stop = false;
+    blocked_calls = release_after = stop_after = received_packets = 0;
+    assert(!outgoing.count);
     event(WEBSOCKET_EVENT_CONNECTED);
     status.listening = status.speaking = status.duplex_active = true;
     status.dialog_active = true; ++status.dialog_seq;
@@ -156,7 +183,8 @@ static void queued_close(void)
 {
     for (int binary = 0; binary < 2; ++binary) {
         start(); close_during_send = 1000; send_return = -1;
-        assert(!send_packet("test", 4, binary));
+        assert(send_packet("test", 4, binary));
+        assert(!pump_outgoing());
         assert(send_calls == 1 && !failed);
         end(false, "normal_close");
     }
@@ -224,11 +252,11 @@ static void transport(void)
 static void timeout(void)
 {
     start(); send_return = -1;
-    assert(!send_packet("test", 4, false));
+    assert(send_packet("test", 4, false) && !pump_outgoing());
     close_event(1000); /* Later normal CLOSE cannot erase a send timeout. */
     end(true, "send_error");
     start(); send_return = 2;
-    assert(!send_packet("test", 4, true)); end(true, "send_error");
+    assert(send_packet("test", 4, true) && !pump_outgoing()); end(true, "send_error");
     start(); ready = false; deadline = 5;
     end(true, "handshake_timeout");
     start(); failed = true; close_event(1000); end(true, "local_error");
@@ -277,6 +305,64 @@ static void dialog_close(void)
     assert(!strcmp(status.dialog_end_reason, "error") && !strcmp(status.state, "connection_error"));
     assert(status.connection_errors == 2 && !strcmp(status.connection_end, "local_error"));
 }
+static void busy_retry(void)
+{
+    start(); send_return = XIAOZHI_TX_LOCK_BUSY;
+    assert(send_packet("test", 4, true)); outgoing_overlap = true;
+    for (int i = 0; i < 30; ++i) {
+        now_us += 20000;
+        assert(!pump_outgoing() && !failed && connection_can_send() && outgoing.count == 1);
+    }
+    assert(!status.audio_tx_frames);
+    send_return = 4;
+    assert(pump_outgoing() && outgoing.count == 0 && send_calls == 31);
+    assert(status.audio_tx_frames == 1 && status.audio_tx_during_playback == 1);
+    assert(!pump_outgoing() && send_calls == 31);
+    assert(send_packet("test", 4, false));
+    close_event(1000); end(false, "normal_close"); assert(!outgoing.count && !outgoing.bytes);
+    start(); send_return = XIAOZHI_TX_LOCK_BUSY;
+    assert(send_packet("test", 4, true) && !pump_outgoing());
+    now_us += XIAOZHI_TX_DEADLINE_US;
+    assert(!pump_outgoing() && send_calls == 1 && !connection_can_send());
+    assert(!pump_outgoing() && send_calls == 1);
+    end(true, "send_error");
+    start(); send_return = 2;
+    assert(send_packet("test", 4, true) && !pump_outgoing());
+    assert(!pump_outgoing() && send_calls == 1); /* Never replay a partial write. */
+    end(true, "send_error");
+}
+static void backpressure(void)
+{
+    start();
+    esp_websocket_event_data_t e = {.op_code = 2, .data_ptr = "opus", .data_len = 4, .payload_len = 4, .fin = true};
+    ws_event(NULL, NULL, WEBSOCKET_EVENT_DATA, &e);
+    assert(connection_can_send() && !failed);
+    queue_blocked = true; release_after = 15; /* 750 ms consumer delay, not a dead connection. */
+    ws_event(NULL, NULL, WEBSOCKET_EVENT_DATA, &e);
+    assert(connection_can_send() && !failed && blocked_calls == 15 && received_packets == 2);
+    assert(now_us == 750010);
+    blocked_calls = release_after = 0;
+    queue_blocked = true;
+    ws_event(NULL, NULL, WEBSOCKET_EVENT_DATA, &e);
+    assert(!connection_can_send() && blocked_calls == 100); end(true, "local_error");
+    start(); queue_blocked = true; stop_after = 2;
+    ws_event(NULL, NULL, WEBSOCKET_EVENT_DATA, &e);
+    assert(connection.stopping && connection.end == XZ_END_NONE && blocked_calls == 2);
+    assert(now_us == 100010 && !received_packets);
+    close_dialog("manual"); assert(!ws);
+}
+static void stop_backpressure(void)
+{
+    start(); queue_blocked = packet_during_audio_stop = true;
+    assert(send_packet("test", 4, true));
+    close_dialog("manual");
+    assert(!ws && blocked_calls == 1 && now_us == 50010 && !received_packets);
+    assert(!status.connection_errors && !strcmp(status.dialog_end_reason, "manual"));
+    assert(!outgoing.count && !outgoing.bytes && !send_calls);
+    start(); /* The cancelled callback/outbox cannot contaminate a later wake. */
+    assert(send_packet("test", 4, true) && pump_outgoing());
+    close_event(1000); end(false, "normal_close");
+}
 int main(int argc, char **argv)
 {
     assert(argc == 2);
@@ -287,6 +373,9 @@ int main(int argc, char **argv)
     else if (!strcmp(argv[1], "transport")) transport();
     else if (!strcmp(argv[1], "late-error")) { start(); close_event(1000); late_error = true; end(true, "transport_error"); }
     else if (!strcmp(argv[1], "timeout")) timeout();
+    else if (!strcmp(argv[1], "busy-retry")) busy_retry();
+    else if (!strcmp(argv[1], "backpressure")) backpressure();
+    else if (!strcmp(argv[1], "stop-backpressure")) stop_backpressure();
     else if (!strcmp(argv[1], "unexpected-finish")) {
         start(); event(WEBSOCKET_EVENT_FINISH); end(true, "unexpected_disconnect");
         start(); event(WEBSOCKET_EVENT_DISCONNECTED); close_event(1000); end(true, "unexpected_disconnect");

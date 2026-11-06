@@ -113,6 +113,7 @@ nav = [
       { "Notification implementation" = "notifications-implementation.md" },
       { "AI Assistant" = "development/xiaozhi-ai.md" },
       { "AI Assistant session policy" = "development/assistant-session.md" },
+      { "AI Assistant transport validation" = "development/assistant-transport-validation.md" },
       { "AI Assistant conversation display" = "development/xiaozhi-spectrum.md" },
       { "AI Assistant MCP tools" = "development/xiaozhi-mcp-tools.md" },
       { "KNX" = "development/knx.md" },

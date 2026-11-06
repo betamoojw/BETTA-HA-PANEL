@@ -31,6 +31,10 @@ class AssistantDialogPolicy(unittest.TestCase):
             "defer_turn_end", "take_turn_end", "handle_command", "send_capture", "worker", "enqueue_command"))
         cls.fixed = cls.compile("fixed", cls.functions)
         cls.mutants = [
+            (cls.compile("late-tx-retry", cls.functions.replace(
+                "bool sent = pump_outgoing();", "bool sent = false;").replace(
+                "if (received) { receive_packet(&p); free(p.data); }",
+                "if (received) { receive_packet(&p); free(p.data); } sent = pump_outgoing();")), "burst-order"),
             (cls.compile("tts-farewell", cls.functions.replace(
                 "!tts && status.dialog_active && text[0] && xiaozhi_farewell(text)",
                 "status.dialog_active && text[0] && xiaozhi_farewell(text)")), "noncommands"),
@@ -63,7 +67,7 @@ class AssistantDialogPolicy(unittest.TestCase):
         return exe
 
     def test_production_dialog_policy(self):
-        for case in ("farewell", "noncommands", "commands", "audio", "capture", "timeout", "queue", "dismiss-error"):
+        for case in ("farewell", "noncommands", "commands", "audio", "capture", "timeout", "queue", "dismiss-error", "burst-order"):
             with self.subTest(case=case):
                 result = subprocess.run([str(self.fixed), case], capture_output=True, text=True, timeout=5)
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)

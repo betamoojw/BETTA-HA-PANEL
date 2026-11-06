@@ -23,6 +23,7 @@ static uint16_t ntohs(uint16_t value)
 
 #define ESP_OK 0
 #define ESP_FAIL -1
+#define ESP_ERR_TIMEOUT 0x107
 #define pdPASS 1
 #define portMAX_DELAY UINT32_MAX
 #define portTICK_PERIOD_MS 1
@@ -37,6 +38,7 @@ static uint16_t ntohs(uint16_t value)
 #define WEBSOCKET_ERROR_TYPE_TCP_TRANSPORT 1
 #define WEBSOCKET_EVENT_DATA 1
 #define WS_TRANSPORT_OPCODES_NONE 0
+#define WS_TRANSPORT_OPCODES_TEXT 1
 #define WS_TRANSPORT_OPCODES_BINARY 2
 #define WS_TRANSPORT_OPCODES_CLOSE 8
 #define WS_TRANSPORT_OPCODES_PING 9
@@ -65,6 +67,7 @@ static test_config config;
 static int actor, close_on_lock, blocked_lock, read_count, write_count, events, aborts, yields;
 static int readable, opcode, payload, read_values[8], read_times[8], read_items, send_result;
 static bool tls_busy, inject_sender, fail_write;
+static int short_on_write, write_error;
 static uint64_t now_ms;
 static int esp_websocket_client_send_with_exact_opcode(esp_websocket_client_handle_t,
     ws_transport_opcodes_t, const uint8_t *, int, TickType_t);
@@ -122,7 +125,8 @@ static int esp_transport_ws_send_raw(void *t, int op, const void *data, int len,
     assert(t && timeout > 0 && client.state == WEBSOCKET_STATE_CONNECTED);
     assert(!tls_busy); /* Regression: RX temporarily has no TLS counter/buffer. */
     ++write_count;
-    return fail_write ? -1 : len;
+    if (short_on_write == write_count) return len - 1;
+    return fail_write ? write_error : len;
 }
 static int esp_transport_poll_read(void *t, int timeout)
 {
@@ -174,6 +178,7 @@ static void reset(void)
     readable = 1; opcode = WS_TRANSPORT_OPCODES_BINARY; payload = 5;
     read_items = 1; read_values[0] = 5;
     now_ms = 0; tls_busy = inject_sender = fail_write = false;
+    short_on_write = 0; write_error = -1;
 }
 static int send_voice(void)
 {
@@ -201,6 +206,24 @@ int main(int argc, char **argv)
         fail_write = true;
         assert(send_voice() == -1 && aborts == 1);
         assert(send_voice() == -1 && write_count == 1);
+    } else if (!strcmp(argv[1], "short_write") || !strcmp(argv[1], "short_continuation")) {
+        short_on_write = !strcmp(argv[1], "short_write") ? 1 : 2;
+        assert(esp_websocket_client_send_with_exact_opcode(&client, 130,
+            (const uint8_t *)"abcdefghijklmnopqrstuvwxyz", 26, 500) == -1);
+        assert(write_count == short_on_write && aborts == 1);
+        assert(send_voice() == -1 && write_count == short_on_write);
+    } else if (!strcmp(argv[1], "write_busy_code")) {
+#ifdef BETTA_TX_RETRY
+        fail_write = true; write_error = -ESP_ERR_TIMEOUT;
+        assert(betta_websocket_client_send(&client, "voice", 5, true, 20, 500) == -1);
+        assert(write_count == 1 && aborts == 1);
+#else
+        assert(0);
+#endif
+    } else if (!strcmp(argv[1], "send_fragmented")) {
+        assert(esp_websocket_client_send_with_exact_opcode(&client, 130,
+            (const uint8_t *)"abcdefghijklmnopqrstuvwxyz", 26, 500) == 26);
+        assert(write_count == 2 && aborts == 0);
     } else if (!strcmp(argv[1], "partial_timeout")) {
         read_items = 2; read_values[0] = 2; read_values[1] = 0;
         read_times[1] = 5000;
@@ -243,6 +266,22 @@ int main(int argc, char **argv)
         read_times[0] = read_times[1] = read_times[2] = 100;
         esp_websocket_client_poll_connection(&client);
         assert(read_count == 3 && events == 3 && aborts == 0 && send_voice() == 5);
+    } else if (!strcmp(argv[1], "busy_retry")) {
+#ifdef BETTA_TX_RETRY
+        blocked_lock = 1;
+        assert(betta_websocket_client_send(&client, "voice", 5, true, 20, 500) == -ESP_ERR_TIMEOUT);
+        assert(write_count == 0 && aborts == 0 && now_ms == 20);
+        blocked_lock = 0;
+        assert(betta_websocket_client_send(&client, "voice", 5, true, 20, 500) == 5);
+        assert(write_count == 1 && aborts == 0);
+        fail_write = true;
+        assert(betta_websocket_client_send(&client, "voice", 5, true, 20, 500) == -1);
+        assert(aborts == 1 && write_count == 2);
+        assert(betta_websocket_client_send(&client, "voice", 5, true, 20, 500) == -1);
+        assert(write_count == 2);
+#else
+        assert(0);
+#endif
     } else {
         return 2;
     }

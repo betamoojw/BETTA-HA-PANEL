@@ -19,6 +19,12 @@ freeing application space while retaining every image, setting and data partitio
 
 ### AI Assistant
 
+- Temporary contention for the shared encrypted connection no longer immediately
+  ends a conversation. Bounded, ordered retries preserve unsent frames, and audio
+  queues allow short waits for playback during reply bursts. Failed or partial
+  writes still stop safely; TLS serialization and full-duplex echo cancellation remain enabled.
+  Stopping a conversation cancels receive-queue waits before joining audio tasks,
+  preventing a full queue from timing out during intentional exit.
 - Product labels in the panel, editor, settings and seven-language catalogs use
   **AI Assistant**. Saved wake phrases, pairing, compatible API/storage identifiers,
   service attribution and historical acceptance records retain their identity.

@@ -11,11 +11,10 @@ References: [AI Assistant resources](xiaozhi-resources.md#custom-wake-recognitio
 
 ## Runtime
 
-- `main/xiaozhi/xiaozhi.c`: one worker owns pairing, connection lifetime and Opus.
+- `main/xiaozhi/xiaozhi.c`: a core-0 worker owns pairing, connection lifetime and Opus.
   HTTP and touch callbacks enqueue commands. The WebSocket event
-  task only assembles bounded frames into a finite queue; overflow ends the
-  session. The shared MCP dispatcher advertises device tools and the configured
-  [KNX objects](knx.md).
+  task assembles bounded frames; queue waits check stop every 50 ms and fail after a five-second stall.
+  The shared MCP dispatcher advertises device tools and configured [KNX objects](knx.md).
   Starting microphone capture discards stale speech frames but services queued
   MCP requests, preserving tool discovery even when initialize/tools/list arrive
   beside hello or TTS/stop. Disconnect still discards the whole old session.
@@ -33,9 +32,10 @@ References: [AI Assistant resources](xiaozhi-resources.md#custom-wake-recognitio
   Idle wake/manual capture select MIC1; full-duplex capture also consumes the
   playback-reference slot through local ESP-SR echo cancellation. Opus decodes
   to 16 kHz. Audio opens lazily on conversation start or enabled local detection.
-- `xiaozhi_duplex.c`: independent capture and playback tasks with bounded queues.
+- `xiaozhi_duplex.c`: independent core-0 capture and playback tasks with bounded queues.
   The session worker passes cleaned microphone PCM to Opus and queues decoded
-  replies. It stops both paths before closing codecs or releasing buffers.
+  replies, waiting up to 150 ms for playback space. It stops both paths before closing codecs or releasing buffers.
+- `xiaozhi_tx.c`: bounded outgoing FIFO; [TLS retries and queue ordering](components.md#websocket-tls-ownership).
 - `xiaozhi_ui.c`: a UI timer reads a nonblocking status snapshot. A child root owns
   the controls and timer; cleaning or deleting the dashboard destroys both and
   requests disconnect. The persistent screen must not own that cleanup callback:

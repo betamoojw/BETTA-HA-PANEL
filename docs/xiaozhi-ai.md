@@ -185,6 +185,8 @@ temporarily turn full-duplex off and start a new conversation; keep the existing
 
 A farewell, silence timeout or normal service close returns to standby. A network fault or connection timeout ends the
 current conversation; it does not erase pairing or the saved full-duplex setting.
+Brief internal send contention and bursts of received speech are buffered within
+fixed limits. A persistent stall or failed transmission still ends the conversation.
 Wait for **Ready**, then use the wake phrase again, or open the robot icon and
 use **Hold to talk**. Each new conversation establishes a new cloud connection.
 

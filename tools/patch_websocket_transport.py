@@ -52,7 +52,7 @@ OLD_POLL = '''            read_select = esp_transport_poll_read(client->transpor
             }
 '''
 
-EDITS = [
+BASE_EDITS = [
     ('    if (esp_websocket_new_buf(client, true) != ESP_OK) {',
      '''    /* andre68723/BETTA-HA-PANEL: the connection may close while send
      * waits for the receive/transport lock. Recheck before touching TLS. */
@@ -97,15 +97,68 @@ EDITS = [
     xSemaphoreGiveRecursive(client->lock);'''),
 ]
 
+SEND_SIGNATURE = 'static int esp_websocket_client_send_with_exact_opcode(esp_websocket_client_handle_t client, ws_transport_opcodes_t opcode, const uint8_t *data, int len, TickType_t timeout)'
+INIT_SIGNATURE = 'esp_websocket_client_handle_t esp_websocket_client_init(const esp_websocket_client_config_t *config)'
+SEND_WRAPPERS = '''/* Preserve the upstream API's timeout and error contract. */
+static int esp_websocket_client_send_with_exact_opcode(esp_websocket_client_handle_t client, ws_transport_opcodes_t opcode, const uint8_t *data, int len, TickType_t timeout)
+{
+    int result = esp_websocket_client_send_with_timeouts(client, opcode, data, len, timeout, timeout);
+    return result == -ESP_ERR_TIMEOUT ? -1 : result;
+}
+
+/* andre68723/BETTA-HA-PANEL: busy is reported only before any frame write.
+ * The application drains incoming audio before retrying, without relaxing TLS
+ * serialization or replaying a partial/failed transport write. */
+int betta_websocket_client_send(esp_websocket_client_handle_t client, const void *data,
+    int length, bool binary, TickType_t lock_wait, TickType_t write_wait)
+{
+    ws_transport_opcodes_t opcode = (binary ? WS_TRANSPORT_OPCODES_BINARY : WS_TRANSPORT_OPCODES_TEXT) | WS_TRANSPORT_OPCODES_FIN;
+    return esp_websocket_client_send_with_timeouts(client, opcode, data, length, write_wait, lock_wait);
+}
+
+'''
+TX_EDITS = [
+    (SEND_SIGNATURE, SEND_SIGNATURE.replace('send_with_exact_opcode', 'send_with_timeouts').replace(
+        'TickType_t timeout)', 'TickType_t timeout, TickType_t lock_timeout)')),
+]
+for mutex in ('tx_lock', 'lock'):
+    TX_EDITS.append((
+        f'''    if (xSemaphoreTakeRecursive(client->{mutex}, timeout) != pdPASS) {{
+        ESP_LOGE(TAG, "Could not lock ws-client within %" PRIu32 " timeout", timeout);
+        return -1;
+    }}''',
+        f'''    if (xSemaphoreTakeRecursive(client->{mutex}, lock_timeout) != pdPASS) {{
+        return -ESP_ERR_TIMEOUT; /* No TLS/frame bytes have been written. */
+    }}'''))
+TX_EDITS.append((INIT_SIGNATURE, SEND_WRAPPERS + INIT_SIGNATURE))
+WRITE_EDITS = [
+    ('''        if (wlen < 0 || (wlen == 0 && need_write != 0)) {
+            ret = wlen;''',
+     '''        /* A short payload leaves the current frame incomplete. A new
+         * continuation frame cannot repair it; close without replaying bytes.
+         * Reserve -ESP_ERR_TIMEOUT exclusively for the pre-write lock above. */
+        if (wlen != need_write) {
+            ret = -1;'''),
+]
+EDITS = BASE_EDITS + TX_EDITS + WRITE_EDITS
+
 
 def patch_websocket_transport(path):
     text = path.read_text(encoding="utf-8")
-    # The final edit is an atomic completion marker, not a partial-patch test.
-    if EDITS[-1][1] in text:
-        if all(new in text for old, new in EDITS if new):
+    if SEND_WRAPPERS in text:
+        if not all(new in text for old, new in BASE_EDITS + TX_EDITS if new):
+            return "missing", None
+        if all(new in text for old, new in WRITE_EDITS):
             return "present", None
-        return "missing", None
-    for old, new in EDITS:
+        edits = WRITE_EDITS
+    elif BASE_EDITS[-1][1] in text:
+        if not all(new in text for old, new in BASE_EDITS if new):
+            return "missing", None
+        edits = TX_EDITS + WRITE_EDITS
+    else:
+        edits = EDITS
+    # Upgrade only complete known generations; partial/unknown text fails closed.
+    for old, new in edits:
         if text.count(old) != 1:
             return "missing", None
         text = text.replace(old, new, 1)

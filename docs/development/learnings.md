@@ -111,6 +111,13 @@ keep stacks in PSRAM only for tasks that never touch flash. mbedTLS uses PSRAM
 
 ## Watchdogs and crash evidence
 
+The 2026-11-06 COM24 [Xiaozhi acceptance baseline](xiaozhi-acceptance.md) retains
+the exact `7ec2109d` app/ELF and two older `de6dc171` TLS-crash reports with their
+own matching ELF. Its 239.6-second voice observation recorded two empty normal
+CLOSE frames, no connection error and no new crash; this is bounded evidence,
+not long-term qualification. A normal close racing an upload must not hide an
+earlier transport fault or a fault delivered during local teardown.
+
 - **Network watchdog** (`util/net_watchdog.c`): a task polls every 30 s and pings the gateway every 60 s. The pure
   decision function restarts after `NET_WD_LINK_DOWN_S` without link or `NET_WD_PING_DEAD_S` of silent gateway (only if
   it answered once and Home Assistant is not connected), never within `NET_WD_BOOT_GRACE_S` of boot, at most

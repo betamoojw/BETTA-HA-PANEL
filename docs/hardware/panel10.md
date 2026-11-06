@@ -41,6 +41,10 @@ port has a different role.
 
 ## Validation status and next checks
 
+The 2026-11-06 COM24 [Xiaozhi acceptance baseline](../development/xiaozhi-acceptance.md)
+records the exact tested `7ec2109d` image, bounded voice results and recovery steps.
+It does not extend acceptance to other panel10 units or long-duration operation.
+
 Camera automation supports **Adapt brightness to room light**, **Wake on approach**,
 **Also wake at night**, sensitivity 1–10 (default 5), and **Test now (30s)** under
 **Settings → Display**. It processes light and movement locally, without recording

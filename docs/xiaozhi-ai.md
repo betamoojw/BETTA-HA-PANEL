@@ -138,6 +138,35 @@ and re-enabling also preserves pairing, volume, duplex preference and emotion st
 on this physical device; they are not included in ordinary layout/settings
 exports and are never returned by the editor API.
 
+### Check full-duplex conversation
+
+1. Enable **Full-duplex conversation** and **Voice wake-up**, then use the saved
+   wake phrase. Ask the assistant to count from one to twenty and let it finish.
+2. Ask it to count again. While it is speaking, say "Stop, what is two plus two?"
+   Check that it changes to your question without treating its own reply as new speech.
+3. Say goodbye, wait for standby and local wake detection to resume, then wake it
+   again and ask another question. A normal goodbye should not show a connection error.
+
+Use the panel's microphone and speaker. **Hold to talk** remains manual, even
+when full-duplex is enabled. If speaker feedback recurs, lower the volume or
+temporarily turn full-duplex off and start a new conversation; keep the existing pairing.
+
+## Connection recovery
+
+A normal service close returns to standby. A network fault or timeout ends the
+current conversation; it does not erase pairing or the saved full-duplex setting.
+Wait for **Ready**, then use the wake phrase again, or open the robot icon and
+use **Hold to talk**. Each new conversation establishes a new cloud connection.
+
+If failures repeat, check the panel's network connection and service availability.
+Save **Device status**, the panel log and any [crash reports](coredump.md) before
+restarting. The connection diagnosis remains available after the next wake;
+a later completed connection can replace it, so collect it promptly. Resetting
+assistant preferences or pairing again is not a routine connection-recovery step.
+
+The [accepted firmware and recovery guide](development/xiaozhi-acceptance.md#restore-the-baseline)
+describes returning to the locally retained image if a later firmware introduces a regression.
+
 ## Custom wake phrase
 
 Under **Settings → Xiaozhi AI**, enable **Voice wake-up**, choose **Custom Chinese
@@ -188,18 +217,16 @@ confirmed Otto animation and stable physical output during speech. These are
 bounded device checks: far-field sensitivity, false-activation rates, speaker
 feedback in other rooms and all-day operation have not been measured.
 
-On 2026-11-06, COM24 `panel10` running `91a703d7-dirty` (ELF `30e1230fe`)
-passed a bounded full-duplex trial at the saved 80% speaker volume. The owner
-confirmed complete answers, including counting from 1 to 20, without observed
-recognition of the speaker's own replies or false interruption. Speaking during
-playback successfully interrupted the answer. Diagnostics showed concurrent
-microphone upload and playback, an active hardware echo-reference channel and
-no capture queue drops. Display and touch had been confirmed normal in the
-initial trial. Other rooms, volume levels, boards and all-day operation remain
-unverified. A later `de6dc171` test passed the same acoustic checks but recorded
-a connection crash afterward; that voice result alone is not a stability pass.
-The transport correction is described in the [component notes](development/components.md#websocket-tls-ownership).
-If a connection stalls, the conversation ends; use the wake phrase again to reconnect.
+On 2026-11-06, COM24 `panel10` running `7ec2109d` passed a 239.6-second
+full-duplex observation at the saved 80% speaker volume. The owner accepted
+complete answers, active interruption, no self-recognition or false interruption,
+normal goodbye, reawakening, sound, physical display and touch. Diagnostics
+recorded two normal service closes, zero connection errors and no new crash.
+Other rooms, volume levels, boards and all-day operation remain unverified;
+intermittent display flashes reported in earlier work are not resolved by this change.
+See the [acceptance baseline](development/xiaozhi-acceptance.md) for exact images,
+evidence limits and recovery steps. Earlier acoustic success on `de6dc171` did
+not prevent a later TLS crash; that image is not the accepted recovery baseline.
 
 COM24 voice trials accepted status, volume, brightness, theme and network
 queries (IP, Wi-Fi name and signal strength). These bounded checks do not

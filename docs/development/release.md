@@ -17,6 +17,10 @@
   download on a paneljc (2026-10-02). Installs from the release found by the update check are compared with GitHub's
   `digest`; other URLs and uploads are not verified.
 
+For the locally accepted Waveshare voice image, see the
+[Xiaozhi baseline and restore procedure](xiaozhi-acceptance.md#restore-the-baseline).
+It preserves an exact app/ELF independently of the bootloader's previous slot.
+
 ## Automatic install
 
 Off by default (`net/auto_update_task.c`, decision in the host-tested `util/auto_update.c`). It installs only when all

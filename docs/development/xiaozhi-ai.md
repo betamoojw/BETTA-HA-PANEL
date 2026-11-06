@@ -204,7 +204,7 @@ session rather than uploading untreated simultaneous playback/capture.
 input/reference/clean peaks, processing time and capture/playback stack margins.
 No audio is retained. `barge_ins` counts server-recognized turns that interrupt
 local playback. Counters show pipeline activity; bounded acoustic acceptance is
-recorded in the [user guide](../xiaozhi-ai.md#validation-limits).
+recorded in the [acceptance baseline](xiaozhi-acceptance.md#acceptance-and-limits).
 
 ## Otto Robot assets
 

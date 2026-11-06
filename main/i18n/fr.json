@@ -759,6 +759,9 @@
       "load_failed": "Réglages indisponibles. Fermez puis réessayez.",
       "preview": "Aperçu (30 s)",
       "clock_analog": "Horloge analogique",
+      "clock_style": "Style d’horloge",
+      "clock_digital": "Horloge numérique",
+      "clock_flip": "Horloge à volets",
       "rotation": "Rotation de l’écran",
       "auto_rotation": "Rotation automatique",
       "xiaozhi_emoji": "Style des émotions de l’IA"

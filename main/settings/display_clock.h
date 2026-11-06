@@ -8,6 +8,8 @@
 #include <time.h>
 #include "cJSON.h"
 
+typedef enum { DISPLAY_CLOCK_DIGITAL, DISPLAY_CLOCK_ANALOG, DISPLAY_CLOCK_FLIP } display_clock_style_t;
+
 typedef struct {
     int start_seconds;
     int brightness;
@@ -16,10 +18,11 @@ typedef struct {
     bool format_24h;
     bool show_seconds;
     bool show_date;
-    bool analog; /* false preserves the existing digital clock */
+    display_clock_style_t style;
 } display_clock_t;
 
 void display_clock_defaults(display_clock_t *clock);
+const char *display_clock_style_name(display_clock_style_t style);
 /* A missing object preserves the caller's defaults/current values. Invalid input fails atomically. */
 bool display_clock_parse(const cJSON *object, display_clock_t *clock);
 bool display_clock_write(cJSON *hardware, const display_clock_t *clock);

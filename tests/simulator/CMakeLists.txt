@@ -304,6 +304,12 @@ add_test(NAME screen-settings-fixed-clock-events-and-layout
         --regression screen-settings --fixture "${CMAKE_CURRENT_LIST_DIR}/screen_settings.json")
 set_tests_properties(screen-settings-fixed-clock-events-and-layout PROPERTIES ENVIRONMENT "SDL_VIDEODRIVER=dummy")
 add_executable(betta-clock-test clock_protection_regression.c sim_clock.c
+    "${REPO_ROOT}/main/ui/ui_flip_clock.c"
+    "${REPO_ROOT}/main/ui/theme/theme_default.c"
+    "${REPO_ROOT}/main/ui/theme/theme_palette.c"
+    "${REPO_ROOT}/main/ui/theme/ui_style.c"
+    "${REPO_ROOT}/main/ui/theme/ui_style_registry.c"
+    "${REPO_ROOT}/main/ui/theme/matte_title.c"
     "${REPO_ROOT}/main/ui/text_font.c" "${REPO_ROOT}/main/ui/text_scale.c"
     "${REPO_ROOT}/main/ui/fonts/ttf_poppins_data.c" "${REPO_ROOT}/main/ui/fonts/ttf_poppins_bold_data.c"
     "${REPO_ROOT}/main/ui/fonts/ttf_mdi_data.c" "${REPO_ROOT}/main/ui/fonts/ttf_emoji_data.c"

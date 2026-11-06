@@ -100,6 +100,12 @@ independent of dashboard text size. It measures the widest digit and AM/PM befor
 choosing a cached 16-pixel size step, capped at 256 pixels. Its small glyph cache
 has no CJK/emoji fallback; ordinary labels and the optional date keep their roles.
 
+Flip clock protection reuses `ui_flip_clock`, including six folding digits,
+localized weekday/date and shared 12/24-hour format. Its full-screen overlay
+centres the clock without periodic movement; cards, captions and page background
+use the active palette and appearance. Dashboard rebuilds refresh an active flip
+overlay without resetting its off deadline. Leaving it deletes its timer and animations.
+
 ## Shapes in code: one helper per element
 
 Every corner radius comes from `main/ui/theme/ui_style.h`, never from a number or `LV_RADIUS_CIRCLE` written into

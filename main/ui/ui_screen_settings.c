@@ -35,10 +35,10 @@ typedef struct {
 static settings_view_t *s_view;
 
 static const char *const keys[] = {"active", "dim", "dim_seconds", "mode", "start_minutes",
-    "clock_start", "clock_brightness", "clock_off", "clock_off_seconds", "clock_24h", "clock_seconds", "clock_date", "clock_analog", "rotation", "auto_rotation", "xiaozhi_emoji"};
+    "clock_start", "clock_brightness", "clock_off", "clock_off_seconds", "clock_24h", "clock_seconds", "clock_date", "clock_style", "rotation", "auto_rotation", "xiaozhi_emoji"};
 static const char *const names[] = {"Brightness", "Dimmed brightness", "Dim after (seconds)", "After inactivity",
     "Start after (minutes)", "Start clock after (seconds)", "Clock brightness", "Turn off after clock",
-    "Show clock for (seconds)", "24-hour clock", "Show seconds", "Show date", "Analog clock", "Display rotation", "Automatic rotation", "AI emotion style"};
+    "Show clock for (seconds)", "24-hour clock", "Show seconds", "Show date", "Clock style", "Display rotation", "Automatic rotation", "AI emotion style"};
 
 static const char *tr(const char *key, const char *fallback)
 {
@@ -138,9 +138,10 @@ static void refresh(settings_view_t *view)
 {
     int mode = view->draft.value[SCREEN_MODE];
     for (int i = 0; i < SCREEN_FIELD_COUNT; i++) {
-        bool hidden = (i >= SCREEN_CLOCK_START && i <= SCREEN_CLOCK_ANALOG && i != SCREEN_CLOCK_24H && mode != 1) ||
+        bool hidden = (i >= SCREEN_CLOCK_START && i <= SCREEN_CLOCK_STYLE && i != SCREEN_CLOCK_24H && mode != 1) ||
             (i == SCREEN_START_MINUTES && (mode == 0 || mode == 1)) ||
-            (i == SCREEN_CLOCK_OFF_SECONDS && !view->draft.value[SCREEN_CLOCK_OFF]);
+            (i == SCREEN_CLOCK_OFF_SECONDS && !view->draft.value[SCREEN_CLOCK_OFF]) ||
+            ((i == SCREEN_CLOCK_SECONDS || i == SCREEN_CLOCK_DATE) && view->draft.value[SCREEN_CLOCK_STYLE] == DISPLAY_CLOCK_FLIP);
         if (i == SCREEN_ROTATION && view->draft.value[SCREEN_AUTO_ROTATION]) hidden = true;
         if (i == SCREEN_XIAOZHI_EMOJI && !view->draft.xiaozhi_supported) hidden = true;
 #if !defined(CONFIG_APP_PANEL_VARIANT_TAB5_1280)
@@ -165,7 +166,7 @@ static void changed(lv_event_t *event)
     bool timeout = field == SCREEN_DIM_SECONDS || field == SCREEN_START_MINUTES ||
         field == SCREEN_CLOCK_START || field == SCREEN_CLOCK_OFF_SECONDS;
     int value = timeout ? view->choices[field][lv_dropdown_get_selected(control)] :
-        (field == SCREEN_MODE || field == SCREEN_ROTATION || field == SCREEN_XIAOZHI_EMOJI) ? (int)lv_dropdown_get_selected(control) :
+        (field == SCREEN_MODE || field == SCREEN_CLOCK_STYLE || field == SCREEN_ROTATION || field == SCREEN_XIAOZHI_EMOJI) ? (int)lv_dropdown_get_selected(control) :
         (field == SCREEN_CLOCK_OFF || field >= SCREEN_CLOCK_24H ? lv_obj_has_state(control, LV_STATE_CHECKED) :
         lv_slider_get_value(control));
     view->draft.value[field] = value;
@@ -327,7 +328,7 @@ void ui_screen_settings_open(void)
         lv_obj_add_event_cb(control, system_changed, LV_EVENT_VALUE_CHANGED, (void *)(uintptr_t)field);
     }
     static const int low[] = {1, 1, 5, 0, 1, 15, 1, 0, 30, 0, 0, 0, 0, 0, 0, 0};
-    static const int high[] = {100, 100, 3600, 4, 120, 7200, 100, 1, 7200, 1, 1, 1, 1, 3, 1, 1};
+    static const int high[] = {100, 100, 3600, 4, 120, 7200, 100, 1, 7200, 1, 1, 1, DISPLAY_CLOCK_FLIP, 3, 1, 1};
     for (int i = 0; i < SCREEN_FIELD_COUNT; i++) {
         lv_obj_t *row = view->rows[i] = container(view->body, LV_FLEX_FLOW_COLUMN);
         lv_obj_set_style_bg_color(row, ui_style_control_bg(lv_color_hex(APP_UI_COLOR_TOPBAR_CHIP_BG)), 0);
@@ -342,6 +343,16 @@ void ui_screen_settings_open(void)
             char options[160];
             snprintf(options, sizeof(options), "%s\n%s", ui_i18n_get("xiaozhi.emoji_otto", "Otto Robot"),
                 ui_i18n_get("xiaozhi.emoji_classic", "Classic Emoji"));
+            lv_dropdown_set_options(control, options);
+            lv_dropdown_set_selected(control, view->draft.value[i]);
+            lv_obj_set_width(control, lv_pct(100)); lv_dropdown_set_symbol(control, NULL);
+            ui_text_set(control, UI_TEXT_LABEL, false);
+            ui_text_set(lv_dropdown_get_list(control), UI_TEXT_LABEL, false);
+        } else if (i == SCREEN_CLOCK_STYLE) {
+            control = lv_dropdown_create(row);
+            char options[256];
+            snprintf(options, sizeof(options), "%s\n%s\n%s", tr("clock_digital", "Digital clock"),
+                tr("clock_analog", "Analog clock"), tr("clock_flip", "Flip clock"));
             lv_dropdown_set_options(control, options);
             lv_dropdown_set_selected(control, view->draft.value[i]);
             lv_obj_set_width(control, lv_pct(100)); lv_dropdown_set_symbol(control, NULL);

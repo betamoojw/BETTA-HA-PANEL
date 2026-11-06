@@ -759,6 +759,9 @@
       "load_failed": "Ajustes no disponibles. Cierra e inténtalo de nuevo.",
       "preview": "Vista previa (30 s)",
       "clock_analog": "Reloj analógico",
+      "clock_style": "Estilo de reloj",
+      "clock_digital": "Reloj digital",
+      "clock_flip": "Reloj de paletas",
       "rotation": "Rotación de pantalla",
       "auto_rotation": "Rotación automática",
       "xiaozhi_emoji": "Estilo de emociones de IA"

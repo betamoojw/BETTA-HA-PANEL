@@ -17,6 +17,8 @@ int ui_display_brightness_test_percent(void);
 bool ui_display_protection_init(void);
 /* False means storage was busy/unavailable; keep the current policy and retry later. */
 bool ui_display_protection_reload(void);
+/* Refresh the surviving overlay after a theme, appearance, font or language rebuild. */
+bool ui_display_protection_refresh_appearance(void);
 void ui_display_protection_poll(void);
 bool ui_display_protection_is_off(void);
 bool ui_display_protection_is_pages(void);

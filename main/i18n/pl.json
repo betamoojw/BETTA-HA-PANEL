@@ -759,6 +759,9 @@
       "load_failed": "Ustawienia niedostępne. Zamknij i spróbuj ponownie.",
       "preview": "Podgląd (30 s)",
       "clock_analog": "Zegar analogowy",
+      "clock_style": "Styl zegara",
+      "clock_digital": "Zegar cyfrowy",
+      "clock_flip": "Zegar klapkowy",
       "rotation": "Obrót ekranu",
       "auto_rotation": "Obrót automatyczny",
       "xiaozhi_emoji": "Styl emocji AI"

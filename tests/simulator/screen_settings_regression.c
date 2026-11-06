@@ -241,8 +241,10 @@ int sim_screen_settings_regression(void)
         set_mode(1);
         lv_obj_update_layout(ui_screen_settings_root());
         check_bounds(ui_screen_settings_root(), ui_screen_settings_root());
-        lv_obj_add_state(control(SCREEN_CLOCK_ANALOG), LV_STATE_CHECKED);
-        lv_obj_send_event(control(SCREEN_CLOCK_ANALOG), LV_EVENT_VALUE_CHANGED, NULL);
+        lv_dropdown_set_selected(control(SCREEN_CLOCK_STYLE), DISPLAY_CLOCK_FLIP);
+        lv_obj_send_event(control(SCREEN_CLOCK_STYLE), LV_EVENT_VALUE_CHANGED, NULL);
+        CHECK(lv_obj_is_hidden(lv_obj_get_parent(control(SCREEN_CLOCK_DATE))));
+        CHECK(lv_obj_is_hidden(lv_obj_get_parent(control(SCREEN_CLOCK_SECONDS))));
         lv_obj_t *clock_off = control(SCREEN_CLOCK_OFF);
         lv_obj_remove_state(clock_off, LV_STATE_CHECKED);
         lv_obj_send_event(clock_off, LV_EVENT_VALUE_CHANGED, NULL);
@@ -254,13 +256,30 @@ int sim_screen_settings_regression(void)
         strcpy(settings.ui_language, "en"); strcpy(settings.ha_ws_url, "ws://example.invalid/api/websocket");
         settings.hardware_active_brightness_percent = 76;
         click_save(); CHECK(ui_screen_settings_root() == NULL);
-        CHECK(settings.display_clock.brightness == 17 && !settings.display_clock.off_enabled && settings.display_clock.analog);
+        CHECK(settings.display_clock.brightness == 17 && !settings.display_clock.off_enabled && settings.display_clock.style == DISPLAY_CLOCK_FLIP);
         CHECK(settings.hardware_active_brightness_percent == 76 && strcmp(settings.ui_language, "en") == 0);
         CHECK(strcmp(settings.ha_ws_url, "ws://example.invalid/api/websocket") == 0);
         ui_screen_settings_open(); CHECK(lv_slider_get_value(control(SCREEN_CLOCK_BRIGHTNESS)) == 17);
         set_mode(0); click_save(); CHECK(strcmp(settings.hardware_saver_mode, "disabled") == 0);
         ui_screen_settings_open(); set_mode(1); click_save();
-        CHECK(settings.display_clock.brightness == 17 && !settings.display_clock.off_enabled && settings.display_clock.analog);
+        CHECK(settings.display_clock.brightness == 17 && !settings.display_clock.off_enabled && settings.display_clock.style == DISPLAY_CLOCK_FLIP);
+        settings.display_clock.show_date = false; settings.display_clock.show_seconds = false;
+        settings.display_clock.format_24h = false;
+        for (int style = DISPLAY_CLOCK_DIGITAL; style <= DISPLAY_CLOCK_FLIP; style++) {
+            ui_screen_settings_open();
+            lv_dropdown_set_selected(control(SCREEN_CLOCK_STYLE), style);
+            lv_obj_send_event(control(SCREEN_CLOCK_STYLE), LV_EVENT_VALUE_CHANGED, NULL);
+            lv_obj_update_layout(ui_screen_settings_root());
+            check_bounds(ui_screen_settings_root(), ui_screen_settings_root());
+            CHECK(lv_obj_is_hidden(lv_obj_get_parent(control(SCREEN_CLOCK_DATE))) == (style == DISPLAY_CLOCK_FLIP));
+            CHECK(lv_obj_is_hidden(lv_obj_get_parent(control(SCREEN_CLOCK_SECONDS))) == (style == DISPLAY_CLOCK_FLIP));
+            click_save();
+            CHECK(settings.display_clock.style == (display_clock_style_t)style);
+            CHECK(!settings.display_clock.show_date && !settings.display_clock.show_seconds && !settings.display_clock.format_24h);
+            ui_screen_settings_open();
+            CHECK(lv_dropdown_get_selected(control(SCREEN_CLOCK_STYLE)) == (unsigned)style);
+            click_save();
+        }
         ui_screen_settings_open(); set_mode(2); fail_save = true; click_save();
         CHECK(ui_screen_settings_root() != NULL && strcmp(settings.hardware_saver_mode, "clock") == 0);
         fail_save = false; click_save(); CHECK(ui_screen_settings_root() == NULL);
@@ -285,21 +304,25 @@ int sim_screen_settings_regression(void)
     display_clock_t clock; display_clock_defaults(&clock);
     CHECK(!display_clock_is_off(&clock, 359999) && display_clock_is_off(&clock, 360000));
     clock.off_enabled = false; CHECK(!display_clock_is_off(&clock, 4000000));
-    const char *bad[] = {"[]", "{\"brightness\":0}", "{\"show_date\":1}", "{\"start_seconds\":15.5}"};
+    const char *bad[] = {"[]", "{\"brightness\":0}", "{\"show_date\":1}", "{\"start_seconds\":15.5}",
+        "{\"brightness\":17,\"style\":\"unknown\"}", "{\"style\":1}", "{\"style\":null}", "{\"analog\":1}"};
     for (unsigned i = 0; i < sizeof(bad) / sizeof(bad[0]); i++) {
         cJSON *json = cJSON_Parse(bad[i]); display_clock_t before = clock;
         CHECK(!display_clock_parse(json, &clock) && display_clock_equal(&clock, &before)); cJSON_Delete(json);
     }
-    CHECK(!clock.analog);
+    CHECK(clock.style == DISPLAY_CLOCK_DIGITAL);
     cJSON *patch = cJSON_Parse("{\"analog\":true}");
-    CHECK(display_clock_parse(patch, &clock) && clock.analog); cJSON_Delete(patch);
-    patch = cJSON_Parse("{\"analog\":1}");
-    CHECK(!display_clock_parse(patch, &clock) && clock.analog); cJSON_Delete(patch);
+    CHECK(display_clock_parse(patch, &clock) && clock.style == DISPLAY_CLOCK_ANALOG); cJSON_Delete(patch);
+    patch = cJSON_Parse("{\"analog\":false}");
+    CHECK(display_clock_parse(patch, &clock) && clock.style == DISPLAY_CLOCK_DIGITAL); cJSON_Delete(patch);
+    patch = cJSON_Parse("{\"style\":\"flip\",\"analog\":true}");
+    CHECK(display_clock_parse(patch, &clock) && clock.style == DISPLAY_CLOCK_FLIP); cJSON_Delete(patch);
     patch = cJSON_CreateObject(); CHECK(display_clock_write(patch, &clock));
+    CHECK(cJSON_IsFalse(cJSON_GetObjectItemCaseSensitive(cJSON_GetObjectItemCaseSensitive(patch, "clock"), "analog")));
     display_clock_t roundtrip; display_clock_defaults(&roundtrip);
     CHECK(display_clock_parse(cJSON_GetObjectItemCaseSensitive(patch, "clock"), &roundtrip));
     CHECK(display_clock_equal(&clock, &roundtrip)); cJSON_Delete(patch);
-    patch = cJSON_Parse("{}"); CHECK(display_clock_parse(patch, &clock) && clock.analog); cJSON_Delete(patch);
+    patch = cJSON_Parse("{}"); CHECK(display_clock_parse(patch, &clock) && clock.style == DISPLAY_CLOCK_FLIP); cJSON_Delete(patch);
     struct tm time = {.tm_year=126, .tm_mon=9, .tm_mday=24, .tm_hour=0, .tm_min=5, .tm_sec=7};
     char text[32], date[32]; display_clock_format(&clock, &time, text, sizeof(text), date, sizeof(date));
     CHECK(strcmp(text, "00:05:07") == 0 && strcmp(date, "2026-10-24") == 0);

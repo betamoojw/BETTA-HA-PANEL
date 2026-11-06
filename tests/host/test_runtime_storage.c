@@ -112,8 +112,42 @@ static void expect_old(void)
     assert(strcmp(s.ha_ws_url,"ws://old/api") == 0); assert(strcmp(s.ha_access_token,"old-token") == 0);
     assert(strcmp(s.wifi_password,"old-wifi") == 0); assert(strcmp(s.mqtt_password,"old-mqtt") == 0);
 }
+
+static void check_clock_persistence(void)
+{
+    runtime_settings_t settings, loaded;
+    for (int analog = 0; analog < 2; analog++) {
+        baseline();
+        snprintf(public_file, sizeof(public_file),
+            "{\"hardware\":{\"saver_mode\":\"clock\",\"clock\":{\"analog\":%s,"
+            "\"format_24h\":false,\"show_date\":false,\"show_seconds\":false,\"brightness\":17}}}",
+            analog ? "true" : "false");
+        assert(runtime_settings_load(&settings) == ESP_OK);
+        assert(settings.display_clock.style == (analog ? DISPLAY_CLOCK_ANALOG : DISPLAY_CLOCK_DIGITAL));
+        assert(runtime_settings_save(&settings) == ESP_OK);
+        assert(runtime_settings_load(&loaded) == ESP_OK);
+        assert(display_clock_equal(&settings.display_clock, &loaded.display_clock));
+        for (int style = DISPLAY_CLOCK_DIGITAL; style <= DISPLAY_CLOCK_FLIP; style++) {
+            settings.display_clock.style = (display_clock_style_t)style;
+            for (int enabled = 0; enabled < 2; enabled++) {
+                strcpy(settings.hardware_saver_mode, enabled ? "clock" : "disabled");
+                assert(runtime_settings_save(&settings) == ESP_OK);
+                assert(runtime_settings_load(&loaded) == ESP_OK);
+                assert(display_clock_equal(&settings.display_clock, &loaded.display_clock));
+                assert(strcmp(loaded.hardware_saver_mode, settings.hardware_saver_mode) == 0);
+                assert(!loaded.display_clock.format_24h && !loaded.display_clock.show_date && !loaded.display_clock.show_seconds);
+                assert(loaded.display_clock.brightness == 17);
+                assert(strcmp(layout_file, "{\"version\":1,\"pages\":[]}") == 0);
+                assert(strcmp(loaded.ha_access_token, "old-token") == 0);
+            }
+        }
+    }
+    puts("clock storage: legacy migration and 12 style/disable/re-enable persistence round trips passed");
+}
+
 int main(void)
 {
+    check_clock_persistence();
     runtime_settings_t next = changed(), loaded;
     unsigned cases = 0;
     assert(next.ui_page_animations); /* new installations and legacy settings */

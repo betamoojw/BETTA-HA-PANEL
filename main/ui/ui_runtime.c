@@ -1369,6 +1369,7 @@ static esp_err_t ui_runtime_apply_layout(const char *layout_json, const runtime_
     ui_runtime_apply_all_states();
     const int64_t states_us = esp_timer_get_time() - states_start_us;
     ui_runtime_refresh_topbar();
+    if (!ui_display_protection_refresh_appearance()) build_err = ESP_ERR_NO_MEM;
     display_unlock();
     ui_runtime_log_build_profile(built_us, shown_us, states_us, esp_timer_get_time() - build_start_us);
     ESP_LOGI(TAG_UI, "Layout loaded: %u widgets", (unsigned)s_widget_count);

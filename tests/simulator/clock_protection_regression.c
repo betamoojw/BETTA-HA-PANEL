@@ -7,6 +7,7 @@ static uint32_t test_ms = 1000;
 static int64_t test_time(void) { return (int64_t)test_ms * 1000; }
 #define esp_timer_get_time test_time
 #include "../../main/ui/ui_display_protection.c"
+#include "ui/theme/ui_style_registry.h"
 
 static runtime_settings_t saved;
 static int brightness = 60, wakes;
@@ -16,6 +17,7 @@ bool ui_reply_font_available(void) { return false; }
 lv_font_t *ui_reply_font_create(int px) { (void)px; return NULL; }
 const lv_font_t *mdi_font_weather(void) { return LV_FONT_DEFAULT; }
 const char *ui_i18n_get(const char *key, const char *fallback) { (void)key; return fallback; }
+esp_err_t theme_store_load_custom(const char *id, theme_entry_t *out) { (void)id; (void)out; return ESP_ERR_NOT_FOUND; }
 esp_err_t runtime_settings_load(runtime_settings_t *out) { *out = saved; return storage_busy ? ESP_ERR_TIMEOUT : ESP_OK; }
 void runtime_settings_set_defaults(runtime_settings_t *out) { *out = saved; }
 bool night_mode_active(void) { return night; }
@@ -40,7 +42,7 @@ static void advance(uint32_t ms)
 
 static void check_digital_layout(int width, int height)
 {
-    saved.display_clock.analog = false;
+    saved.display_clock.style = DISPLAY_CLOCK_DIGITAL;
     saved.display_clock.off_enabled = false;
     int instances = 0;
     for (int pass = 0; pass < 2; ++pass) {
@@ -82,9 +84,87 @@ static void check_digital_layout(int width, int height)
     ui_fonts_set_user_step(0);
 }
 
+static unsigned timer_count(void)
+{
+    unsigned count = 0;
+    for (lv_timer_t *timer = lv_timer_get_next(NULL); timer; timer = lv_timer_get_next(timer)) count++;
+    return count;
+}
+
+static void check_flip_layout(int width, int height)
+{
+    saved.display_clock.style = DISPLAY_CLOCK_FLIP;
+    saved.display_clock.off_enabled = false;
+    saved.display_clock.show_date = false; saved.display_clock.show_seconds = false;
+    assert(ui_display_protection_reload());
+    unsigned timers = timer_count();
+    const char *themes[] = {"dark_v2", "light", "black", "contrast"};
+    for (int format = 0; format < 2; format++) {
+        saved.display_clock.format_24h = format != 0;
+        assert(ui_display_protection_reload()); advance(15000);
+        for (unsigned theme = 0; theme < sizeof(themes) / sizeof(themes[0]); theme++) {
+            assert(theme_palette_activate_by_id(themes[theme]) == ESP_OK);
+            theme_default_rebuild_styles();
+            for (int style = UI_STYLE_FLAT; style <= UI_STYLE_MATTE; style++) {
+                ui_style_set((ui_style_kind_t)style);
+                uint32_t activity = s_last_activity_ms;
+                assert(ui_display_protection_refresh_appearance());
+                assert(s_last_activity_ms == activity && s_state == SAVER_CLOCK && brightness == 17);
+                assert(s_flip_clock && timer_count() == timers + 1 && lv_obj_is_hidden(s_clock_group));
+                assert(lv_color_eq(lv_obj_get_style_bg_color(s_overlay, 0), ui_style_page_bg(lv_color_hex(APP_UI_COLOR_CONTENT_BG))));
+                lv_obj_t *group = lv_obj_get_child(s_flip_clock, 0);
+                struct tm sample = {.tm_year=126,.tm_mon=10,.tm_mday=6,.tm_wday=5,.tm_hour=20,.tm_min=58,.tm_sec=36};
+                ui_flip_clock_update(s_flip_clock, &sample, false);
+                assert(!strcmp(lv_label_get_text(lv_obj_get_child(group, 0)), "Friday, 2026-11-06"));
+                assert(lv_obj_is_hidden(lv_obj_get_child(group, 1)) == (format != 0));
+                assert(!strcmp(lv_label_get_text(lv_obj_get_child(group, 1)), "PM"));
+                const char *digits = format ? "205836" : "085836";
+                for (unsigned i = 0; i < 6; i++) {
+                    lv_obj_t *label = lv_obj_get_child(lv_obj_get_child(lv_obj_get_child(group, 4+i), 0), 0);
+                    assert(lv_label_get_text(label)[0] == digits[i]);
+                    assert(lv_color_eq(lv_obj_get_style_text_color(label, 0), theme_default_color_text_primary()));
+                }
+                lv_obj_update_layout(s_overlay);
+                lv_area_t before; lv_obj_get_coords(group, &before);
+                assert(abs(before.x1 + before.x2 - (width-1)) <= 2);
+                assert(abs(before.y1 + before.y2 - (height-1)) <= 2);
+                assert(before.x1 >= 0 && before.y1 >= 0 && before.x2 < width && before.y2 < height);
+                for (int minute = 0; minute < 3; minute++) {
+                    advance(60000);
+                    lv_area_t after; lv_obj_get_coords(group, &after);
+                    assert(before.x1 == after.x1 && before.y1 == after.y1 && before.x2 == after.x2 && before.y2 == after.y2);
+                }
+                sample.tm_sec++; ui_flip_clock_update(s_flip_clock, &sample, true);
+                assert(lv_anim_count_running() > 0);
+            }
+        }
+        /* A complete touch dismisses only the overlay and releases its timers/animations. */
+        lv_obj_send_event(s_overlay, LV_EVENT_PRESSED, NULL); advance(1);
+        assert(ui_display_protection_is_active());
+        lv_obj_send_event(s_overlay, LV_EVENT_RELEASED, NULL);
+        assert(!ui_display_protection_is_active() && !s_flip_clock && timer_count() == timers && lv_anim_count_running() == 0);
+        assert(ui_display_protection_refresh_appearance() && !s_flip_clock);
+    }
+    saved.display_clock.off_enabled = true;
+    assert(ui_display_protection_reload()); advance(15000);
+    assert(s_flip_clock); advance(29999);
+    assert(ui_display_protection_refresh_appearance()); /* Theme rebuild must not extend the deadline. */
+    advance(1);
+    assert(ui_display_protection_is_off() && !s_flip_clock && brightness == 0 && timer_count() == timers);
+    assert(lv_color_eq(lv_obj_get_style_bg_color(s_overlay, 0), lv_color_black()));
+    saved.display_clock.off_enabled = false;
+    assert(ui_display_protection_reload()); advance(15000);
+    night = true; advance(1);
+    assert(ui_display_protection_is_off() && !s_flip_clock && brightness == 0);
+    night = false;
+    assert(!saved.display_clock.show_date && !saved.display_clock.show_seconds);
+    assert(ui_display_protection_reload());
+}
+
 static void snapshot(const char *path, int width, int height)
 {
-    lv_obj_center(s_clock_group); lv_obj_update_layout(s_overlay);
+    if (!s_flip_clock) lv_obj_center(s_clock_group);
+    lv_obj_update_layout(s_overlay);
     lv_draw_buf_t *shot = lv_snapshot_take(s_overlay, LV_COLOR_FORMAT_RGB888);
     assert(shot);
     FILE *file = fopen(path, "wb"); assert(file);
@@ -131,7 +211,7 @@ int main(int argc, char **argv)
         lv_area_t rect; lv_obj_get_coords(s_clock_group, &rect);
         assert(rect.x1 >= 0 && rect.y1 >= 0 && rect.x2 < width && rect.y2 < height);
     }
-    saved.display_clock.analog = true; saved.display_clock.show_seconds = true;
+    saved.display_clock.style = DISPLAY_CLOCK_ANALOG; saved.display_clock.show_seconds = true;
     saved.display_clock.show_date = true; saved.display_clock.off_enabled = true;
     ui_display_protection_reload(); advance(15000);
     assert(!lv_obj_is_hidden(s_clock_dial) && lv_obj_is_hidden(s_clock_time));
@@ -158,19 +238,24 @@ int main(int argc, char **argv)
     strcpy(saved.hardware_saver_mode, "disabled"); ui_display_protection_reload();
     advance(300000); assert(!ui_display_protection_is_active());
     strcpy(saved.hardware_saver_mode, "clock"); check_digital_layout(width, height);
+    check_flip_layout(width, height);
     if (argc > 3) {
-        saved.display_clock.analog = argc < 5 || !strcmp(argv[4], "analog");
+        saved.display_clock.style = argc < 5 || !strcmp(argv[4], "analog") ? DISPLAY_CLOCK_ANALOG :
+            (!strcmp(argv[4], "flip") ? DISPLAY_CLOCK_FLIP : DISPLAY_CLOCK_DIGITAL);
+        assert(theme_palette_activate_by_id(argc > 5 ? argv[5] : "dark_v2") == ESP_OK);
+        theme_default_rebuild_styles(); ui_style_set(ui_style_from_name(argc > 6 ? argv[6] : "flat"));
         saved.display_clock.show_date = true;
         saved.display_clock.show_seconds = argc < 5 || strcmp(argv[4], "short");
-        saved.display_clock.format_24h = argc < 5 || strcmp(argv[4], "12");
+        saved.display_clock.format_24h = saved.display_clock.style != DISPLAY_CLOCK_FLIP && (argc < 5 || strcmp(argv[4], "12"));
         assert(ui_display_protection_reload()); advance(15000);
-        struct tm sample = {.tm_year=126, .tm_mon=9, .tm_mday=26, .tm_hour=20, .tm_min=58, .tm_sec=36};
+        struct tm sample = {.tm_year=126, .tm_mon=9, .tm_mday=26, .tm_wday=1, .tm_hour=20, .tm_min=58, .tm_sec=36};
         char text[32], date[32];
         display_clock_format(&saved.display_clock, &sample, text, sizeof(text), date, sizeof(date));
         lv_label_set_text(s_clock_time, text); lv_label_set_text(s_clock_date, date);
         ui_analog_clock_update(s_clock_dial, &sample, saved.display_clock.show_seconds);
+        if (s_flip_clock) ui_flip_clock_update(s_flip_clock, &sample, false);
         snapshot(argv[3], width, height);
     }
-    printf("Clock protection %dx%d: real-font sizing, formats, movement, timing, wake and bounded preview passed\n", width, height);
+    printf("Clock protection %dx%d: digital/analog/flip sizing, formats, fixed centre, themes, movement, timing, wake and cleanup passed\n", width, height);
     lv_deinit(); return 0;
 }

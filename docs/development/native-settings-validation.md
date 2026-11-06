@@ -18,6 +18,45 @@ the 30-second preview deadline. Both tests are registered with CTest.
 Clock checks use the real Poppins font at six geometries, standard/largest text and
 all date/seconds/12-hour combinations, including movement bounds and cache reuse.
 
+Flip protection additionally checks fixed centring across minute boundaries,
+four themes/appearances, 12/24-hour formatting, mandatory weekday/date/seconds,
+theme refresh without extending the off deadline, and timer/animation cleanup.
+Native settings checks cover all three styles, legacy analog migration and retained
+options. Run `python tools/check_clock_editor.py` with Playwright/Chromium for real
+browser save/reload/disable/re-enable events and seven-language 1440/390 px bounds.
+`--browser <executable>` selects an installed browser; `--output <directory>` saves captures.
+The host runtime-storage test checks legacy digital/analog migration through the full
+settings save/load path, all styles across disable/re-enable, retained 12-hour/date/seconds
+preferences and unchanged layout/credentials.
+
+The 2026-11-06 COM24 acceptance used the Waveshare ESP32-P4-WIFI6-Touch-LCD-10.1,
+revision 3.2, ESP-IDF 6.1, with the 6,656,624-byte application SHA256
+`c0f1b7c3833622ddcd36bbfc7cea6e8e7fd59238018dd23b08b9a7bcc48a2ea2` and ELF SHA256
+`945522baf7c09f19c89d89604165a6e56455dafcdae5d38de7b2bfa89d18c0a2`.
+The running source stamp was `0930affe-dirty`, Nov 6 2026 19:38:02. Application-only
+write/readback passed; protected metadata/NVS, retained-crash storage and complete
+LittleFS checksums were unchanged before boot. OTA stayed valid and HA connected.
+Native and web style selection/save/reload passed. LVGL captures showed fixed-centre
+Glow flip clocks in Dark and Light, advancing seconds, weekday/date and 12-hour PM.
+All-hidden pages showed the default clock; restoring one and then all pages restored
+content/navigation. All eight pages and 35 widgets matched the saved layout exactly.
+Original analog style, 60-second start, 300-second display duration, enabled screen-off,
+12-hour format and other device settings were restored. No test layout was loaded.
+There was no graph widget on this panel: storage checksums establish preservation
+across flashing, while graph-history hide/restore coverage remains host-only.
+The owner confirmed normal physical display, fixed centring and touch wake.
+The bounded run reached 860 seconds without an unexpected reboot or new coredump;
+minimum free stacks were 7,544 bytes for HTTP, 12,976 for LVGL and 8,640 for the UI task.
+Presence wake stayed enabled. Pre-existing LVGL-lock and JPEG-decode messages also
+occurred in this run; it was not an error-free log or a stress test. Captures alone
+do not establish physical framebuffer/touch behavior. The subsequent pre-commit
+review changes tests/documentation only and does not rebuild or reflash this image.
+Review host checks passed 12 clock persistence round trips, 218 counted storage
+cases including fault injection, 522 backup/layout checks and graph-history storage/merge regressions.
+The existing 511 editor tests and 13 affected CTest cases remain applicable to the
+unchanged firmware/editor implementation; browser checks additionally verify exact
+translated style labels and retained hidden values through disable/re-enable.
+
 On 2026-10-26 COM24 ran the large digital clock build `45ef89dd-dirty` (ELF `e0680192`).
 App-only stub write/readback and protected-storage checks passed; source and valid OTA matched.
 The owner confirmed clear time/date, advancing seconds, touch wake, brightness and page switching.

@@ -51,7 +51,8 @@ The audit checks opaque card backgrounds, inherited text, screen bounds, nonzero
 (contrast below 1.5 against the composited ancestor backgrounds). Non-scrolling labels must remain inside their card;
 scrolling content may extend beyond it. This is a regression guard, not accessibility certification or a pixel
 assessment of gradients/images. Review rendered views for overlap, clipping, scrolling and comfortable reading.
-Camera fullscreen and display-protection overlays use separate explicit black-background contracts.
+Camera fullscreen and display-protection overlays have separate background contracts:
+the flip clock follows the system palette; other opaque protection views use black.
 
 ## Test clocks
 

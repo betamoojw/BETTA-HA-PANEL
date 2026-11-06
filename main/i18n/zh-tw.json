@@ -759,6 +759,9 @@
       "load_failed": "暫時無法讀取設定，請關閉後重試。",
       "preview": "預覽（30 秒）",
       "clock_analog": "指針時鐘",
+      "clock_style": "時鐘樣式",
+      "clock_digital": "數字時鐘",
+      "clock_flip": "翻頁時鐘",
       "rotation": "螢幕旋轉",
       "auto_rotation": "自動旋轉",
       "xiaozhi_emoji": "AI 表情樣式"

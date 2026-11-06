@@ -44,21 +44,26 @@ Notification sounds are muted by the same schedule, see [Panel sound](notificati
 
 ## Clock screensaver
 
-Choose **Clock** under **Settings → Display → When idle**, then enable
-**Analog clock** for a minimal dial, or leave it off for the digital clock.
+Choose **Clock** under **Settings → Display → When idle**, then choose
+**Digital clock**, **Analog clock** or **Flip clock** from **Clock style**.
 The same choice is available on the panel under **System settings**.
-Existing installations keep their digital clock until changed.
+Existing installations keep their saved digital or analog style until changed.
 Digital time uses large digits sized to the screen and selected format. It fits
 landscape, portrait and square displays, including seconds and AM/PM; the date
 stays smaller below the time. Turning seconds off gives the digits more room.
 
-Both styles use the configured local time zone and share the idle delay,
-brightness, optional date, seconds display, automatic screen-off and wake gesture.
+The flip clock stays centred, follows the system colour theme and appearance,
+and always shows hours, minutes, seconds, weekday and date. Its seconds/date
+switches are hidden; their saved values return when choosing digital or analog.
+
+All three styles use the configured local time zone and share the idle delay,
+brightness, automatic screen-off and wake gesture. Digital and analog clocks
+move periodically to reduce static pixels and offer optional seconds and date.
 For the analog dial, **Show seconds** controls the coral second hand. The
-12/24-hour preference controls the digital clock, header and the default
+12/24-hour preference controls the digital and flip clocks, header and the default
 [flip clock shown when no pages are visible](pages.md#navigation-and-limits);
 analog hands always use a 12-hour dial. Before time is synchronised the dial
-has no hands. It moves periodically within the screen to reduce static pixels.
+has no hands.
 Night mode retains priority. Turning the clock off preserves its saved options.
 
 ## Display protection

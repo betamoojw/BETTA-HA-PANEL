@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LicenseRef-FNCL-1.1 | Copyright (c) 2026 andre68723 */
 const CLOCK_SETTINGS = [
-  ["Analog", "analog", false, null, null, "clock_analog"],
   ["Start", "start_seconds", 60, 15, 7200, "clock_start"],
   ["Brightness", "brightness", 5, 1, 100, "clock_brightness"],
   ["Off", "off_enabled", true, null, null, "clock_off"],
@@ -9,8 +8,11 @@ const CLOCK_SETTINGS = [
   ["Seconds", "show_seconds", true, null, null, "clock_seconds"],
   ["Date", "show_date", true, null, null, "clock_date"],
 ];
+const CLOCK_STYLES = ["digital", "analog", "flip"];
 
 function fillClockSettings(clock = {}) {
+  if (el.settingsClockStyle) el.settingsClockStyle.value = CLOCK_STYLES.includes(clock.style) ?
+    clock.style : (clock.analog === true ? "analog" : "digital");
   CLOCK_SETTINGS.forEach(([id, key, fallback, min, max]) => {
     const control = el[`settingsClock${id}`];
     if (!control) return;
@@ -21,26 +23,32 @@ function fillClockSettings(clock = {}) {
 }
 
 function readClockSettings() {
-  return Object.fromEntries(CLOCK_SETTINGS.map(([id, key, fallback, min, max]) => {
+  const style = CLOCK_STYLES.includes(el.settingsClockStyle?.value) ? el.settingsClockStyle.value : "digital";
+  return {style, analog: style === "analog", ...Object.fromEntries(CLOCK_SETTINGS.map(([id, key, fallback, min, max]) => {
     const control = el[`settingsClock${id}`];
     return [key, min == null ? (control?.checked ?? fallback) :
       clamp(Math.round(Number(control?.value || fallback)), min, max)];
-  }));
+  }))};
 }
 
 function updateClockSettingsVisibility() {
   if (el.settingsClockFields) el.settingsClockFields.hidden = el.settingsSaverMode?.value !== "clock";
   if (el.settingsClockOffSecondsRow) el.settingsClockOffSecondsRow.hidden = !el.settingsClockOff?.checked;
+  const flip = el.settingsClockStyle?.value === "flip";
+  if (el.settingsClockSecondsRow) el.settingsClockSecondsRow.hidden = flip;
+  if (el.settingsClockDateRow) el.settingsClockDateRow.hidden = flip;
 }
 
 function bindClockSettings() {
-  CLOCK_SETTINGS.forEach(([id]) => el[`settingsClock${id}`]?.addEventListener("change", () => {
+  ["Style", ...CLOCK_SETTINGS.map(([id]) => id)].forEach(id => el[`settingsClock${id}`]?.addEventListener("change", () => {
     updateClockSettingsVisibility();
     pushHardwareLive();
   }));
 }
 
 function translateClockSettings() {
+  setTextById("settingsClockStyleLabel", "settings.screen.clock_style");
+  CLOCK_STYLES.forEach(style => setSelectOptionText(el.settingsClockStyle, style, `settings.screen.clock_${style}`));
   CLOCK_SETTINGS.forEach(([id, , , , , key]) => setTextById(`settingsClock${id}Label`, `settings.screen.${key}`));
   setSelectOptionText(el.settingsSaverMode, "clock", "settings.screen.clock");
 }

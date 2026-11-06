@@ -3,10 +3,17 @@
  */
 #include "settings/display_clock.h"
 #include <stdio.h>
+#include <string.h>
 
 void display_clock_defaults(display_clock_t *clock)
 {
-    *clock = (display_clock_t){60, 5, true, 300, true, true, true, false};
+    *clock = (display_clock_t){60, 5, true, 300, true, true, true, DISPLAY_CLOCK_DIGITAL};
+}
+
+const char *display_clock_style_name(display_clock_style_t style)
+{
+    static const char *const names[] = {"digital", "analog", "flip"};
+    return style >= DISPLAY_CLOCK_DIGITAL && style <= DISPLAY_CLOCK_FLIP ? names[style] : names[0];
 }
 
 static bool number(const cJSON *object, const char *key, int *out, int low, int high)
@@ -39,8 +46,21 @@ bool display_clock_parse(const cJSON *object, display_clock_t *clock)
         !boolean(object, "off_enabled", &next.off_enabled) ||
         !boolean(object, "format_24h", &next.format_24h) ||
         !boolean(object, "show_seconds", &next.show_seconds) ||
-        !boolean(object, "show_date", &next.show_date) ||
-        !boolean(object, "analog", &next.analog)) return false;
+        !boolean(object, "show_date", &next.show_date)) return false;
+    /* Old settings/editors used a boolean. An explicit style takes precedence. */
+    bool analog = next.style == DISPLAY_CLOCK_ANALOG;
+    if (!boolean(object, "analog", &analog)) return false;
+    const cJSON *style = cJSON_GetObjectItemCaseSensitive(object, "style");
+    if (style != NULL) {
+        if (!cJSON_IsString(style)) return false;
+        int choice;
+        for (choice = DISPLAY_CLOCK_DIGITAL; choice <= DISPLAY_CLOCK_FLIP; choice++)
+            if (!strcmp(style->valuestring, display_clock_style_name((display_clock_style_t)choice))) break;
+        if (choice > DISPLAY_CLOCK_FLIP) return false;
+        next.style = (display_clock_style_t)choice;
+    } else if (cJSON_GetObjectItemCaseSensitive(object, "analog") != NULL) {
+        next.style = analog ? DISPLAY_CLOCK_ANALOG : DISPLAY_CLOCK_DIGITAL;
+    }
     *clock = next;
     return true;
 }
@@ -56,14 +76,15 @@ bool display_clock_write(cJSON *hardware, const display_clock_t *clock)
         cJSON_AddBoolToObject(object, "format_24h", clock->format_24h) &&
         cJSON_AddBoolToObject(object, "show_seconds", clock->show_seconds) &&
         cJSON_AddBoolToObject(object, "show_date", clock->show_date) &&
-        cJSON_AddBoolToObject(object, "analog", clock->analog);
+        cJSON_AddStringToObject(object, "style", display_clock_style_name(clock->style)) &&
+        cJSON_AddBoolToObject(object, "analog", clock->style == DISPLAY_CLOCK_ANALOG);
 }
 
 bool display_clock_equal(const display_clock_t *a, const display_clock_t *b)
 {
     return a->start_seconds == b->start_seconds && a->brightness == b->brightness &&
         a->off_enabled == b->off_enabled && a->off_seconds == b->off_seconds &&
-        a->format_24h == b->format_24h && a->show_seconds == b->show_seconds && a->show_date == b->show_date && a->analog == b->analog;
+        a->format_24h == b->format_24h && a->show_seconds == b->show_seconds && a->show_date == b->show_date && a->style == b->style;
 }
 
 bool display_clock_is_off(const display_clock_t *clock, uint32_t idle_ms)

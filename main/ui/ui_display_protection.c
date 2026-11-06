@@ -8,6 +8,9 @@
 #include "ui/ui_display_protection.h"
 #include "util/user_activity.h"
 #include "ui/ui_analog_clock.h"
+#include "ui/ui_flip_clock.h"
+#include "ui/theme/theme_default.h"
+#include "ui/theme/ui_style.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -55,6 +58,7 @@ static lv_obj_t *s_icon;
 static lv_obj_t *s_temperature;
 static lv_obj_t *s_condition;
 static lv_obj_t *s_clock_group, *s_clock_time, *s_clock_date, *s_clock_dial;
+static lv_obj_t *s_flip_clock;
 static uint32_t s_last_clock_ms;
 static lv_obj_t *s_snow[4];
 static ha_state_t *s_weather_state; /* large HA attributes prefer PSRAM */
@@ -201,6 +205,29 @@ static bool weather_update(void)
     return true;
 }
 
+static void delete_flip_clock(void)
+{
+    if (s_flip_clock != NULL) lv_obj_delete(s_flip_clock);
+    s_flip_clock = NULL;
+}
+
+static bool prepare_flip_clock(void)
+{
+    if (s_flip_clock != NULL) return true;
+    s_flip_clock = ui_flip_clock_create(s_overlay, s_settings.clock.format_24h);
+    if (s_flip_clock == NULL) return false;
+    lv_obj_set_style_bg_color(s_overlay, ui_style_page_bg(lv_color_hex(APP_UI_COLOR_CONTENT_BG)), 0);
+    return true;
+}
+
+bool ui_display_protection_refresh_appearance(void)
+{
+    /* The top-layer overlay survives dashboard rebuilds. Refresh without
+     * restarting inactivity/off deadlines or keeping a hidden clock timer. */
+    delete_flip_clock();
+    return s_state != SAVER_CLOCK || s_settings.clock.style != DISPLAY_CLOCK_FLIP || prepare_flip_clock();
+}
+
 static void hide_overlay(void)
 {
     if (!s_ready || s_state == SAVER_ACTIVE) return;
@@ -214,6 +241,7 @@ static void hide_overlay(void)
     s_pages_cycled = false;
     for (size_t i = 0; i < 4; i++) lv_obj_set_hidden(s_snow[i], true);
     lv_obj_set_hidden(s_overlay, true);
+    delete_flip_clock();
     /* Present the dashboard while the backlight is still low, so waking
      * cannot briefly expose the previous black or weather frame at full brightness. */
     lv_display_t *display = lv_display_get_default();
@@ -242,7 +270,7 @@ static void clock_layout(void)
     lv_display_t *display = lv_display_get_default();
     int width = lv_display_get_horizontal_resolution(display);
     int height = lv_display_get_vertical_resolution(display);
-    bool analog = s_settings.clock.analog && s_clock_dial;
+    bool analog = s_settings.clock.style == DISPLAY_CLOCK_ANALOG && s_clock_dial;
     int diameter = LV_MIN(400, LV_MIN(width, height) * 2 / 3);
     int date_height = s_settings.clock.show_date ?
         lv_font_get_line_height(lv_obj_get_style_text_font(s_clock_date, 0)) + 16 : 0;
@@ -269,23 +297,29 @@ static void clock_layout(void)
 
 static void enter_state(saver_state_t next)
 {
+    bool flip = next == SAVER_CLOCK && s_settings.clock.style == DISPLAY_CLOCK_FLIP;
+    if (flip && !prepare_flip_clock()) return; /* Retry allocation on the next UI poll. */
     if (next == s_state) return;
+    if (!flip) {
+        delete_flip_clock();
+        lv_obj_set_style_bg_color(s_overlay, lv_color_black(), 0);
+    }
     __atomic_store_n(&s_state, next, __ATOMIC_RELAXED);
     __atomic_store_n(&s_overlay_active, true, __ATOMIC_RELAXED);
     lv_obj_set_hidden(s_overlay, false);
     lv_obj_move_foreground(s_overlay);
     lv_obj_set_style_bg_opa(s_overlay, next == SAVER_PAGES || next == SAVER_TEST ? LV_OPA_TRANSP : LV_OPA_COVER, 0);
-    lv_obj_set_hidden(s_clock_group, next != SAVER_CLOCK);
+    lv_obj_set_hidden(s_clock_group, next != SAVER_CLOCK || flip);
     if (next == SAVER_WEATHER) {
         for (size_t i = 0; i < 4; i++) lv_obj_set_hidden(s_snow[i], true);
         lv_obj_set_hidden(s_weather_group, false);
         saver_position(s_weather_group);
         display_set_brightness_percent(s_settings.hardware_saver_weather_brightness_percent);
     } else if (next == SAVER_CLOCK) {
-        clock_layout();
+        if (!flip) clock_layout();
         lv_obj_set_hidden(s_weather_group, true);
         for (size_t i = 0; i < 4; i++) lv_obj_set_hidden(s_snow[i], true);
-        saver_position(s_clock_group);
+        if (!flip) saver_position(s_clock_group);
         display_set_brightness_percent(s_settings.clock.brightness);
     } else if (next == SAVER_TEST) {
         lv_obj_set_hidden(s_weather_group, true);
@@ -427,7 +461,8 @@ void ui_display_protection_poll(void)
         target = SAVER_PAGES;
     }
     enter_state(target);
-    if ((s_state == SAVER_WEATHER || s_state == SAVER_CLOCK) && now - s_last_motion_ms >= 60000U) {
+    if ((s_state == SAVER_WEATHER || (s_state == SAVER_CLOCK && s_settings.clock.style != DISPLAY_CLOCK_FLIP)) &&
+        now - s_last_motion_ms >= 60000U) {
         saver_position(s_state == SAVER_CLOCK ? s_clock_group : s_weather_group);
         s_last_motion_ms = now;
     } else if (s_state == SAVER_OFF) {
@@ -437,7 +472,7 @@ void ui_display_protection_poll(void)
         s_last_page_ms = now;
         if (ui_pages_count() > 1) (void)ui_pages_next();
     }
-    if (s_state == SAVER_CLOCK && now - s_last_clock_ms >= 1000U) {
+    if (s_state == SAVER_CLOCK && s_settings.clock.style != DISPLAY_CLOCK_FLIP && now - s_last_clock_ms >= 1000U) {
         s_last_clock_ms = now;
         time_t timestamp = time(NULL);
         struct tm local;
@@ -446,7 +481,7 @@ void ui_display_protection_poll(void)
         display_clock_format(&s_settings.clock, local_time, text, sizeof(text), date, sizeof(date));
         lv_label_set_text(s_clock_time, text);
         lv_label_set_text(s_clock_date, date);
-        if (s_settings.clock.analog) ui_analog_clock_update(s_clock_dial, local_time, s_settings.clock.show_seconds);
+        if (s_settings.clock.style == DISPLAY_CLOCK_ANALOG) ui_analog_clock_update(s_clock_dial, local_time, s_settings.clock.show_seconds);
     }
 }
 

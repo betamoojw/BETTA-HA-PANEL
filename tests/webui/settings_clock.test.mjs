@@ -73,22 +73,39 @@ test("clock controls persist through their real event handlers without rebooting
 
 test("display reset includes hidden clock options and matches firmware defaults", () => {
   const run = setup();
-  run("fillClockSettings({brightness: 19, show_date: false}); resetDisplayDefaults()");
+  run("fillClockSettings({style: 'flip', brightness: 19, show_date: false}); resetDisplayDefaults()");
   assert.deepEqual(JSON.parse(run("JSON.stringify(puts.at(-1).hardware.clock)")), {
     start_seconds: 60, brightness: 5, off_enabled: true, off_seconds: 300,
-    format_24h: true, show_seconds: true, show_date: true, analog: false,
+    format_24h: true, show_seconds: true, show_date: true, style: "digital", analog: false,
   });
   assert.equal(run("puts.at(-1).hardware.saver_mode"), "disabled");
 });
 
-test("analog selection persists through events, reload and disabling the saver", () => {
+test("all clock styles persist through real events, reload and disabling without losing options", () => {
   const run = setup();
-  run("el.settingsSaverMode.value='clock'; el.settingsSaverMode.dispatch('change'); el.settingsClockAnalog.checked=true; el.settingsClockAnalog.dispatch('change')");
-  assert.equal(run("puts.at(-1).hardware.clock.analog"), true);
-  run("fillClockSettings(puts.at(-1).hardware.clock)");
-  assert.equal(run("el.settingsClockAnalog.checked"), true);
-  run("el.settingsSaverMode.value='disabled'; el.settingsSaverMode.dispatch('change'); el.settingsSaverMode.value='clock'; el.settingsSaverMode.dispatch('change')");
-  assert.equal(run("puts.at(-1).hardware.clock.analog"), true);
-  run("el.settingsClockAnalog.checked=false; el.settingsClockAnalog.dispatch('change')");
-  assert.equal(run("puts.at(-1).hardware.clock.analog"), false);
+  run("fillClockSettings({format_24h: false, show_seconds: false, show_date: false, brightness: 17, off_seconds: 600}); el.settingsSaverMode.value='clock'; el.settingsSaverMode.dispatch('change')");
+  for (const style of ["analog", "flip", "digital"]) {
+    run(`el.settingsClockStyle.value='${style}'; el.settingsClockStyle.dispatch('change')`);
+    assert.equal(run("puts.at(-1).hardware.clock.style"), style);
+    assert.equal(run("puts.at(-1).hardware.clock.analog"), style === "analog");
+    assert.equal(run("puts.at(-1).reboot"), false);
+    run("fillClockSettings(puts.at(-1).hardware.clock)");
+    assert.equal(run("el.settingsClockStyle.value"), style);
+    for (const row of ["Seconds", "Date"]) assert.equal(run(`el.settingsClock${row}Row.hidden`), style === "flip");
+    run("el.settingsSaverMode.value='disabled'; el.settingsSaverMode.dispatch('change'); fillClockSettings(puts.at(-1).hardware.clock); el.settingsSaverMode.value='clock'; el.settingsSaverMode.dispatch('change')");
+    assert.equal(run("puts.at(-1).hardware.clock.style"), style);
+    for (const key of ["format_24h", "show_seconds", "show_date"]) assert.equal(run(`puts.at(-1).hardware.clock.${key}`), false);
+    assert.equal(run("puts.at(-1).hardware.clock.brightness"), 17);
+    assert.equal(run("puts.at(-1).hardware.clock.off_seconds"), 600);
+  }
+});
+
+test("legacy analog settings migrate and an explicit style wins", () => {
+  const run = setup();
+  for (const [clock, expected] of [[{}, "digital"], [{analog:true}, "analog"], [{analog:false}, "digital"],
+    [{style:"flip", analog:true}, "flip"], [{style:"digital", analog:true}, "digital"]]) {
+    run(`fillClockSettings(${JSON.stringify(clock)})`);
+    assert.equal(run("el.settingsClockStyle.value"), expected);
+    assert.equal(run("readClockSettings().style"), expected);
+  }
 });

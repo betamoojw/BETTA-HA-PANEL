@@ -170,7 +170,8 @@ exports and are never returned by the editor API.
    wake phrase. Ask the assistant to count from one to twenty and let it finish.
 2. Ask it to count again. While it is speaking, say "Stop, what is two plus two?"
    Check that it changes to your question without treating its own reply as new speech.
-3. Say goodbye. Check that the popup closes without a connection error, then wake
+3. Ask what "bye bye" means and check that the reply does not close the popup.
+   Say goodbye. Check that the popup closes without a connection error, then wake
    it again and ask another question. Check that both frequency bars and speech resume.
 4. After an answer finishes, stay quiet for 30 seconds. Check the last-five-second
    hint and automatic close. In a second trial, speak during that hint and check
@@ -192,8 +193,9 @@ Save **Device status**, the panel log and any [crash reports](coredump.md) befor
 restarting. A real connection-fault diagnosis remains available after the next
 wake and normal closes; a later fault can replace it, so collect it promptly. Resetting
 assistant preferences or pairing again is not a routine connection-recovery step.
+Closing an error popup acknowledges the guidance without deleting that diagnosis.
 
-The [accepted firmware and recovery guide](development/xiaozhi-acceptance.md#restore-the-baseline)
+The [accepted firmware and recovery guide](development/assistant-acceptance.md#restore-the-baseline)
 describes returning to the locally retained image if a later firmware introduces a regression.
 
 ## Custom wake phrase
@@ -239,6 +241,11 @@ Noto Sans SC outlines, not separate regional Traditional Chinese glyph shapes.
 The browser uses its installed fonts.
 
 ## Validation limits
+
+The current local [f30122b8 acceptance baseline](development/assistant-acceptance.md)
+records the owner's 2026-11-06 COM24 acceptance of farewell intent, the 30-second
+audio-silence exit and countdown renewal, reawakening, duplex speech and touch.
+It preserves the tested image and exact ELF; the earlier 7ec2109 record below remains historical.
 
 The Waveshare COM24 trial exercised saved cloud pairing, manual speech,
 hands-free wake/reply, both emotion choices and idle auto-close. The owner

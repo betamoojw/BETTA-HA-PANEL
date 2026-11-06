@@ -95,6 +95,7 @@ nav = [
     { "Quality" = [
       { "Checks and device tests" = "development/testing.md" },
       { "Native settings validation" = "development/native-settings-validation.md" },
+      { "AI Assistant acceptance baseline" = "development/assistant-acceptance.md" },
       { "Xiaozhi acceptance baseline" = "development/xiaozhi-acceptance.md" },
       { "Page transitions" = "development/page-transitions.md" },
       { "Display rotation" = "development/display-rotation.md" },

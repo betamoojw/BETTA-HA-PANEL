@@ -41,6 +41,11 @@ port has a different role.
 
 ## Validation status and next checks
 
+The current local [AI Assistant acceptance baseline](../development/assistant-acceptance.md)
+freezes COM24 source `f30122b8`: farewell intent, 30-second audio-silence exit,
+countdown renewal, full duplex, reawakening, display and touch were accepted by
+the owner on 2026-11-06. It records later network-clock recovery separately.
+
 The 2026-11-06 COM24 [Xiaozhi acceptance baseline](../development/xiaozhi-acceptance.md)
 records the exact tested `7ec2109d` image, bounded voice results and recovery steps.
 It does not extend acceptance to other panel10 units or long-duration operation.

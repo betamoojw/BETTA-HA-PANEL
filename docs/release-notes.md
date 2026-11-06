@@ -29,6 +29,9 @@ freeing application space while retaining every image, setting and data partitio
   playback renew it; silent frames, text, queued audio and network messages do not.
   The backend owns closure so late updates cannot reopen an ended dialogue.
   Genuine connection faults retain diagnostics and recovery guidance.
+- The local [f30122b8 acceptance baseline](development/assistant-acceptance.md)
+  preserves the tested COM24 image, exact ELF and bounded voice/UI evidence,
+  including later clock recovery. The 7ec2109 archive remains unchanged.
 
 - The panel and web editor show recognized speech and replies in separate chat
   bubbles, with live segmented frequency bars derived from conversation audio.

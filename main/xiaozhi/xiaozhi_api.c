@@ -35,6 +35,14 @@ static esp_err_t get_status(httpd_req_t *req)
     cJSON_AddNumberToObject(j, "aec_processing_us", s.aec_processing_us);
     cJSON_AddNumberToObject(j, "capture_stack_free", s.capture_stack_free);
     cJSON_AddNumberToObject(j, "playback_stack_free", s.playback_stack_free);
+    cJSON_AddNumberToObject(j, "normal_closes", s.normal_closes);
+    cJSON_AddNumberToObject(j, "connection_errors", s.connection_errors);
+    cJSON_AddStringToObject(j, "connection_end", s.connection_end);
+    cJSON_AddNumberToObject(j, "connection_close_code", s.connection_close_code);
+    cJSON_AddNumberToObject(j, "connection_error_type", s.connection_error_type);
+    cJSON_AddNumberToObject(j, "connection_tls_error", s.connection_tls_error);
+    cJSON_AddNumberToObject(j, "connection_socket_errno", s.connection_socket_errno);
+    cJSON_AddNumberToObject(j, "connection_http_status", s.connection_http_status);
     cJSON_AddNumberToObject(j, "volume", s.volume);
     cJSON_AddNumberToObject(j, "wake_word", s.wake_config.word);
     cJSON_AddStringToObject(j, "wake_phrase", s.wake_config.phrase);

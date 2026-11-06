@@ -25,6 +25,7 @@
 #include "xiaozhi_audio.h"
 #include "xiaozhi_duplex.h"
 #include "xiaozhi_session.h"
+#include "xiaozhi_connection.h"
 #include "xiaozhi_wake.h"
 #include "xiaozhi_wake_words.h"
 #include "xiaozhi_custom_model_store.h"
@@ -53,7 +54,8 @@ static TaskHandle_t worker_task;
 static xiaozhi_status_t status = {.supported = true, .duplex_enabled = true, .volume = 50, .dialog_timeout = 30, .wake_config = {.phrase = XIAOZHI_WAKE_DEFAULT_PHRASE}};
 static char endpoint[256], token[1024], device[18], uuid[37], session[128];
 static esp_websocket_client_handle_t ws;
-static volatile bool connected, failed;
+static bool failed; /* Worker-owned audio/protocol failures. */
+static xiaozhi_connection_t connection; /* Protected by lock. */
 static uint8_t *rx;
 static size_t rx_len;
 static int rx_opcode;
@@ -70,6 +72,57 @@ static int64_t wake_last_loud;
 static xiaozhi_session_t stream;
 static xiaozhi_duplex_frame_t *duplex_frame;
 static bool audio_stopping;
+
+static xiaozhi_connection_t connection_snapshot(void)
+{
+    xSemaphoreTake(lock, portMAX_DELAY);
+    xiaozhi_connection_t value = connection;
+    xSemaphoreGive(lock);
+    return value;
+}
+static void connection_fail(xiaozhi_end_t reason)
+{
+    xSemaphoreTake(lock, portMAX_DELAY);
+    xiaozhi_connection_fail(&connection, reason);
+    xSemaphoreGive(lock);
+}
+static bool connection_can_send(void)
+{
+    xiaozhi_connection_t value = connection_snapshot();
+    return xiaozhi_connection_can_send(&value);
+}
+static void connection_reset(void)
+{
+    xSemaphoreTake(lock, portMAX_DELAY); connection = (xiaozhi_connection_t){0}; xSemaphoreGive(lock);
+    failed = false; rx_len = 0; rx_opcode = 0;
+}
+static bool send_packet(const void *data, int length, bool binary)
+{
+    if (!ws || !connection_can_send()) return false;
+    int sent = binary ? esp_websocket_client_send_bin(ws, data, length, pdMS_TO_TICKS(500)) :
+        esp_websocket_client_send_text(ws, data, length, pdMS_TO_TICKS(500));
+    xSemaphoreTake(lock, portMAX_DELAY);
+    xiaozhi_connection_send_result(&connection, sent, length);
+    xSemaphoreGive(lock);
+    return sent == length;
+}
+
+static void record_connection_end(void)
+{
+    xiaozhi_connection_t link = connection_snapshot();
+    if (link.end == XZ_END_NONE) return; /* An intentional local stop has no peer diagnosis. */
+    bool error = xiaozhi_connection_error(&link);
+    xSemaphoreTake(lock, portMAX_DELAY);
+    status.connection_close_code = link.close_code;
+    status.connection_error_type = link.error_type; status.connection_tls_error = link.tls_error;
+    status.connection_socket_errno = link.socket_errno; status.connection_http_status = link.http_status;
+    strlcpy(status.connection_end, xiaozhi_connection_reason(&link), sizeof(status.connection_end));
+    if (error) ++status.connection_errors; else ++status.normal_closes;
+    xSemaphoreGive(lock);
+    ESP_LOGI("xiaozhi", "Connection ended: %s code=%d type=%d tls=%d socket=%d http=%d",
+             xiaozhi_connection_reason(&link), link.close_code, link.error_type,
+             link.tls_error, link.socket_errno, link.http_status);
+}
 
 static void update_audio_status(void)
 {
@@ -169,6 +222,7 @@ static void drain_packets(bool preserve_mcp)
 
 static void disconnect_session(void)
 {
+    bool had_connection = ws != NULL;
     want_listen = auto_listen = idle_capture = false;
     conversation(false);
     knx_mcp_session_reset();
@@ -179,6 +233,7 @@ static void disconnect_session(void)
     audio_stopping = xiaozhi_duplex_stop() != ESP_OK;
     if (!audio_stopping) xiaozhi_audio_close();
     xiaozhi_session_reset(&stream, false);
+    xSemaphoreTake(lock, portMAX_DELAY); connection.stopping = true; xSemaphoreGive(lock);
     if (ws) { esp_websocket_client_stop(ws); esp_websocket_client_destroy(ws); ws = NULL; }
     drain_packets(false);
     free(rx); rx = NULL;
@@ -187,54 +242,78 @@ static void disconnect_session(void)
     free(pcm); pcm = NULL;
     free(encoded); encoded = NULL;
     free(duplex_frame); duplex_frame = NULL;
-    connected = ready = hello_sent = false;
+    ready = hello_sent = false;
     session[0] = 0;
     xSemaphoreTake(lock, portMAX_DELAY);
     status.listening = status.wake_ready = status.wake_running = false;
     status.duplex_active = status.speaking = false;
     xSemaphoreGive(lock);
     update_audio_status();
+    /* Stop/destroy joined every callback, including errors racing a local stop. */
+    if (had_connection) record_connection_end();
 }
 
 /* Event task only assembles bounded messages. The worker owns audio and JSON. */
 static void ws_event(void *arg, esp_event_base_t base, int32_t id, void *data)
 {
     (void)arg; (void)base;
-    if (id == WEBSOCKET_EVENT_CONNECTED) { connected = true; return; }
-    if (id == WEBSOCKET_EVENT_ERROR || id == WEBSOCKET_EVENT_DISCONNECTED) { failed = true; return; }
-    if (id != WEBSOCKET_EVENT_DATA) return;
     esp_websocket_event_data_t *e = data;
+    if (id != WEBSOCKET_EVENT_DATA || (e && e->op_code == 8)) {
+        xSemaphoreTake(lock, portMAX_DELAY);
+        if (id == WEBSOCKET_EVENT_CONNECTED) connection.connected = true;
+        else if (id == WEBSOCKET_EVENT_ERROR) {
+            xiaozhi_connection_fail(&connection, XZ_END_TRANSPORT);
+            if (e) {
+                connection.error_type = e->error_handle.error_type;
+                connection.http_status = e->error_handle.esp_ws_handshake_status_code;
+                if (connection.error_type == WEBSOCKET_ERROR_TYPE_TCP_TRANSPORT) {
+                    connection.tls_error = e->error_handle.esp_tls_stack_err;
+                    connection.socket_errno = e->error_handle.esp_transport_sock_errno;
+                }
+            }
+        } else if (id == WEBSOCKET_EVENT_DISCONNECTED)
+            xiaozhi_connection_fail(&connection, XZ_END_DISCONNECTED);
+        else if (id == WEBSOCKET_EVENT_FINISH) xiaozhi_connection_finished(&connection);
+        else if (id == WEBSOCKET_EVENT_CLOSED) xiaozhi_connection_close_code(&connection, e ? e->close_status_code : -1);
+        /* DATA precedes the SDK updating close_status_code; parse the wire payload. */
+        else if (id == WEBSOCKET_EVENT_DATA)
+            xiaozhi_connection_close_frame(&connection, e->data_ptr, e->data_len, e->payload_len, e->payload_offset, e->fin);
+        xSemaphoreGive(lock);
+        return;
+    }
+    if (!e) { connection_fail(XZ_END_LOCAL); return; }
     if (e->op_code >= 8) return;
     if (e->data_len < 0 || e->payload_offset < 0 || e->payload_len < 0 ||
         e->payload_len > MAX_FRAME || rx_len + (size_t)e->data_len > MAX_FRAME) {
-        failed = true; return;
+        connection_fail(XZ_END_LOCAL); return;
     }
     if (e->payload_offset == 0 && (e->op_code == 1 || e->op_code == 2)) {
         rx_len = 0; rx_opcode = e->op_code;
     }
-    if (!rx || (rx_opcode != 1 && rx_opcode != 2)) { failed = true; return; }
+    if (!rx || (rx_opcode != 1 && rx_opcode != 2)) { connection_fail(XZ_END_LOCAL); return; }
     memcpy(rx + rx_len, e->data_ptr, e->data_len); rx_len += e->data_len;
     if (!e->fin || e->payload_offset + e->data_len != e->payload_len) return;
     packet_t p = {.opcode = rx_opcode, .len = rx_len};
     p.data = heap_caps_malloc(rx_len + 1, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-    if (!p.data) { failed = true; return; }
+    if (!p.data) { connection_fail(XZ_END_LOCAL); return; }
     memcpy(p.data, rx, rx_len); p.data[rx_len] = 0; rx_len = 0; rx_opcode = 0;
-    if (xQueueSend(packets, &p, 0) != pdTRUE) { free(p.data); failed = true; }
+    if (xQueueSend(packets, &p, 0) != pdTRUE) { free(p.data); connection_fail(XZ_END_LOCAL); }
 }
 
 static bool send_text(const char *text)
 {
-    return ws && esp_websocket_client_send_text(ws, text, strlen(text), pdMS_TO_TICKS(500)) == (int)strlen(text);
+    return send_packet(text, (int)strlen(text), false);
 }
 
 static bool control(const char *type, const char *state)
 {
     cJSON *j = cJSON_CreateObject();
-    if (!j) return false;
+    if (!j) { failed = true; return false; }
     cJSON_AddStringToObject(j, "session_id", session);
     cJSON_AddStringToObject(j, "type", type);
     if (state) { cJSON_AddStringToObject(j, "state", state); cJSON_AddStringToObject(j, "mode", stream.realtime ? "realtime" : auto_listen ? "auto" : "manual"); }
     char *s = cJSON_PrintUnformatted(j); cJSON_Delete(j);
+    if (!s) failed = true;
     bool ok = s && send_text(s); free(s); return ok;
 }
 
@@ -268,7 +347,7 @@ static bool connect_session(void)
     esp_websocket_client_append_header(ws, "Client-Id", uuid);
     memset(auth, 0, sizeof(auth));
     esp_websocket_register_events(ws, WEBSOCKET_EVENT_ANY, ws_event, NULL);
-    failed = false; rx_len = 0; rx_opcode = 0;
+    connection_reset();
     deadline = esp_timer_get_time() + 15000000;
     if (esp_websocket_client_start(ws) != ESP_OK) goto error;
     set_state("connecting"); return true;
@@ -364,12 +443,12 @@ static void receive_mcp(const cJSON *message)
     const char *method = str(cJSON_GetObjectItemCaseSensitive(message, "payload"), "method");
     char *text = cJSON_PrintUnformatted(response);
     bool sent = text && send_text(text);
-    if (!sent) failed = true;
+    if (!text) failed = true;
     /* Log method names only, never arguments, credentials or session IDs. */
     const char *kind = !strcmp(method, "initialize") ? "initialize" :
         !strcmp(method, "tools/list") ? "tools/list" :
         !strcmp(method, "tools/call") ? "tools/call" : "other";
-    ESP_LOGI("xiaozhi", "MCP %s response %s", kind, sent ? "sent" : "failed");
+    ESP_LOGI("xiaozhi", "MCP %s response %s", kind, sent ? "sent" : "not sent");
     free(text); cJSON_Delete(response);
 }
 
@@ -635,7 +714,7 @@ error:
 static void change_capture(void)
 {
     if (want_listen) {
-        if (!control("abort", NULL)) { failed = true; return; }
+        if (!control("abort", NULL)) return;
         drain_packets(true);
         xiaozhi_session_reset(&stream, auto_listen && status.duplex_enabled);
         if (stream.realtime && !duplex_frame)
@@ -646,7 +725,7 @@ static void change_capture(void)
         if (stream.realtime) { disconnect_session(); set_state("ready"); return; }
         if (xiaozhi_audio_mic(false) != ESP_OK) { failed = true; return; }
     }
-    if (!control("listen", want_listen ? "start" : "stop")) { failed = true; return; }
+    if (!control("listen", want_listen ? "start" : "stop")) return;
     xSemaphoreTake(lock, portMAX_DELAY); status.listening = want_listen; xSemaphoreGive(lock);
     set_state(want_listen ? "listening" : "waiting");
     if (want_listen && auto_listen)
@@ -669,14 +748,25 @@ static bool send_capture(void)
     int n = opus_encode(encoder, samples, FRAME_SAMPLES, encoded + 4, 1500);
     if (n <= 0) { failed = true; return true; }
     encoded[0] = encoded[1] = 0; encoded[2] = n >> 8; encoded[3] = n & 255;
-    if (esp_websocket_client_send_bin(ws, (char *)encoded, n + 4, pdMS_TO_TICKS(500)) != n + 4) failed = true;
-    else {
+    if (send_packet(encoded, n + 4, true)) {
         xSemaphoreTake(lock, portMAX_DELAY);
         ++status.audio_tx_frames;
         if (overlap) ++status.audio_tx_during_playback;
         xSemaphoreGive(lock);
     }
     return true;
+}
+
+static void finish_connection(int64_t now)
+{
+    xiaozhi_connection_t link = connection_snapshot();
+    if (!ws || (!failed && link.end == XZ_END_NONE && (ready || now <= deadline))) return;
+    if (failed) connection_fail(XZ_END_LOCAL);
+    else if (!ready && now > deadline) connection_fail(XZ_END_HANDSHAKE_TIMEOUT);
+    disconnect_session();
+    link = connection_snapshot(); /* stop/destroy joined the final callback */
+    bool error = xiaozhi_connection_error(&link);
+    set_state(error ? "connection_error" : "ready");
 }
 
 static void worker(void *unused)
@@ -691,12 +781,9 @@ static void worker(void *unused)
         int64_t now = esp_timer_get_time();
         if (pairing && now >= pair_deadline) { pairing = false; set_state("pairing_expired"); }
         if (pairing && now >= next_pair) { pair_step(); next_pair = esp_timer_get_time() + 5000000; }
-        if (ws && (failed || (!ready && now > deadline))) {
-            disconnect_session(); set_state("connection_error");
-        }
-        if (ws && connected && !hello_sent) {
+        finish_connection(now);
+        if (ws && connection_can_send() && !hello_sent) {
             hello_sent = send_text("{\"type\":\"hello\",\"version\":3,\"transport\":\"websocket\",\"features\":{\"mcp\":true},\"audio_params\":{\"format\":\"opus\",\"sample_rate\":16000,\"channels\":1,\"frame_duration\":60}}");
-            if (!hello_sent) failed = true;
         }
         packet_t p;
         bool received = ws && xQueueReceive(packets, &p, 0) == pdTRUE;
@@ -706,7 +793,7 @@ static void worker(void *unused)
         }
         if (want_listen && !stream.realtime && now >= listen_deadline) want_listen = false;
         if (ready && !failed && want_listen != status.listening) change_capture();
-        bool sent = ready && status.listening && !failed && send_capture();
+        bool sent = ready && status.listening && !failed && connection_can_send() && send_capture();
         update_audio_status();
         if (!received && !sent) vTaskDelay(pdMS_TO_TICKS(10));
         poll_wake();

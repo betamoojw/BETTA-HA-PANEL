@@ -81,7 +81,11 @@ int main(void)
     snapshot = (xiaozhi_status_t){.supported = true, .enabled = true,
         .duplex_enabled = true, .duplex_active = true, .speaking = true, .listening = true,
         .audio_tx_frames = 100, .audio_rx_frames = 50, .audio_tx_during_playback = 35,
-        .barge_ins = 2, .aec_ref_peak = 1234, .aec_frames = 100};
+        .barge_ins = 2, .aec_ref_peak = 1234, .aec_frames = 100,
+        .normal_closes = 4, .connection_errors = 1, .connection_close_code = 1000,
+        .connection_error_type = 1, .connection_tls_error = -30848,
+        .connection_socket_errno = 104, .connection_http_status = 401};
+    strcpy(snapshot.connection_end, "transport_error");
     strcpy(snapshot.state, "speaking_listening");
     httpd_req_t req = {0};
     assert(routes[0].handler(&req) == ESP_OK);
@@ -94,6 +98,14 @@ int main(void)
     assert(cJSON_GetObjectItem(j, "audio_tx_during_playback")->valueint == 35);
     assert(cJSON_GetObjectItem(j, "aec_ref_peak")->valueint == 1234);
     assert(cJSON_GetObjectItem(j, "barge_ins")->valueint == 2);
+    assert(cJSON_GetObjectItem(j, "normal_closes")->valueint == 4);
+    assert(cJSON_GetObjectItem(j, "connection_errors")->valueint == 1);
+    assert(cJSON_GetObjectItem(j, "connection_close_code")->valueint == 1000);
+    assert(cJSON_GetObjectItem(j, "connection_error_type")->valueint == 1);
+    assert(cJSON_GetObjectItem(j, "connection_tls_error")->valueint == -30848);
+    assert(cJSON_GetObjectItem(j, "connection_socket_errno")->valueint == 104);
+    assert(cJSON_GetObjectItem(j, "connection_http_status")->valueint == 401);
+    assert(!strcmp(cJSON_GetObjectItem(j, "connection_end")->valuestring, "transport_error"));
     assert(!strcmp(cJSON_GetObjectItem(j, "state")->valuestring, "speaking_listening"));
     cJSON_Delete(j);
     assert(guard_calls == 16);

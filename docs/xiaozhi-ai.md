@@ -124,6 +124,10 @@ kind of cloud conversation. Use the icon/close button or Disconnect to cancel.
 Voice wake-up is independently off by default.
 Press the top-bar button again or use **Disconnect** in the editor to end the
 session. Disable the assistant to stop pairing, capture and the cloud connection.
+When the service normally ends a conversation, including after saying goodbye,
+the panel returns to standby without a connection error. Use the wake phrase
+again to start another conversation. An abnormal disconnect or timeout still
+reports a connection error and retains diagnostic details for troubleshooting.
 Volume is limited to 80%; start low when first testing a connected speaker.
 
 Controls save immediately except the wake phrase, which has its own Save button.

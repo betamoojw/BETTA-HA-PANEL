@@ -150,6 +150,30 @@ against the original implementation:
 (host C compiler via `CC`). Regenerate an existing
 saved sdkconfig from project defaults; panel10 rejects the unsafe old lock setting.
 
+### Xiaozhi connection endings
+
+The application reads the raw CLOSE payload in the DATA callback. In WebSocket
+client 1.8.0 this callback runs before `close_status_code` is updated; that field
+is usable in the later CLOSED event. Codes 1000/1001 and a valid empty CLOSE
+return to standby. Other codes, malformed frames, transport failures, unexpected
+disconnects and send/handshake timeouts retain the error path. An observed normal
+CLOSE suppresses only the send rejection caused by closing while upload waits on
+the shared lock. Earlier errors and errors delivered while stopping remain errors;
+even an intentional user/idle stop retains a concurrent fault's diagnostics.
+
+`GET /api/xiaozhi` retains the last completed connection's `connection_end`,
+`connection_close_code` (0 for no code), transport error type, TLS/socket errors
+and HTTP handshake status across the next wake. `normal_closes` and
+`connection_errors` count peer endings/failures since boot; local user/idle stops
+are excluded. Logs record these numeric diagnostics without server reason text
+or credentials. A new wake clears active transport state and opens a new connection.
+
+`python -m unittest discover -s tests/tools -p test_xiaozhi_connection.py`
+compiles the actual callback, send, teardown and worker-ending functions. It covers normal
+and abnormal closes, malformed payloads, queued sends, late errors, timeouts and
+reconnection, with negative controls for ignored CLOSE, stale codes and early
+diagnostic snapshots. These injected host tests do not measure Wi-Fi reliability.
+
 ### Variant lock files
 
 Each dependency set has a committed lock file, selected by the root `CMakeLists.txt` and used for the component

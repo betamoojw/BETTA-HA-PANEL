@@ -17,6 +17,10 @@ typedef struct {
     int aec_mic_peak, aec_ref_peak, aec_clean_peak, aec_processing_us;
     int aec_ref_peak_max_playback;
     uint32_t capture_stack_free, playback_stack_free;
+    uint32_t normal_closes, connection_errors;
+    int connection_close_code, connection_error_type, connection_tls_error;
+    int connection_socket_errno, connection_http_status;
+    char connection_end[32]; /* Last completed connection; retained across wake/reconnect. */
     xiaozhi_wake_config_t wake_config;
     bool wake_model_ready, wake_config_failed;
     uint32_t wake_config_revision;

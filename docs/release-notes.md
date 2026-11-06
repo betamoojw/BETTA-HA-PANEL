@@ -19,6 +19,9 @@ freeing application space while retaining every image, setting and data partitio
 
 ### Xiaozhi AI
 
+- Normal server closes return to standby without a transient connection error,
+  including a close received while microphone upload waits to send. Abnormal
+  closes and transport/time-out failures retain diagnostics across the next wake.
 - Encrypted WebSocket traffic shares one transport lock, including polling and
   connection teardown. Stalled incoming frames terminate the conversation instead
   of holding the connection indefinitely; full-duplex capture and echo cancellation

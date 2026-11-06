@@ -114,6 +114,50 @@ test('leaving the page while polling does not apply its delayed response', async
   assert.equal(s.node('xiaozhiEnabled').checked,undefined);
 });
 
+for (const leave of ['tab', 'section', 'pagehide']) test(`${leave}: return before a delayed response cannot revive the previous view`, async()=>{
+  let resolve, signal;
+  const s=setup({enabled:true,dialog_active:true,state:'listening',reply:'Old reply',
+    spectrum:{microphone:Array(24).fill(255),mic_active:true}},
+    {apiGet:(_path,requestSignal)=>{signal=requestSignal;return new Promise(r=>resolve=r);}});
+  const first=s.tick(1000);
+  if (leave==='tab') { s.document.hidden=true;s.events.visibilitychange();s.document.hidden=false; }
+  else if (leave==='pagehide') s.events.pagehide?.();
+  else {
+    s.node('settingsXiaozhiSection').classList.contains=()=>true;s.tick(100);
+    s.node('settingsXiaozhiSection').classList.contains=()=>false;
+  }
+  assert.equal(signal.aborted,true);
+  resolve({...s.model});await first; // A body/parser can finish even after cancellation.
+  assert.notEqual(s.node('xiaozhiText').textContent,'Old reply');
+  assert.ok(s.node('xiaozhiSpectrum').children.every(b=>!b.style.height||b.style.height==='4px'));
+  const next=s.tick(1000);resolve({...s.model,reply:'Current reply'});await next;
+  assert.equal(s.node('xiaozhiText').textContent,'Current reply');
+});
+
+test('ten virtual minutes keep polling bounded and unchanged bars avoid style writes',async()=>{
+  let calls=0, writes=0, now=1000;
+  const s=setup({enabled:true,dialog_active:true,state:'speaking_listening',reply:'Long response. '.repeat(200),
+    spectrum:{speaker:Array(24).fill(180),speaker_active:true}},
+    {performance:{now:()=>now},apiGet:async()=>{calls++;return {...s.model};}});
+  await s.tick(1000);
+  for (const bar of s.node('xiaozhiSpectrum').children) for (const key of ['height','opacity']) {
+    let value=bar.style[key];
+    Object.defineProperty(bar.style,key,{get:()=>value,set:v=>{writes++;value=v;}});
+  }
+  for (let i=0;i<3000;i++) { now+=200;await s.tick(200);s.tick(100); }
+  assert.equal(calls,3001);assert.equal(writes,0);
+  for (let i=0;i<24;i++) {
+    s.model.spectrum={microphone:Array.from({length:24},(_,n)=>n===i?255:0),mic_active:true};
+    now+=200;await s.tick(200);
+    assert.equal(s.node('xiaozhiSpectrum').children[i].style.height,'64px');
+  }
+  s.model.spectrum.microphone.fill(0);now+=200;await s.tick(200);
+  assert.ok(s.node('xiaozhiSpectrum').children.every(b=>b.style.height==='4px'));
+  s.document.hidden=true;s.events.visibilitychange();
+  for (let i=0;i<5;i++) {now+=1000;await s.tick(1000);await s.tick(200);}
+  assert.equal(calls,3026);
+});
+
 test('all AI Assistant HTML labels are wired into the existing translation refresh',()=>{
   const html=fs.readFileSync(new URL('../../components/webui/www/index.html',import.meta.url),'utf8');
   const translations=fs.readFileSync(new URL('../../components/webui/www/js/translations.js',import.meta.url),'utf8');

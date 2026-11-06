@@ -67,7 +67,7 @@ class AssistantDialogPolicy(unittest.TestCase):
         return exe
 
     def test_production_dialog_policy(self):
-        for case in ("farewell", "noncommands", "commands", "audio", "capture", "timeout", "queue", "dismiss-error", "burst-order"):
+        for case in ("farewell", "noncommands", "long-text", "commands", "audio", "capture", "timeout", "queue", "dismiss-error", "burst-order"):
             with self.subTest(case=case):
                 result = subprocess.run([str(self.fixed), case], capture_output=True, text=True, timeout=5)
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)

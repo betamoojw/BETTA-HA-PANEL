@@ -8,6 +8,7 @@
 #include "cJSON.h"
 #include "esp_vad.h"
 #include "xiaozhi/xiaozhi.h"
+#include "xiaozhi/xiaozhi_text.h"
 #include "xiaozhi/xiaozhi_activity.h"
 #include "xiaozhi/xiaozhi_farewell.h"
 #include "xiaozhi/xiaozhi_session.h"
@@ -184,6 +185,17 @@ static void noncommands(void)
     assert(status.dialog_active && !closes && mcp_messages == 1);
     assert(xiaozhi_activity_revision() == activity && xiaozhi_activity_remaining_ms(status.dialog_seq) == 5000);
 }
+static void long_text(void)
+{
+    char text[700];
+    for (unsigned i=0;i<699;i+=3) memcpy(text+i,"\xe4\xb8\xad",3);
+    text[699]=0;start_voice();
+    packet("stt",NULL,text);
+    assert(strlen(status.recognized)==510&&!memcmp(status.recognized,text,510));
+    packet("tts","sentence_start",text);
+    assert(strlen(status.reply)==510&&!memcmp(status.reply,text,510));
+    assert(strlen(status.text)==510&&status.dialog_active&&!closes);
+}
 static void commands_test(void)
 {
     strcpy(status.state, "connection_error"); strcpy(status.recognized, "bye bye");
@@ -331,6 +343,7 @@ int main(int argc, char **argv)
     assert(argc == 2); status.enabled = status.paired = true; status.volume = 50; status.dialog_timeout = 30; now = 1000000;
     if (!strcmp(argv[1], "farewell")) farewell();
     else if (!strcmp(argv[1], "noncommands")) noncommands();
+    else if (!strcmp(argv[1], "long-text")) long_text();
     else if (!strcmp(argv[1], "commands")) commands_test();
     else if (!strcmp(argv[1], "audio")) audio();
     else if (!strcmp(argv[1], "capture")) capture();

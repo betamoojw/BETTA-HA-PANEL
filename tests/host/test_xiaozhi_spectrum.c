@@ -51,6 +51,16 @@ int main(void)
     for (unsigned i = 0; i < 1024; ++i) pcm[i] = 12000;
     xiaozhi_spectrum_dsp_reset(&dsp);
     assert(xiaozhi_spectrum_dsp_feed(&dsp, pcm, 256, bands)); all_zero(bands); /* DC rejection. */
+    /* All PCM constants, including extreme values, are exact DC, not noise.
+     * A quiet tone just above the display floor must still pass unchanged. */
+    const int16_t dc[] = {INT16_MIN, -1, 0, 1, INT16_MAX};
+    for (unsigned j = 0; j < sizeof(dc) / sizeof(dc[0]); ++j) {
+        for (unsigned i = 0; i < 256; ++i) pcm[i] = dc[j];
+        xiaozhi_spectrum_dsp_reset(&dsp);
+        assert(xiaozhi_spectrum_dsp_feed(&dsp, pcm, 256, bands)); all_zero(bands);
+    }
+    tone(pcm, 256, 16, 64); xiaozhi_spectrum_dsp_reset(&dsp);
+    assert(xiaozhi_spectrum_dsp_feed(&dsp, pcm, 256, bands)); assert(bands[10] > 0);
     const unsigned bins[] = {2, 8, 16, 64, 120};
     const unsigned expected[] = {1, 7, 10, 17, 22};
     for (unsigned i = 0; i < sizeof(bins) / sizeof(bins[0]); ++i) {
@@ -102,6 +112,24 @@ int main(void)
     clear_on_clock = true;
     xiaozhi_spectrum_feed(XZ_SPECTRUM_SPEAKER, pcm, 256, old);
     xiaozhi_spectrum_snapshot(&snapshot); assert(!snapshot.speaker_active); /* Clear racing the transform. */
+    /* Ten minutes of dual-source PCM in virtual time. Only the two analyzers
+     * remain allocated; rapid tone/silence/source changes leave no stale bands. */
+    tone(pcm, 512, 16, 16384);
+    int16_t silence[512] = {0};
+    xiaozhi_spectrum_clear(XZ_SPECTRUM_MIC); xiaozhi_spectrum_clear(XZ_SPECTRUM_SPEAKER);
+    for (unsigned i = 0; i < 18750; ++i) {
+        now += 32000;
+        feed(XZ_SPECTRUM_MIC, i & 1 ? pcm : silence, 512);
+        feed(XZ_SPECTRUM_SPEAKER, i & 1 ? silence : pcm, 512);
+        xiaozhi_spectrum_snapshot(&snapshot);
+        assert(snapshot.mic_active && snapshot.speaker_active);
+        assert((i & 1 ? snapshot.microphone : snapshot.speaker)[10] > 220);
+        all_zero(i & 1 ? snapshot.speaker : snapshot.microphone);
+    }
+    assert(allocation_count == 2);
+    assert(sources[XZ_SPECTRUM_MIC].dsp->used == 0 && sources[XZ_SPECTRUM_SPEAKER].dsp->used == 0);
+    xiaozhi_spectrum_clear(XZ_SPECTRUM_MIC); xiaozhi_spectrum_clear(XZ_SPECTRUM_SPEAKER);
+    xiaozhi_spectrum_snapshot(&snapshot); all_zero(snapshot.microphone); all_zero(snapshot.speaker);
     dispose(); fail_allocation = 1; xiaozhi_spectrum_init();
     feed(XZ_SPECTRUM_MIC, pcm, 256); feed(XZ_SPECTRUM_SPEAKER, pcm, 256);
     xiaozhi_spectrum_snapshot(&snapshot); assert(!snapshot.mic_active && snapshot.speaker_active);

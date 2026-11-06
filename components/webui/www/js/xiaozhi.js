@@ -12,6 +12,7 @@
   let savedWakePhrase = "ni hao xiao zhi";
   let voiceActive = false, spectrumAt = 0, spectrumVisible = false;
   let statusReady = false;
+  let statusController = null;
   let dialogSeq = null, dialogEpoch = null, endedSeq = null, dialogActive = false, voiceOpened = false, capture = null;
   const spectrumNow = () => typeof performance !== "undefined" ? performance.now() : Date.now();
   const spectrumBars = [];
@@ -42,8 +43,9 @@
     spectrumBars.forEach((bar, i) => {
       // Keep the central segment and grow equally upward/downward in whole cells.
       const rows = Math.round(bands[i] / 255 * 5);
-      bar.style.height = `${4 + rows * 12}px`;
-      bar.style.opacity = rows ? "0.9" : "0.3";
+      const height = `${4 + rows * 12}px`, opacity = rows ? "0.9" : "0.3";
+      if (bar.style.height !== height) bar.style.height = height;
+      if (bar.style.opacity !== opacity) bar.style.opacity = opacity;
     });
   }
   const manualMode = (s) => !s.wake_enabled || !s.wake_ready ||
@@ -115,13 +117,14 @@
   async function refresh() {
     const section = node("settingsXiaozhiSection");
     if (!section || !pageVisible()) {
-      voiceActive = false; clearSpectrum(); stop(); node("xiaozhiOtto").removeAttribute("src"); return;
+      leaveView(); return;
     }
     if (busy || refreshing) return;
     refreshing = true;
     const started = revision;
     const requestedAt = spectrumNow();
     const controller = new AbortController();
+    statusController = controller;
     const deadline = setTimeout(() => controller.abort(), 8000);
     try {
       const s = await apiGet("/api/xiaozhi", controller.signal);
@@ -197,7 +200,13 @@
         hideConversation();
         node("xiaozhiStatus").textContent = t("xiaozhi.state.connection_error");
       }
-    } finally { clearTimeout(deadline); refreshing = false; }
+    } finally { clearTimeout(deadline); statusController = null; refreshing = false; }
+  }
+  function leaveView() {
+    // Cancellation alone cannot prevent an already parsed reply from applying
+    // after a quick return. Invalidate its revision as well as aborting the GET.
+    if (statusController) { revision++; statusController.abort(); }
+    voiceActive = false; clearSpectrum(); stop(); node("xiaozhiOtto").removeAttribute("src");
   }
   function command(action, value = 0, epoch = null) {
     revision++;
@@ -320,14 +329,16 @@
   window.addEventListener("pointerup", stop);
   window.addEventListener("pointercancel", stop);
   window.addEventListener("blur", stop);
+  window.addEventListener("pagehide", leaveView);
   document.addEventListener("visibilitychange", () => {
-    if (document.hidden) { voiceActive = false; clearSpectrum(); stop(); node("xiaozhiOtto").removeAttribute("src"); }
+    if (document.hidden) leaveView();
   });
   // Idle settings poll slowly. Active conversations share the same bounded,
   // single-flight status request; no additional audio or WebSocket connection.
   setInterval(() => { if (!voiceActive) return refresh(); }, 1000);
   setInterval(() => { if (voiceActive) return refresh(); }, 200);
   setInterval(() => {
-    if (spectrumVisible && (!pageVisible() || spectrumNow() - spectrumAt >= 350)) clearSpectrum();
+    if (!pageVisible()) { leaveView(); return; }
+    if (spectrumVisible && spectrumNow() - spectrumAt >= 350) clearSpectrum();
   }, 100);
 })();

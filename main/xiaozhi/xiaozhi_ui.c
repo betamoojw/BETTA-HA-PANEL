@@ -27,6 +27,8 @@ typedef struct {
     uint32_t shown_seq, activity_seq, polled_at, press_seq, pending_seq;
     bool voice_opened, dialog_visible, spectrum_active, pressed, pending_talk, pending_stop;
     uint8_t levels[XIAOZHI_SPECTRUM_BANDS];
+    int layout_width, layout_height;
+    bool layout_manual, layout_manual_hint;
     xiaozhi_status_t snapshot;
     lv_obj_t *otto;
     const lv_image_dsc_t *otto_asset;
@@ -61,6 +63,7 @@ static void set_dialog_visible(view_t *v, bool visible)
 {
     if (v->dialog_visible == visible) return;
     v->dialog_visible = visible;
+    lv_timer_set_period(v->timer, visible ? 50 : 250);
     if (visible) ui_transition_fade_in(v->panel);
     else {
         v->pressed = v->pending_talk = v->pending_stop = false;
@@ -98,6 +101,12 @@ static bool label(lv_obj_t *obj, const char *value)
     lv_label_set_text(obj, value); return true;
 }
 
+static bool label_font(lv_obj_t *obj, const lv_font_t *font)
+{
+    if (lv_obj_get_style_text_font(obj, 0) == font) return false;
+    lv_obj_set_style_text_font(obj, font, 0); return true;
+}
+
 static lv_obj_t *text_label(lv_obj_t *parent, ui_popup_label_role_t role)
 {
     lv_obj_t *obj = ui_popup_label_create(parent, "", role);
@@ -123,6 +132,8 @@ static void arrange(view_t *v)
     lv_obj_set_hidden(v->hint, manual && !manual_hint);
     lv_obj_update_layout(v->panel);
     int width = lv_obj_get_content_width(v->panel), height = lv_obj_get_content_height(v->panel);
+    v->layout_width = width; v->layout_height = height;
+    v->layout_manual = manual; v->layout_manual_hint = manual_hint;
     int avatar = LV_MIN(64, LV_MAX(44, height / 7));
     int left = avatar + 14, text_width = LV_MAX(40, width - left - UI_POPUP_CLOSE_SIZE - 12);
     lv_obj_set_pos(v->emoji, 0, 0);
@@ -182,7 +193,7 @@ static void draw_spectrum(lv_event_t *e)
     for (unsigned band = 0; band < XIAOZHI_SPECTRUM_BANDS; ++band) {
         int count = v->levels[band] * 4 / 255;
         for (int row = -count; row <= count; ++row) {
-            rect.bg_opa = v->spectrum_active ? LV_OPA_COVER : LV_OPA_30;
+            rect.bg_opa = count ? LV_OPA_COVER : LV_OPA_30;
             lv_area_t cell = {start + (int)band * pitch, middle + row * (segment + 2) - segment / 2,
                              start + (int)band * pitch + bar_width - 1,
                              middle + row * (segment + 2) - segment / 2 + segment - 1};
@@ -282,7 +293,7 @@ static void refresh(lv_timer_t *timer)
     }
     char key[80], text[128]; snprintf(key, sizeof(key), "xiaozhi.state.%s", s->state);
     snprintf(text, sizeof(text), "%s%s%s", ui_i18n_get(!strcmp(s->state, "wake_config_error") ? "xiaozhi.state.wake_error" : key, s->state), s->code[0] ? "\n" : "", s->code);
-    label(v->state, text);
+    bool layout_changed = label(v->state, text);
     if (quiet_hint(s)) {
         char countdown[160];
         const char *format = hands_free(v) ?
@@ -293,16 +304,19 @@ static void refresh(lv_timer_t *timer)
         if (marker) snprintf(countdown, sizeof(countdown), "%.*s%u%s", (int)(marker - format), format,
             (unsigned)((s->silence_remaining_ms + 999) / 1000), marker + 2);
         else snprintf(countdown, sizeof(countdown), "%s", format);
-        label(v->hint, countdown);
-    } else label(v->hint, hint(v));
-    lv_obj_set_style_text_color(v->state, lv_color_hex(connection_error(s) ? APP_UI_COLOR_ERROR : APP_UI_COLOR_TEXT_MUTED), 0);
-    label(v->emoji, xiaozhi_emotion_glyph(s->emotion));
+        layout_changed |= label(v->hint, countdown);
+    } else layout_changed |= label(v->hint, hint(v));
+    lv_color_t state_color = lv_color_hex(connection_error(s) ? APP_UI_COLOR_ERROR : APP_UI_COLOR_TEXT_MUTED);
+    if (!lv_color_eq(lv_obj_get_style_text_color(v->state, 0), state_color))
+        lv_obj_set_style_text_color(v->state, state_color, 0);
+    layout_changed |= label(v->emoji, xiaozhi_emotion_glyph(s->emotion));
     bool animated = false;
 #if LV_USE_GIF && (CONFIG_APP_PANEL_VARIANT_10INCH_1280 || defined(BETTA_SIMULATOR))
     if (s->emoji_style == 0) {
         const lv_image_dsc_t *asset = xiaozhi_otto_asset(s->emotion);
         if (!v->otto) {
             v->otto = lv_gif_create(v->panel); lv_gif_set_color_format(v->otto, LV_COLOR_FORMAT_RGB565);
+            layout_changed = true;
         }
         if (v->otto_asset != asset) { lv_gif_set_src(v->otto, asset); v->otto_asset = asset; }
         animated = lv_gif_is_loaded(v->otto); lv_obj_set_hidden(v->otto, !animated);
@@ -310,13 +324,18 @@ static void refresh(lv_timer_t *timer)
     } else stop_animation(v);
 #endif
     lv_obj_set_hidden(v->emoji, animated);
-    lv_obj_set_style_text_font(v->recognized, ui_font_reply(ui_font_role(UI_TEXT_LABEL)), 0);
-    lv_obj_set_style_text_font(v->reply, ui_font_reply(ui_font_role(UI_TEXT_VALUE)), 0);
+    layout_changed |= label_font(v->recognized, ui_font_reply(ui_font_role(UI_TEXT_LABEL)));
+    layout_changed |= label_font(v->reply, ui_font_reply(ui_font_role(UI_TEXT_VALUE)));
     bool changed = label(v->recognized, s->recognized);
     changed |= label(v->reply, s->reply);
     lv_obj_set_hidden(v->question_row, !s->recognized[0]);
     lv_obj_set_hidden(v->answer_row, !s->reply[0]);
-    arrange(v);
+    /* Spectrum has its own 50 ms path. Unchanged 250 ms status polls must not
+     * remeasure long replies, rewrite styles or disturb a reader's scroll. */
+    if (changed || layout_changed || v->layout_manual != !hands_free(v) ||
+        v->layout_manual_hint != (quiet_hint(s) || connection_error(s)) ||
+        v->layout_width != lv_obj_get_content_width(v->panel) ||
+        v->layout_height != lv_obj_get_content_height(v->panel)) arrange(v);
     if (changed) lv_obj_scroll_to_y(v->chat, 0, LV_ANIM_OFF);
     spectrum_update(v);
 }
@@ -430,7 +449,7 @@ void xiaozhi_ui_create(lv_obj_t *screen)
     lv_obj_add_event_cb(v->spectrum, draw_spectrum, LV_EVENT_DRAW_MAIN, v);
     v->hint = text_label(v->panel, UI_POPUP_LABEL_HINT);
     lv_obj_set_style_text_align(v->hint, LV_TEXT_ALIGN_CENTER, 0);
-    v->timer = lv_timer_create(refresh, 50, v);
+    v->timer = lv_timer_create(refresh, 250, v);
     if (!v->timer) { lv_obj_delete(root); lv_free(v); return; }
     lv_obj_add_event_cb(root, destroy, LV_EVENT_DELETE, v);
 }

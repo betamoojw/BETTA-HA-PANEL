@@ -19,6 +19,11 @@ freeing application space while retaining every image, setting and data partitio
 
 ### AI Assistant
 
+- Spectrum rendering avoids unchanged text layouts and browser style writes;
+  constant PCM windows skip the FFT, and fresh silence keeps a dim line.
+  Leaving the editor cancels stale status replies. Bounded transcript/reply text
+  now ends at complete UTF-8 characters. These local changes still require their
+  own panel10 performance acceptance before replacing an accepted image.
 - Temporary contention for the shared encrypted connection no longer immediately
   ends a conversation. Bounded, ordered retries preserve unsent frames, and audio
   queues allow short waits for playback during reply bursts. Failed or partial

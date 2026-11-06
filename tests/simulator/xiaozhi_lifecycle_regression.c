@@ -132,6 +132,12 @@ static void assert_header_active(lv_obj_t *button, bool active)
     assert(lv_obj_has_state(lv_obj_get_child(button, 0), LV_STATE_CHECKED) == active);
 }
 
+static void count_style_change(lv_event_t *event)
+{
+    unsigned *count = lv_event_get_user_data(event);
+    ++*count;
+}
+
 static void spectrum_drawn(lv_event_t *event)
 {
     unsigned *cells = lv_event_get_user_data(event);
@@ -165,6 +171,27 @@ static void assert_spectrum_draw_bounds(lv_obj_t *spectrum)
     lv_obj_remove_event_cb(spectrum, spectrum_drawn);
     lv_obj_set_send_draw_task_events(spectrum, false);
     lv_obj_set_height(spectrum, original_height);
+}
+
+static void count_spectrum_level(lv_event_t *event)
+{
+    unsigned *counts = lv_event_get_user_data(event);
+    lv_draw_fill_dsc_t *fill = lv_draw_task_get_fill_dsc(lv_event_get_draw_task(event));
+    assert(fill);
+    counts[0]++;
+    if (fill->opa > LV_OPA_30) counts[1]++;
+}
+
+static void assert_spectrum_level(lv_obj_t *spectrum, unsigned cells, unsigned bright)
+{
+    unsigned counts[2] = {0};
+    lv_obj_set_send_draw_task_events(spectrum,true);
+    lv_obj_add_event_cb(spectrum,count_spectrum_level,LV_EVENT_DRAW_TASK_ADDED,counts);
+    lv_draw_buf_t *shot=lv_snapshot_take(spectrum,LV_COLOR_FORMAT_RGB888);
+    assert(shot);lv_draw_buf_destroy(shot);
+    lv_obj_remove_event_cb(spectrum,count_spectrum_level);
+    lv_obj_set_send_draw_task_events(spectrum,false);
+    assert(counts[0]==cells&&counts[1]==bright);
 }
 
 int main(void)
@@ -483,6 +510,43 @@ int main(void)
     mock_end("manual");strcpy(mock.state,"ready");lv_tick_inc(300);lv_timer_handler();
     assert(lv_obj_is_hidden(panel));
     mock_open(true);lv_tick_inc(300);lv_timer_handler();assert(!lv_obj_is_hidden(panel));
+    lv_obj_clean(screen);assert(timer_count()==baseline);
+    /* Ten virtual minutes with an unchanged long answer must not relayout
+     * text at the 4 Hz status cadence, or reset the reader's scroll position. */
+    reset_mock();mock_open(true);mock.emoji_style=1;
+    mock.wake_enabled=mock.wake_ready=true;strcpy(mock.state,"speaking_listening");
+    memset(mock.reply,'W',sizeof(mock.reply)-1);
+    for (unsigned i=1;i<sizeof(mock.reply)-1;i+=2) mock.reply[i]='\n';
+    xiaozhi_ui_create(screen);lv_tick_inc(300);lv_timer_handler();lv_obj_update_layout(screen);
+    root=lv_obj_get_child(screen,0);panel=lv_obj_get_child(root,1);
+    lv_obj_t *long_chat=lv_obj_get_child(panel,3);
+    lv_obj_scroll_to_y(long_chat,80,LV_ANIM_OFF);
+    lv_tick_inc(300);lv_timer_handler();lv_obj_update_layout(screen);
+    int scroll=lv_obj_get_scroll_y(long_chat);
+    assert(scroll>0);
+    unsigned style_changes=0;
+    lv_obj_t *long_answer=lv_obj_get_child(lv_obj_get_child(long_chat,1),0);
+    lv_obj_t *long_body=lv_obj_get_child(long_answer,1);
+    lv_obj_add_event_cb(long_body,count_style_change,LV_EVENT_STYLE_CHANGED,&style_changes);
+    for (unsigned i=0;i<12000;i++) {lv_tick_inc(50);lv_timer_handler();}
+    printf("Unchanged answer: %u style events in 600 virtual seconds\n",style_changes);
+    assert(style_changes==0&&lv_obj_get_scroll_y(long_chat)==scroll);
+    assert(timer_count()==baseline+1&&lv_obj_get_child_count(long_chat)==2);
+    lv_obj_t *live_spectrum=lv_obj_get_child(panel,6);
+    for (unsigned i=0;i<XIAOZHI_SPECTRUM_BANDS;i++) {
+        memset(mock.spectrum_speaker,0,sizeof(mock.spectrum_speaker));
+        memset(mock.spectrum_mic,0,sizeof(mock.spectrum_mic));
+        mock.spectrum_speaker_active=(i&1)!=0;mock.spectrum_mic_active=true;
+        (i&1?mock.spectrum_speaker:mock.spectrum_mic)[i]=255;
+        for(unsigned step=0;step<3;step++) {lv_tick_inc(50);lv_timer_handler();}
+        assert_spectrum_level(live_spectrum,32,9);
+    }
+    /* Fresh digital silence is dim too; freshness alone is not loudness. */
+    memset(mock.spectrum_speaker,0,sizeof(mock.spectrum_speaker));
+    for(unsigned step=0;step<3;step++) {lv_tick_inc(50);lv_timer_handler();}
+    assert_spectrum_level(live_spectrum,24,0);
+    mock.spectrum_speaker_active=mock.spectrum_mic_active=false;
+    lv_tick_inc(50);lv_timer_handler();assert_spectrum_level(live_spectrum,24,0);
     lv_obj_clean(screen);assert(timer_count()==baseline);
     lv_display_delete(display);
     lv_deinit();

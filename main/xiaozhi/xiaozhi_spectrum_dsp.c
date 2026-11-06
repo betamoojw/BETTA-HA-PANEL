@@ -19,6 +19,11 @@ void xiaozhi_spectrum_dsp_init(xiaozhi_spectrum_dsp_t *s)
 static void transform(xiaozhi_spectrum_dsp_t *s, uint8_t *bands)
 {
     const unsigned n = XIAOZHI_SPECTRUM_WINDOW;
+    /* Exactly constant PCM becomes zero after DC removal. Avoid an entire FFT
+     * on silent frames without gating quiet speech or changing window cadence. */
+    unsigned same = 1;
+    while (same < n && s->real[same] == s->real[0]) ++same;
+    if (same == n) { memset(bands, 0, XIAOZHI_SPECTRUM_BANDS); return; }
     float mean = 0;
     for (unsigned i = 0; i < n; ++i) mean += s->real[i];
     mean /= n;

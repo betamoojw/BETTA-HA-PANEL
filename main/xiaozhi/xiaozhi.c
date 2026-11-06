@@ -5,6 +5,7 @@
  * ForgeUI-derived implementation). Reimplemented with a single session owner.
  */
 #include "xiaozhi.h"
+#include "xiaozhi_text.h"
 #include "knx/knx_mcp.h"
 #include "esp_log.h"
 #include "sdkconfig.h"
@@ -589,7 +590,7 @@ static void receive_packet(packet_t *p)
             const char *text = str(j, "text");
             if (!tts && status.dialog_active && text[0] && xiaozhi_farewell(text)) {
                 xSemaphoreTake(lock, portMAX_DELAY);
-                strlcpy(status.recognized, text, sizeof(status.recognized));
+                xiaozhi_text_copy(status.recognized, sizeof(status.recognized), text);
                 xSemaphoreGive(lock);
                 cJSON_Delete(j); close_dialog("farewell"); return;
             }
@@ -607,8 +608,8 @@ static void receive_packet(packet_t *p)
             }
             if (text[0] && (!tts || !stream.drop_audio)) {
                 xSemaphoreTake(lock, portMAX_DELAY);
-                strlcpy(status.text, text, sizeof(status.text));
-                strlcpy(!strcmp(type, "stt") ? status.recognized : status.reply, text, sizeof(status.text));
+                xiaozhi_text_copy(status.text, sizeof(status.text), text);
+                xiaozhi_text_copy(!strcmp(type, "stt") ? status.recognized : status.reply, sizeof(status.text), text);
                 xSemaphoreGive(lock);
             }
             if (tts) {

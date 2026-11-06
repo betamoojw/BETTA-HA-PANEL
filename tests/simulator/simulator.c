@@ -41,6 +41,7 @@
 #include "host_adapters.h"
 #include "simulator_frame.h"
 #include "xiaozhi/xiaozhi.h"
+#include "xiaozhi/xiaozhi_text.h"
 #include "xiaozhi/xiaozhi_font_store.h"
 #include "ui/fonts/cjk_reply_resource.h"
 static xiaozhi_status_t demo_assistant;
@@ -1447,8 +1448,8 @@ int main(int argc, char **argv)
             demo_assistant.spectrum_speaker[band] = cJSON_IsNumber(s) ? LV_CLAMP(0, s->valueint, 255) : 0;
         }
         snprintf(demo_assistant.emotion,sizeof(demo_assistant.emotion),"%s",json_string(ai_demo,"emotion"));
-        snprintf(demo_assistant.recognized,sizeof(demo_assistant.recognized),"%s",json_string(ai_demo,"recognized"));
-        snprintf(demo_assistant.reply,sizeof(demo_assistant.reply),"%s",json_string(ai_demo,"reply"));
+        xiaozhi_text_copy(demo_assistant.recognized,sizeof(demo_assistant.recognized),json_string(ai_demo,"recognized"));
+        xiaozhi_text_copy(demo_assistant.reply,sizeof(demo_assistant.reply),json_string(ai_demo,"reply"));
         uint32_t before = lv_obj_get_child_count(screen);
         xiaozhi_ui_create(screen); ++demo_assistant.dialog_seq;
         if (lv_obj_get_child_count(screen) > before) demo_assistant_root = lv_obj_get_child(screen, (int32_t)before);

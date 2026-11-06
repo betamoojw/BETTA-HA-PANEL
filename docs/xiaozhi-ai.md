@@ -101,6 +101,9 @@ in the header. Your recognized words appear in a right-aligned bubble and the
 assistant's answer in a left-aligned bubble. Long text scrolls within the
 conversation; the sound display and manual Talk control remain below it.
 The popup follows the system palette, appearance and text-size setting.
+The bubbles show the current recognized phrase and reply, not a full history.
+Very long text is shortened at a complete character; unchanged replies keep
+your scroll position while the sound bars update.
 
 Segmented sound bars show live frequency bands from the panel audio, including
 in the web editor. They follow speaker output during a reply and the microphone

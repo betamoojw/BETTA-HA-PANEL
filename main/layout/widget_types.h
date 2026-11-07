@@ -24,6 +24,9 @@ typedef struct {
 #define GAUGE_SEGMENT_COUNT_DEFAULT 10
 
 bool widget_type_known(const char *type);
+/* Normalize retired widget formats in a parsed layout only; never writes storage.
+ * Discard the parsed tree on false (allocation failure). Current formats stay unchanged. */
+bool widget_types_normalize_layout(cJSON *layout);
 /* All current widget types have a separable display name; unknown types do not. */
 bool widget_type_supports_name(const char *type);
 /* show_name defaults to true (false for the weather tiles). For legacy sensor layouts, sensor_show_label is the fallback. */

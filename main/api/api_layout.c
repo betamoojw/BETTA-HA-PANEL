@@ -16,6 +16,7 @@
 #include "layout/layout_store.h"
 #include "layout/layout_validate.h"
 #include "layout/layout_orientation.h"
+#include "layout/widget_types.h"
 #include "ui/display_geometry.h"
 #include "util/log_tags.h"
 
@@ -39,7 +40,7 @@ esp_err_t api_layout_get_handler(httpd_req_t *req)
 
     cJSON *root = cJSON_Parse(json);
     free(json);
-    if (!root || !layout_orientation_project(root, display_geometry_portrait())) {
+    if (!root || !widget_types_normalize_layout(root) || !layout_orientation_project(root, display_geometry_portrait())) {
         cJSON_Delete(root);
         return httpd_resp_send_500(req);
     }

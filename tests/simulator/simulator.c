@@ -1116,6 +1116,11 @@ int main(int argc, char **argv)
         fprintf(stderr, "Invalid JSON in %s\n", fixture_path);
         return 1;
     }
+    if (!widget_types_normalize_layout(root)) {
+        fprintf(stderr, "Layout compatibility allocation failed\n");
+        cJSON_Delete(root);
+        return 1;
+    }
     sim_host_set_online(cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(root, "ha_online")));
     if (!layout_orientation_project(root, display_geometry_portrait())) { cJSON_Delete(root); return 1; }
 

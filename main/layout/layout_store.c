@@ -13,6 +13,7 @@
 
 #include "app_config.h"
 #include "layout/layout_validate.h"
+#include "layout/widget_types.h"
 #include "util/atomic_file.h"
 #include "util/log_tags.h"
 
@@ -130,5 +131,9 @@ cJSON *layout_store_load_parsed(void)
     }
     cJSON *root = cJSON_Parse(json);
     free(json);
+    if (root != NULL && !widget_types_normalize_layout(root)) {
+        cJSON_Delete(root);
+        return NULL;
+    }
     return root;
 }

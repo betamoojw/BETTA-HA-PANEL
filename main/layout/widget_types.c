@@ -90,6 +90,33 @@ bool widget_type_known(const char *type)
     return find_type(type) != NULL;
 }
 
+bool widget_types_normalize_layout(cJSON *layout)
+{
+    cJSON *pages = cJSON_GetObjectItemCaseSensitive(layout, "pages");
+    if (!cJSON_IsArray(pages)) return true; /* The validator reports malformed layouts. */
+    cJSON *page;
+    cJSON_ArrayForEach(page, pages) {
+        cJSON *widgets = cJSON_GetObjectItemCaseSensitive(page, "widgets");
+        if (!cJSON_IsArray(widgets)) continue;
+        cJSON *widget;
+        cJSON_ArrayForEach(widget, widgets) {
+            cJSON *type = cJSON_GetObjectItemCaseSensitive(widget, "type");
+            if (!cJSON_IsString(type) || strcmp(type->valuestring, "weather_3day") != 0) continue;
+            cJSON *view = cJSON_CreateString("days");
+            if (view == NULL) return false;
+            bool stored = cJSON_GetObjectItemCaseSensitive(widget, "weather_view") != NULL
+                ? cJSON_ReplaceItemInObjectCaseSensitive(widget, "weather_view", view)
+                : cJSON_AddItemToObject(widget, "weather_view", view);
+            if (!stored) {
+                cJSON_Delete(view);
+                return false;
+            }
+            if (cJSON_SetValuestring(type, "weather_tile") == NULL) return false;
+        }
+    }
+    return true;
+}
+
 bool widget_type_supports_name(const char *type)
 {
     return find_type(type) != NULL;

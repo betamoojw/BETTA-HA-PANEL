@@ -410,7 +410,7 @@ WIDGETS = {
                   "With hourly forecasts, scroll horizontally for later hours; scrolling does not open the popup. The strip shows the next 24 hours from now, so it usually crosses midnight: a divider and the weekday mark the first column of the new day. Times use the panel's time zone.",
                   "Hourly forecasts are fetched only while the tile is visible and refreshed every 15 minutes. A missing hourly forecast is shown explicitly; current conditions remain available.",
                   "Without the hourly strip, today's low and precipitation appear when there is room. Today and the days use the same Meteocons.",
-                  "Layouts saved with the former Weather forecast tile are converted to this tile (View: Forecast days) when they are opened in the editor; the panel keeps displaying the old type until then.",
+                  "Layouts saved with the former Weather forecast tile are read as this tile (View: Forecast days) by the panel and editor. The saved layout file stays unchanged until you save an edit.",
                   "Close details with the close button or a tap outside; they also close automatically after one minute."],
     },
 }

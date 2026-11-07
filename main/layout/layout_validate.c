@@ -1348,6 +1348,11 @@ bool layout_validate_json(const char *json, layout_validation_result_t *result)
         layout_validation_add(result, "layout json parse error");
         return false;
     }
+    if (!widget_types_normalize_layout(root)) {
+        layout_validation_add(result, "layout compatibility allocation failed");
+        cJSON_Delete(root);
+        return false;
+    }
 
     cJSON *version = cJSON_GetObjectItemCaseSensitive(root, "version");
     cJSON *pages = cJSON_GetObjectItemCaseSensitive(root, "pages");

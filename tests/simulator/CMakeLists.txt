@@ -279,6 +279,8 @@ target_compile_definitions(betta-remote-test PRIVATE CONFIG_APP_REMOTE_DISPLAY=1
 target_compile_options(betta-remote-test PRIVATE -Wall -Wextra -Werror -Wno-unused-parameter -UNDEBUG)
 target_link_libraries(betta-remote-test PRIVATE lvgl SDL2::SDL2 m)
 enable_testing()
+add_test(NAME weather-legacy-layout-compat
+    COMMAND ${Python3_EXECUTABLE} "${CMAKE_CURRENT_LIST_DIR}/weather_legacy_regression.py" $<TARGET_FILE:betta-widget-sim>)
 foreach(board 4INCH_720 10INCH_1280 10INCH_JC TAB5_1280 S3_480)
     set(target "betta-geometry-${board}")
     add_executable(${target} orientation_geometry_regression.c

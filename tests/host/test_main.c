@@ -251,7 +251,7 @@ static void test_layout(void)
 
     const char *forecast_rect = "\"rect\":{\"x\":0,\"y\":0,\"w\":320,\"h\":300}";
     expect_valid("forecast days", W("\"type\":\"weather_tile\",\"weather_view\":\"days\",\"entity_id\":\"weather.a\",%s", forecast_rect));
-    expect_invalid("removed forecast type", W("\"type\":\"weather_3day\",\"entity_id\":\"weather.a\",%s", forecast_rect), NULL);
+    expect_valid("legacy forecast type", W("\"type\":\"weather_3day\",\"entity_id\":\"weather.a\",%s", forecast_rect));
     expect_valid("auto forecast", W("\"type\":\"weather_tile\",\"entity_id\":\"weather.a\",\"forecast_days\":0,%s", forecast_rect));
     expect_valid("six days", W("\"type\":\"weather_tile\",\"entity_id\":\"weather.a\",\"forecast_days\":6,%s", forecast_rect));
     expect_valid("seven days", W("\"type\":\"weather_tile\",\"entity_id\":\"weather.a\",\"forecast_days\":7,%s", forecast_rect));

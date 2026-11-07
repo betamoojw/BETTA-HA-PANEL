@@ -14,7 +14,7 @@ Changes since [v0.9.1](#v091).
 | --- | --- | --- |
 | [Air quality](widgets/air_quality_tile.md) | <span class="release-status release-status--new">New</span> | One BETTA status (Good, Fair, Poor) from humidity, with optional temperature, CO₂ and PM2.5 as readings on a neutral card like the Room widget and one advice chip when something needs action. It works from basic sensors up to IKEA ALPSTUGA and Awair Element; VOC and device ratings are display-only. A tap on a reading opens its history graph; a tap elsewhere opens the details with the advice, every reading as a row that opens its graph, the outdoor absolute-humidity comparison and the window state. The page icon list gains matching **Humidity** and **Air quality** symbols. |
 | [Stocks & ETFs](widgets/stock_quotes.md) | <span class="release-status release-status--changed">Changed</span> | The Tiles view is part of Charts now, as the switch **Show as cards** with up to four columns. **Show the start price** adds the period's first price (**Start 126.84 €**) under the price. The 30-day period reads **1M**. A saved Tiles view opens as charts with cards. |
-| [Weather](widgets/weather_tile.md) | <span class="release-status release-status--changed">Changed</span> | Weather and Weather forecast are one tile. **View** sets whether it starts with today or the forecast days; **Show day selection** adds two buttons at the top to switch, like the Stocks periods. The hourly strip marks midnight with a divider and the weekday and drops out when the tile is too short. Layouts with the former Weather forecast tile are converted when opened in the editor; the panel keeps showing them unchanged until then. The local editor can render the page in the LVGL simulator. |
+| [Weather](widgets/weather_tile.md) | <span class="release-status release-status--changed">Changed</span> | Weather and Weather forecast are one tile. **View** sets whether it starts with today or the forecast days; **Show day selection** adds two buttons at the top to switch, like the Stocks periods. The hourly strip marks midnight with a divider and the weekday and drops out when the tile is too short. The panel and editor read the former Weather forecast tile as Forecast days; the saved layout is kept until an explicit save. The local editor can render the page in the LVGL simulator. |
 | [Room card](widgets/room_tile.md) | <span class="release-status release-status--changed">Changed</span> | An optional icon before the name. |
 | [Fan](widgets/fan_tile.md) | <span class="release-status release-status--changed">Changed</span> | The rotor is drawn as three swept blades. |
 | [Parqet portfolio](widgets/parqet_portfolio.md) | <span class="release-status release-status--changed">Changed</span> | The interval buttons follow the panel language like the Stocks & ETFs period buttons (**1T** instead of **1D** in German). |
@@ -42,6 +42,10 @@ screenshots, KNX/MCP and voice session fixes. New widget/forecast/stock labels a
 localized across all seven languages, with the compact Chinese font extended for
 the added panel labels. S3 text-growth limits are calibrated for the merged widget
 catalog, including small price and stock cards. Existing commit history and saved-feature defaults remain.
+
+Saved `weather_3day` cards are normalized in memory for display, Home Assistant
+subscriptions and editor reads. Forecast details and existing IDs/bindings remain;
+the stored layout is not rewritten until an explicit save.
 
 ### Widgets: fitting and contrast
 

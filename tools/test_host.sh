@@ -439,6 +439,11 @@ cc -std=gnu11 -Wall -Wextra -Werror -g -I main -I tests/host/stubs "${variant_fl
 "$out/test_backup_layout"
 "$out/test_evcc"
 
+cc -std=gnu11 -Wall -Wextra -Werror -g -I main -I tests/host/stubs "${variant_flags[@]}" "${cjson_flags[@]}" \
+  tests/host/test_layout_compat.c main/layout/layout_validate.c main/ha/ha_timestamp_format.c main/ha/ha_sensor_value.c main/ha/ha_datetime_value.c main/util/iso_time.c main/ha/ha_alarm_state.c main/layout/widget_types.c main/layout/layout_orientation.c main/util/entity_id.c main/util/room_extra.c main/util/chime_synth.c main/layout/room_air_slots.c main/ui/widgets/room_air_model.c main/layout/bambu_printer_slots.c main/layout/evcc_slots.c main/ha/ha_layout_entities.c main/ha/ha_select_options.c \
+  "${cjson_sources[@]}" "${cjson_libs[@]}" -lm -o "$out/test_layout_compat"
+"$out/test_layout_compat"
+
 cc -std=gnu11 -Wall -Wextra -Werror -I main \
   tests/host/test_timezone_catalog.c main/net/timezone_catalog.c -o "$out/test_timezone_catalog"
 "$out/test_timezone_catalog"

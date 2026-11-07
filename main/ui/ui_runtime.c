@@ -1297,6 +1297,10 @@ static esp_err_t ui_runtime_apply_layout(const char *layout_json, const runtime_
         cJSON_Delete(root);
         return ESP_ERR_INVALID_ARG;
     }
+    if (!widget_types_normalize_layout(root)) {
+        cJSON_Delete(root);
+        return ESP_ERR_NO_MEM;
+    }
 
     if (!display_lock(UI_RUNTIME_LOCK_MS)) {
         cJSON_Delete(root);

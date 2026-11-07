@@ -41,10 +41,13 @@ port has a different role.
 
 ## Validation status and next checks
 
-The current local [AI Assistant acceptance baseline](../development/assistant-acceptance.md)
-freezes COM24 source `f30122b8`: farewell intent, 30-second audio-silence exit,
-countdown renewal, full duplex, reawakening, display and touch were accepted by
-the owner on 2026-11-06. It records later network-clock recovery separately.
+The current local [AI Assistant spectrum baseline](../development/assistant-spectrum-baseline.md)
+freezes COM24 source `dc55fb12`, accepted on 2026-11-07 for speech, interruption,
+echo suppression, reawakening, spectrum/quiet line, display and touch. It records
+CPU/memory/stack observations, remaining LVGL lock waits and HTTP latency peaks.
+The [f30122b record](../development/assistant-acceptance.md) retains the earlier
+farewell-intent, 30-second silence, countdown-renewal and clock-recovery evidence;
+those cases were not all repeated in the spectrum trial.
 
 The 2026-11-06 COM24 [Xiaozhi acceptance baseline](../development/xiaozhi-acceptance.md)
 records the exact tested `7ec2109d` image, bounded voice results and recovery steps.

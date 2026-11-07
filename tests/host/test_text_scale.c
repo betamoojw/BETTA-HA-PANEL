@@ -180,7 +180,9 @@ static void test_capped_growth(void)
     CHECK_EQ(text_scale_tile_cap(TEXT_BOARD_PANEL4, "energy_page", 720, 720), 0);
     CHECK_EQ(text_scale_tile_cap(TEXT_BOARD_S3, "energy_page", 480, 360), 0);
     CHECK_EQ(text_scale_tile_cap(TEXT_BOARD_S3, "wallbox_evcc", 360, 320), -1);
-    CHECK_EQ(text_scale_tile_cap(TEXT_BOARD_S3, "light_tile", 456, 336), -1);
+    CHECK_EQ(text_scale_tile_cap(TEXT_BOARD_S3, "light_tile", 456, 336), 0);
+    CHECK_EQ(text_scale_tile_cap(TEXT_BOARD_S3, "energy_price_forecast", 240, 150), 0);
+    CHECK_EQ(text_scale_tile_cap(TEXT_BOARD_S3, "stock_quotes", 342, 276), 0);
     CHECK_EQ(text_scale_px_capped(TEXT_BOARD_S3, UI_TEXT_LABEL, 2,
         text_scale_tile_cap(TEXT_BOARD_S3, "wallbox_evcc", 360, 320)), 20);
     /* unknown types and unset sizes are not capped */
@@ -193,8 +195,8 @@ static void test_capped_growth(void)
     for (int b = 0; b < TEXT_BOARD_COUNT; b++)
         for (int w = 60; w <= 1280; w += 20)
             for (int h = 60; h <= 720; h += 20) {
-                CHECK(text_scale_tile_cap((text_board_t)b, "weather_3day", w + 20, h) >= text_scale_tile_cap((text_board_t)b, "weather_3day", w, h));
-                CHECK(text_scale_tile_cap((text_board_t)b, "weather_3day", w, h + 20) >= text_scale_tile_cap((text_board_t)b, "weather_3day", w, h));
+                CHECK(text_scale_tile_cap((text_board_t)b, "weather_days", w + 20, h) >= text_scale_tile_cap((text_board_t)b, "weather_days", w, h));
+                CHECK(text_scale_tile_cap((text_board_t)b, "weather_days", w, h + 20) >= text_scale_tile_cap((text_board_t)b, "weather_days", w, h));
             }
 }
 

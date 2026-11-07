@@ -367,7 +367,8 @@
         "windy_variant": "Wietrznie i pochmurno"
       },
       "hourly_empty": "Brak prognozy godzinowej",
-      "hourly_loading": "Wczytywanie prognozy godzinowej…"
+      "hourly_loading": "Wczytywanie prognozy godzinowej…",
+      "view_days": "Dni"
     },
     "graph": {
       "no_history": "brak historii",
@@ -525,7 +526,8 @@
       "paused": "Wstrzymano",
       "waiting": "Oczekiwanie na kamerę",
       "unsupported": "MJPEG niedostępne",
-      "failed": "Utracono połączenie kamery"
+      "failed": "Utracono połączenie kamery",
+      "snapshot_failed": "Obraz niedostępny"
     },
     "bambu": {
       "state": {
@@ -837,7 +839,14 @@
       "top": "5 najlepszych",
       "flop": "5 najgorszych",
       "pick_interval": "Wybierz okres",
-      "unit_mismatch": "Inna jednostka"
+      "unit_mismatch": "Inna jednostka",
+      "period": {
+        "1d": "1D",
+        "1w": "1T",
+        "1m": "1M",
+        "ytd": "Rok",
+        "max": "MAKS"
+      }
     },
     "stock": {
       "title": "Akcje i ETF",
@@ -846,7 +855,7 @@
       "period": {
         "1d": "1D",
         "1w": "1T",
-        "30d": "30D",
+        "30d": "1M",
         "ytd": "YTD",
         "1y": "1R"
       },
@@ -868,7 +877,56 @@
         "closed": "Rynek zamknięty"
       },
       "updated": "zaktualizowano",
-      "last_price": "ostatnia cena"
+      "last_price": "ostatnia cena",
+      "start": "Początek"
+    },
+    "air": {
+      "title": "Jakość powietrza",
+      "humidity": "Wilgotność",
+      "humidity_short": "Wilgotność",
+      "temperature": "Temperatura",
+      "temperature_short": "Temp.",
+      "co2": "CO₂",
+      "pm25": "PM2.5",
+      "voc": "LZO",
+      "out_temperature": "Temperatura zewnętrzna",
+      "out_temperature_short": "Temp. zewn.",
+      "out_humidity": "Wilgotność zewnętrzna",
+      "window": "Czujnik otwarcia okna",
+      "rating": "Ocena urządzenia",
+      "good": "Dobra",
+      "fair": "Umiarkowana",
+      "poor": "Zła",
+      "not_evaluated": "Nie oceniono",
+      "partial": "Częściowe dane",
+      "dry": "Niska wilgotność",
+      "humid": "Wysoka wilgotność · sprawdź wietrzenie",
+      "fresh_air": "Wymiana powietrza · wysokie CO₂",
+      "particles": "Dużo cząstek · ogranicz źródła / filtruj; jakość na zewnątrz nieznana",
+      "drying": "Powietrze referencyjne może osuszyć pomieszczenie",
+      "no_drying": "Powietrze referencyjne nie osuszy wystarczająco",
+      "conflict": "Potrzebna wymiana powietrza; powietrze referencyjne doda wilgoci",
+      "conflict_short": "Wietrzenie · konflikt wilgotności",
+      "co2_short": "Wietrz · wysokie CO₂",
+      "humid_short": "Wysoka wilgotność",
+      "pm_short": "Dużo cząstek",
+      "humidity_scope": "Tylko wilgotność",
+      "no_advice": "Za mało ocenionych danych do porady",
+      "absolute": "Wilgotność bezwzględna: wewnątrz / na zewnątrz",
+      "weather_reference": "Dane serwisu pogody, nie lokalny pomiar zewnętrzny. Wiek próbki nieznany.",
+      "open": "Otwarte",
+      "closed": "Zamknięte",
+      "enum_extremely_poor": "Skrajnie zła",
+      "enum_very_poor": "Bardzo zła",
+      "enum_poor": "Zła",
+      "enum_fair": "Umiarkowana",
+      "enum_good": "Dobra",
+      "enum_moderate": "Średnia",
+      "choose_humidity": "Wybierz czujnik wilgotności",
+      "blank": "Pusty widżet jakości powietrza",
+      "outdoor_enabled": "Porównuj z otoczeniem",
+      "sources_hint": "Wilgotność jest wymagana. Pozostałe role przypisz jawnie. LZO są tylko wyświetlane; ocena urządzenia nie zmienia stanu BETTA. Dobierz temperaturę i wilgotność zewnętrzną jako parę.",
+      "invalid_binding": "Nieprawidłowa encja dla {role}."
     }
   }
 }

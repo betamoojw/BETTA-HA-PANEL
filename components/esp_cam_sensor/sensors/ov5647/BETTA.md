@@ -9,7 +9,9 @@ BETTA adds read-only `ESP_CAM_SENSOR_STATS`: actual automatic exposure from
 registers 0x3500–0x3502 (lines), and gain from 0x350a–0x350b (unity = 16).
 The upstream exposure setter still adjusts the sensor's automatic-exposure
 target; it is not used as an exposure measurement. Failed reads return an error.
-Register decoding is covered by the host ambient-camera test.
+`ov5647_meter.h` rejects zero exposure and sub-unity gain before publishing a
+sample; each accepted sample keeps the atomic sequence required by the ISP.
+Register decoding is covered by the ambient-camera and OV5647 metering host tests.
 
 The LCD-X profile selects 800 × 640 RAW8 at 50 fps and the original ISP profile.
 Capture is intermittent, with RGB565 buffers in PSRAM. A bounded LCD-X v3.2

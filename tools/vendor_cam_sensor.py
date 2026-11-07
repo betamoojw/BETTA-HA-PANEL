@@ -130,7 +130,7 @@ def main():
         except OSError:
             os.replace(old, DEST)
             raise
-    print("components/esp_cam_sensor is now %s core + OV02C10 and SC202CS drivers; update the relevant lock files and rebuild" % version)
+    print("components/esp_cam_sensor is now %s core + OV02C10, SC202CS and OV5647 drivers; update the relevant lock files and rebuild" % version)
 
 
 if __name__ == "__main__":

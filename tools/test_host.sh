@@ -93,6 +93,10 @@ cc -std=c11 -Wall -Wextra -Werror -I main/xiaozhi -I tests/host/duplex_stubs \
 "$out/test_xiaozhi_spectrum"
 cc -std=c11 -Wall -Wextra -Werror -I main tests/host/test_xiaozhi_text.c -o "$out/test_xiaozhi_text"
 "$out/test_xiaozhi_text"
+cc -std=c11 -Wall -Wextra -Werror -I main -I tests/simulator/stubs \
+  -DCONFIG_APP_PANEL_VARIANT_10INCH_1280=1 -DCONFIG_IDF_TARGET_ESP32P4=1 \
+  tests/host/test_panel10_audio_owner.c main/drivers/audio_out.c -o "$out/test_panel10_audio_owner"
+"$out/test_panel10_audio_owner"
 # Use the codec's public interface types with injected I2C gain failures.
 codec="managed_components/espressif__esp_codec_dev"
 if [ -f "$codec/interface/audio_codec_if.h" ]; then
@@ -125,10 +129,22 @@ if [ -d "$sr/include/esp32p4" ]; then
     -o "$out/test_xiaozhi_custom_wake"
   "$out/test_xiaozhi_custom_wake" "$out/custom-wake-model.bin"
 fi
+cc -std=c11 -Wall -Wextra -Werror -I main \
+  -I components/esp_cam_sensor/sensors/ov5647/private_include \
+  tests/host/test_ov5647_meter.c -o "$out/test_ov5647_meter"
+"$out/test_ov5647_meter"
+
 cc -std=gnu11 -Wall -Wextra -Werror -Wno-unused-parameter -Dtime=host_test_time -g \
   -I main -I tests/host/stubs "${variant_flags[@]}" "${cjson_flags[@]}" \
-  tests/host/test_main.c tests/host/test_energy_timeline_colors.c tests/host/test_sensor_value.c tests/host/test_quote.c main/ha/ha_quote.c main/ui/theme/matte_title.c main/ui/theme/ui_style_registry.c main/settings/brightness_model.c main/settings/settings_restart.c main/settings/settings_validate.c main/layout/layout_validate.c main/layout/bambu_printer_slots.c main/layout/evcc_slots.c main/layout/layout_orientation.c main/layout/widget_types.c main/util/atomic_file.c tests/host/flash_gate_stub.c main/util/cover_scale.c main/drivers/display_policy.c main/util/json_util.c main/util/cover_guard.c main/util/boot_guard.c main/util/entity_id.c main/util/distance_units.c main/util/iso_time.c main/util/room_extra.c main/util/ota_health.c main/util/auto_update.c main/util/sha256_soft.c main/util/auto_update_state.c main/util/user_activity.c main/ui/nav_layout.c main/util/reboot_log.c main/util/net_watchdog.c main/util/ui_watchdog.c main/util/ota_chip_rev.c main/util/history_feed_policy.c main/util/chart_scale.c main/ha/energy_timeline_model.c main/util/url_decode.c main/util/notification_parse.c main/ui/notification_text.c main/util/chime_synth.c main/ha/ha_attrs_compact.c main/ha/ha_attr_serialize.c main/ha/ha_price_series.c main/ha/ha_history_stats.c main/ha/ha_layout_entities.c main/ha/ha_display_precision.c main/ha/ha_discovery_domains.c main/ha/ha_registry_discovery.c main/ha/ha_auth_state.c main/ha/ha_select_options.c main/ha/ha_control_options.c main/ha/ha_datetime_value.c main/ha/ha_timestamp_format.c main/ha/ha_sensor_value.c main/ha/ha_history_reduce.c main/ha/ha_lock_state.c main/ha/ha_alarm_state.c main/ha/ha_room_registry.c main/ui/widgets/weather_value_parse.c main/ui/widgets/weather_condition_icon.c main/net/wifi_signal_level.c main/net/setup_passphrase.c main/net/update_check_parse.c "${cjson_sources[@]}" \
+  tests/host/test_main.c tests/host/test_energy_timeline_colors.c tests/host/test_sensor_value.c tests/host/test_quote.c main/ha/ha_quote.c main/ui/theme/matte_title.c main/ui/theme/ui_style_registry.c main/settings/brightness_model.c main/settings/settings_restart.c main/settings/settings_validate.c main/layout/layout_validate.c main/layout/room_air_slots.c main/ui/widgets/room_air_model.c main/layout/bambu_printer_slots.c main/layout/evcc_slots.c main/layout/layout_orientation.c main/layout/widget_types.c main/util/atomic_file.c tests/host/flash_gate_stub.c main/util/cover_scale.c main/drivers/display_policy.c main/util/json_util.c main/util/cover_guard.c main/util/boot_guard.c main/util/entity_id.c main/util/distance_units.c main/util/iso_time.c main/util/room_extra.c main/util/ota_health.c main/util/auto_update.c main/util/sha256_soft.c main/util/auto_update_state.c main/util/user_activity.c main/ui/nav_layout.c main/util/reboot_log.c main/util/net_watchdog.c main/util/ui_watchdog.c main/util/ota_chip_rev.c main/util/history_feed_policy.c main/util/chart_scale.c main/ha/energy_timeline_model.c main/util/url_decode.c main/util/notification_parse.c main/ui/notification_text.c main/util/chime_synth.c main/ha/ha_attrs_compact.c main/ha/ha_attr_serialize.c main/ha/ha_price_series.c main/ha/ha_history_stats.c main/ha/ha_layout_entities.c main/ha/ha_display_precision.c main/ha/ha_discovery_domains.c main/ha/ha_registry_discovery.c main/ha/ha_auth_state.c main/ha/ha_select_options.c main/ha/ha_control_options.c main/ha/ha_datetime_value.c main/ha/ha_timestamp_format.c main/ha/ha_sensor_value.c main/ha/ha_history_reduce.c main/ha/ha_lock_state.c main/ha/ha_alarm_state.c main/ha/ha_room_registry.c main/ui/widgets/weather_value_parse.c main/ui/widgets/weather_condition_icon.c main/net/wifi_signal_level.c main/net/setup_passphrase.c main/net/update_check_parse.c "${cjson_sources[@]}" \
   "${cjson_libs[@]}" -lm -o "$out/test_host"
+
+# Room air: pure evaluation and every named subscription, without HA or LVGL.
+cc -std=gnu11 -Wall -Wextra -Werror -g -I main -I tests/host/stubs "${variant_flags[@]}" "${cjson_flags[@]}" \
+  tests/host/test_room_air.c main/ui/widgets/room_air_model.c main/layout/room_air_slots.c \
+  main/ha/ha_layout_entities.c main/layout/bambu_printer_slots.c main/layout/evcc_slots.c \
+  "${cjson_sources[@]}" "${cjson_libs[@]}" -lm -o "$out/test_room_air"
+"$out/test_room_air"
 
 # Entity picker discovery: bounded production queries and capability metadata.
 cc -std=gnu11 -Wall -Wextra -Werror -g -I main "${cjson_flags[@]}" \
@@ -140,6 +156,9 @@ cc -std=gnu11 -Wall -Wextra -Werror -g -I main "${cjson_flags[@]}" \
 cc -std=gnu11 -Wall -Wextra -Werror -g -I main -I tests/simulator/stubs "${variant_flags[@]}" \
   tests/host/test_entity_names.c main/ha/ha_model.c -o "$out/test_entity_names"
 "$out/test_entity_names"
+cc -std=gnu11 -Wall -Wextra -Werror -g -I main -I tests/simulator/stubs "${variant_flags[@]}" \
+  tests/host/test_model_changes.c -o "$out/test_model_changes"
+"$out/test_model_changes"
 
 cc -std=gnu11 -Wall -Wextra -Werror -g -I main \
   tests/host/test_display_preview.c main/drivers/display_policy.c main/settings/brightness_model.c \
@@ -153,6 +172,9 @@ cc -std=gnu11 -Wall -Wextra -Werror -g -Itests/host/display_present_stubs -Imain
   tests/host/test_display_present.c main/drivers/display_present.c \
   -o "$out/test_display_present"
 "$out/test_display_present"
+cc -std=gnu11 -Wall -Wextra -Werror -g -I main \
+  tests/host/test_display_timing.c -o "$out/test_display_timing"
+"$out/test_display_timing"
 TZ=Europe/Berlin "$out/test_host"
 
 # C6 diagnostic snapshots: lifecycle/retry policy and versioned incident records, no radio.
@@ -255,15 +277,23 @@ cc -std=gnu11 -Wall -Wextra -Werror -I tests/host/camera_stubs -I tests/host/stu
 cc -std=gnu11 -Wall -Wextra -Werror -g -I main -I tests/host/stubs \
   "${variant_flags[@]}" "${cjson_flags[@]}" tests/host/test_camera_layout.c \
   main/layout/layout_validate.c main/ha/ha_timestamp_format.c main/ha/ha_sensor_value.c main/ha/ha_datetime_value.c main/util/iso_time.c main/layout/widget_types.c main/layout/layout_orientation.c \
-  main/layout/bambu_printer_slots.c main/layout/evcc_slots.c \
+  main/layout/room_air_slots.c main/ui/widgets/room_air_model.c main/layout/bambu_printer_slots.c main/layout/evcc_slots.c \
   main/ha/ha_alarm_state.c main/util/entity_id.c main/util/room_extra.c main/util/chime_synth.c \
   "${cjson_sources[@]}" "${cjson_libs[@]}" -lm -o "$out/test_camera_layout"
 "$out/test_camera_layout"
 
 cc -std=gnu11 -Wall -Wextra -Werror -g -I main -I tests/host/stubs \
+  "${variant_flags[@]}" "${cjson_flags[@]}" tests/host/test_stock_layout.c \
+  main/layout/layout_validate.c main/ha/ha_timestamp_format.c main/ha/ha_sensor_value.c main/ha/ha_datetime_value.c main/util/iso_time.c main/layout/widget_types.c main/layout/layout_orientation.c \
+  main/layout/room_air_slots.c main/ui/widgets/room_air_model.c main/layout/bambu_printer_slots.c main/layout/evcc_slots.c \
+  main/ha/ha_alarm_state.c main/util/entity_id.c main/util/room_extra.c main/util/chime_synth.c \
+  "${cjson_sources[@]}" "${cjson_libs[@]}" -lm -o "$out/test_stock_layout"
+"$out/test_stock_layout"
+
+cc -std=gnu11 -Wall -Wextra -Werror -g -I main -I tests/host/stubs \
   "${variant_flags[@]}" "${cjson_flags[@]}" tests/host/test_price_layout.c \
   main/layout/layout_validate.c main/ha/ha_timestamp_format.c main/ha/ha_sensor_value.c main/ha/ha_datetime_value.c main/util/iso_time.c main/layout/widget_types.c main/layout/layout_orientation.c \
-  main/layout/bambu_printer_slots.c main/layout/evcc_slots.c main/ha/ha_layout_entities.c \
+  main/layout/room_air_slots.c main/ui/widgets/room_air_model.c main/layout/bambu_printer_slots.c main/layout/evcc_slots.c main/ha/ha_layout_entities.c \
   main/ha/ha_alarm_state.c main/util/entity_id.c main/util/room_extra.c main/util/chime_synth.c \
   "${cjson_sources[@]}" "${cjson_libs[@]}" -lm -o "$out/test_price_layout"
 "$out/test_price_layout"
@@ -285,12 +315,12 @@ cc -std=gnu11 -Wall -Wextra -Werror -g -I main \
 "$out/test_graph_history_merge"
 
 cc -std=gnu11 -Wall -Wextra -Werror -g -I main -I tests/host/stubs "${variant_flags[@]}" "${cjson_flags[@]}" \
-  tests/host/test_bambu_printer.c main/ui/widgets/bambu_printer_policy.c main/layout/bambu_printer_slots.c \
+  tests/host/test_bambu_printer.c main/ui/widgets/bambu_printer_policy.c main/layout/room_air_slots.c main/ui/widgets/room_air_model.c main/layout/bambu_printer_slots.c \
   "${cjson_sources[@]}" "${cjson_libs[@]}" -lm -o "$out/test_bambu_printer"
 "$out/test_bambu_printer"
 
 cc -std=gnu11 -Wall -Wextra -Werror -g -I main -I tests/host/stubs "${variant_flags[@]}" "${cjson_flags[@]}" \
-  tests/host/test_printer_lookup.c main/ha/ha_printer_lookup.c main/layout/bambu_printer_slots.c \
+  tests/host/test_printer_lookup.c main/ha/ha_printer_lookup.c main/layout/room_air_slots.c main/ui/widgets/room_air_model.c main/layout/bambu_printer_slots.c \
   "${cjson_sources[@]}" "${cjson_libs[@]}" -lm -o "$out/test_printer_lookup"
 "$out/test_printer_lookup"
 
@@ -400,11 +430,11 @@ cc -std=gnu11 -Wall -Wextra -Werror -g -I tests/host/storage_stubs -I main \
 
 cc -std=gnu11 -Wall -Wextra -Werror -g -I main -I tests/host/stubs "${variant_flags[@]}" "${cjson_flags[@]}" \
   -DHA_EVCC_SESSIONS_TEST_HOOKS=1 -Dtime=ha_evcc_sessions_test_time \
-  tests/host/test_evcc.c tests/host/test_evcc_sessions.c main/ha/ha_evcc_sessions.c main/ha/ha_evcc_vehicle_names.c main/util/iso_time.c main/layout/layout_validate.c main/ha/ha_timestamp_format.c main/ha/ha_sensor_value.c main/ha/ha_datetime_value.c main/ha/ha_alarm_state.c main/layout/widget_types.c main/layout/layout_orientation.c main/util/entity_id.c main/util/room_extra.c main/util/chime_synth.c main/layout/bambu_printer_slots.c main/ha/ha_layout_entities.c main/ha/ha_evcc_lookup.c main/ha/ha_evcc_value.c main/layout/evcc_slots.c main/ha/ha_select_options.c \
+  tests/host/test_evcc.c tests/host/test_evcc_sessions.c main/ha/ha_evcc_sessions.c main/ha/ha_evcc_vehicle_names.c main/util/iso_time.c main/layout/layout_validate.c main/ha/ha_timestamp_format.c main/ha/ha_sensor_value.c main/ha/ha_datetime_value.c main/ha/ha_alarm_state.c main/layout/widget_types.c main/layout/layout_orientation.c main/util/entity_id.c main/util/room_extra.c main/util/chime_synth.c main/layout/room_air_slots.c main/ui/widgets/room_air_model.c main/layout/bambu_printer_slots.c main/ha/ha_layout_entities.c main/ha/ha_evcc_lookup.c main/ha/ha_evcc_value.c main/layout/evcc_slots.c main/ha/ha_select_options.c \
   "${cjson_sources[@]}" "${cjson_libs[@]}" -lm -o "$out/test_evcc"
 
 cc -std=gnu11 -Wall -Wextra -Werror -g -I main -I tests/host/stubs "${variant_flags[@]}" "${cjson_flags[@]}" \
-  tests/host/test_backup_layout.c main/layout/layout_validate.c main/ha/ha_timestamp_format.c main/ha/ha_sensor_value.c main/ha/ha_datetime_value.c main/util/iso_time.c main/ha/ha_alarm_state.c main/layout/widget_types.c main/layout/layout_orientation.c main/util/entity_id.c main/util/room_extra.c main/util/chime_synth.c main/layout/bambu_printer_slots.c main/layout/evcc_slots.c main/ha/ha_layout_entities.c main/ha/ha_select_options.c \
+  tests/host/test_backup_layout.c main/layout/layout_validate.c main/ha/ha_timestamp_format.c main/ha/ha_sensor_value.c main/ha/ha_datetime_value.c main/util/iso_time.c main/ha/ha_alarm_state.c main/layout/widget_types.c main/layout/layout_orientation.c main/util/entity_id.c main/util/room_extra.c main/util/chime_synth.c main/layout/room_air_slots.c main/ui/widgets/room_air_model.c main/layout/bambu_printer_slots.c main/layout/evcc_slots.c main/ha/ha_layout_entities.c main/ha/ha_select_options.c \
   "${cjson_sources[@]}" "${cjson_libs[@]}" -lm -o "$out/test_backup_layout"
 "$out/test_backup_layout"
 "$out/test_evcc"

@@ -29,6 +29,7 @@ migrating an existing installation. A factory image overwrites stored credential
 ## Compact widgets
 
 Complex cards use a separate S3 text-growth table and a 16 px floor.
+Small price and stock cards limit text growth to keep their plots and readings visible.
 Wallbox and Bambu printer cards fit from
 320 × 320; a single large card with a 12 px margin can use 456 × 336. The Energy
 page places all six nodes within the 480 × 360 canvas and opens details in popups.

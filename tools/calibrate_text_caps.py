@@ -13,7 +13,7 @@ inside them failed at cap k while as many tiles as possible passed. Thresholds n
   python3 tools/calibrate_text_caps.py --write    # also update the table in main/ui/text_scale.c
   python3 tools/calibrate_text_caps.py --variant panels3 --write  # compact table, caps -1 through 2, 16px floor
 
-The result depends on the fixtures: add a tile to tests/simulator/layout_cases.json when a size needs protection, then run it again.
+The result depends on the fixtures: add a tile to tests/simulator/tile_size_cases.json when a size needs protection, then run it again.
 """
 import argparse
 import json
@@ -49,6 +49,7 @@ def fixtures():
             "wallbox_disconnected": json.loads((REPO / "tests/simulator/wallbox_disconnected.json").read_text()),
             "wallbox_sessions": json.loads((REPO / "tests/simulator/wallbox_sessions.json").read_text()),
             "bambu_printer": json.loads((REPO / "tests/simulator/bambu_printer.json").read_text()),
+            "stock_precision": json.loads((REPO / "tests/simulator/stock_precision.json").read_text()),
             "readability": json.loads((REPO / "tests/simulator/readability.json").read_text()),
             "readability_history_numeric": json.loads((REPO / "tests/simulator/readability_history_numeric.json").read_text()),
             "readability_history_state": json.loads((REPO / "tests/simulator/readability_history_state.json").read_text())}
@@ -110,7 +111,9 @@ def main():
             for page in fixture["pages"]:
                 for widget in page.get("widgets", []):
                     if widget.get("type") and widget.get("rect") and widget.get("id"):
-                        tiles[widget["id"]] = (widget["type"], widget["rect"]["w"], widget["rect"]["h"])
+                        wtype = "weather_days" if (widget["type"] == "weather_tile" and
+                            widget.get("weather_view") == "days") else widget["type"]
+                        tiles[widget["id"]] = (wtype, widget["rect"]["w"], widget["rect"]["h"])
             results = {cap: run_cap(binary, name, fixture, cap, args.step, temp, 16 if compact else MIN_TEXT_PX)
                        for cap in caps}
             for page, (wtype, w, h) in tiles.items():

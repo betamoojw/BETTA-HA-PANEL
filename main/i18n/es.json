@@ -367,7 +367,8 @@
         "windy_variant": "Ventoso y nublado"
       },
       "hourly_empty": "Sin previsión por horas",
-      "hourly_loading": "Cargando previsión por horas…"
+      "hourly_loading": "Cargando previsión por horas…",
+      "view_days": "Días"
     },
     "graph": {
       "no_history": "sin historial",
@@ -525,7 +526,8 @@
       "paused": "En pausa",
       "waiting": "Esperando cámara",
       "unsupported": "MJPEG no disponible",
-      "failed": "Conexión de cámara perdida"
+      "failed": "Conexión de cámara perdida",
+      "snapshot_failed": "Imagen no disponible"
     },
     "bambu": {
       "state": {
@@ -837,7 +839,14 @@
       "top": "5 mejores",
       "flop": "5 peores",
       "pick_interval": "Elige un periodo",
-      "unit_mismatch": "Unidad distinta"
+      "unit_mismatch": "Unidad distinta",
+      "period": {
+        "1d": "1D",
+        "1w": "1S",
+        "1m": "1M",
+        "ytd": "Año",
+        "max": "MÁX"
+      }
     },
     "stock": {
       "title": "Acciones y ETF",
@@ -846,7 +855,7 @@
       "period": {
         "1d": "1D",
         "1w": "1S",
-        "30d": "30D",
+        "30d": "1M",
         "ytd": "YTD",
         "1y": "1A"
       },
@@ -868,7 +877,56 @@
         "closed": "Mercado cerrado"
       },
       "updated": "actualizado",
-      "last_price": "último precio"
+      "last_price": "último precio",
+      "start": "Inicio"
+    },
+    "air": {
+      "title": "Calidad del aire",
+      "humidity": "Humedad",
+      "humidity_short": "Humedad",
+      "temperature": "Temperatura",
+      "temperature_short": "Temp.",
+      "co2": "CO₂",
+      "pm25": "PM2.5",
+      "voc": "COV",
+      "out_temperature": "Temperatura exterior",
+      "out_temperature_short": "Temp. ext.",
+      "out_humidity": "Humedad exterior",
+      "window": "Contacto de ventana",
+      "rating": "Valoración del dispositivo",
+      "good": "Buena",
+      "fair": "Aceptable",
+      "poor": "Mala",
+      "not_evaluated": "Sin evaluar",
+      "partial": "Datos parciales",
+      "dry": "Humedad baja",
+      "humid": "Humedad alta · comprobar ventilación",
+      "fresh_air": "Renovar aire · CO₂ elevado",
+      "particles": "Partículas elevadas · reducir fuentes / filtrar; calidad exterior desconocida",
+      "drying": "El aire de referencia puede secar la habitación",
+      "no_drying": "El aire de referencia no aporta suficiente secado",
+      "conflict": "Hay que renovar el aire; el aire de referencia añadiría humedad",
+      "conflict_short": "Renovar aire · conflicto de humedad",
+      "co2_short": "Ventilar · CO₂ elevado",
+      "humid_short": "Humedad alta",
+      "pm_short": "Partículas elevadas",
+      "humidity_scope": "Solo humedad",
+      "no_advice": "Datos evaluados insuficientes para aconsejar",
+      "absolute": "Humedad absoluta: interior / exterior",
+      "weather_reference": "Referencia meteorológica; no es una medición exterior local. Antigüedad desconocida.",
+      "open": "Abierta",
+      "closed": "Cerrada",
+      "enum_extremely_poor": "Extremadamente mala",
+      "enum_very_poor": "Muy mala",
+      "enum_poor": "Mala",
+      "enum_fair": "Aceptable",
+      "enum_good": "Buena",
+      "enum_moderate": "Moderada",
+      "choose_humidity": "Elegir sensor de humedad",
+      "blank": "Widget vacío de calidad del aire",
+      "outdoor_enabled": "Comparar con el exterior",
+      "sources_hint": "La humedad es obligatoria. Asigne las demás funciones explícitamente. COV solo se muestra; la valoración del dispositivo no cambia el estado BETTA. Elija temperatura y humedad exterior como pareja.",
+      "invalid_binding": "Entidad no válida para {role}."
     }
   }
 }

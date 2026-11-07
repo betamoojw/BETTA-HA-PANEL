@@ -166,6 +166,8 @@ done:
     return err;
 }
 #else
+/* LCD-X audio belongs to xiaozhi_audio. A second transient I2S/codec owner
+ * would reconfigure its amplifier and disrupt wake detection or a conversation. */
 bool audio_out_available(void) { return false; }
 esp_err_t audio_out_play(const int16_t *pcm, size_t samples, int volume, bool (*cancel)(void))
 {

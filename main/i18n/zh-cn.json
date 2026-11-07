@@ -367,7 +367,8 @@
         "windy_variant": "多云有风"
       },
       "hourly_empty": "无逐小时预测",
-      "hourly_loading": "正在加载逐小时预测…"
+      "hourly_loading": "正在加载逐小时预测…",
+      "view_days": "多日"
     },
     "graph": {
       "no_history": "无历史记录",
@@ -525,7 +526,8 @@
       "paused": "已暂停",
       "waiting": "等待摄像头",
       "unsupported": "MJPEG 不可用",
-      "failed": "摄像头连接已断开"
+      "failed": "摄像头连接已断开",
+      "snapshot_failed": "图像不可用"
     },
     "bambu": {
       "state": {
@@ -837,7 +839,14 @@
       "top": "涨幅前五",
       "flop": "跌幅前五",
       "pick_interval": "选择时段",
-      "unit_mismatch": "单位不一致"
+      "unit_mismatch": "单位不一致",
+      "period": {
+        "1d": "1日",
+        "1w": "1周",
+        "1m": "1月",
+        "ytd": "今年",
+        "max": "全部"
+      }
     },
     "stock": {
       "title": "股票与 ETF",
@@ -846,7 +855,7 @@
       "period": {
         "1d": "1天",
         "1w": "1周",
-        "30d": "30天",
+        "30d": "1月",
         "ytd": "今年",
         "1y": "1年"
       },
@@ -868,7 +877,56 @@
         "closed": "已休市"
       },
       "updated": "已更新",
-      "last_price": "最新价格"
+      "last_price": "最新价格",
+      "start": "起始"
+    },
+    "air": {
+      "title": "空气质量",
+      "humidity": "湿度",
+      "humidity_short": "湿度",
+      "temperature": "温度",
+      "temperature_short": "温度",
+      "co2": "CO₂",
+      "pm25": "PM2.5",
+      "voc": "挥发性有机物",
+      "out_temperature": "室外温度",
+      "out_temperature_short": "室外温度",
+      "out_humidity": "室外湿度",
+      "window": "窗户触点",
+      "rating": "设备评分",
+      "good": "良好",
+      "fair": "一般",
+      "poor": "较差",
+      "not_evaluated": "未评估",
+      "partial": "数据不完整",
+      "dry": "湿度偏低",
+      "humid": "湿度偏高 · 检查通风",
+      "fresh_air": "需要换气 · CO₂ 偏高",
+      "particles": "颗粒物偏高 · 减少来源或过滤；室外空气质量未知",
+      "drying": "参考空气有助于降低室内湿度",
+      "no_drying": "参考空气的除湿效果不足",
+      "conflict": "需要换气，但参考空气会增加湿度",
+      "conflict_short": "换气与除湿冲突",
+      "co2_short": "请通风 · CO₂ 偏高",
+      "humid_short": "湿度偏高",
+      "pm_short": "颗粒物偏高",
+      "humidity_scope": "仅湿度",
+      "no_advice": "已评估数据不足，无法给出建议",
+      "absolute": "绝对湿度：室内 / 室外",
+      "weather_reference": "天气服务参考值，非本地室外实测。采样时间未知。",
+      "open": "打开",
+      "closed": "关闭",
+      "enum_extremely_poor": "极差",
+      "enum_very_poor": "很差",
+      "enum_poor": "较差",
+      "enum_fair": "一般",
+      "enum_good": "良好",
+      "enum_moderate": "中等",
+      "choose_humidity": "选择湿度传感器",
+      "blank": "空白空气质量组件",
+      "outdoor_enabled": "启用室外对比",
+      "sources_hint": "湿度为必选项，请明确分配其他传感器。挥发性有机物仅显示数值；设备评分不改变 BETTA 状态。室外温度与湿度需成对选择。",
+      "invalid_binding": "{role} 的实体无效。"
     }
   }
 }

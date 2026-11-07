@@ -47,7 +47,7 @@ avoid the instructions.
 
 ## Shared LVGL adapter
 
-Every panel registers display and touch with `esp_lvgl_adapter` 0.7.3 through
+Every panel registers display and touch with `esp_lvgl_adapter` 0.7.5 through
 `main/drivers/display_port.c`. Board files initialize hardware only. The shared
 adapter task uses priority 20, core 1 and the existing internal-RAM stack; LVGL
 allocations, two partial draw buffers and rotation scratch use PSRAM first.
@@ -72,6 +72,51 @@ and unchanged layouts/settings. The owner confirmed physical image orientation
 and page navigation by touch on all three. Tab5 was mounted at 270 degrees;
 this check does not qualify physical touch mapping in every automatic orientation.
 
+## Chip temperature diagnostics
+
+All P4 variants expose `chip_temperature` through `GET /api/version`: `available`,
+`celsius`, `sample_age_ms` and `error`. This is internal chip temperature, not room
+or case temperature. The IDF sensor uses its 20–100 °C range (nominal error up to 2 °C).
+`util/chip_temperature.c` samples once at startup and every ten seconds on the existing
+ESP timer task. HTTP reads only the cached snapshot. Read failures set `available=false`
+and `celsius=null`; age refers to the last successful sample, or -1 if none exists.
+Initialization failure logs once and never prevents boot. No UI field, HA entity,
+new task, temperature alarm or persistent history is added.
+
+## Original JC display timing
+
+The original `paneljc` build includes `display_timing` in `/api/version`. It measures BETTA's lock
+waits and outermost recursive holds, LVGL refresh cycles, rotation, the bitmap callback,
+transfer submission and actual DMA completion separately. Each metric reports count,
+total/max milliseconds, slow count (100 ms or longer), errors and the maximum's caller PC.
+The last 16 slow operations or lock failures retain uptime, duration, caller/owner PCs,
+known application-owner task and whether a refresh was active. Decode PCs against that
+running image's archived ELF. Aggregates overlap and must not be added as CPU time.
+
+Application-owner tracking covers `display_lock()` calls, not the adapter's private mutex
+operations; `untracked` is not proof that the mutex was free. Refresh duration includes
+waiting for partial transfers, not just CPU drawing. The normal lock deadlines and
+rendering remain unchanged. Minute warnings summarize new timeouts/slow records;
+there is no per-frame log, WebUI row or persistent history. ISR completion accounting uses
+fixed internal RAM and IRAM code; JSON snapshots use a short copy and PSRAM allocation.
+`display_timing_dpi.c` wraps only the DMA-completion callback, preserving all other callbacks,
+user context and callback return values. No frame sampler or DSI register overrides are installed.
+
+## Incremental model recovery
+
+HA states carry a cache revision in a separate PSRAM table. `ha_model_changes()` returns
+small ordered batches of the latest changed entities. Normal entity events still apply
+immediately; the UI remembers applied slot revisions and skips them during recovery.
+It processes at most one unapplied entity per UI turn, releasing the display lock between
+entries. A failed lock retains both the entry and its cursor. Updates arriving during a
+batch remain eligible for the next batch. Rename revisions and cache reset are covered.
+The cursor uses serial uint32 ordering (consumer lag below 2^31 revisions).
+
+This replaces the periodic full-layout replay, which held the JC's display lock for about
+two seconds. Initial layout priming, HA reconnect and the exceptional failed-event fallback
+keep their existing complete refresh paths. Single entity/widget application can still be
+slow; timing diagnostics distinguish that from the removed periodic sweep.
+
 ## Vendored PPA driver (temporary)
 
 `components/esp_driver_ppa` is ESP-IDF 6.1's driver with upstream commit `469aa16` (esp-idf#19096, #19023): the
@@ -86,7 +131,7 @@ reports no PPA coredump.
 Panel4 uses BSP 3.0.1 from `third_party/waveshare__esp32_p4_wifi6_touch_lcd_4b`.
 The official source and Apache-2.0 license are preserved; `BETTA.md` records the
 registry archive hash and repository commit. Only the adapter manifest constraint
-changes from `~0.6` to `0.7.3`, matching the shared runtime and LVGL 9.6.
+changes from `~0.6` to `0.7.5`, matching the shared runtime and LVGL 9.6.
 Dependency solving runs before the configure patch hook, so this override belongs
 in the manifest rather than a manual edit of `managed_components/`.
 
@@ -95,6 +140,22 @@ constructor already enables IDF 6's DMA2D copy hook; do not enable it again in
 the board initialization. BETTA retains GPIO23 touch reset with the 0x5D/0x14 probe;
 the new BSP declares the reset pin NC. Display timing and the separate ES8311
 chime path remain board-specific.
+
+## Waveshare LCD-X BSP override
+
+Panel10 targets the ready-made ESP32-P4-WIFI6-Touch-LCD-10.1 through Waveshare
+BSP 2.0.3 in `third_party/waveshare__esp32_p4_wifi6_touch_lcd_x`. Its `BETTA.md`
+records the official archive hash and local adapter/DSI-clock changes. The preset
+selects P4 Rev3.0+, JD9365, RGB565, two DPI framebuffers and fixed 270-degree
+landscape. GT9271 uses a non-null BSP configuration and the GT911-family driver;
+LVGL applies rotation. PWM brightness uses GPIO26; touch reset/interrupt stay NC.
+The shared adapter/PPA runtime is retained. Optional OV5647 sensing shares the
+BSP I2C bus and uses Espressif's original sensor modes/ISP profile with a small
+read-only metering extension. ES8311 chimes use the existing transient output
+path and BSP pins. Microphone capture is not initialized. Both runtime features
+start off; manufacturer examples and source hashes are recorded in the vendor notes.
+This replaces the inherited Nano BSP and its compatibility patches; the Nano
+plus separate DSI kit is no longer the panel10 target. Hardware validation is pending.
 
 ## Patches to fetched components
 

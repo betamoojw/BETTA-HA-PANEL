@@ -1,4 +1,4 @@
-﻿/* SPDX-License-Identifier: LicenseRef-FNCL-1.1
+/* SPDX-License-Identifier: LicenseRef-FNCL-1.1
  * Copyright (c) 2026 Cpt_Kirk
  * Modified 2026 by andre68723 in the andre68723/BETTA-HA-PANEL fork, see docs/release-notes.md
  */
@@ -157,7 +157,7 @@ esp_err_t touch_init(void)
     touch_apply_polling_tune(s_touch_indev);
 
     s_touch_ready = true;
-    ESP_LOGI(TAG_TOUCH, "Touch initialized (esp_lvgl_adapter + GT911)");
+    ESP_LOGI(TAG_TOUCH, "Touch initialized (esp_lvgl_adapter + LCD-X GT9271)");
     return ESP_OK;
 }
 

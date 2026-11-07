@@ -291,6 +291,9 @@ idf_component_register(
         "layout/layout_store.c"
         "layout/layout_validate.c"
         "layout/widget_types.c"
+        "layout/room_air_slots.c"
+        "ui/widgets/room_air_model.c"
+        "ui/widgets/w_room_air.c"
         "layout/bambu_printer_slots.c"
         "layout/evcc_slots.c"
         "settings/runtime_settings.c"
@@ -409,6 +412,7 @@ idf_component_register(
         "util/cover_guard.c"
         "settings/settings_validate.c"
         "util/json_util.c"
+        "util/chip_temperature.c"
         "util/ringbuf.c"
         "util/boot_guard.c"
         "util/boot_guard_esp.c"
@@ -489,6 +493,7 @@ idf_component_register(
         littlefs
         webui
         esp_driver_i2s
+        esp_driver_tsens
         espcoredump
 )
 
@@ -542,6 +547,14 @@ endif()
 
 # P4 uses ESP-Hosted; S3 has native Wi-Fi.
 idf_component_optional_requires(PRIVATE esp_wifi_remote esp_hosted)
+if(CONFIG_APP_PANEL_VARIANT_10INCH_JC AND NOT CONFIG_APP_PANELJC_PANEL_V2)
+    target_sources(${COMPONENT_LIB} PRIVATE "drivers/display_timing_dpi.c")
+    target_sources(${COMPONENT_LIB} PRIVATE "drivers/display_timing.c")
+    # Keep the wrapper even when its only callers are in the later adapter archive.
+    target_link_options(${COMPONENT_LIB} INTERFACE
+        "-Wl,--wrap=esp_lcd_dpi_panel_register_event_callbacks"
+        "-Wl,-u,__wrap_esp_lcd_dpi_panel_register_event_callbacks")
+endif()
 if(CONFIG_APP_FEATURE_AMBIENT_CAMERA)
     idf_component_optional_requires(PRIVATE espressif__esp_video)
 endif()

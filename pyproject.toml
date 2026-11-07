@@ -14,7 +14,7 @@ checks = [
     "pillow==12.3.0",
     "tzdata>=2026.6 ; sys_platform == 'win32'",
 ]
-docs = ["zensical==0.0.67"]
+docs = ["zensical==0.0.74"]
 screenshots = ["pillow==12.3.0", "playwright==1.63.0"]
 
 [tool.uv]
@@ -25,5 +25,5 @@ package = false
 [tool.betta.ci]
 python = "3.13"
 node = "24"
-uv = "0.12.21"
+uv = "0.13.7"
 idf = "6.1"

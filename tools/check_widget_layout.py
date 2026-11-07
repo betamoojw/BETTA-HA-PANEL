@@ -5,7 +5,7 @@
 
 Renders the gallery fixture (tests/simulator/gallery_data.json), the Matte
 comparison fixture (tests/simulator/matte_reference.json), and the edge
-cases in tests/simulator/layout_cases.json (gallery tiles at their minimum and
+cases in tests/simulator/tile_size_cases.json (gallery tiles at their minimum and
 large sizes and every variant) with the SDL simulator in every appearance style, reads each widget's object rectangles
 from the simulator's --dump-layout output and reports:
 
@@ -30,7 +30,7 @@ from ui_styles import STYLES
 from check_readability import problems as readability_problems, coverage_problems
 
 REPO = Path(__file__).resolve().parent.parent
-CASES = REPO / "tests/simulator/layout_cases.json"
+CASES = REPO / "tests/simulator/tile_size_cases.json"
 MATTE_REFERENCE = REPO / "tests/simulator/matte_reference.json"
 # English in every style, and German, whose longer words ("nicht verfügbar") overflow first, once.
 PASSES = [(style, "en") for style in STYLES] + [("flat", "de"), ("matte", "de")]
@@ -164,8 +164,10 @@ def compact_popup_fixtures(gallery):
     for kind in ("select_tile", "datetime_tile", "solar_forecast", "room_tile", "energy_timeline"):
         page = next(p for p in gallery["pages"] if any(w["type"] == kind for w in p.get("widgets", [])))
         fixtures[f"popup_{kind}"] = dict(gallery, pages=[page], tap_widget=page["widgets"][0]["id"])
-    for kind, point in (("weather_3day", [70, 180]), ("bambu_printer", [189, 374]),
-                        ("wallbox_evcc", [280, 366])):
+    page = next(p for p in gallery["pages"] if any(
+        w["type"] == "weather_tile" and w.get("weather_view") == "days" for w in p.get("widgets", [])))
+    fixtures["popup_weather_forecast"] = dict(gallery, pages=[page], tap_points=[[70, 180]])
+    for kind, point in (("bambu_printer", [189, 374]), ("wallbox_evcc", [280, 366])):
         page = next(p for p in gallery["pages"] if any(w["type"] == kind for w in p.get("widgets", [])))
         fixtures[f"popup_{kind}"] = dict(gallery, pages=[page], tap_points=[point])
     fixtures["popup_notification"] = json.loads((REPO / "tests/simulator/notification_bold.json").read_text())
@@ -251,6 +253,7 @@ def main():
                         "connectivity_ha": json.loads((REPO / "tests/simulator/connectivity_ha.json").read_text()),
                         "connectivity_wifi": json.loads((REPO / "tests/simulator/connectivity_wifi.json").read_text()),
                         }
+            fixtures["camera_unavailable"] = json.loads((REPO / "tests/simulator/camera_unavailable.json").read_text())
             fixtures["weather_hourly"] = json.loads((REPO / "tests/simulator/weather_hourly.json").read_text())
             fixtures["stock_precision"] = json.loads((REPO / "tests/simulator/stock_precision.json").read_text())
             if args.variant == "panel4":  # the readability fixtures use panel4's 720x600 pages and its role sizes

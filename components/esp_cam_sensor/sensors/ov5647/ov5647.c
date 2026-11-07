@@ -16,7 +16,7 @@
 #include "esp_cam_sensor_detect.h"
 #include "ov5647_settings.h"
 #include "ov5647.h"
-#include "ov5647_stats.h"
+#include "ov5647_meter.h"
 
 #define OV5647_IO_MUX_LOCK(mux)
 #define OV5647_IO_MUX_UNLOCK(mux)
@@ -417,7 +417,7 @@ static esp_err_t ov5647_get_para_value(esp_cam_sensor_device_t *dev, uint32_t id
     if (id != ESP_CAM_SENSOR_STATS) {
         return ESP_ERR_NOT_SUPPORTED;
     }
-    if (arg == NULL || size != sizeof(esp_cam_sensor_stats_t)) {
+    if (dev == NULL || arg == NULL || size != sizeof(esp_cam_sensor_stats_t)) {
         return ESP_ERR_INVALID_ARG;
     }
     /* Read after STREAMOFF in the ambient task, so AEC/AGC cannot change
@@ -430,13 +430,18 @@ static esp_err_t ov5647_get_para_value(esp_cam_sensor_device_t *dev, uint32_t id
             return err;
         }
     }
+    uint32_t lines;
+    float gain;
+    if (!ov5647_meter_decode(values, &lines, &gain)) {
+        return ESP_ERR_INVALID_RESPONSE;
+    }
     /* The ISP accepts a new statistics sample only when its sequence changes. */
     static uint32_t sequence;
     esp_cam_sensor_stats_t stats = {
         .flags = ESP_CAM_SENSOR_STATS_FLAG_EXPOSURE | ESP_CAM_SENSOR_STATS_FLAG_AGC_GAIN,
         .seq = __atomic_add_fetch(&sequence, 1, __ATOMIC_RELAXED),
-        .aec_exp = (uint32_t)ov5647_exposure_lines(values[0], values[1], values[2]),
-        .agc_gain = ov5647_gain_factor(values[3], values[4]),
+        .aec_exp = lines,
+        .agc_gain = gain,
     };
     memcpy(arg, &stats, sizeof(stats));
     return ESP_OK;

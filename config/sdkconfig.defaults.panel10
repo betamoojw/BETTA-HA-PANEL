@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-FNCL-1.1
 # Copyright (c) 2026 Cpt_Kirk
 #
-# Panel variant overlay: 10.1" 1280x800 (Waveshare 10.1" MIPI-DSI).
+# Panel variant overlay: 10.1" 1280x800 (Waveshare ESP32-P4-WIFI6-Touch-LCD-10.1, LCD-X).
 # Apply together with the common sdkconfig.defaults via
 #   idf.py -D SDKCONFIG_DEFAULTS="config/sdkconfig.defaults;config/sdkconfig.defaults.panel10" ...
 # or the CMake preset "panel10" (see CMakePresets.json).
@@ -29,6 +29,7 @@ CONFIG_BSP_LCD_COLOR_FORMAT_RGB565=y
 # CONFIG_BSP_LCD_COLOR_FORMAT_RGB888 is not set
 CONFIG_BSP_LCD_TYPE_800_1280_10_1_INCH=y
 # The LCD-X BSP supplies the panel's 1500 Mbps lane bitrate.
+CONFIG_BSP_LCD_DPI_BUFFER_NUMS=2
 CONFIG_ESP_LCD_TOUCH_MAX_POINTS=10
 CONFIG_LV_USE_LODEPNG=y
 # Lossless, on-demand decoding of notification and light-control bitmaps.

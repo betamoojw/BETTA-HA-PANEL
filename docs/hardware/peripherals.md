@@ -47,7 +47,7 @@ resource bounds and pending hardware checks.
 
 ## Optional chime output
 
-Current builds enable the audio path on panel4 and Tab5. The JC ES8311 path is
+Current builds enable the chime path on panel4 and Tab5. The JC ES8311 path is
 present but disabled by `APP_PANELJC_AUDIO=0`; it does not expose Sound settings.
 The Waveshare LCD-4B and LCD-X manufacturer guides identify external-speaker
 connectors. Guition's JC datasheet likewise labels a **Speaker Interface** on
@@ -58,13 +58,17 @@ Tab5 uses the BSP's ES8388 codec and shared I2C setup. A test chime played on 20
 volume is 60%, with sound off and night mute on by default.
 
 `main/drivers/audio_out.c` uses the existing touch I2C bus (GPIO7 SDA / GPIO8 SCL), never a
-second bus driver. Both P4 boards use I2S MCLK13, BCLK12, LRCK10 and DOUT9; DIN11 is unused.
-The amplifier enable is GPIO53 on the 4B and GPIO20 on the JC, including JC v2. Amplifier enable
+second bus driver. The ES8311 boards use I2S MCLK13, BCLK12, LRCK10 and DOUT9; DIN11 is unused.
+The amplifier enable is GPIO53 on the 4B/LCD-X and GPIO20 on the JC, including JC v2. Amplifier enable
 follows codec startup and silent frames; synthesized tones have attack/release ramps. Stop
 lowers PA, closes/deletes all codec interfaces and deletes the I2S channel. The codec library
 requires stereo I2S slots, so the mono samples are duplicated into both slots.
 
-The 4B BSP asks for `esp_codec_dev` ~1.5 (1.5.11 there); the JC has no BSP and runs 1.6.2. `panel10` has no enabled audio driver.
+The 4B BSP asks for `esp_codec_dev` ~1.5 (1.5.11 there); the JC has no BSP and runs 1.6.2.
+LCD-X panel10 reserves its ES8311/ES7210 and I2S channel for the persistent
+[AI Assistant audio owner](../development/xiaozhi-ai.md). Its independent chime
+path remains disabled; a transient codec owner would disrupt wake detection
+or conversation. It does not expose Sound settings.
 On 2026-09-28, the 4B completed 50 consecutive API test requests at 10% volume after the
 I2S startup fix. The log showed 51 successful codec opens including the initial 40% test,
 no audio/I2C errors, and no steady heap decline between requests. Night mute suppressed a

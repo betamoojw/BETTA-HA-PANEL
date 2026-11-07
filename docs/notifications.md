@@ -76,7 +76,7 @@ A plain message remains until dismissed; a new message replaces it.
 
 ## Sound
 
-On displays with a speaker (Waveshare 4-inch and Tab5), **Settings → Sound** turns sounds on. Sound starts off at
+On displays with chime support (Waveshare 4-inch and Tab5), **Settings → Sound** turns sounds on. Sound starts off at
 **60 %** volume with *mute during night mode* on; muting follows the night schedule even if a touch has woken the
 screen. **Test chime** plays at the selected volume. The 10-inch panels have no Sound page. Validation status per
 device: [Cameras and chimes](hardware/peripherals.md#optional-chime-output).

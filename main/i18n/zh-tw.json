@@ -367,7 +367,8 @@
         "windy_variant": "多雲有風"
       },
       "hourly_empty": "無逐小時預測",
-      "hourly_loading": "正在載入逐小時預測…"
+      "hourly_loading": "正在載入逐小時預測…",
+      "view_days": "多日"
     },
     "graph": {
       "no_history": "無歷史記錄",
@@ -525,7 +526,8 @@
       "paused": "已暫停",
       "waiting": "等待攝像頭",
       "unsupported": "MJPEG 不可用",
-      "failed": "攝像頭連線已斷開"
+      "failed": "攝像頭連線已斷開",
+      "snapshot_failed": "影像無法使用"
     },
     "bambu": {
       "state": {
@@ -837,7 +839,14 @@
       "top": "漲幅前五",
       "flop": "跌幅前五",
       "pick_interval": "選擇時段",
-      "unit_mismatch": "單位不一致"
+      "unit_mismatch": "單位不一致",
+      "period": {
+        "1d": "1日",
+        "1w": "1週",
+        "1m": "1月",
+        "ytd": "今年",
+        "max": "全部"
+      }
     },
     "stock": {
       "title": "股票與 ETF",
@@ -846,7 +855,7 @@
       "period": {
         "1d": "1天",
         "1w": "1週",
-        "30d": "30天",
+        "30d": "1月",
         "ytd": "今年",
         "1y": "1年"
       },
@@ -868,7 +877,56 @@
         "closed": "已休市"
       },
       "updated": "已更新",
-      "last_price": "最新價格"
+      "last_price": "最新價格",
+      "start": "起始"
+    },
+    "air": {
+      "title": "空氣品質",
+      "humidity": "濕度",
+      "humidity_short": "濕度",
+      "temperature": "溫度",
+      "temperature_short": "溫度",
+      "co2": "CO₂",
+      "pm25": "PM2.5",
+      "voc": "揮發性有機物",
+      "out_temperature": "室外溫度",
+      "out_temperature_short": "室外溫度",
+      "out_humidity": "室外濕度",
+      "window": "窗戶接點",
+      "rating": "裝置評分",
+      "good": "良好",
+      "fair": "普通",
+      "poor": "不佳",
+      "not_evaluated": "未評估",
+      "partial": "資料不完整",
+      "dry": "濕度偏低",
+      "humid": "濕度偏高 · 檢查通風",
+      "fresh_air": "需要換氣 · CO₂ 偏高",
+      "particles": "懸浮微粒偏高 · 減少來源或過濾；室外空氣品質未知",
+      "drying": "參考空氣有助於降低室內濕度",
+      "no_drying": "參考空氣的除濕效果不足",
+      "conflict": "需要換氣，但參考空氣會增加濕度",
+      "conflict_short": "換氣與除濕衝突",
+      "co2_short": "請通風 · CO₂ 偏高",
+      "humid_short": "濕度偏高",
+      "pm_short": "懸浮微粒偏高",
+      "humidity_scope": "僅濕度",
+      "no_advice": "已評估資料不足，無法提供建議",
+      "absolute": "絕對濕度：室內 / 室外",
+      "weather_reference": "天氣服務參考值，非本地室外實測。採樣時間未知。",
+      "open": "開啟",
+      "closed": "關閉",
+      "enum_extremely_poor": "極差",
+      "enum_very_poor": "很差",
+      "enum_poor": "不佳",
+      "enum_fair": "普通",
+      "enum_good": "良好",
+      "enum_moderate": "中等",
+      "choose_humidity": "選擇濕度感測器",
+      "blank": "空白空氣品質元件",
+      "outdoor_enabled": "啟用室外比較",
+      "sources_hint": "濕度為必選項，請明確分配其他感測器。揮發性有機物僅顯示數值；裝置評分不改變 BETTA 狀態。室外溫度與濕度需成對選擇。",
+      "invalid_binding": "{role} 的實體無效。"
     }
   }
 }

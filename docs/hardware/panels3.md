@@ -267,6 +267,8 @@ The flip screensaver activated at a temporary 15-second timeout and 30% brightne
 Read-only Live Display frames showed the full-screen, centred clock with weekday,
 date and AM/PM in both themes. Ordinary BMP snapshots omitted this overlay on
 this S3 during the trial, so those captures are not screensaver visual evidence.
+The subsequent [BMP capture fix and OTA trial](../development/panels3-bmp-validation.md) captured the complete
+flip saver in both themes on this device; that record distinguishes screenshots from physical acceptance.
 Live Display observes LVGL flush output, not physical refresh or touch. The owner
 separately confirmed both clocks displayed normally and centrally with readable
 weekday/date and AM/PM, normal flipping, a full-screen saver and physical touch wake.

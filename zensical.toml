@@ -94,6 +94,7 @@ nav = [
     ] },
     { "Quality" = [
       { "Checks and device tests" = "development/testing.md" },
+      { "S3 BMP screenshot validation" = "development/panels3-bmp-validation.md" },
       { "Native settings validation" = "development/native-settings-validation.md" },
       { "AI Assistant spectrum baseline" = "development/assistant-spectrum-baseline.md" },
       { "AI Assistant acceptance baseline" = "development/assistant-acceptance.md" },

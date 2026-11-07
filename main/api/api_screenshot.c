@@ -11,6 +11,10 @@
 
 #include "drivers/display_init.h"
 #include "lvgl.h"
+#if LV_USE_SNAPSHOT
+/* Use LVGL 9.6's own cover test, also used by its snapshot/refresh paths. */
+#include "src/core/lv_refr_private.h"
+#endif
 #include "util/log_tags.h"
 
 #define SCREENSHOT_LOCK_TIMEOUT_MS 1500U
@@ -42,6 +46,74 @@ static void write_u32_le(uint8_t *dst, uint32_t value)
     dst[3] = (uint8_t)((value >> 24) & 0xffU);
 }
 
+#if LV_USE_SNAPSHOT
+static bool snapshot_valid(const lv_draw_buf_t *buf, uint32_t width, uint32_t height,
+                           lv_color_format_t format, uint32_t bytes_per_pixel)
+{
+    return buf && buf->data && buf->header.cf == format &&
+        buf->header.w == width && buf->header.h == height &&
+        buf->header.stride >= (uint64_t)width * bytes_per_pixel &&
+        buf->data_size >= (uint64_t)buf->header.stride * height;
+}
+
+/* Caller holds the display lock. Never publish a base-only image if capturing
+ * an overlay fails: allocation/render failures must remain visible to clients. */
+static lv_draw_buf_t *capture_screen(void)
+{
+    lv_display_t *display = lv_display_get_default();
+    if (!display) return NULL;
+    const int32_t width = lv_display_get_horizontal_resolution(display);
+    const int32_t height = lv_display_get_vertical_resolution(display);
+    if (width <= 0 || height <= 0) return NULL;
+    lv_draw_buf_t *screen = NULL, *top = NULL;
+    lv_obj_t *top_layer = lv_layer_top();
+    lv_obj_update_layout(top_layer);
+    const lv_area_t area = {.x1 = 0, .y1 = 0, .x2 = width - 1, .y2 = height - 1};
+    /* Full-screen protection already hides the dashboard. Capture it directly
+     * with one RGB buffer. Do not infer opacity from rendered alpha: rounded
+     * alpha blends can leave values just below 255 even on an opaque surface. */
+    if (lv_refr_get_top_obj(&area, top_layer) != NULL) {
+        screen = lv_snapshot_take(top_layer, LV_COLOR_FORMAT_RGB888);
+        if (!snapshot_valid(screen, width, height, LV_COLOR_FORMAT_RGB888, 3)) goto failed;
+        return screen;
+    }
+    top = lv_snapshot_take(top_layer, LV_COLOR_FORMAT_ARGB8888);
+    if (!snapshot_valid(top, width, height, LV_COLOR_FORMAT_ARGB8888, 4)) goto failed;
+
+    bool transparent = true;
+    for (int32_t y = 0; y < height && transparent; y++) {
+        const uint8_t *pixel = top->data + (size_t)y * top->header.stride;
+        for (int32_t x = 0; x < width; x++, pixel += 4) {
+            transparent = transparent && pixel[3] == 0;
+        }
+    }
+    if (transparent) { /* Empty/hidden overlays need no concurrent second buffer. */
+        lv_draw_buf_destroy(top);
+        top = NULL;
+    }
+    screen = lv_snapshot_take(lv_screen_active(), LV_COLOR_FORMAT_RGB888);
+    if (!snapshot_valid(screen, width, height, LV_COLOR_FORMAT_RGB888, 3)) goto failed;
+    if (top) {
+        for (int32_t y = 0; y < height; y++) {
+            uint8_t *dst = screen->data + (size_t)y * screen->header.stride;
+            const uint8_t *src = top->data + (size_t)y * top->header.stride;
+            for (int32_t x = 0; x < width; x++, dst += 3, src += 4) {
+                const uint32_t a = src[3]; /* LVGL snapshot bytes are straight B,G,R,A. */
+                for (unsigned channel = 0; channel < 3; channel++)
+                    dst[channel] = (uint8_t)((src[channel] * a + dst[channel] * (255U - a)) / 255U);
+            }
+        }
+        lv_draw_buf_destroy(top);
+    }
+    return screen;
+
+failed:
+    if (top) lv_draw_buf_destroy(top);
+    if (screen) lv_draw_buf_destroy(screen);
+    return NULL;
+}
+#endif
+
 esp_err_t api_screenshot_bmp_get_handler(httpd_req_t *req)
 {
 #if !LV_USE_SNAPSHOT
@@ -53,41 +125,11 @@ esp_err_t api_screenshot_bmp_get_handler(httpd_req_t *req)
         return send_text_error(req, "503 Service Unavailable", "Display is busy");
     }
 
-    snapshot = lv_snapshot_take(lv_screen_active(), LV_COLOR_FORMAT_RGB888);
-    if (snapshot != NULL) {
-        /* Popups, notifications and the update overlay live on the top layer,
-         * which a snapshot of the active screen does not include. Blend it on. */
-        lv_draw_buf_t *top = lv_snapshot_take(lv_layer_top(), LV_COLOR_FORMAT_ARGB8888);
-        if (top != NULL && top->data != NULL && snapshot->data != NULL &&
-            top->header.w == snapshot->header.w && top->header.h == snapshot->header.h) {
-            for (uint32_t y = 0; y < snapshot->header.h; y++) {
-                uint8_t *dst = (uint8_t *)snapshot->data + (size_t)y * snapshot->header.stride;
-                const uint8_t *src = (const uint8_t *)top->data + (size_t)y * top->header.stride;
-                for (uint32_t x = 0; x < snapshot->header.w; x++, dst += 3, src += 4) {
-                    const uint32_t a = src[3]; /* straight alpha, bytes are B, G, R, A */
-                    if (a == 0U) {
-                        continue;
-                    }
-                    if (a == 255U) {
-                        dst[0] = src[0];
-                        dst[1] = src[1];
-                        dst[2] = src[2];
-                    } else {
-                        dst[0] = (uint8_t)((src[0] * a + dst[0] * (255U - a)) / 255U);
-                        dst[1] = (uint8_t)((src[1] * a + dst[1] * (255U - a)) / 255U);
-                        dst[2] = (uint8_t)((src[2] * a + dst[2] * (255U - a)) / 255U);
-                    }
-                }
-            }
-        }
-        if (top != NULL) {
-            lv_draw_buf_destroy(top);
-        }
-    }
+    snapshot = capture_screen();
     display_unlock();
 
     if (snapshot == NULL) {
-        ESP_LOGW(TAG_HTTP, "Screenshot request failed: lv_snapshot_take returned NULL");
+        ESP_LOGW(TAG_HTTP, "Screenshot request failed: incomplete or invalid layer capture");
         return send_text_error(req, "500 Internal Server Error", "Failed to capture screenshot");
     }
 

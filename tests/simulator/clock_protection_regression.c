@@ -8,6 +8,7 @@ static int64_t test_time(void) { return (int64_t)test_ms * 1000; }
 #define esp_timer_get_time test_time
 #include "../../main/ui/ui_display_protection.c"
 #include "ui/theme/ui_style_registry.h"
+void sim_screenshot_regression(lv_obj_t *overlay, const char *capture_path);
 
 static runtime_settings_t saved;
 static int brightness = 60, wakes;
@@ -254,7 +255,8 @@ int main(int argc, char **argv)
         lv_label_set_text(s_clock_time, text); lv_label_set_text(s_clock_date, date);
         ui_analog_clock_update(s_clock_dial, &sample, saved.display_clock.show_seconds);
         if (s_flip_clock) ui_flip_clock_update(s_flip_clock, &sample, false);
-        snapshot(argv[3], width, height);
+        if (!strcmp(argv[3], "--bmp-regression")) sim_screenshot_regression(s_overlay, argc > 7 ? argv[7] : NULL);
+        else snapshot(argv[3], width, height);
     }
     printf("Clock protection %dx%d: digital/analog/flip sizing, formats, fixed centre, themes, movement, timing, wake and cleanup passed\n", width, height);
     lv_deinit(); return 0;

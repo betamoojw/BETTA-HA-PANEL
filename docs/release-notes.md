@@ -113,6 +113,7 @@ forecast keeps it off, so it shows the running 24 hours until the buttons are sw
 
 ### Panel and editor
 
+- **BMP screenshots:** full-screen overlays, including the flip screensaver, use a single snapshot buffer. Capture failures report an error instead of silently returning the underlying page without its overlay. Host regression, S3 build and [dark/light-theme device captures](development/panels3-bmp-validation.md) passed.
 - **Flip clock screensaver:** System settings and the web editor offer Digital, Analog and Flip clock styles. Flip stays centred, follows the system theme and appearance, always shows seconds, weekday and date, and uses the shared 12/24-hour preference. Existing clock choices and hidden seconds/date options are retained.
 - **Default flip clock:** an empty layout or no visible pages shows centred, animated hours/minutes/seconds with weekday and date, using the system theme, appearance, local time and shared 12/24-hour setting. Restoring a page removes the clock; new installations start with an empty layout.
 - **Page visibility:** the page inspector's **Visible on panel** checkbox hides or restores a page and its bottom tab on Save. Hidden pages retain their content and saved graph history, stay editable and are skipped by panel navigation and cycling.

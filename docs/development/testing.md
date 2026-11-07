@@ -110,6 +110,16 @@ fixtures for numeric and discrete details.
 `GET /api/screenshot.bmp`. Do not give `curl` a short timeout: the image is about 3 MB on the 10-inch panel and a timeout
 truncates it silently.
 
+The endpoint captures the active screen and top layer. An opaque full-screen cover uses one RGB snapshot;
+partial overlays retain alpha composition. Incomplete/invalid captures return HTTP 500, never a successful
+base-only image. The real-handler `screenshot-bmp-dark` / `screenshot-bmp-light` CTest cases each cover 30 scenarios:
+the 480 × 480 flip saver under a one-buffer budget, popup composition, hidden/rounded/offset/translucent covers,
+BMP row order/padding, capture/format/capacity failures, lock timeout, send failures and buffer cleanup.
+The old handler reproduces the omitted-overlay failure when the second snapshot is refused. On S3 the new
+opaque path uses 691,200 snapshot pixel bytes instead of 1,612,800; these exclude LVGL rendering/heap overhead.
+The [2026-11-07 S3 OTA trial](panels3-bmp-validation.md) captured the complete flip saver in both themes.
+Earlier device logs did not identify whether allocation or drawing failed during the omitted-overlay trial.
+
 ## Test layouts
 
 `tools/test_layout_cases.json` is the shared widget catalog. A case's `gallery` metadata selects its preview title,

@@ -203,6 +203,89 @@ timeout. LVGL now retains the request until it can remove the overlay. Real-LVGL
 tests reproduce the old failure and pass the fixed automatic/manual-progress
 and immediate-hide cases. The owner confirmed dashboard entry and aligned touch.
 
+### Page visibility and flip clocks
+
+The 2026-11-07 compatibility review covers the shared page visibility,
+empty-dashboard flip clock and flip clock screensaver on the `panels3` profile.
+No page-visibility or flip-clock defect was reproduced. The backup/layout fixture
+uses in-memory S3 rectangles while retaining content and subscription assertions.
+The clock regression covers digit clipping and all seven languages/weekdays at
+all three text steps on both 480 × 360 and 480 × 480, in 12/24-hour formats.
+
+Local checks passed: 515 editor tests; 522 backup/layout assertions; graph-history
+byte retention and queued saves through hide/reload/restore; history merge;
+218 injected storage faults and 12 clock-style/disable/re-enable round trips.
+Ten selected S3 simulator CTest cases passed, covering native settings, clock
+protection timing, fixed centring, themes, touch dismissal and timer/animation cleanup.
+The final review rerun passed 59,516 flip-clock and 604 navigation assertions.
+The fixed-clock test used the existing local IANA time-zone data on Windows.
+Across four appearances and two themes, 32 synthetic dashboard renders matched
+byte-for-byte between hidden/empty layouts and between visible/restored pages.
+Two additional 480 × 480 flip-saver renders were inspected. These are local
+LVGL simulations, not physical display, refresh-performance or touch validation.
+
+The Windows `scripts/build.ps1 panels3 reconfigure build` entry point completed
+with ESP-IDF 6.1, the existing S3 defaults and 16 MB partition layout. The
+4,384,096-byte application leaves 36% of its 0x680000-byte OTA slot free; SHA256:
+`0ea80623b6a779c1333e8bd640eaa7a71b96622a1f07b64f6f1d2d088da342a7`.
+The matching ELF is archived locally with prefix `ced0eed96`.
+The embedded source is `84668816-dirty`, with build stamp
+`Nov 7 2026 09:33:26`. The incremental ESP-IDF application descriptor retains
+its older October 30 compile date; identify this image by its hash and source stamp.
+
+The read-only preflight identified `3a77ecd0` from 2026-10-20 with valid OTA and no
+retained crash: four pages, two widgets and no graphs. Before/after layouts matched;
+settings differed only in live time/RSSI, with increasing uptime. This phase used
+only HTTP reads. The old API exposed no `hardware.clock` or format field, so it
+could not establish an existing 12-hour preference. Persistence was tested locally.
+
+### Page visibility and clock OTA trial
+
+Later on 2026-11-07, the owner-authorized OTA trial installed the above
+4,384,096-byte image on this Guition S3. Two ordinary uploads aborted after
+429,888 and 956,651 bytes, leaving the original valid image, layout and settings
+intact. The old handler had a 180-second total limit; the second request returned
+HTTP 400 after 180.3 seconds. After the owner improved access-point placement,
+a paced upload allowed preparation before the main transfer and completed in
+110 seconds with HTTP 200. Only the application was uploaded to the inactive OTA
+slot; normal slot erasure still occurs. No serial or full-flash erase was used.
+The successful workaround does not isolate the earlier stall's cause.
+
+The running source/build stamp matched `84668816-dirty`, `Nov 7 2026 09:33:26`.
+The log confirmed that the image became valid after 62 seconds; HA authenticated,
+and no retained crash or safe mode was reported. The file hash identifies the
+uploaded artifact; this OTA trial did not read back raw flash or NVS/filesystem digests.
+
+One populated page was hidden and restored, then all four pages were hidden.
+Saved page content matched the backup after restoration; the two restored widgets'
+content area also matched the pre-hide screenshot pixel-for-pixel. The default
+clock showed seconds, Chinese weekday/date and AM/PM in the original Matte
+appearance, in dark and light themes. The requested 12-hour preference was saved
+and read back without changing other existing preferences.
+
+The flip screensaver activated at a temporary 15-second timeout and 30% brightness.
+Read-only Live Display frames showed the full-screen, centred clock with weekday,
+date and AM/PM in both themes. Ordinary BMP snapshots omitted this overlay on
+this S3 during the trial, so those captures are not screensaver visual evidence.
+Live Display observes LVGL flush output, not physical refresh or touch. The owner
+separately confirmed both clocks displayed normally and centrally with readable
+weekday/date and AM/PM, normal flipping, a full-screen saver and physical touch wake.
+The original page data, dark theme, Matte appearance and disabled screensaver were
+restored. Layout comparison excluded newly exposed root canvas metadata. Settings
+matched the post-update baseline except the requested 12-hour preference and live
+time/RSSI; new API defaults/capabilities were distinguished from saved preferences.
+At 738 seconds uptime, OTA was valid, HA authenticated, and no retained crash or
+safe mode was reported.
+There were no graph widgets on this device; graph-history retention remains
+covered by the host checks above, not measured device-history retention.
+
+The submission review tightened exact localized weekday/date and AM/PM assertions
+and restored the previous text-size step after the clock regression. Focused C/SDL
+checks passed again; 43 archive checks reconciled image/ELF hashes, OTA results,
+layouts, settings, captures and the owner's acceptance. Current HTTP reads matched
+the accepted pages/theme/settings except live time/RSSI, with 12-hour format retained.
+This review made no device writes or firmware changes.
+
 ## Manufacturer references
 
 - [Guition specifications](https://www.guition.com/ku/icms/upload/fb081940d6fc11f09850077a33e1404f/FTPData/UEditor/file/2026121/1768961092477/ESP32-4848S040%20Specifications-EN.pdf)

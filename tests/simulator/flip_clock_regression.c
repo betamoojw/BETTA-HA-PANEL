@@ -51,18 +51,77 @@ static void bounds(lv_obj_t *group)
                     lv_label_get_text(child), (long)size.x, (long)size.y,
                     (long)lv_obj_get_width(child), (long)lv_obj_get_height(child));
             CHECK(size.x <= lv_obj_get_width(child) && size.y <= lv_obj_get_height(child));
+        } else {
+            /* The halves deliberately clip vertically; the complete digit must
+             * still fit inside the card, including Matte's border. */
+            lv_obj_t *label = lv_obj_get_child(lv_obj_get_child(child, 0), 0);
+            lv_point_t size;
+            lv_text_get_size(&size, lv_label_get_text(label), lv_obj_get_style_text_font(label, 0), 0, 0, LV_COORD_MAX, 0);
+            int border = lv_obj_get_style_border_width(child, 0);
+            CHECK(size.x <= lv_obj_get_width(child) - 2 * border);
+            CHECK(size.y <= lv_obj_get_height(child) - 2 * border);
+        }
+    }
+}
+
+static void compact_locales(void)
+{
+    static const struct {
+        const char *language;
+        const char *weekdays[7];
+    } locales[] = {
+        {"en", {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"}},
+        {"de", {"Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"}},
+        {"es", {"Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"}},
+        {"fr", {"Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"}},
+        {"pl", {"Niedziela", "Poniedziałek", "Wtorek", "Środa", "Czwartek", "Piątek", "Sobota"}},
+        {"zh-cn", {"星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"}},
+        {"zh-tw", {"星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"}},
+    };
+    unsigned timers = timer_count();
+    /* Dashboard and full-screen saver, including the S3's larger text roles. */
+    for (int height = 360; height <= 480; height += 120) {
+        for (unsigned language = 0; language < sizeof(locales) / sizeof(locales[0]); language++) {
+            CHECK(ui_i18n_init(locales[language].language) == ESP_OK);
+            for (int step = 0; step <= 2; step++) {
+                ui_fonts_set_user_step(step);
+                for (int format = 0; format < 2; format++) {
+                    lv_obj_t *parent = lv_obj_create(lv_screen_active());
+                    lv_obj_remove_style_all(parent);
+                    lv_obj_set_size(parent, 480, height);
+                    lv_obj_t *clock = ui_flip_clock_create(parent, format != 0);
+                    CHECK(clock && timer_count() == timers + 1);
+                    for (int day = 0; day < 7; day++) {
+                        struct tm sample = {.tm_year=126,.tm_mon=10,.tm_mday=1+day,.tm_wday=day,
+                                            .tm_hour=23,.tm_min=58,.tm_sec=49};
+                        ui_flip_clock_update(clock, &sample, false);
+                        lv_obj_t *group = lv_obj_get_child(clock, 0);
+                        expect_digits(group, format ? "235849" : "115849");
+                        char expected_date[96];
+                        snprintf(expected_date, sizeof(expected_date), "%s, 2026-11-%02d",
+                                 locales[language].weekdays[day], day + 1);
+                        CHECK(!strcmp(lv_label_get_text(lv_obj_get_child(group, 0)), expected_date));
+                        CHECK(lv_obj_is_hidden(lv_obj_get_child(group, 1)) == (format != 0));
+                        CHECK(!strcmp(lv_label_get_text(lv_obj_get_child(group, 1)), "PM"));
+                        bounds(group);
+                    }
+                    lv_obj_delete(parent);
+                    CHECK(timer_count() == timers && lv_anim_count_running() == 0);
+                }
+            }
         }
     }
 }
 
 void sim_flip_clock_regression(void)
 {
-    const int sizes[][2] = {{480,360},{720,600},{1280,680},{1280,600},{720,1160},{800,1160}};
+    const int sizes[][2] = {{480,360},{480,480},{720,600},{1280,680},{1280,600},{720,1160},{800,1160}};
     const char *themes[] = {"dark_v2", "light", "black", "contrast"};
     char previous_theme[64], previous_language[16];
     snprintf(previous_theme, sizeof(previous_theme), "%s", theme_palette_active_id());
     snprintf(previous_language, sizeof(previous_language), "%s", ui_i18n_get_language());
     ui_style_kind_t previous_style = ui_style_get();
+    int previous_step = ui_fonts_user_step();
     ticks = lv_tick_get(); lv_tick_set_cb(now);
     unsigned baseline_timers = timer_count();
     for (unsigned shape = 0; shape < sizeof(sizes)/sizeof(sizes[0]); shape++) {
@@ -135,7 +194,8 @@ void sim_flip_clock_regression(void)
             }
         }
     }
-    ui_fonts_set_user_step(0);
+    compact_locales();
+    ui_fonts_set_user_step(previous_step);
     CHECK(theme_palette_activate_by_id(previous_theme) == ESP_OK);
     ui_style_set(previous_style); theme_default_rebuild_styles();
     CHECK(ui_i18n_init(previous_language) == ESP_OK);

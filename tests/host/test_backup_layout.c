@@ -13,6 +13,7 @@
 #include "cJSON.h"
 #include "ha/ha_layout_entities.h"
 #include "layout/layout_validate.h"
+#include "layout/widget_types.h"
 
 static int checks, failures;
 #define CHECK(cond, ...) do { ++checks; if (!(cond)) { ++failures; printf("FAIL: " __VA_ARGS__); printf("\n"); } } while (0)
@@ -53,6 +54,35 @@ static void expect_entities(const cJSON *node, const char *key, const ha_layout_
     }
 }
 
+static void fit_compact_fixture(cJSON *pages)
+{
+#if defined(CONFIG_APP_PANEL_VARIANT_S3_480)
+    /* This fixture audits saved fields, not visual packing. Its large-board
+     * rectangles must fit the S3 before testing hide/save/reload/restore.
+     * Only the in-memory test copy changes; all other fields remain intact. */
+    cJSON *page, *widget;
+    cJSON_ArrayForEach(page, pages) {
+        cJSON_ArrayForEach(widget, cJSON_GetObjectItemCaseSensitive(page, "widgets")) {
+            cJSON *rect = cJSON_GetObjectItemCaseSensitive(widget, "rect");
+            const char *type = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(widget, "type"));
+            const char *look = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(widget, "style_variant"));
+            widget_size_limits_t limits = widget_size_limits_for(type, look);
+            cJSON *w = cJSON_GetObjectItemCaseSensitive(rect, "w"), *h = cJSON_GetObjectItemCaseSensitive(rect, "h");
+            cJSON *x = cJSON_GetObjectItemCaseSensitive(rect, "x"), *y = cJSON_GetObjectItemCaseSensitive(rect, "y");
+            if (!cJSON_IsNumber(w) || !cJSON_IsNumber(h) || !cJSON_IsNumber(x) || !cJSON_IsNumber(y)) continue;
+            if (w->valueint > limits.max_w) cJSON_SetNumberValue(w, limits.max_w);
+            if (h->valueint > limits.max_h) cJSON_SetNumberValue(h, limits.max_h);
+            if (x->valueint + w->valueint > APP_CONTENT_BOX_WIDTH)
+                cJSON_SetNumberValue(x, APP_CONTENT_BOX_WIDTH - w->valueint);
+            if (y->valueint + h->valueint > APP_CONTENT_BOX_HEIGHT)
+                cJSON_SetNumberValue(y, APP_CONTENT_BOX_HEIGHT - h->valueint);
+        }
+    }
+#else
+    (void)pages;
+#endif
+}
+
 int main(void)
 {
     layout_validation_result_t empty;
@@ -72,7 +102,8 @@ int main(void)
     free(text);
     CHECK(fixture != NULL, "fixture is not JSON");
     if (fixture == NULL) return 1;
-    const cJSON *pages = cJSON_GetObjectItemCaseSensitive(fixture, "pages");
+    cJSON *pages = cJSON_GetObjectItemCaseSensitive(fixture, "pages");
+    fit_compact_fixture(pages);
     const cJSON *alerts = cJSON_GetObjectItemCaseSensitive(fixture, "alerts");
     CHECK(cJSON_GetArraySize(pages) >= 15, "fixture has %d pages", cJSON_GetArraySize(pages));
 

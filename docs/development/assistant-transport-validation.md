@@ -1,7 +1,8 @@
 <!-- SPDX-License-Identifier: LicenseRef-FNCL-1.1 | Copyright (c) 2026 andre68723 -->
 # AI Assistant transport validation
 
-Latest COM24 hardware acceptance: [commit 8a360e2](#com24-8a360e2).
+Transport repair acceptance: [commit 8a360e2](#com24-8a360e2).
+Current local image: [dc55fb12 spectrum baseline](assistant-spectrum-baseline.md).
 
 ## COM24 observation, 2026-11-06
 

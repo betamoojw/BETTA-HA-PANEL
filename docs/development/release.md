@@ -18,9 +18,10 @@
   `digest`; other URLs and uploads are not verified.
 
 For the locally accepted Waveshare voice image, see the
-[AI Assistant baseline and restore procedure](assistant-acceptance.md#restore-the-baseline).
+[AI Assistant baseline and restore procedure](assistant-spectrum-baseline.md#restore-or-roll-back).
 It preserves an exact app/ELF independently of the bootloader's previous slot.
-The earlier [7ec2109 archive](xiaozhi-acceptance.md) remains a separate historical baseline.
+The earlier [f30122b](assistant-acceptance.md) and [7ec2109](xiaozhi-acceptance.md)
+archives remain separate historical baselines.
 
 ## Automatic install
 

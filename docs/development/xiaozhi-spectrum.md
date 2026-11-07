@@ -160,9 +160,12 @@ DMA/display latency, physical smoothness or audio continuity.
 
 ## Panel10 performance acceptance
 
-This is a proposed bounded procedure, not a completed hardware measurement.
-It does not authorize replacing an accepted image. First collect the current
-HTTP identity/tasks, logs, reboot history and crash IDs; retain exact app/ELF
+The [dc55fb12 baseline](assistant-spectrum-baseline.md) records a completed
+bounded COM24 functional trial and CPU/memory/stack observations. It does not
+complete every measurement below; DSP, presentation latency and matched active
+A/B costs remain unqualified. This fuller procedure does not authorize replacing
+an accepted image. First collect the current HTTP identity/tasks, logs, reboot
+history and crash IDs; retain exact app/ELF
 and all earlier baselines. Confirm board revision, current address, source/ELF
 stamp, CPU/PSRAM clocks, rotation, theme, font size, Otto/classic, volume, Wi-Fi
 quality, dashboard and open browser count. Keep settings unchanged.

@@ -200,7 +200,7 @@ wake and normal closes; a later fault can replace it, so collect it promptly. Re
 assistant preferences or pairing again is not a routine connection-recovery step.
 Closing an error popup acknowledges the guidance without deleting that diagnosis.
 
-The [accepted firmware and recovery guide](development/assistant-acceptance.md#restore-the-baseline)
+The [accepted firmware and recovery guide](development/assistant-spectrum-baseline.md#restore-or-roll-back)
 describes returning to the locally retained image if a later firmware introduces a regression.
 
 ## Custom wake phrase
@@ -247,10 +247,12 @@ The browser uses its installed fonts.
 
 ## Validation limits
 
-The current local [f30122b8 acceptance baseline](development/assistant-acceptance.md)
-records the owner's 2026-11-06 COM24 acceptance of farewell intent, the 30-second
-audio-silence exit and countdown renewal, reawakening, duplex speech and touch.
-It preserves the tested image and exact ELF; the earlier 7ec2109 record below remains historical.
+The current local [dc55fb12 baseline](development/assistant-spectrum-baseline.md)
+records COM24 acceptance of speech, interruption/AEC, goodbye/rewake, real spectrum,
+quiet line and physical display/touch. It preserves exact images, measured CPU,
+memory/stacks and open lock-wait/HTTP-latency observations. The earlier
+[f30122b8 record](development/assistant-acceptance.md) retains its farewell-intent,
+30-second silence and countdown-renewal trial; those cases were not all repeated.
 
 The Waveshare COM24 trial exercised saved cloud pairing, manual speech,
 hands-free wake/reply, both emotion choices and idle auto-close. The owner

@@ -2169,5 +2169,17 @@
   "alarm.panel.hint": "Kody wpisuj na panelu. Przyciski wymagają przytrzymania przez 2 sekundy.",
   "alarm.panel.history_preview": "Zdarzenia pojawią się po połączeniu z Home Assistant.",
   "inspector.help.widget_alarm_panel": "Wyświetla centralę alarmową z klawiaturą, strefami, sterowaniem i historią Home Assistant.",
-  "wizard.entity.t.alarm_panel": "Centrala alarmowa"
+  "wizard.entity.t.alarm_panel": "Centrala alarmowa",
+  "entity_picker.retry": "Ponów",
+  "entity_picker.reason_memory": "Panel ma za mało wolnej pamięci.",
+  "entity_picker.reason_busy": "Panel jest zajęty.",
+  "entity_picker.reason_replaced": "Nowsze wyszukiwanie zastąpiło to zapytanie.",
+  "entity_picker.reason_connection": "Home Assistant nie jest połączony.",
+  "entity_picker.reason_http_retry": "Nie udało się ukończyć żądania do Home Assistant.",
+  "entity_picker.reason_permission": "Home Assistant odmówił wyszukania encji. Sprawdź uprawnienia administratora przypisane do tokenu.",
+  "entity_picker.reason_response": "Odpowiedź Home Assistant jest zbyt duża lub nieprawidłowa.",
+  "entity_picker.reason_request": "Home Assistant nie zwrócił jeszcze listy encji.",
+  "entity_picker.waiting_reason": "{reason} Oczekiwanie na ponowienie...",
+  "entity_picker.timeout": "Upłynął limit czasu wyszukiwania encji. {reason} Wybierz Ponów.",
+  "entity_picker.failed": "Wyszukiwanie encji zostało zatrzymane. {reason} Wybierz Ponów."
 }

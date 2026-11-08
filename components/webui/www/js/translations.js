@@ -416,6 +416,7 @@ setTextById("addBambuPrinterBtn", "layout.widgets.add_bambu_printer");
   setTextById("addPageMenuGroupHa", "layout.pages.menu_group_ha");
   setTextById("addPageMenuGroupSpecial", "layout.pages.menu_group_special");
   setTextById("addTileTitle", "add_tile.title");
+  setTextById("addTileSearchRetry", "entity_picker.retry");
   setPlaceholderById("addTileSearch", "add_tile.search_placeholder");
   setTextById("roomImportTitle", "room_import.title");
   setTextById("roomImportHint", "room_import.hint");

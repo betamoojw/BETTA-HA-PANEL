@@ -38,6 +38,12 @@ On desktop, the two lists scroll independently so the preview and actions stay i
 3. Drag it into place and resize it. Select it to edit its entity, title and options.
 4. **Save** to apply the layout to the panel.
 
+Entity searches explain when the panel is busy, short of memory or waiting for
+Home Assistant. A stalled search stops with a reason and a **Retry** button.
+Retry keeps the search text and existing widgets; closing the picker cancels the search.
+Opening another entity picker stops the previous search. If another editor window
+replaces a query, the older window stops and offers Retry instead of polling forever.
+
 The preview follows the display's dashboard area and the active theme and style. It is a browser
 representation: check the panel itself for exact fonts, clipping and touch. The
 [page examples](pages.md) use the firmware's LVGL simulator.

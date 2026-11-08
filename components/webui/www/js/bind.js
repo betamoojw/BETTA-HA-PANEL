@@ -162,87 +162,7 @@ if (el.addBambuPrinterBtn) {
   if (el.addVacuumTileBtn) {
     el.addVacuumTileBtn.onclick = () => openLightEntityPicker("vacuum_tile");
   }
-  if (el.lightEntityPickerRefreshBtn) {
-    el.lightEntityPickerRefreshBtn.onclick = () => {
-      const config = entityPickerConfig();
-      const cacheKey = entityPickerCacheKey(config.domain);
-      editor.lightPicker.hasLoaded = false;
-      editor.lightPicker.loadedByDomain[cacheKey] = false;
-      clearLightEntityPickerPoll();
-      clearLightEntityPickerSearchDebounce();
-      void fetchLightEntityPicker({ refresh: true });
-    };
-  }
-  if (el.lightEntityPickerSearch) {
-    el.lightEntityPickerSearch.oninput = () => {
-      const config = entityPickerConfig();
-      const search = el.lightEntityPickerSearch.value || "";
-      editor.lightPicker.search = search;
-      editor.lightPicker.searchByDomain[config.domain] = search;
-      const cacheKey = entityPickerCacheKey(config.domain, search);
-      editor.lightPicker.items = editor.lightPicker.itemsByDomain[cacheKey] || [];
-      editor.lightPicker.hasLoaded = editor.lightPicker.loadedByDomain[cacheKey] === true;
-      clearLightEntityPickerPoll();
-      clearLightEntityPickerSearchDebounce();
-      const shouldAutoFetch =
-        !editor.lightPicker.hasLoaded && entityPickerSearchReady(config) && entityPickerLiveSearchEnabled(config);
-      editor.lightPicker.requestSeq += 1;
-      editor.lightPicker.loading = shouldAutoFetch;
-      renderLightEntityPicker({
-        status: editor.lightPicker.hasLoaded ? "ready" : (shouldAutoFetch ? "pending" : "idle"),
-        pending: shouldAutoFetch,
-        items: editor.lightPicker.items,
-      });
-      if (shouldAutoFetch) {
-        editor.lightPicker.searchDebounceId = window.setTimeout(() => {
-          editor.lightPicker.searchDebounceId = null;
-          void fetchLightEntityPicker({ refresh: true });
-        }, ENTITY_PICKER_SEARCH_DEBOUNCE_MS);
-      }
-    };
-    el.lightEntityPickerSearch.onkeydown = (event) => {
-      if (event.key !== "Enter") return;
-      event.preventDefault();
-      const config = entityPickerConfig();
-      const cacheKey = entityPickerCacheKey(config.domain);
-      editor.lightPicker.hasLoaded = false;
-      editor.lightPicker.loadedByDomain[cacheKey] = false;
-      clearLightEntityPickerPoll();
-      clearLightEntityPickerSearchDebounce();
-      void fetchLightEntityPicker({ refresh: true });
-    };
-  }
-  if (el.lightEntityPickerCloseBtn) {
-    el.lightEntityPickerCloseBtn.onclick = closeLightEntityPicker;
-  }
-  if (el.lightEntityPickerBlankBtn) {
-    el.lightEntityPickerBlankBtn.onclick = () => {
-      // The picker key (for example "doorbell_tile" or "script_tile") maps to the real widget type.
-      const config = entityPickerConfig();
-      addWidget(config.widgetType || editor.lightPicker.widgetType || "light_tile", { displayMode: config.displayMode });
-      closeLightEntityPicker();
-    };
-  }
-  if (el.lightEntityPickerRemoveBtn) {
-    el.lightEntityPickerRemoveBtn.onclick = () => {
-      if (removeInspectorEntity(editor.lightPicker.inspectorTarget)) closeLightEntityPicker();
-    };
-  }
-  if (el.lightEntityPickerUseIdBtn) {
-    el.lightEntityPickerUseIdBtn.onclick = () => {
-      const id = entityPickerSearchValue().toLowerCase();
-      if (!assignInspectorEntity(editor.lightPicker.inspectorTarget, id)) return;
-      closeLightEntityPicker();
-      setStatus(t("entity_picker.assigned", { entity: id }));
-    };
-  }
-  if (el.lightEntityPickerOverlay) {
-    el.lightEntityPickerOverlay.addEventListener("click", (event) => {
-      if (event.target === el.lightEntityPickerOverlay) {
-        closeLightEntityPicker();
-      }
-    });
-  }
+  bindLightEntityPicker();
   bindAddTileDialog();
   if (el.duplicateWidgetBtn) el.duplicateWidgetBtn.onclick = () => duplicateWidget();
   el.deleteWidgetBtn.onclick = deleteWidget;
@@ -931,4 +851,87 @@ async function bootstrap() {
     return;
   }
   await startEditor();
+}
+
+function bindLightEntityPicker() {
+  if (el.lightEntityPickerRefreshBtn) {
+    el.lightEntityPickerRefreshBtn.onclick = () => {
+      const config = entityPickerConfig();
+      const cacheKey = entityPickerCacheKey(config.domain);
+      editor.lightPicker.hasLoaded = false;
+      editor.lightPicker.loadedByDomain[cacheKey] = false;
+      stopLightEntityPicker();
+      void fetchLightEntityPicker({ refresh: true });
+    };
+  }
+  if (el.lightEntityPickerSearch) {
+    el.lightEntityPickerSearch.oninput = () => {
+      if (editor.lightPicker.loading) void cancelLightEntityPickerRequest();
+      const config = entityPickerConfig();
+      const search = el.lightEntityPickerSearch.value || "";
+      editor.lightPicker.search = search;
+      editor.lightPicker.searchByDomain[config.domain] = search;
+      const cacheKey = entityPickerCacheKey(config.domain, search);
+      editor.lightPicker.items = editor.lightPicker.itemsByDomain[cacheKey] || [];
+      editor.lightPicker.hasLoaded = editor.lightPicker.loadedByDomain[cacheKey] === true;
+      clearLightEntityPickerPoll();
+      clearLightEntityPickerSearchDebounce();
+      const shouldAutoFetch =
+        !editor.lightPicker.hasLoaded && entityPickerSearchReady(config) && entityPickerLiveSearchEnabled(config);
+      editor.lightPicker.requestSeq += 1;
+      editor.lightPicker.loading = shouldAutoFetch;
+      renderLightEntityPicker({
+        status: editor.lightPicker.hasLoaded ? "ready" : (shouldAutoFetch ? "pending" : "idle"),
+        pending: shouldAutoFetch,
+        items: editor.lightPicker.items,
+      });
+      if (shouldAutoFetch) {
+        editor.lightPicker.searchDebounceId = window.setTimeout(() => {
+          editor.lightPicker.searchDebounceId = null;
+          void fetchLightEntityPicker({ refresh: true });
+        }, ENTITY_PICKER_SEARCH_DEBOUNCE_MS);
+      }
+    };
+    el.lightEntityPickerSearch.onkeydown = (event) => {
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      const config = entityPickerConfig();
+      const cacheKey = entityPickerCacheKey(config.domain);
+      editor.lightPicker.hasLoaded = false;
+      editor.lightPicker.loadedByDomain[cacheKey] = false;
+      stopLightEntityPicker();
+      void fetchLightEntityPicker({ refresh: true });
+    };
+  }
+  if (el.lightEntityPickerCloseBtn) {
+    el.lightEntityPickerCloseBtn.onclick = closeLightEntityPicker;
+  }
+  if (el.lightEntityPickerBlankBtn) {
+    el.lightEntityPickerBlankBtn.onclick = () => {
+      // The picker key (for example "doorbell_tile" or "script_tile") maps to the real widget type.
+      const config = entityPickerConfig();
+      addWidget(config.widgetType || editor.lightPicker.widgetType || "light_tile", { displayMode: config.displayMode });
+      closeLightEntityPicker();
+    };
+  }
+  if (el.lightEntityPickerRemoveBtn) {
+    el.lightEntityPickerRemoveBtn.onclick = () => {
+      if (removeInspectorEntity(editor.lightPicker.inspectorTarget)) closeLightEntityPicker();
+    };
+  }
+  if (el.lightEntityPickerUseIdBtn) {
+    el.lightEntityPickerUseIdBtn.onclick = () => {
+      const id = entityPickerSearchValue().toLowerCase();
+      if (!assignInspectorEntity(editor.lightPicker.inspectorTarget, id)) return;
+      closeLightEntityPicker();
+      setStatus(t("entity_picker.assigned", { entity: id }));
+    };
+  }
+  if (el.lightEntityPickerOverlay) {
+    el.lightEntityPickerOverlay.addEventListener("click", (event) => {
+      if (event.target === el.lightEntityPickerOverlay) {
+        closeLightEntityPicker();
+      }
+    });
+  }
 }

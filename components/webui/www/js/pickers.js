@@ -21,13 +21,71 @@ function clearLightEntityPickerSearchDebounce() {
   }
 }
 
+let entityDiscoveryCancellation = Promise.resolve();
+let lightEntityActiveQuery = null;
+
+function queueEntityDiscovery(operation) {
+  // A DELETE must follow the GET that created the work, even if its reply is late.
+  const request = entityDiscoveryCancellation.then(operation);
+  entityDiscoveryCancellation = request.catch(() => {});
+  return request;
+}
+
+function cancelEntityDiscovery(domain, search, query) {
+  return queueEntityDiscovery(async () => {
+    // No reply means no known ownership. Let the device deadline clean up;
+    // an unconditional DELETE could cancel another window's same-keyword retry.
+    if (query && !query.received) return;
+    const params = new URLSearchParams({ domain, search });
+    if (query?.generation) params.set("generation", query.generation);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10000);
+    try { await fetch(`/api/ha/light_entities?${params}`, { method: "DELETE", cache: "no-store", signal: controller.signal }); }
+    catch (_) { /* The firmware also expires abandoned work. */ }
+    finally { clearTimeout(timer); }
+  });
+}
+
+function getEntityDiscovery(params, query, isCurrent) {
+  return queueEntityDiscovery(async () => {
+    if (isCurrent && !isCurrent()) throw new Error("Entity query superseded");
+    if (query?.generation) params.set("generation", query.generation);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10000);
+    try {
+      const data = await apiGet(`/api/ha/light_entities?${params}`, controller.signal);
+      if (query) {
+        query.received = true;
+        if (Number.isInteger(data.generation) && data.generation > 0) query.generation = data.generation;
+      }
+      return data;
+    } finally { clearTimeout(timer); }
+  });
+}
+
+function entityDiscoveryStatus(data) {
+  const reason = ["internal_memory", "external_memory", "memory"].includes(data.wait_reason) ? "memory" :
+    ["busy", "connection", "http_retry", "permission", "response", "replaced"].includes(data.wait_reason) ? data.wait_reason : "request";
+  const text = t(`entity_picker.reason_${reason}`);
+  if (data.status === "timeout") return t("entity_picker.timeout", { reason: text });
+  if (data.status === "error") return t("entity_picker.failed", { reason: text });
+  if (data.status === "disconnected") return t("entity_picker.disconnected");
+  return reason === "request" ? t("entity_picker.pending") : t("entity_picker.waiting_reason", { reason: text });
+}
+
 function cancelLightEntityPickerRequest() {
-  const config = entityPickerConfig();
-  const params = new URLSearchParams();
-  params.set("domain", config.domain);
-  const search = entityPickerSearchValue();
-  if (search) params.set("search", search);
-  fetch(`/api/ha/light_entities?${params.toString()}`, { method: "DELETE", cache: "no-store" }).catch(() => {});
+  if (!lightEntityActiveQuery) return Promise.resolve();
+  const query = lightEntityActiveQuery;
+  lightEntityActiveQuery = null;
+  return cancelEntityDiscovery(query.domain, query.search, query);
+}
+
+function stopLightEntityPicker() {
+  clearLightEntityPickerPoll();
+  clearLightEntityPickerSearchDebounce();
+  editor.lightPicker.requestSeq += 1;
+  void cancelLightEntityPickerRequest();
+  editor.lightPicker.loading = false;
 }
 
 function entityPickerConfig(widgetType = editor.lightPicker.widgetType) {
@@ -355,7 +413,8 @@ function renderLightEntityPicker(data = {}) {
   renderEntityPickerCurrent(stockPickerTarget() ? null : inspectorTarget);
   renderStockPicker();
   if (el.lightEntityPickerRefreshBtn) {
-    el.lightEntityPickerRefreshBtn.textContent = liveSearch ? t("entity_picker.refresh") : t("entity_picker.search");
+    el.lightEntityPickerRefreshBtn.textContent = ["timeout", "error"].includes(data.status) ? t("entity_picker.retry") :
+      liveSearch ? t("entity_picker.refresh") : t("entity_picker.search");
   }
   if (el.lightEntityPickerSearch && el.lightEntityPickerSearch.value !== editor.lightPicker.search) {
     el.lightEntityPickerSearch.value = editor.lightPicker.search;
@@ -379,16 +438,17 @@ function renderLightEntityPicker(data = {}) {
 
   const pending = data.pending === true || editor.lightPicker.loading;
   let statusText = "";
-  if (data.status === "disconnected") {
-    statusText = t("entity_picker.disconnected");
+  if (["timeout", "error", "disconnected"].includes(data.status)) {
+    statusText = entityDiscoveryStatus(data);
   } else if (!searchReady && !editor.lightPicker.items.length) {
     statusText = t("entity_picker.search_hint", { count: config.minSearch, items: itemsLabel });
   } else if (!liveSearch && searchReady && !editor.lightPicker.hasLoaded && !pending && !editor.lightPicker.items.length) {
     statusText = t("entity_picker.search_ready", { items: itemsLabel });
   } else if (data.status === "refreshing") {
     statusText = t("entity_picker.refreshing_items", { items: itemsLabel });
+    if (data.wait_reason && data.wait_reason !== "request") statusText += `\n${entityDiscoveryStatus(data)}`;
   } else if (pending && !editor.lightPicker.items.length) {
-    statusText = t("entity_picker.pending");
+    statusText = entityDiscoveryStatus(data);
   } else if (!editor.lightPicker.items.length) {
     statusText = t("entity_picker.empty_items", { items: itemsLabel });
   }
@@ -503,10 +563,11 @@ function renderLightEntityPicker(data = {}) {
 async function fetchLightEntityPicker(options = {}) {
   const refresh = options.refresh === true;
   const pollCount = Number(options.pollCount || 0);
+  const started = options.started ?? performance.now();
   const config = entityPickerConfig();
   const domain = config.domain;
   const search = entityPickerSearchValue();
-  const itemsLabel = entityPickerItemsLabel(config);
+  const query = options.query || { domain, search };
   if (!entityPickerSearchReady(config)) {
     editor.lightPicker.loading = false;
     renderLightEntityPicker({
@@ -533,23 +594,39 @@ async function fetchLightEntityPicker(options = {}) {
   if (refresh) params.set("refresh", "1");
 
   try {
-    const data = await apiGet(`/api/ha/light_entities${params.toString() ? `?${params.toString()}` : ""}`);
+    await entityDiscoveryCancellation;
     if (requestSeq !== editor.lightPicker.requestSeq) return;
+    lightEntityActiveQuery = query;
+    let data = await getEntityDiscovery(params, query, () => requestSeq === editor.lightPicker.requestSeq);
+    if (requestSeq !== editor.lightPicker.requestSeq) return;
+    const loaded = Number(data.loaded || 0);
+    const stalled = loaded > Number(options.loaded ?? -1) ? 0 : Number(options.stalled || 0) + 1;
+    const now = performance.now();
+    const progress = stalled === 0 ? now : (options.progress ?? started);
+    if (data.pending && (stalled >= LIGHT_ENTITY_PICKER_MAX_POLLS || pollCount >= LIGHT_ENTITY_PICKER_MAX_TOTAL_POLLS ||
+        now - started >= LIGHT_ENTITY_PICKER_TIMEOUT_MS || now - progress >= LIGHT_ENTITY_PICKER_STALL_MS)) {
+      data = { ...data, status: "timeout", pending: false };
+      void cancelEntityDiscovery(domain, search, query);
+    }
     editor.lightPicker.loading = data.pending === true;
+    if (!editor.lightPicker.loading) lightEntityActiveQuery = null;
     renderLightEntityPicker(data);
 
-    if (data.pending === true && pollCount < LIGHT_ENTITY_PICKER_MAX_POLLS) {
+    if (data.pending === true) {
       clearLightEntityPickerPoll();
       editor.lightPicker.pollTimerId = window.setTimeout(() => {
+        if (requestSeq !== editor.lightPicker.requestSeq) return;
         editor.lightPicker.pollTimerId = null;
-        void fetchLightEntityPicker({ refresh: false, pollCount: pollCount + 1 });
+        void fetchLightEntityPicker({ refresh: false, pollCount: pollCount + 1, loaded, stalled, started, progress, query });
       }, LIGHT_ENTITY_PICKER_POLL_MS);
     }
   } catch (err) {
     if (requestSeq !== editor.lightPicker.requestSeq) return;
     editor.lightPicker.loading = false;
-    const message = t("entity_picker.fetch_failed_items", { items: itemsLabel, error: err.message });
-    el.lightEntityPickerStatus.textContent = message;
+    lightEntityActiveQuery = null;
+    renderLightEntityPicker({ status: "error", pending: false, wait_reason: "http_retry", items: editor.lightPicker.items });
+    const message = entityDiscoveryStatus({ status: "error", wait_reason: "http_retry" });
+    void cancelEntityDiscovery(domain, search, query);
     setStatus(message, true);
   }
 }
@@ -711,6 +788,8 @@ function entitySiblingSearch(id) {
 }
 
 function openLightEntityPicker(widgetType = "light_tile", options = {}) {
+  closeAddTileDialog();
+  stopLightEntityPicker();
   editor.lightPicker.inspectorTarget = options.inspectorTarget || null;
   editor.lightPicker.configOverride = options.configOverride || null;
   const config = entityPickerConfig(widgetType);
@@ -748,11 +827,7 @@ function openLightEntityPicker(widgetType = "light_tile", options = {}) {
 }
 
 function closeLightEntityPicker() {
-  clearLightEntityPickerPoll();
-  clearLightEntityPickerSearchDebounce();
-  editor.lightPicker.requestSeq += 1;
-  cancelLightEntityPickerRequest();
-  editor.lightPicker.loading = false;
+  stopLightEntityPicker();
   if (el.lightEntityPickerOverlay) {
     el.lightEntityPickerOverlay.classList.add("hidden");
   }
@@ -772,6 +847,14 @@ function closeLightEntityPicker() {
 const ADD_TILE_MAX_RESULTS = 40;
 let addTileSearchTimer = null;
 let addTileSearchSeq = 0;
+let addTileActiveQuery = null;
+
+function cancelAddTileSearch() {
+  addTileSearchSeq += 1;
+  window.clearTimeout(addTileSearchTimer);
+  if (addTileActiveQuery) void cancelEntityDiscovery("any", addTileActiveQuery.search, addTileActiveQuery);
+  addTileActiveQuery = null;
+}
 
 function openAddTileDialog() {
   if (!el.addTileOverlay) return;
@@ -780,10 +863,12 @@ function openAddTileDialog() {
     setStatus(t("layout.status.energy_page_only"), true);
     return;
   }
-  addTileSearchSeq += 1;
+  cancelAddTileSearch();
+  closeLightEntityPicker();
   if (el.addTileSearch) el.addTileSearch.value = "";
   if (el.addTileResults) el.addTileResults.textContent = "";
   if (el.addTileSearchStatus) el.addTileSearchStatus.textContent = "";
+  el.addTileSearchRetry?.classList.add("hidden");
   const hint = document.getElementById("addTileFilter");
   if (hint) hint.textContent = t("add_tile.filter");
   filterAddTileTypes("");
@@ -794,7 +879,7 @@ function openAddTileDialog() {
 }
 
 function closeAddTileDialog() {
-  addTileSearchSeq += 1;
+  cancelAddTileSearch();
   el.addTileOverlay?.classList.add("hidden");
 }
 
@@ -811,31 +896,64 @@ function filterAddTileTypes(query) {
   }
 }
 
-async function runAddTileSearch() {
+async function runAddTileSearch(options = {}) {
   const status = el.addTileSearchStatus;
   const results = el.addTileResults;
   if (!el.addTileSearch || !status || !results) return;
   const search = el.addTileSearch.value.trim();
-  const seq = ++addTileSearchSeq;
+  cancelAddTileSearch();
+  const seq = addTileSearchSeq;
+  const query = { domain: "any", search };
+  const started = performance.now();
+  el.addTileSearchRetry?.classList.add("hidden");
   results.textContent = "";
   if (search.length < 2) {
     status.textContent = "";
     return;
   }
   status.textContent = t("entity_picker.pending");
-  for (let poll = 0; poll < LIGHT_ENTITY_PICKER_MAX_POLLS; poll++) {
+  await entityDiscoveryCancellation;
+  if (seq !== addTileSearchSeq) return;
+  addTileActiveQuery = query;
+  let previousLoaded = -1, stalled = 0, progress = started;
+  for (let poll = 0; poll <= LIGHT_ENTITY_PICKER_MAX_TOTAL_POLLS; poll++) {
     let data;
     try {
-      data = await apiGet(`/api/ha/light_entities?${new URLSearchParams({ domain: "any", search })}`);
+      const params = new URLSearchParams({ domain: "any", search });
+      if (poll === 0 && options.refresh) params.set("refresh", "1");
+      data = await getEntityDiscovery(params, query, () => seq === addTileSearchSeq);
     } catch (error) {
-      if (seq === addTileSearchSeq) status.textContent = t("entity_picker.fetch_failed_items", { items: t("wizard.entity.items"), error: error.message });
+      if (seq === addTileSearchSeq) {
+        status.textContent = entityDiscoveryStatus({ status: "error", wait_reason: "http_retry" });
+        el.addTileSearchRetry?.classList.remove("hidden");
+        void cancelEntityDiscovery("any", search, query);
+        addTileActiveQuery = null;
+      }
       return;
     }
     if (seq !== addTileSearchSeq) return;
+    const loaded = Number(data.loaded || 0);
+    stalled = loaded > previousLoaded ? 0 : stalled + 1;
+    previousLoaded = loaded;
+    const now = performance.now();
+    if (stalled === 0) progress = now;
+    if (data.pending && (stalled >= LIGHT_ENTITY_PICKER_MAX_POLLS || poll >= LIGHT_ENTITY_PICKER_MAX_TOTAL_POLLS ||
+        now - started >= LIGHT_ENTITY_PICKER_TIMEOUT_MS || now - progress >= LIGHT_ENTITY_PICKER_STALL_MS)) {
+      data = { ...data, status: "timeout", pending: false };
+      void cancelEntityDiscovery("any", search, query);
+    }
+    if (["timeout", "error", "disconnected"].includes(data.status)) {
+      addTileActiveQuery = null;
+      status.textContent = entityDiscoveryStatus(data);
+      el.addTileSearchRetry?.classList.remove("hidden");
+      return;
+    }
+    if (data.pending) status.textContent = entityDiscoveryStatus(data);
     const items = normalizeEntityPickerItems(data.items, "any").filter(item => entityFirstSuggestions(item.id, item.device_class, item).length);
     results.textContent = "";
     for (const item of items.slice(0, ADD_TILE_MAX_RESULTS)) results.appendChild(entityFirstRow(item));
     if (data.pending !== true) {
+      addTileActiveQuery = null;
       status.textContent = !items.length
         ? t("entity_picker.empty_items", { items: t("wizard.entity.items") })
         : items.length > ADD_TILE_MAX_RESULTS
@@ -848,7 +966,15 @@ async function runAddTileSearch() {
   }
 }
 
+function closeEntitySearchDialogs() {
+  closeAddTileDialog();
+  closeLightEntityPicker();
+}
+
 function bindAddTileDialog() {
+  // Also invalidate suspended timers when the browser restores a cached page.
+  window.addEventListener("pagehide", closeEntitySearchDialogs);
+  if (el.addTileSearchRetry) el.addTileSearchRetry.onclick = () => void runAddTileSearch({ refresh: true });
   if (el.addTileBtn) el.addTileBtn.onclick = () => openAddTileDialog();
   if (el.addTileCloseBtn) el.addTileCloseBtn.onclick = () => closeAddTileDialog();
   el.addTileOverlay?.addEventListener("click", (event) => {
@@ -856,6 +982,7 @@ function bindAddTileDialog() {
   });
   if (el.addTileSearch) {
     el.addTileSearch.oninput = () => {
+      cancelAddTileSearch();
       filterAddTileTypes(el.addTileSearch.value);
       window.clearTimeout(addTileSearchTimer);
       addTileSearchTimer = window.setTimeout(runAddTileSearch, ENTITY_PICKER_SEARCH_DEBOUNCE_MS);

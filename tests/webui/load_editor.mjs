@@ -41,6 +41,8 @@ export function loadEditor({ width = 1280, height = 680, now } = {}) {
     clearInterval() {},
     Intl,
     URLSearchParams,
+    AbortController,
+    performance,
   });
   for (const file of SCRIPTS) {
     vm.runInContext(fs.readFileSync(path.join(JS_DIR, file), "utf8"), context, { filename: file });

@@ -2169,5 +2169,17 @@
   "alarm.panel.hint": "密码仅在面板上输入。按钮操作需要连续长按2秒。",
   "alarm.panel.history_preview": "连接Home Assistant后，面板显示事件记录。",
   "inspector.help.widget_alarm_panel": "显示安防面板，包含数字键盘、防区、辅助控制和Home Assistant事件记录。",
-  "wizard.entity.t.alarm_panel": "安防面板"
+  "wizard.entity.t.alarm_panel": "安防面板",
+  "entity_picker.retry": "重试",
+  "entity_picker.reason_memory": "面板可用内存不足。",
+  "entity_picker.reason_busy": "面板正忙。",
+  "entity_picker.reason_replaced": "此查询已被较新的搜索替换。",
+  "entity_picker.reason_connection": "Home Assistant 未连接。",
+  "entity_picker.reason_http_retry": "未能完成 Home Assistant 请求。",
+  "entity_picker.reason_permission": "Home Assistant 拒绝了实体搜索。请检查令牌对应账户的管理员权限。",
+  "entity_picker.reason_response": "Home Assistant 响应过大或无效。",
+  "entity_picker.reason_request": "Home Assistant 尚未返回实体列表。",
+  "entity_picker.waiting_reason": "{reason}正在等待重试…",
+  "entity_picker.timeout": "实体搜索超时。{reason}请选择“重试”。",
+  "entity_picker.failed": "实体搜索已停止。{reason}请选择“重试”。"
 }

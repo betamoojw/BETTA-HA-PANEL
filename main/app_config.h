@@ -176,15 +176,35 @@
 #define APP_HA_LIGHT_DISCOVERY_REGISTRY_ENABLED 0
 /* Default discovery path: HA renders compact light pages server-side; the panel fetches them one by one. */
 #define APP_HA_LIGHT_DISCOVERY_TEMPLATE_ENABLED 1
-#define APP_HA_LIGHT_DISCOVERY_PAGE_SIZE 40 /* compact state/source metadata; bounded by the 16 KB payload cap in ha_client.c */
-/* Internal heap an entity-discovery template page waits for before it is sent at once (the
- * values are in ha_client.c). Below it the request still runs after an 8 s wait with 64 KB free and
- * a 24 KB block. The JC panel used to idle at ~100 KB free with a largest internal block of exactly 32 KB,
- * so it needed lower values (88 KB / 28 KB); with LVGL in PSRAM (2026-10-01) it idles at ~320 KB / ~160 KB and
- * the generic values are reached at once again. A page's TLS and receive buffers are in PSRAM and take at most
- * ~30 KB internal (measured). */
+#if defined(CONFIG_APP_PANEL_VARIANT_S3_480)
+/* HTTP RX/TX prefer PSRAM. Keep TLS admission at 36 KiB; ordinary HTTP may use
+ * the guarded 32 KiB prepared reserve plus 2 KiB for client/header setup.
+ * These are admission reserves, not a measured peak or a TLS qualification. */
+#define APP_HA_LIGHT_DISCOVERY_PAGE_SIZE 12
+#define APP_HA_DISCOVERY_PAYLOAD_MAX_BYTES 8192U
+#define APP_HA_DISCOVERY_TEMPLATE_MIN_INTERNAL_FREE_BYTES (40U * 1024U)
+#define APP_HA_DISCOVERY_TEMPLATE_MIN_INTERNAL_LARGEST_BYTES (8U * 1024U)
+#define APP_HA_DISCOVERY_USER_MIN_INTERNAL_FREE_BYTES (36U * 1024U)
+#define APP_HA_DISCOVERY_USER_MIN_INTERNAL_LARGEST_BYTES (8U * 1024U)
+/* malloc(1024) prefers internal RAM on S3; 2048 moves TX to PSRAM like RX. */
+#define APP_HA_HTTP_TX_BUFFER_SIZE 2048
+#define APP_HA_DISCOVERY_PREPARED_INTERNAL_FREE_BYTES (32U * 1024U)
+#define APP_HA_DISCOVERY_CONNECTED_INTERNAL_FREE_BYTES (24U * 1024U)
+#define APP_HA_DISCOVERY_REQUEST_INTERNAL_BLOCK_BYTES (4U * 1024U)
+#define APP_HA_DISCOVERY_HTTP_SETUP_INTERNAL_BYTES (2U * 1024U)
+#define APP_HA_DISCOVERY_HTTP_MIN_INTERNAL_FREE_BYTES \
+    (APP_HA_DISCOVERY_PREPARED_INTERNAL_FREE_BYTES + APP_HA_DISCOVERY_HTTP_SETUP_INTERNAL_BYTES)
+#define APP_HA_HTTP_IDLE_RELEASE_MS 2000
+#else
+/* Preserve the P4 admission thresholds and 40-entity pages. */
+#define APP_HA_LIGHT_DISCOVERY_PAGE_SIZE 40
+#define APP_HA_DISCOVERY_PAYLOAD_MAX_BYTES 16384U
 #define APP_HA_DISCOVERY_TEMPLATE_MIN_INTERNAL_FREE_BYTES (120U * 1024U)
 #define APP_HA_DISCOVERY_TEMPLATE_MIN_INTERNAL_LARGEST_BYTES (48U * 1024U)
+#define APP_HA_DISCOVERY_USER_MIN_INTERNAL_FREE_BYTES (64U * 1024U)
+#define APP_HA_DISCOVERY_USER_MIN_INTERNAL_LARGEST_BYTES (24U * 1024U)
+#define APP_HA_HTTP_TX_BUFFER_SIZE 1024
+#endif
 
 #define APP_HA_QUEUE_LENGTH 96
 #define APP_HA_TASK_STACK 12288

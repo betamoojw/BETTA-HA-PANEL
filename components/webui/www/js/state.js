@@ -261,6 +261,7 @@ const el = {
   addTileCloseBtn: document.getElementById("addTileCloseBtn"),
   addTileSearch: document.getElementById("addTileSearch"),
   addTileSearchStatus: document.getElementById("addTileSearchStatus"),
+  addTileSearchRetry: document.getElementById("addTileSearchRetry"),
   addTileResults: document.getElementById("addTileResults"),
   roomImportCard: document.getElementById("roomImportCard"),
   roomImportStepRoom: document.getElementById("roomImportStepRoom"),

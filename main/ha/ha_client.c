@@ -39,6 +39,9 @@
 #include "ha/ha_layout_entities.h"
 #include "ha/ha_auth_state.h"
 #include "ha/ha_discovery_domains.h"
+#include "ha/ha_discovery_policy.h"
+#include "ha/ha_discovery_request.h"
+#include "ha/ha_http_session.h"
 #include "ha/ha_registry_discovery.h"
 #include "ha/ha_cover_fetcher.h"
 #include "ha/ha_display_precision.h"
@@ -209,8 +212,6 @@ typedef struct {
     bool rest_enabled;
     char ws_url[256];
     char access_token[512];
-    char http_base_url[256];
-    char http_cert_common_name[128];
     char http_resolved_host[128];
     char http_resolved_ip[64];
     uint32_t next_message_id;
@@ -311,7 +312,8 @@ typedef struct {
     char light_discovery_domain[APP_HA_DISCOVERY_DOMAIN_MAX_LEN];
     char light_discovery_search[APP_HA_DISCOVERY_SEARCH_MAX_LEN];
     uint32_t light_discovery_req_id;
-    uint32_t light_discovery_template_req_seq;
+    ha_discovery_guard_t discovery_guard;
+    uint16_t discovery_page_size;
     int64_t light_discovery_started_unix_ms;
     int64_t light_discovery_updated_unix_ms;
     int64_t light_discovery_next_step_unix_ms;
@@ -330,7 +332,7 @@ typedef struct {
     ha_light_discovery_device_t *light_discovery_devices;
     uint16_t light_discovery_device_count;
     bool light_discovery_device_truncated;
-    esp_http_client_handle_t http_client;
+    ha_http_session_t http;
     QueueHandle_t ws_rx_queue;
     TaskHandle_t task_handle;
     SemaphoreHandle_t mutex;
@@ -444,26 +446,6 @@ static const int64_t HA_LIGHT_DISCOVERY_RETRY_DELAY_MS = 6000;
 static const int64_t HA_LIGHT_DISCOVERY_WAIT_LOG_INTERVAL_MS = 5000;
 static const size_t HA_LIGHT_DISCOVERY_MIN_INTERNAL_FREE_BYTES = (180U * 1024U);
 static const size_t HA_LIGHT_DISCOVERY_MIN_INTERNAL_LARGEST_BYTES = (80U * 1024U);
-static const size_t HA_LIGHT_DISCOVERY_TEMPLATE_MIN_INTERNAL_FREE_BYTES = APP_HA_DISCOVERY_TEMPLATE_MIN_INTERNAL_FREE_BYTES;
-static const size_t HA_LIGHT_DISCOVERY_TEMPLATE_MIN_INTERNAL_LARGEST_BYTES = APP_HA_DISCOVERY_TEMPLATE_MIN_INTERNAL_LARGEST_BYTES;
-static const size_t HA_LIGHT_DISCOVERY_TEMPLATE_PAYLOAD_FALLBACK_CAP = 8192U;
-static const size_t HA_LIGHT_DISCOVERY_TEMPLATE_PAYLOAD_MAX_BYTES = 16384U;
-static const int HA_LIGHT_DISCOVERY_HTTP_BUFFER_SIZE = 2048;
-static const int HA_LIGHT_DISCOVERY_HTTP_TX_BUFFER_SIZE = 1024;
-static const bool HA_HTTP_KEEP_ALIVE = true;
-/* User-priority escalation: when the user is actively waiting for an entity picker
- * result, the standard heap thresholds above can leave the request stuck for minutes
- * because periodic background work (todo.get_items, energy sync, ping) keeps internal
- * heap just below the template threshold. After this delay, relax the thresholds so
- * the queued discovery can run. A panel with little internal RAM can idle
- * around 27-30 KiB free with a ~9 KiB largest block while still having enough PSRAM for the small
- * template-page request. */
-static const int64_t HA_LIGHT_DISCOVERY_TEMPLATE_USER_WAIT_ESCALATE_MS = 8000;
-/* The camera stack (esp_video) and a long uptime leave the largest internal block around 36 KB on
- * the JC panel; 40 KB then blocked every editor discovery (room import) for good. The request
- * itself keeps its TLS buffers in PSRAM (CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC), 24 KB is enough. */
-static const size_t HA_LIGHT_DISCOVERY_TEMPLATE_USER_MIN_INTERNAL_FREE_BYTES = (64U * 1024U);
-static const size_t HA_LIGHT_DISCOVERY_TEMPLATE_USER_MIN_INTERNAL_LARGEST_BYTES = (24U * 1024U);
 /* Internal heap on ESP32-P4 can be low in normal operation due to DMA/internal reservations.
    Tune thresholds to avoid permanent "protect" on healthy WS-only idle. */
 static const size_t HA_BG_HEAP_PRESSURE_BYTES = (12U * 1024U);
@@ -542,7 +524,7 @@ static bool ha_client_light_discovery_has_ready_cache_locked(void);
 static bool ha_client_light_discovery_start_locked(const char *domain, const char *search, int64_t now_ms);
 static bool ha_client_light_discovery_handle_result(uint32_t msg_id, cJSON *root, cJSON *success_item);
 static int ha_client_light_discovery_item_cmp(const void *lhs, const void *rhs);
-static esp_err_t ha_client_light_discovery_template_step(uint16_t offset, uint16_t page_size);
+static esp_err_t ha_client_light_discovery_template_step(uint16_t offset, uint16_t page_size, uint32_t generation);
 static uint16_t ha_client_prepare_entities_resubscribe_locked(int64_t now_ms);
 #if defined(CONFIG_SPIRAM) && CONFIG_SPIRAM
 static const size_t HA_WS_RX_ASSEMBLY_BUF_SIZE = 131072U;
@@ -1446,19 +1428,10 @@ static bool ha_client_json_string_value(cJSON *obj, const char *key, char *dst, 
     return true;
 }
 
-static void *ha_client_light_discovery_calloc(size_t count, size_t size)
-{
-    void *ptr = heap_caps_calloc(count, size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-    if (ptr == NULL) {
-        ptr = heap_caps_calloc(count, size, MALLOC_CAP_8BIT);
-    }
-    return ptr;
-}
-
 static bool ha_client_light_discovery_ensure_cache_locked(void)
 {
     if (s_client.light_discovery_items == NULL) {
-        s_client.light_discovery_items = (ha_light_discovery_item_t *)ha_client_light_discovery_calloc(
+        s_client.light_discovery_items = (ha_light_discovery_item_t *)ha_discovery_calloc(
             APP_HA_LIGHT_DISCOVERY_MAX_ITEMS, sizeof(ha_light_discovery_item_t));
     }
     return s_client.light_discovery_items != NULL;
@@ -1471,15 +1444,15 @@ static bool ha_client_light_discovery_ensure_buffers_locked(void)
     }
     if (s_client.light_discovery_pending_items == NULL) {
         s_client.light_discovery_pending_items =
-            (ha_light_discovery_pending_item_t *)ha_client_light_discovery_calloc(
+            (ha_light_discovery_pending_item_t *)ha_discovery_calloc(
                 APP_HA_LIGHT_DISCOVERY_MAX_ITEMS, sizeof(ha_light_discovery_pending_item_t));
     }
     if (s_client.light_discovery_areas == NULL) {
-        s_client.light_discovery_areas = (ha_light_discovery_area_t *)ha_client_light_discovery_calloc(
+        s_client.light_discovery_areas = (ha_light_discovery_area_t *)ha_discovery_calloc(
             APP_HA_LIGHT_DISCOVERY_MAX_AREAS, sizeof(ha_light_discovery_area_t));
     }
     if (s_client.light_discovery_devices == NULL) {
-        s_client.light_discovery_devices = (ha_light_discovery_device_t *)ha_client_light_discovery_calloc(
+        s_client.light_discovery_devices = (ha_light_discovery_device_t *)ha_discovery_calloc(
             APP_HA_LIGHT_DISCOVERY_MAX_DEVICES, sizeof(ha_light_discovery_device_t));
     }
 
@@ -1496,7 +1469,7 @@ static bool ha_client_light_discovery_ensure_template_buffers_locked(void)
     }
     if (s_client.light_discovery_pending_items == NULL) {
         s_client.light_discovery_pending_items =
-            (ha_light_discovery_pending_item_t *)ha_client_light_discovery_calloc(
+            (ha_light_discovery_pending_item_t *)ha_discovery_calloc(
                 APP_HA_LIGHT_DISCOVERY_MAX_ITEMS, sizeof(ha_light_discovery_pending_item_t));
     }
     return s_client.light_discovery_pending_items != NULL;
@@ -1564,14 +1537,6 @@ static bool ha_client_light_discovery_start_locked(const char *domain, const cha
     bool same_domain =
         strncmp(s_client.light_discovery_domain, checked_domain, sizeof(s_client.light_discovery_domain)) == 0 &&
         strncmp(s_client.light_discovery_search, checked_search, sizeof(s_client.light_discovery_search)) == 0;
-    bool have_buffers = APP_HA_LIGHT_DISCOVERY_TEMPLATE_ENABLED
-        ? ha_client_light_discovery_ensure_template_buffers_locked()
-        : ha_client_light_discovery_ensure_buffers_locked();
-    if (!have_buffers) {
-        ESP_LOGW(TAG_HA_CLIENT, "Entity discovery buffer allocation failed");
-        ha_client_light_discovery_free_work_buffers_locked();
-        return false;
-    }
     if (!same_domain) {
         if (s_client.light_discovery_items != NULL) {
             memset(s_client.light_discovery_items, 0,
@@ -1583,6 +1548,17 @@ static bool ha_client_light_discovery_start_locked(const char *domain, const cha
     }
     safe_copy_cstr(s_client.light_discovery_domain, sizeof(s_client.light_discovery_domain), checked_domain);
     safe_copy_cstr(s_client.light_discovery_search, sizeof(s_client.light_discovery_search), checked_search);
+    ha_discovery_begin(&s_client.discovery_guard, now_ms);
+    s_client.discovery_page_size = APP_HA_LIGHT_DISCOVERY_PAGE_SIZE;
+    bool have_buffers = APP_HA_LIGHT_DISCOVERY_TEMPLATE_ENABLED
+        ? ha_client_light_discovery_ensure_template_buffers_locked()
+        : ha_client_light_discovery_ensure_buffers_locked();
+    if (!have_buffers) {
+        ESP_LOGW(TAG_HA_CLIENT, "Entity discovery buffer allocation failed");
+        ha_client_light_discovery_free_work_buffers_locked();
+        ha_discovery_fail(&s_client.discovery_guard, HA_DISCOVERY_WAIT_ALLOCATION);
+        return false;
+    }
     ha_client_light_discovery_reset_pending_locked();
     if (strcmp(checked_domain, "room") == 0) {
         ha_room_registry_request();
@@ -1598,11 +1574,11 @@ static bool ha_client_light_discovery_start_locked(const char *domain, const cha
     s_client.light_discovery_template_offset = 0;
     s_client.light_discovery_template_total = 0;
     s_client.light_discovery_last_wait_log_unix_ms = 0;
-    ESP_LOGI(TAG_HA_CLIENT, "Entity discovery queued: domain=%s search=\"%s\" mode=%s page_size=%u",
+    ESP_LOGI(TAG_HA_CLIENT, "Entity discovery queued: domain=%s search=\"%s\" mode=%s page_size=%u generation=%lu",
         s_client.light_discovery_domain,
         s_client.light_discovery_search,
         APP_HA_LIGHT_DISCOVERY_TEMPLATE_ENABLED ? "template-pages" : "registry-ws",
-        (unsigned)APP_HA_LIGHT_DISCOVERY_PAGE_SIZE);
+        (unsigned)APP_HA_LIGHT_DISCOVERY_PAGE_SIZE, (unsigned long)s_client.discovery_guard.generation);
     return true;
 }
 
@@ -1818,6 +1794,7 @@ static void ha_client_light_discovery_finish_locked(int64_t now_ms)
     }
 
     s_client.light_discovery_updated_unix_ms = now_ms;
+    ha_discovery_finish(&s_client.discovery_guard);
     s_client.light_discovery_requested = false;
     s_client.light_discovery_inflight = false;
     s_client.light_discovery_phase = HA_LIGHT_DISCOVERY_PHASE_NONE;
@@ -1834,6 +1811,7 @@ static void ha_client_light_discovery_finish_locked(int64_t now_ms)
 
 static void ha_client_light_discovery_abort_locked(void)
 {
+    ha_discovery_cancel(&s_client.discovery_guard);
     s_client.light_discovery_requested = false;
     s_client.light_discovery_inflight = false;
     s_client.light_discovery_phase = HA_LIGHT_DISCOVERY_PHASE_NONE;
@@ -1847,12 +1825,30 @@ static void ha_client_light_discovery_abort_locked(void)
     ha_client_light_discovery_free_work_buffers_locked();
 }
 
+/* Preserve the query identity and any ready cache on failure; polling cannot restart it. */
+static void ha_client_discovery_stop_work_locked(void)
+{
+    s_client.light_discovery_requested = s_client.light_discovery_inflight = false;
+    s_client.light_discovery_phase = HA_LIGHT_DISCOVERY_PHASE_NONE;
+    s_client.light_discovery_req_id = 0;
+    ha_client_light_discovery_free_work_buffers_locked();
+}
+
+static void ha_client_discovery_expire_locked(int64_t now_ms)
+{
+    if (APP_HA_LIGHT_DISCOVERY_TEMPLATE_ENABLED && ha_discovery_expire(&s_client.discovery_guard, now_ms)) {
+        ESP_LOGW(TAG_HA_CLIENT, "Entity discovery timed out: reason=%s",
+            ha_discovery_wait_name(s_client.discovery_guard.reason));
+        ha_client_discovery_stop_work_locked();
+    }
+}
+
 static esp_err_t ha_client_light_discovery_refresh_from_model(const char *domain, const char *search, int64_t now_ms)
 {
     const char *checked_domain = ha_discovery_domain_or_default(domain);
     char checked_search[APP_HA_DISCOVERY_SEARCH_MAX_LEN] = {0};
     ha_client_discovery_normalize_search(search, checked_search, sizeof(checked_search));
-    ha_entity_info_t *model_items = (ha_entity_info_t *)ha_client_light_discovery_calloc(
+    ha_entity_info_t *model_items = (ha_entity_info_t *)ha_discovery_calloc(
         APP_HA_LIGHT_DISCOVERY_MAX_ITEMS, sizeof(ha_entity_info_t));
     if (model_items == NULL) {
         return ESP_ERR_NO_MEM;
@@ -2001,7 +1997,7 @@ static bool ha_client_entity_should_use_trigger_subscription(const char *entity_
 static esp_err_t ha_client_fetch_weather_daily_forecast_http(
     const char *base_url, const char *host_header, const char *entity_id, cJSON **out_forecast)
 {
-    if (base_url == NULL || entity_id == NULL || out_forecast == NULL || entity_id[0] == '\0' || s_client.http_client == NULL ||
+    if (base_url == NULL || entity_id == NULL || out_forecast == NULL || entity_id[0] == '\0' || s_client.http.handle == NULL ||
         !entity_id_valid(entity_id)) { /* the id is pasted into a JSON body below: only [a-z0-9_.] may get there */
         return ESP_ERR_INVALID_ARG;
     }
@@ -2021,27 +2017,27 @@ static esp_err_t ha_client_fetch_weather_daily_forecast_http(
 
     char auth_header[640] = {0};
     snprintf(auth_header, sizeof(auth_header), "Bearer %s", s_client.access_token);
-    esp_http_client_set_url(s_client.http_client, url);
-    esp_http_client_set_method(s_client.http_client, HTTP_METHOD_POST);
-    esp_http_client_set_header(s_client.http_client, "Authorization", auth_header);
-    esp_http_client_set_header(s_client.http_client, "Accept", "application/json");
-    esp_http_client_set_header(s_client.http_client, "Content-Type", "application/json");
+    esp_http_client_set_url(s_client.http.handle, url);
+    esp_http_client_set_method(s_client.http.handle, HTTP_METHOD_POST);
+    esp_http_client_set_header(s_client.http.handle, "Authorization", auth_header);
+    esp_http_client_set_header(s_client.http.handle, "Accept", "application/json");
+    esp_http_client_set_header(s_client.http.handle, "Content-Type", "application/json");
     if (host_header != NULL && host_header[0] != '\0') {
-        esp_http_client_set_header(s_client.http_client, "Host", host_header);
+        esp_http_client_set_header(s_client.http.handle, "Host", host_header);
     }
 
-    esp_err_t err = ha_client_http_open_budgeted(s_client.http_client, body_len, "forecast");
+    esp_err_t err = ha_client_http_open_budgeted(s_client.http.handle, body_len, "forecast");
     if (err != ESP_OK) {
         return err;
     }
 
-    int written = esp_http_client_write(s_client.http_client, body, body_len);
+    int written = esp_http_client_write(s_client.http.handle, body, body_len);
     if (written < body_len) {
-        esp_http_client_close(s_client.http_client);
+        esp_http_client_close(s_client.http.handle);
         return ESP_FAIL;
     }
 
-    int64_t content_length = esp_http_client_fetch_headers(s_client.http_client);
+    int64_t content_length = esp_http_client_fetch_headers(s_client.http.handle);
     size_t payload_cap = 12288;
     if (content_length > 0 && content_length < 65536) {
         payload_cap = (size_t)content_length + 1U;
@@ -2049,14 +2045,14 @@ static esp_err_t ha_client_fetch_weather_daily_forecast_http(
 
     char *payload = calloc(payload_cap, sizeof(char));
     if (payload == NULL) {
-        esp_http_client_close(s_client.http_client);
+        esp_http_client_close(s_client.http.handle);
         return ESP_ERR_NO_MEM;
     }
 
     int total_read = 0;
     while (total_read < (int)payload_cap - 1) {
         int read =
-            esp_http_client_read(s_client.http_client, payload + total_read, (int)payload_cap - 1 - total_read);
+            esp_http_client_read(s_client.http.handle, payload + total_read, (int)payload_cap - 1 - total_read);
         if (read < 0) {
             err = ESP_FAIL;
             break;
@@ -2068,8 +2064,8 @@ static esp_err_t ha_client_fetch_weather_daily_forecast_http(
     }
     payload[total_read] = '\0';
 
-    int status = esp_http_client_get_status_code(s_client.http_client);
-    esp_http_client_close(s_client.http_client);
+    int status = esp_http_client_get_status_code(s_client.http.handle);
+    esp_http_client_close(s_client.http.handle);
     ha_client_auth_status(status, false);
 
     if (err != ESP_OK) {
@@ -2640,81 +2636,36 @@ static bool ha_client_build_http_request_context(const char *ws_url, char *out_b
 
 static void ha_client_reset_http_client(void)
 {
-    if (s_client.http_client != NULL) {
-        esp_http_client_cleanup(s_client.http_client);
-        s_client.http_client = NULL;
-    }
-    s_client.http_base_url[0] = '\0';
-    s_client.http_cert_common_name[0] = '\0';
+    ha_http_session_reset(&s_client.http, "reset");
 }
 
 static esp_err_t ha_client_ensure_http_client(const char *base_url, const char *cert_common_name)
 {
-    if (base_url == NULL || base_url[0] == '\0') {
-        return ESP_ERR_INVALID_ARG;
-    }
-
-    bool same_cn = false;
-    if (cert_common_name == NULL || cert_common_name[0] == '\0') {
-        same_cn = (s_client.http_cert_common_name[0] == '\0');
-    } else {
-        same_cn = (strncmp(s_client.http_cert_common_name, cert_common_name, sizeof(s_client.http_cert_common_name)) == 0);
-    }
-
-    if (s_client.http_client != NULL &&
-        strncmp(s_client.http_base_url, base_url, sizeof(s_client.http_base_url)) == 0 && same_cn) {
-        return ESP_OK;
-    }
-
-    ha_client_reset_http_client();
-
-    esp_http_client_config_t http_cfg = {
-        .url = base_url,
-        /* Background REST sync must never stall WS handling for many seconds. */
-        .timeout_ms = 2500,
-        .keep_alive_enable = HA_HTTP_KEEP_ALIVE,
-        .buffer_size = HA_LIGHT_DISCOVERY_HTTP_BUFFER_SIZE,
-        .buffer_size_tx = HA_LIGHT_DISCOVERY_HTTP_TX_BUFFER_SIZE,
-    };
-#if CONFIG_MBEDTLS_CERTIFICATE_BUNDLE
-    if (strncmp(base_url, "https://", 8) == 0) {
-        http_cfg.crt_bundle_attach = esp_crt_bundle_attach;
-    }
-#endif
-    if (cert_common_name != NULL && cert_common_name[0] != '\0') {
-        http_cfg.common_name = cert_common_name;
-    }
-
-    s_client.http_client = esp_http_client_init(&http_cfg);
-    if (s_client.http_client == NULL) {
-        return ESP_ERR_NO_MEM;
-    }
-
-    safe_copy_cstr(s_client.http_base_url, sizeof(s_client.http_base_url), base_url);
-    safe_copy_cstr(s_client.http_cert_common_name, sizeof(s_client.http_cert_common_name), cert_common_name);
-    return ESP_OK;
+    return ha_http_session_ensure(&s_client.http, base_url, cert_common_name);
 }
 
-static esp_err_t ha_client_light_discovery_template_step(uint16_t offset, uint16_t page_size)
+static esp_err_t ha_client_light_discovery_template_step(uint16_t offset, uint16_t page_size, uint32_t generation)
 {
-    if (page_size == 0 || ha_auth_state_template_disabled()) {
-        return page_size == 0 ? ESP_ERR_INVALID_ARG : ESP_ERR_NOT_SUPPORTED;
-    }
-
     char domain[APP_HA_DISCOVERY_DOMAIN_MAX_LEN] = {0};
     char search[APP_HA_DISCOVERY_SEARCH_MAX_LEN] = {0};
-    uint32_t template_req_seq = 0;
     xSemaphoreTake(s_client.mutex, portMAX_DELAY);
+    ha_client_discovery_expire_locked(ha_client_now_ms());
+    if (!ha_discovery_matches(&s_client.discovery_guard, generation) || !s_client.light_discovery_requested) {
+        xSemaphoreGive(s_client.mutex);
+        return ESP_ERR_INVALID_STATE;
+    }
+    if (page_size == 0 || ha_auth_state_template_disabled()) {
+        ha_discovery_fail(&s_client.discovery_guard, HA_DISCOVERY_WAIT_PERMISSION);
+        ha_client_discovery_stop_work_locked();
+        xSemaphoreGive(s_client.mutex);
+        return ESP_ERR_NOT_SUPPORTED;
+    }
     safe_copy_cstr(domain, sizeof(domain), ha_discovery_domain_or_default(s_client.light_discovery_domain));
     safe_copy_cstr(s_client.light_discovery_domain, sizeof(s_client.light_discovery_domain), domain);
     safe_copy_cstr(search, sizeof(search), s_client.light_discovery_search);
     s_client.light_discovery_requested = false;
     s_client.light_discovery_inflight = true;
     s_client.light_discovery_phase = HA_LIGHT_DISCOVERY_PHASE_TEMPLATE;
-    template_req_seq = ++s_client.light_discovery_template_req_seq;
-    if (template_req_seq == 0) {
-        template_req_seq = ++s_client.light_discovery_template_req_seq;
-    }
     xSemaphoreGive(s_client.mutex);
 
     char base_url[256] = {0};
@@ -2738,133 +2689,17 @@ static esp_err_t ha_client_light_discovery_template_step(uint16_t offset, uint16
         "Requesting HA entity discovery page via template: domain=%s search=\"%s\" offset=%u limit=%u",
         domain, search, (unsigned)offset, (unsigned)page_size);
 
-    cJSON *search_json = cJSON_CreateString(search);
-    if (search_json == NULL) {
-        err = ESP_ERR_NO_MEM;
-        goto fail;
-    }
-    char *search_literal = cJSON_PrintUnformatted(search_json);
-    cJSON_Delete(search_json);
-    if (search_literal == NULL) {
-        err = ESP_ERR_NO_MEM;
-        goto fail;
-    }
-
-    char *template_text = ha_entity_source_template(domain, search_literal, offset, page_size);
-    cJSON_free(search_literal);
-    if (template_text == NULL) {
-        err = ESP_ERR_NO_MEM;
-        goto fail;
-    }
-
-    cJSON *body_root = cJSON_CreateObject();
-    if (body_root == NULL) {
-        free(template_text);
-        err = ESP_ERR_NO_MEM;
-        goto fail;
-    }
-    cJSON_AddStringToObject(body_root, "template", template_text);
-    free(template_text);
-    char *body = cJSON_PrintUnformatted(body_root);
-    cJSON_Delete(body_root);
-    if (body == NULL) {
-        err = ESP_ERR_NO_MEM;
-        goto fail;
-    }
-
     err = ha_client_ensure_http_client(base_url, cert_common_name);
+    if (err != ESP_OK) goto fail;
+    ha_discovery_request_t request = {
+        .client = s_client.http.handle, .url = url, .token = s_client.access_token,
+        .host = host_header, .domain = domain, .search = search, .offset = offset,
+        .page_size = page_size, .open = ha_client_http_open_budgeted, .auth_status = ha_client_auth_status,
+    };
+    cJSON *root = NULL;
+    err = ha_discovery_request_page(&request, &root);
     if (err != ESP_OK) {
-        cJSON_free(body);
-        goto fail;
-    }
-
-    char auth_header[640] = {0};
-    snprintf(auth_header, sizeof(auth_header), "Bearer %s", s_client.access_token);
-    esp_http_client_set_url(s_client.http_client, url);
-    esp_http_client_set_method(s_client.http_client, HTTP_METHOD_POST);
-    esp_http_client_set_header(s_client.http_client, "Authorization", auth_header);
-    esp_http_client_set_header(s_client.http_client, "Accept", "text/plain");
-    esp_http_client_set_header(s_client.http_client, "Content-Type", "application/json");
-    if (!HA_HTTP_KEEP_ALIVE) {
-        esp_http_client_set_header(s_client.http_client, "Connection", "close");
-    }
-    if (host_header[0] != '\0') {
-        esp_http_client_set_header(s_client.http_client, "Host", host_header);
-    }
-
-    int body_len = (int)strlen(body);
-    err = ha_client_http_open_budgeted(s_client.http_client, body_len, "light-discovery");
-    if (err != ESP_OK) {
-        cJSON_free(body);
-        if (err != ESP_ERR_TIMEOUT) {
-            ha_client_reset_http_client();
-        }
-        goto fail;
-    }
-
-    int written = esp_http_client_write(s_client.http_client, body, body_len);
-    cJSON_free(body);
-    if (written != body_len) {
-        esp_http_client_close(s_client.http_client);
-        err = ESP_FAIL;
-        goto fail;
-    }
-
-    int64_t content_length = esp_http_client_fetch_headers(s_client.http_client);
-    int status = esp_http_client_get_status_code(s_client.http_client);
-    ha_client_auth_status(status, true);
-    if (status != 200) {
-        esp_http_client_close(s_client.http_client);
-        err = ESP_ERR_INVALID_RESPONSE;
-        goto fail;
-    }
-
-    size_t payload_cap = HA_LIGHT_DISCOVERY_TEMPLATE_PAYLOAD_FALLBACK_CAP;
-    if (content_length >= (int64_t)HA_LIGHT_DISCOVERY_TEMPLATE_PAYLOAD_MAX_BYTES) {
-        ESP_LOGW(TAG_HA_CLIENT, "Entity discovery page too large: %" PRId64 " bytes (max=%u)",
-            content_length, (unsigned)HA_LIGHT_DISCOVERY_TEMPLATE_PAYLOAD_MAX_BYTES);
-        esp_http_client_close(s_client.http_client);
-        err = ESP_ERR_INVALID_SIZE;
-        goto fail;
-    }
-    if (content_length > 0 && content_length < (int64_t)HA_LIGHT_DISCOVERY_TEMPLATE_PAYLOAD_MAX_BYTES) {
-        payload_cap = (size_t)content_length + 1U;
-    }
-    char *payload = (char *)heap_caps_calloc(payload_cap, sizeof(char), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-    if (payload == NULL) {
-        payload = (char *)calloc(payload_cap, sizeof(char));
-    }
-    if (payload == NULL) {
-        esp_http_client_close(s_client.http_client);
-        err = ESP_ERR_NO_MEM;
-        goto fail;
-    }
-
-    int total_read = 0;
-    while (total_read < (int)payload_cap - 1) {
-        int read =
-            esp_http_client_read(s_client.http_client, payload + total_read, (int)payload_cap - 1 - total_read);
-        if (read < 0) {
-            err = ESP_FAIL;
-            break;
-        }
-        if (read == 0) {
-            break;
-        }
-        total_read += read;
-    }
-    esp_http_client_close(s_client.http_client);
-    if (err != ESP_OK) {
-        free(payload);
-        goto fail;
-    }
-    payload[total_read] = '\0';
-
-    cJSON *root = cJSON_Parse(payload);
-    free(payload);
-    if (!cJSON_IsObject(root)) {
-        cJSON_Delete(root);
-        err = ESP_ERR_INVALID_RESPONSE;
+        if (err != ESP_ERR_TIMEOUT) ha_client_reset_http_client();
         goto fail;
     }
 
@@ -2874,8 +2709,9 @@ static esp_err_t ha_client_light_discovery_template_step(uint16_t offset, uint16
     uint16_t page_count = cJSON_IsArray(items) ? (uint16_t)cJSON_GetArraySize(items) : 0;
 
     xSemaphoreTake(s_client.mutex, portMAX_DELAY);
+    ha_client_discovery_expire_locked(ha_client_now_ms());
     if (!s_client.light_discovery_inflight ||
-        s_client.light_discovery_template_req_seq != template_req_seq ||
+        !ha_discovery_matches(&s_client.discovery_guard, generation) ||
         s_client.light_discovery_phase != HA_LIGHT_DISCOVERY_PHASE_TEMPLATE ||
         strncmp(s_client.light_discovery_domain, domain, sizeof(s_client.light_discovery_domain)) != 0 ||
         strncmp(s_client.light_discovery_search, search, sizeof(s_client.light_discovery_search)) != 0) {
@@ -2921,6 +2757,8 @@ static esp_err_t ha_client_light_discovery_template_step(uint16_t offset, uint16
     uint16_t next_offset = (uint16_t)(offset + page_count);
     int64_t complete_ms = ha_client_now_ms();
     s_client.light_discovery_template_total = total;
+    s_client.discovery_guard.progress_ms = complete_ms;
+    s_client.discovery_guard.reason = HA_DISCOVERY_WAIT_NONE;
     if (page_count == 0 || page_count < page_size || next_offset >= total ||
         next_offset >= APP_HA_LIGHT_DISCOVERY_MAX_ITEMS) {
         if (total > APP_HA_LIGHT_DISCOVERY_MAX_ITEMS || next_offset >= APP_HA_LIGHT_DISCOVERY_MAX_ITEMS) {
@@ -2945,14 +2783,24 @@ static esp_err_t ha_client_light_discovery_template_step(uint16_t offset, uint16
 fail:
     xSemaphoreTake(s_client.mutex, portMAX_DELAY);
     if (s_client.light_discovery_inflight &&
-        s_client.light_discovery_template_req_seq == template_req_seq &&
+        ha_discovery_matches(&s_client.discovery_guard, generation) &&
         s_client.light_discovery_phase == HA_LIGHT_DISCOVERY_PHASE_TEMPLATE &&
         strncmp(s_client.light_discovery_domain, domain, sizeof(s_client.light_discovery_domain)) == 0 &&
         strncmp(s_client.light_discovery_search, search, sizeof(s_client.light_discovery_search)) == 0) {
-        s_client.light_discovery_inflight = false;
-        s_client.light_discovery_requested = true;
-        s_client.light_discovery_req_id = 0;
-        s_client.light_discovery_next_step_unix_ms = ha_client_now_ms() + HA_LIGHT_DISCOVERY_RETRY_DELAY_MS;
+        s_client.discovery_guard.reason = err == ESP_ERR_NO_MEM ? HA_DISCOVERY_WAIT_ALLOCATION : HA_DISCOVERY_WAIT_HTTP;
+        if (err == ESP_ERR_INVALID_SIZE && s_client.discovery_page_size > 1) {
+            s_client.discovery_page_size = ha_discovery_smaller_page(s_client.discovery_page_size);
+        } else if (err == ESP_ERR_INVALID_SIZE || ha_auth_state_template_disabled()) {
+            ha_discovery_fail(&s_client.discovery_guard, ha_auth_state_template_disabled()
+                ? HA_DISCOVERY_WAIT_PERMISSION : HA_DISCOVERY_WAIT_RESPONSE);
+            ha_client_discovery_stop_work_locked();
+        }
+        if (s_client.discovery_guard.active) {
+            s_client.light_discovery_inflight = false;
+            s_client.light_discovery_requested = true;
+            s_client.light_discovery_req_id = 0;
+            s_client.light_discovery_next_step_unix_ms = ha_client_now_ms() + HA_LIGHT_DISCOVERY_RETRY_DELAY_MS;
+        }
     }
     xSemaphoreGive(s_client.mutex);
     ESP_LOGW(TAG_HA_CLIENT, "Entity discovery page failed: domain=%s err=%s", domain, esp_err_to_name(err));
@@ -3116,15 +2964,15 @@ static esp_err_t ha_client_fetch_state_http(
 
     char auth_header[640] = {0};
     snprintf(auth_header, sizeof(auth_header), "Bearer %s", s_client.access_token);
-    esp_http_client_set_url(s_client.http_client, url);
-    esp_http_client_set_method(s_client.http_client, HTTP_METHOD_GET);
-    esp_http_client_set_header(s_client.http_client, "Authorization", auth_header);
-    esp_http_client_set_header(s_client.http_client, "Accept", "application/json");
+    esp_http_client_set_url(s_client.http.handle, url);
+    esp_http_client_set_method(s_client.http.handle, HTTP_METHOD_GET);
+    esp_http_client_set_header(s_client.http.handle, "Authorization", auth_header);
+    esp_http_client_set_header(s_client.http.handle, "Accept", "application/json");
     if (host_header[0] != '\0') {
-        esp_http_client_set_header(s_client.http_client, "Host", host_header);
+        esp_http_client_set_header(s_client.http.handle, "Host", host_header);
     }
 
-    err = ha_client_http_open_budgeted(s_client.http_client, 0, "sync-state");
+    err = ha_client_http_open_budgeted(s_client.http.handle, 0, "sync-state");
     if (err != ESP_OK) {
         /* Force fresh DNS/TLS context only after real transport errors. */
         if (err != ESP_ERR_TIMEOUT) {
@@ -3133,21 +2981,21 @@ static esp_err_t ha_client_fetch_state_http(
         return err;
     }
 
-    int64_t content_length = esp_http_client_fetch_headers(s_client.http_client);
+    int64_t content_length = esp_http_client_fetch_headers(s_client.http.handle);
     size_t payload_cap = 8192;
     if (content_length > 0 && content_length < 32768) {
         payload_cap = (size_t)content_length + 1U;
     }
     char *payload = calloc(payload_cap, sizeof(char));
     if (payload == NULL) {
-        esp_http_client_close(s_client.http_client);
+        esp_http_client_close(s_client.http.handle);
         return ESP_ERR_NO_MEM;
     }
 
     int total_read = 0;
     while (total_read < (int)payload_cap - 1) {
         int read =
-            esp_http_client_read(s_client.http_client, payload + total_read, (int)payload_cap - 1 - total_read);
+            esp_http_client_read(s_client.http.handle, payload + total_read, (int)payload_cap - 1 - total_read);
         if (read < 0) {
             err = ESP_FAIL;
             break;
@@ -3159,8 +3007,8 @@ static esp_err_t ha_client_fetch_state_http(
     }
     payload[total_read] = '\0';
 
-    int status = esp_http_client_get_status_code(s_client.http_client);
-    esp_http_client_close(s_client.http_client);
+    int status = esp_http_client_get_status_code(s_client.http.handle);
+    esp_http_client_close(s_client.http.handle);
     ha_client_auth_status(status, false);
 
     if (err != ESP_OK) {
@@ -5586,6 +5434,8 @@ static void ha_client_task(void *arg)
     int64_t last_wifi_force_recover_ms = 0;
     bool wifi_seen_connected_once = false;
     while (true) {
+        /* Owner-only boundary: no synchronous request can still use the handle. */
+        ha_http_session_idle(&s_client.http, ha_client_now_ms());
         xSemaphoreTake(s_client.mutex, portMAX_DELAY);
         bool manual_retry = ha_auth_state_take_retry();
         xSemaphoreGive(s_client.mutex);
@@ -5678,6 +5528,8 @@ static void ha_client_task(void *arg)
         int64_t light_discovery_last_wait_log_unix_ms = 0;
         int64_t light_discovery_started_unix_ms = 0;
         uint16_t light_discovery_template_offset = 0;
+        uint16_t discovery_page_size = 0;
+        uint32_t discovery_generation = 0;
         size_t free_internal = 0;
         size_t ws_q_used = 0;
         uint8_t ws_q_fill_pct = 0;
@@ -5760,6 +5612,11 @@ static void ha_client_task(void *arg)
         last_ws_tls_stack_err = s_client.last_ws_tls_stack_err;
         last_ws_bad_input_unix_ms = s_client.last_ws_bad_input_unix_ms;
         ws_get_states_block_until_unix_ms = s_client.ws_get_states_block_until_unix_ms;
+        ha_client_discovery_expire_locked(now_ms);
+        if (s_client.discovery_guard.active && (!connected || !authenticated))
+            s_client.discovery_guard.reason = HA_DISCOVERY_WAIT_CONNECTION;
+        discovery_generation = s_client.discovery_guard.generation;
+        discovery_page_size = s_client.discovery_page_size;
         light_discovery_requested = s_client.light_discovery_requested;
         light_discovery_inflight = s_client.light_discovery_inflight;
         light_discovery_phase = s_client.light_discovery_phase;
@@ -6166,21 +6023,11 @@ static void ha_client_task(void *arg)
                 light_discovery_phase == HA_LIGHT_DISCOVERY_PHASE_TEMPLATE) {
                 size_t largest_internal = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL);
                 int64_t ws_age_ms = (ws_last_connected_unix_ms > 0) ? (now_ms - ws_last_connected_unix_ms) : 0;
-                /* Priority escalation: if the user has been waiting on this discovery
-                 * for more than HA_LIGHT_DISCOVERY_TEMPLATE_USER_WAIT_ESCALATE_MS, relax
-                 * the heap thresholds so the request can proceed even while periodic
-                 * background work keeps internal heap just below the normal floor. */
-                int64_t discovery_wait_ms = (light_discovery_started_unix_ms > 0)
-                    ? (now_ms - light_discovery_started_unix_ms)
-                    : 0;
-                bool discovery_user_priority =
-                    discovery_wait_ms >= HA_LIGHT_DISCOVERY_TEMPLATE_USER_WAIT_ESCALATE_MS;
-                size_t required_free_internal = discovery_user_priority
-                    ? HA_LIGHT_DISCOVERY_TEMPLATE_USER_MIN_INTERNAL_FREE_BYTES
-                    : HA_LIGHT_DISCOVERY_TEMPLATE_MIN_INTERNAL_FREE_BYTES;
-                size_t required_largest_internal = discovery_user_priority
-                    ? HA_LIGHT_DISCOVERY_TEMPLATE_USER_MIN_INTERNAL_LARGEST_BYTES
-                    : HA_LIGHT_DISCOVERY_TEMPLATE_MIN_INTERNAL_LARGEST_BYTES;
+                int64_t discovery_wait_ms = now_ms - light_discovery_started_unix_ms;
+                size_t discovery_internal = heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
+                ha_discovery_wait_t memory_wait = ha_discovery_memory_wait(discovery_wait_ms,
+                    discovery_internal, largest_internal,
+                    heap_caps_get_free_size(MALLOC_CAP_SPIRAM), heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM), s_client.ws_url);
                 bool discovery_template_stable = !pending_subscribe &&
                     !pending_get_states &&
                     !ping_inflight &&
@@ -6191,26 +6038,11 @@ static void ha_client_task(void *arg)
                     ws_q_used == 0 &&
                     ws_last_connected_unix_ms > 0 &&
                     ws_age_ms >= HA_LIGHT_DISCOVERY_TEMPLATE_STABLE_DELAY_MS &&
-                    free_internal >= required_free_internal &&
-                    largest_internal >= required_largest_internal &&
+                    memory_wait == HA_DISCOVERY_WAIT_NONE &&
                     now_ms >= light_discovery_next_step_unix_ms;
                 if (discovery_template_stable) {
-                    uint16_t page_size = APP_HA_LIGHT_DISCOVERY_PAGE_SIZE;
-                    if (page_size == 0 || page_size > APP_HA_LIGHT_DISCOVERY_MAX_ITEMS) {
-                        page_size = APP_HA_LIGHT_DISCOVERY_MAX_ITEMS;
-                    }
-                    if (discovery_user_priority) {
-                        ESP_LOGI(TAG_HA_CLIENT,
-                            "Entity discovery user-priority: domain=%s running after %" PRId64 " ms wait (int_free=%u int_largest=%u)",
-                            light_discovery_domain,
-                            discovery_wait_ms,
-                            (unsigned)free_internal,
-                            (unsigned)largest_internal);
-                    }
-                    xSemaphoreTake(s_client.mutex, portMAX_DELAY);
-                    s_client.light_discovery_last_wait_log_unix_ms = 0;
-                    xSemaphoreGive(s_client.mutex);
-                    (void)ha_client_light_discovery_template_step(light_discovery_template_offset, page_size);
+                    (void)ha_client_light_discovery_template_step(light_discovery_template_offset,
+                        discovery_page_size, discovery_generation);
                 } else if ((now_ms - light_discovery_last_wait_log_unix_ms) >=
                            HA_LIGHT_DISCOVERY_WAIT_LOG_INTERVAL_MS) {
                     const char *reason = "unknown";
@@ -6228,10 +6060,8 @@ static void ha_client_task(void *arg)
                     } else if (ws_last_connected_unix_ms == 0 ||
                                ws_age_ms < HA_LIGHT_DISCOVERY_TEMPLATE_STABLE_DELAY_MS) {
                         reason = "ws_grace";
-                    } else if (free_internal < required_free_internal) {
-                        reason = discovery_user_priority ? "internal_heap_priority" : "internal_heap";
-                    } else if (largest_internal < required_largest_internal) {
-                        reason = discovery_user_priority ? "internal_block_priority" : "internal_block";
+                    } else if (memory_wait != HA_DISCOVERY_WAIT_NONE) {
+                        reason = ha_discovery_wait_name(memory_wait);
                     } else if (now_ms < light_discovery_next_step_unix_ms) {
                         reason = "page_delay";
                     }
@@ -6241,12 +6071,16 @@ static void ha_client_task(void *arg)
                         reason,
                         ws_age_ms,
                         discovery_wait_ms,
-                        (unsigned)free_internal,
+                        (unsigned)discovery_internal,
                         (unsigned)largest_internal,
                         (unsigned)ws_q_used,
                         initial_layout_sync_done ? 1U : 0U);
                     xSemaphoreTake(s_client.mutex, portMAX_DELAY);
-                    s_client.light_discovery_last_wait_log_unix_ms = now_ms;
+                    if (ha_discovery_matches(&s_client.discovery_guard, discovery_generation)) {
+                        s_client.light_discovery_last_wait_log_unix_ms = now_ms;
+                        s_client.discovery_guard.reason = memory_wait != HA_DISCOVERY_WAIT_NONE ? memory_wait :
+                            (now_ms < light_discovery_next_step_unix_ms ? s_client.discovery_guard.reason : HA_DISCOVERY_WAIT_BUSY);
+                    }
                     xSemaphoreGive(s_client.mutex);
                 }
             } else if (APP_HA_LIGHT_DISCOVERY_REGISTRY_ENABLED) {
@@ -7400,7 +7234,7 @@ bool ha_client_heavy_gate_is_busy(void)
     return busy;
 }
 
-esp_err_t ha_client_cancel_domain_entities(const char *domain, const char *search)
+esp_err_t ha_client_cancel_domain_entities(const char *domain, const char *search, uint32_t generation)
 {
     const char *checked_domain = ha_discovery_domain_or_default(domain);
     char checked_search[APP_HA_DISCOVERY_SEARCH_MAX_LEN] = {0};
@@ -7415,7 +7249,8 @@ esp_err_t ha_client_cancel_domain_entities(const char *domain, const char *searc
         strncmp(s_client.light_discovery_domain, checked_domain, sizeof(s_client.light_discovery_domain)) == 0 &&
         strncmp(s_client.light_discovery_search, checked_search, sizeof(s_client.light_discovery_search)) == 0;
     bool pending = s_client.light_discovery_requested || s_client.light_discovery_inflight;
-    if (same_domain && pending) {
+    if (same_domain && ha_discovery_accept_poll(&s_client.discovery_guard, generation) &&
+        (pending || s_client.discovery_guard.failed)) {
         ESP_LOGI(TAG_HA_CLIENT, "Entity discovery cancelled: domain=%s search=\"%s\"",
             s_client.light_discovery_domain, s_client.light_discovery_search);
         ha_client_light_discovery_abort_locked();
@@ -7455,7 +7290,8 @@ esp_err_t ha_client_get_room_areas_json(bool refresh, char **out_json)
     return ESP_OK;
 }
 
-esp_err_t ha_client_get_domain_entities_json(const char *domain, const char *search, bool refresh, char **out_json)
+esp_err_t ha_client_get_domain_entities_json(const char *domain, const char *search, bool refresh,
+    uint32_t generation, char **out_json)
 {
     if (out_json == NULL) {
         return ESP_ERR_INVALID_ARG;
@@ -7511,9 +7347,24 @@ esp_err_t ha_client_get_domain_entities_json(const char *domain, const char *sea
     bool pending = false;
     if (APP_HA_LIGHT_DISCOVERY_TEMPLATE_ENABLED || APP_HA_LIGHT_DISCOVERY_REGISTRY_ENABLED) {
         xSemaphoreTake(s_client.mutex, portMAX_DELAY);
+        ha_client_discovery_expire_locked(now_ms);
         bool same_domain =
             strncmp(s_client.light_discovery_domain, checked_domain, sizeof(s_client.light_discovery_domain)) == 0 &&
             strncmp(s_client.light_discovery_search, checked_search, sizeof(s_client.light_discovery_search)) == 0;
+        /* Old browser polls are reads of their generation, not new searches. */
+        if (!ha_discovery_accept_poll(&s_client.discovery_guard, generation) || (generation && !same_domain)) {
+            ESP_LOGI(TAG_HA_CLIENT, "Entity discovery poll replaced: generation=%lu current=%lu",
+                (unsigned long)generation, (unsigned long)s_client.discovery_guard.generation);
+            cJSON_AddStringToObject(root, "status", "error");
+            cJSON_AddStringToObject(root, "wait_reason", "replaced");
+            cJSON_AddBoolToObject(root, "connected", connected);
+            cJSON_AddBoolToObject(root, "pending", false);
+            cJSON_AddItemToObject(root, "items", items);
+            xSemaphoreGive(s_client.mutex);
+            *out_json = cJSON_PrintUnformatted(root);
+            cJSON_Delete(root);
+            return *out_json ? ESP_OK : ESP_ERR_NO_MEM;
+        }
         bool pending_any = s_client.light_discovery_requested || s_client.light_discovery_inflight;
         if (connected && pending_any && !same_domain) {
             ha_client_light_discovery_abort_locked();
@@ -7522,7 +7373,8 @@ esp_err_t ha_client_get_domain_entities_json(const char *domain, const char *sea
         }
         has_cache = same_domain && ha_client_light_discovery_has_ready_cache_locked();
         pending = same_domain && pending_any;
-        if (connected && !pending_any && (refresh || !has_cache)) {
+        if (connected && !pending_any && (refresh || (!has_cache &&
+            (!same_domain || !s_client.discovery_guard.failed)))) {
             if (ha_client_light_discovery_start_locked(checked_domain, checked_search, now_ms)) {
                 pending = true;
             }
@@ -7541,7 +7393,11 @@ esp_err_t ha_client_get_domain_entities_json(const char *domain, const char *sea
     }
 
     const char *status = "empty";
-    if (has_cache && pending) {
+    bool same_query = strcmp(s_client.light_discovery_domain, checked_domain) == 0 &&
+        strcmp(s_client.light_discovery_search, checked_search) == 0;
+    if (same_query && s_client.discovery_guard.failed) {
+        status = s_client.discovery_guard.timed_out ? "timeout" : "error";
+    } else if (has_cache && pending) {
         status = "refreshing";
     } else if (has_cache) {
         status = "ready";
@@ -7554,18 +7410,21 @@ esp_err_t ha_client_get_domain_entities_json(const char *domain, const char *sea
     cJSON_AddStringToObject(root, "status", status);
     cJSON_AddBoolToObject(root, "connected", connected);
     cJSON_AddBoolToObject(root, "pending", pending);
+    cJSON_AddNumberToObject(root, "generation", s_client.discovery_guard.generation);
+    cJSON_AddStringToObject(root, "wait_reason", ha_discovery_wait_name(s_client.discovery_guard.reason));
+    cJSON_AddNumberToObject(root, "timeout_ms", HA_DISCOVERY_STALL_MS);
     cJSON_AddStringToObject(root, "domain", checked_domain);
     cJSON_AddStringToObject(root, "search", checked_search);
     cJSON_AddStringToObject(root, "phase", ha_client_light_discovery_phase_name(s_client.light_discovery_phase));
     cJSON_AddBoolToObject(root, "truncated", has_cache ? s_client.light_discovery_truncated : false);
     cJSON_AddNumberToObject(root, "count", has_cache ? (double)s_client.light_discovery_count : 0.0);
     cJSON_AddNumberToObject(root, "loaded",
-        has_cache ? (double)s_client.light_discovery_count : (pending ? (double)s_client.light_discovery_pending_count : 0.0));
+        pending ? (double)s_client.light_discovery_pending_count : (has_cache ? (double)s_client.light_discovery_count : 0.0));
     cJSON_AddNumberToObject(root, "total",
         pending ? (double)s_client.light_discovery_template_total :
             (has_cache ? (double)s_client.light_discovery_template_total : 0.0));
     cJSON_AddNumberToObject(root, "limit", (double)APP_HA_LIGHT_DISCOVERY_MAX_ITEMS);
-    cJSON_AddNumberToObject(root, "page_size", (double)APP_HA_LIGHT_DISCOVERY_PAGE_SIZE);
+    cJSON_AddNumberToObject(root, "page_size", (double)s_client.discovery_page_size);
     cJSON_AddNumberToObject(root, "updated_ms", has_cache ? (double)s_client.light_discovery_updated_unix_ms : 0.0);
     cJSON_AddNumberToObject(root, "age_ms",
         (has_cache && s_client.light_discovery_updated_unix_ms > 0 && now_ms >= s_client.light_discovery_updated_unix_ms)

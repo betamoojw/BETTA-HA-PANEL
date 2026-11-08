@@ -12,6 +12,7 @@
 
 #include "app_config.h"
 #include "ha/ha_client.h"
+#include "ha/ha_discovery_policy.h"
 #include "ha/ha_model.h"
 #include "util/url_decode.h"
 
@@ -137,6 +138,8 @@ esp_err_t api_entities_get_handler(httpd_req_t *req)
 esp_err_t api_light_entities_get_handler(httpd_req_t *req)
 {
     char refresh_raw[8] = {0};
+    char generation_raw[11] = {0};
+    uint32_t generation = 0;
     char domain[APP_HA_DISCOVERY_DOMAIN_MAX_LEN] = "light";
     char search[APP_HA_DISCOVERY_SEARCH_MAX_LEN] = {0};
     char areas_only_raw[8] = {0};
@@ -147,7 +150,11 @@ esp_err_t api_light_entities_get_handler(httpd_req_t *req)
         if (query == NULL) {
             return httpd_resp_send_500(req);
         }
-        if (httpd_req_get_url_query_str(req, query, query_len + 1) == ESP_OK) {
+        bool valid = httpd_req_get_url_query_str(req, query, query_len + 1) == ESP_OK;
+        if (valid) {
+            esp_err_t gen_err = httpd_query_key_value(query, "generation", generation_raw, sizeof(generation_raw));
+            valid = gen_err == ESP_ERR_NOT_FOUND || (gen_err == ESP_OK && generation_raw[0] &&
+                ha_discovery_parse_generation(generation_raw, &generation));
             httpd_query_key_value(query, "refresh", refresh_raw, sizeof(refresh_raw));
             httpd_query_key_value(query, "areas_only", areas_only_raw, sizeof(areas_only_raw));
             httpd_query_key_value(query, "domain", domain, sizeof(domain));
@@ -155,6 +162,7 @@ esp_err_t api_light_entities_get_handler(httpd_req_t *req)
             url_decode_in_place(search);
         }
         free(query);
+        if (!valid) return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid discovery query");
     }
 
     bool refresh = strcmp(refresh_raw, "1") == 0 || strcmp(refresh_raw, "true") == 0;
@@ -163,7 +171,7 @@ esp_err_t api_light_entities_get_handler(httpd_req_t *req)
         (strcmp(areas_only_raw, "1") == 0 || strcmp(areas_only_raw, "true") == 0);
     char *payload = NULL;
     esp_err_t err = areas_only ? ha_client_get_room_areas_json(refresh, &payload)
-                               : ha_client_get_domain_entities_json(domain, search, refresh, &payload);
+                               : ha_client_get_domain_entities_json(domain, search, refresh, generation, &payload);
     if (err != ESP_OK || payload == NULL) {
         return httpd_resp_send_500(req);
     }
@@ -176,6 +184,8 @@ esp_err_t api_light_entities_get_handler(httpd_req_t *req)
 
 esp_err_t api_light_entities_delete_handler(httpd_req_t *req)
 {
+    char generation_raw[11] = {0};
+    uint32_t generation = 0;
     char domain[APP_HA_DISCOVERY_DOMAIN_MAX_LEN] = "light";
     char search[APP_HA_DISCOVERY_SEARCH_MAX_LEN] = {0};
 
@@ -185,15 +195,20 @@ esp_err_t api_light_entities_delete_handler(httpd_req_t *req)
         if (query == NULL) {
             return httpd_resp_send_500(req);
         }
-        if (httpd_req_get_url_query_str(req, query, query_len + 1) == ESP_OK) {
+        bool valid = httpd_req_get_url_query_str(req, query, query_len + 1) == ESP_OK;
+        if (valid) {
+            esp_err_t gen_err = httpd_query_key_value(query, "generation", generation_raw, sizeof(generation_raw));
+            valid = gen_err == ESP_ERR_NOT_FOUND || (gen_err == ESP_OK && generation_raw[0] &&
+                ha_discovery_parse_generation(generation_raw, &generation));
             httpd_query_key_value(query, "domain", domain, sizeof(domain));
             httpd_query_key_value(query, "search", search, sizeof(search));
             url_decode_in_place(search);
         }
         free(query);
+        if (!valid) return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid discovery query");
     }
 
-    esp_err_t err = ha_client_cancel_domain_entities(domain, search);
+    esp_err_t err = ha_client_cancel_domain_entities(domain, search, generation);
     if (err != ESP_OK) {
         return httpd_resp_send_500(req);
     }

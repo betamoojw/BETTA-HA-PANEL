@@ -62,6 +62,37 @@ class, unit and state class. Their rules never inherit the last selected widget.
 
 ## Metadata and limits
 
+Template discovery has board-specific memory admission and bounded request sizes.
+S3 uses 12-entity pages, an 8 KiB response cap and PSRAM-only cache/work buffers;
+P4 retains its 40-entity pages and existing internal-memory thresholds.
+S3 releases idle shared HTTP clients at HA-task boundaries. After the priority
+delay, ordinary HTTP admits at 34 KiB free internal memory; HTTPS retains 36 KiB.
+Prepared/connected request guards and the PSRAM/block requirements still apply.
+Header-read failures and responses finishing after the I/O budget are rejected;
+JSON memory is sampled before failure cleanup can hide the low point.
+Oversized responses reduce the page size without advancing the offset.
+No progress for 45 seconds, or 180 seconds overall, ends the request and frees
+working buffers while retaining a ready cache. Polling cannot renew these deadlines
+or restart a failed query; an explicit refresh or another search starts a new generation.
+Cancellation invalidates in-flight results, including a later retry of the same query.
+The two picker dialogs are mutually exclusive. GET and DELETE operations are ordered
+within an editor page; a cancellation waits for the query's response and uses its
+`generation`. Subsequent polls also carry that generation. A replaced poll returns
+a terminal reason instead of starting its old keyword again; a stale DELETE cannot
+cancel a newer generation. Missing-generation requests retain legacy behavior.
+An unknown first-request outcome expires on the device instead of sending an
+unowned cancellation. Closing or leaving the page invalidates pending callbacks.
+The API reports `wait_reason` and terminal `timeout`/`error` states; `loaded` tracks
+the new query even while `items` retains a previous ready cache. The editor also
+times out older firmware that only reports `pending`, using monotonic elapsed
+time as well as poll limits, and bounds each HTTP fetch.
+See [S3 entity-search validation](panels3-entity-discovery-validation.md) and the
+[follow-up device trial](panels3-entity-discovery-followup-validation.md) for measured
+successes and memory-limited timeouts. The [HTTP budget update](panels3-http-budget.md)
+and its [COM18 trial](panels3-http-budget-validation.md) record client release
+and nine successful queries. The later trial did not reproduce a terminal timeout;
+its bounded scope does not qualify every memory-pressure condition or HTTPS.
+
 `ha_entity_source.c` owns bounded discovery queries. The buffer uses PSRAM in firmware. Queries return unit,
 class, state class, source-format flags, integration membership and capabilities without copying complete
 forecast lists. Integration membership comes from HA's registry helpers, never from names or ID prefixes.

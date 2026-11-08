@@ -2169,5 +2169,17 @@
   "alarm.panel.hint": "密碼僅在面板上輸入。按鈕操作需持續長按2秒。",
   "alarm.panel.history_preview": "連線至Home Assistant後，面板顯示事件記錄。",
   "inspector.help.widget_alarm_panel": "顯示保全面板，包含數字鍵盤、防區、輔助控制與Home Assistant事件記錄。",
-  "wizard.entity.t.alarm_panel": "保全面板"
+  "wizard.entity.t.alarm_panel": "保全面板",
+  "entity_picker.retry": "重試",
+  "entity_picker.reason_memory": "面板可用記憶體不足。",
+  "entity_picker.reason_busy": "面板忙碌中。",
+  "entity_picker.reason_replaced": "此查詢已被較新的搜尋取代。",
+  "entity_picker.reason_connection": "Home Assistant 未連線。",
+  "entity_picker.reason_http_retry": "未能完成 Home Assistant 請求。",
+  "entity_picker.reason_permission": "Home Assistant 拒絕了實體搜尋。請檢查權杖對應帳戶的管理員權限。",
+  "entity_picker.reason_response": "Home Assistant 回應過大或無效。",
+  "entity_picker.reason_request": "Home Assistant 尚未傳回實體清單。",
+  "entity_picker.waiting_reason": "{reason}正在等待重試…",
+  "entity_picker.timeout": "實體搜尋逾時。{reason}請選擇「重試」。",
+  "entity_picker.failed": "實體搜尋已停止。{reason}請選擇「重試」。"
 }

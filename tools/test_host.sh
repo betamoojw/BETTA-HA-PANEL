@@ -152,6 +152,31 @@ cc -std=gnu11 -Wall -Wextra -Werror -g -I main "${cjson_flags[@]}" \
   "${cjson_sources[@]}" "${cjson_libs[@]}" -o "$out/test_entity_search"
 "$out/test_entity_search"
 
+# Keep the constrained profile covered by the ordinary P4 host/CI runs too.
+discovery_variants=("$variant")
+if [ "$variant" != panels3 ]; then discovery_variants+=(panels3); fi
+for discovery_variant in "${discovery_variants[@]}"; do
+  discovery_flags=("${variant_flags[@]}")
+  if [ "$discovery_variant" = panels3 ]; then
+    discovery_flags=(-DCONFIG_IDF_TARGET_ESP32S3=1 -DCONFIG_APP_PANEL_VARIANT_S3_480=1)
+  fi
+  cc -std=gnu11 -Wall -Wextra -Werror -I main -I tests/host/stubs "${discovery_flags[@]}" \
+    tests/host/test_discovery_policy.c main/ha/ha_discovery_policy.c -o "$out/test_discovery_policy"
+  "$out/test_discovery_policy"
+  cc -std=gnu11 -Wall -Wextra -Werror -DCONFIG_MBEDTLS_CERTIFICATE_BUNDLE=1 \
+    -I tests/host/discovery_stubs -I main -I tests/host/stubs "${discovery_flags[@]}" \
+    tests/host/test_ha_http_session.c main/ha/ha_http_session.c main/ha/ha_discovery_policy.c -o "$out/test_ha_http_session"
+  "$out/test_ha_http_session"
+  cc -std=gnu11 -Wall -Wextra -Werror -DESP_PLATFORM -I tests/host/discovery_stubs -I main -I tests/host/stubs \
+    "${discovery_flags[@]}" "${cjson_flags[@]}" tests/host/test_discovery_request.c main/ha/ha_discovery_request.c \
+    main/ha/ha_entity_source.c main/ha/ha_discovery_domains.c "${cjson_sources[@]}" "${cjson_libs[@]}" -o "$out/test_discovery_request"
+  "$out/test_discovery_request"
+  cc -std=gnu11 -Wall -Wextra -Werror -I tests/host/discovery_stubs -I main -I tests/host/stubs \
+    "${discovery_flags[@]}" "${cjson_flags[@]}" tests/host/test_discovery_api.c main/api/api_entities.c \
+    main/ha/ha_discovery_policy.c main/util/url_decode.c "${cjson_sources[@]}" "${cjson_libs[@]}" -o "$out/test_discovery_api"
+  "$out/test_discovery_api"
+done
+
 # Shared display-name cache: use the simulator's allocation/lock adapters.
 cc -std=gnu11 -Wall -Wextra -Werror -g -I main -I tests/simulator/stubs "${variant_flags[@]}" \
   tests/host/test_entity_names.c main/ha/ha_model.c -o "$out/test_entity_names"

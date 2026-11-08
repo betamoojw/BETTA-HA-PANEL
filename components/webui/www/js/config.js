@@ -127,6 +127,9 @@ const ENTITY_AUTOCOMPLETE_DEBOUNCE_MS = 220;
 const ENTITY_AUTOCOMPLETE_MAX_ITEMS = 24;
 const LIGHT_ENTITY_PICKER_POLL_MS = 700;
 const LIGHT_ENTITY_PICKER_MAX_POLLS = 90;
+const LIGHT_ENTITY_PICKER_MAX_TOTAL_POLLS = 270;
+const LIGHT_ENTITY_PICKER_STALL_MS = 45000;
+const LIGHT_ENTITY_PICKER_TIMEOUT_MS = 180000;
 const ENTITY_PICKER_SEARCH_DEBOUNCE_MS = 350;
 // Page limit of the connected panel (APP_MAX_PAGES in main/app_config.h): 12 on the 10", 8 on the 4"; /api/version's
 // max_pages replaces the guess once it is loaded.

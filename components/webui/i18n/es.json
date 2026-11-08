@@ -2169,5 +2169,17 @@
   "alarm.panel.hint": "Los códigos se introducen en el panel. Mantenga los botones 2 segundos.",
   "alarm.panel.history_preview": "Los eventos aparecen al conectar con Home Assistant.",
   "inspector.help.widget_alarm_panel": "Muestra una central de alarma con teclado, zonas, controles y eventos de Home Assistant.",
-  "wizard.entity.t.alarm_panel": "Panel de alarma"
+  "wizard.entity.t.alarm_panel": "Panel de alarma",
+  "entity_picker.retry": "Reintentar",
+  "entity_picker.reason_memory": "El panel no tiene suficiente memoria libre.",
+  "entity_picker.reason_busy": "El panel está ocupado.",
+  "entity_picker.reason_replaced": "Una búsqueda más reciente ha sustituido esta consulta.",
+  "entity_picker.reason_connection": "Home Assistant no está conectado.",
+  "entity_picker.reason_http_retry": "No se pudo completar la solicitud a Home Assistant.",
+  "entity_picker.reason_permission": "Home Assistant denegó la búsqueda de entidades. Comprueba los permisos de administrador del token.",
+  "entity_picker.reason_response": "La respuesta de Home Assistant es demasiado grande o no es válida.",
+  "entity_picker.reason_request": "Home Assistant aún no ha devuelto la lista de entidades.",
+  "entity_picker.waiting_reason": "{reason} Esperando para reintentar...",
+  "entity_picker.timeout": "La búsqueda de entidades agotó el tiempo de espera. {reason} Selecciona Reintentar.",
+  "entity_picker.failed": "La búsqueda de entidades se detuvo. {reason} Selecciona Reintentar."
 }

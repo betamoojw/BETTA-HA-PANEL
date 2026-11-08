@@ -2173,5 +2173,17 @@ WEB_I18N_BUILTIN["fr"] = {
   "alarm.panel.hint": "Saisissez les codes sur le panneau. Maintenez les boutons pendant 2 secondes.",
   "alarm.panel.history_preview": "Les événements apparaissent après connexion à Home Assistant.",
   "inspector.help.widget_alarm_panel": "Affiche une centrale d’alarme avec clavier, zones, commandes et événements Home Assistant.",
-  "wizard.entity.t.alarm_panel": "Centrale d’alarme"
+  "wizard.entity.t.alarm_panel": "Centrale d’alarme",
+  "entity_picker.retry": "Réessayer",
+  "entity_picker.reason_memory": "Le panneau manque de mémoire disponible.",
+  "entity_picker.reason_busy": "Le panneau est occupé.",
+  "entity_picker.reason_replaced": "Une recherche plus récente a remplacé cette requête.",
+  "entity_picker.reason_connection": "Home Assistant n’est pas connecté.",
+  "entity_picker.reason_http_retry": "La requête à Home Assistant n’a pas pu aboutir.",
+  "entity_picker.reason_permission": "Home Assistant a refusé la recherche d’entités. Vérifiez les droits administrateur du jeton.",
+  "entity_picker.reason_response": "La réponse de Home Assistant est trop volumineuse ou invalide.",
+  "entity_picker.reason_request": "Home Assistant n’a pas encore renvoyé la liste des entités.",
+  "entity_picker.waiting_reason": "{reason} En attente d’un nouvel essai...",
+  "entity_picker.timeout": "La recherche d’entités a dépassé le délai. {reason} Sélectionnez Réessayer.",
+  "entity_picker.failed": "La recherche d’entités s’est arrêtée. {reason} Sélectionnez Réessayer."
 };

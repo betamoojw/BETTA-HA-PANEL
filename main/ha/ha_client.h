@@ -73,11 +73,12 @@ typedef enum {
 size_t ha_client_energy_source_ids(ha_energy_resource_t resource, char ids[][APP_MAX_ENTITY_ID_LEN], size_t max_ids);
 esp_err_t ha_client_notify_layout_updated(void);
 esp_err_t ha_client_request_energy_refresh(void);
-esp_err_t ha_client_get_domain_entities_json(const char *domain, const char *search, bool refresh, char **out_json);
+esp_err_t ha_client_get_domain_entities_json(const char *domain, const char *search, bool refresh,
+    uint32_t generation, char **out_json);
 /* Areas and floors from the Home Assistant registry only, without an entity discovery (the
  * editor's room import lists the rooms first and then reads one room's entities). */
 esp_err_t ha_client_get_room_areas_json(bool refresh, char **out_json);
-esp_err_t ha_client_cancel_domain_entities(const char *domain, const char *search);
+esp_err_t ha_client_cancel_domain_entities(const char *domain, const char *search, uint32_t generation);
 
 /* HTTP-context snapshot used by auxiliary consumers (e.g. cover-art fetcher).
  * All fields are NUL-terminated. Returns false if the HA client is not yet

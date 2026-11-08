@@ -5,6 +5,7 @@
 #include "knx_config.h"
 #include "esp_knx_ip/esp_knx_ip.h"
 #include "freertos/queue.h"
+#include "esp_netif.h"
 #include <cassert>
 #include <cstdio>
 #include <cstring>
@@ -38,6 +39,8 @@ int xQueueReceive(QueueHandle_t,void* out,unsigned) {
     memcpy(out,queue.front().data(),command_size);queue.pop_front();return pdTRUE;
 }
 extern "C" bool wifi_mgr_is_connected(void) { return test_online; }
+extern "C" bool net_mgr_is_connected(void) { return test_online; }
+extern "C" esp_netif_t *net_mgr_active_netif(void) { return test_online ? esp_netif_get_handle_from_ifkey("WIFI_STA_DEF") : nullptr; }
 extern "C" bool flash_gate_enter(uint32_t) { return !test_storage_failure; }
 extern "C" void flash_gate_leave(void) {}
 bool KnxLoadConfiguration(std::string& text,std::string&) { text=persisted;return true; }

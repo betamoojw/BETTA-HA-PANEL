@@ -5,6 +5,7 @@
 #include "ui/text_font.h"
 #include "ui/theme/ui_style.h"
 #include "ui/ui_widget_factory.h"
+#include "ui/widgets/w_alarm_panel.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -257,6 +258,7 @@ static esp_err_t ui_widget_factory_create_inner(const ui_widget_def_t *def, lv_o
     if (strcmp(def->type, "lock_tile") == 0) {
         return w_lock_create(def, parent, out_instance);
     }
+    if (strcmp(def->type, "alarm_panel") == 0) return w_alarm_panel_create(def, parent, out_instance);
     if (strcmp(def->type, "alarm_tile") == 0) {
         return w_alarm_create(def, parent, out_instance);
     }
@@ -345,6 +347,8 @@ static void ui_widget_factory_apply_state_inner(ui_widget_instance_t *instance, 
         w_lock_apply_state(instance, state);
     } else if (strcmp(instance->type, "alarm_tile") == 0) {
         w_alarm_apply_state(instance, state);
+    } else if (strcmp(instance->type, "alarm_panel") == 0) {
+        w_alarm_panel_apply_state(instance, state);
     } else if (strcmp(instance->type, "select_tile") == 0) {
         w_select_apply_state(instance, state);
     } else if (strcmp(instance->type, "energy_timeline") == 0) {
@@ -455,6 +459,8 @@ static void ui_widget_factory_mark_unavailable_inner(ui_widget_instance_t *insta
         w_lock_mark_unavailable(instance);
     } else if (strcmp(instance->type, "alarm_tile") == 0) {
         w_alarm_mark_unavailable(instance);
+    } else if (strcmp(instance->type, "alarm_panel") == 0) {
+        w_alarm_panel_mark_unavailable(instance);
     } else if (strcmp(instance->type, "select_tile") == 0) {
         w_select_mark_unavailable(instance);
     } else if (strcmp(instance->type, "energy_timeline") == 0) {
@@ -492,7 +498,7 @@ bool ui_widget_factory_needs_refresh_on_show(const char *type)
     static const char *const kStateOnly[] = {
         "button", "car_widget", "climate_tile", "contact_tile", "cover_tile", "fan_tile", "heating_tile",
         "light_tile", "room_tile", "lock_tile", "alarm_tile", "scene_tile", "select_tile", "datetime_tile", "sensor", "slider", "gauge", "solar_forecast", "energy_price_forecast", "parqet_portfolio", "stock_quotes", "energy_timeline",
-        "bambu_printer", "wallbox_evcc", "sonos_favorites",
+        "bambu_printer", "wallbox_evcc", "sonos_favorites", "alarm_panel",
     };
     if (type == NULL) {
         return true;
@@ -514,6 +520,7 @@ static void ui_widget_factory_set_visible_inner(ui_widget_instance_t *instance, 
         return;
     }
     instance->visible = visible;
+    if (!strcmp(instance->type, "alarm_panel")) w_alarm_panel_set_visible(instance, visible);
 
     if (strcmp(instance->type, "media_player") == 0) {
         w_media_player_set_visible(instance, visible);

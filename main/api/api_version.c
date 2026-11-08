@@ -33,6 +33,7 @@
 #include "net/wifi_diag_store.h"
 #include "net/c6_memory.h"
 #include "net/wifi_mgr.h"
+#include "net/net_mgr.h"
 #include "settings/night_mode.h"
 #include "ui/ui_display_protection.h"
 #include "util/boot_guard.h"
@@ -485,6 +486,7 @@ esp_err_t api_version_get_handler(httpd_req_t *req)
         api_version_add_wifi_diag(cJSON_AddObjectToObject(wifi_diag_obj, "prev_boot"), &wifi_diag_prev);
     }
     c6_memory_add_json(root, wifi_diag_obj);
+    net_mgr_add_json(root);
 
     /* Touch contact counters since boot (all zero on boards whose driver does not feed them): "lost" are contacts that
      * ended before they were reported, "flagged" points carried the controller's weak-signal flag. */

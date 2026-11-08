@@ -40,6 +40,7 @@ set(WEBUI_JS_SOURCES
     js/sensor-list.js
     js/optional-entities.js
     js/energy-timeline-colors.js
+    js/alarm-panel.js
     js/tile-previews.js
     js/layout-history.js
     js/widget-actions.js
@@ -74,6 +75,7 @@ set(WEBUI_CSS_SOURCES
     css/evcc-wallbox.css
     css/stock-quotes.css
     css/preview-roles.css
+    css/alarm-panel.css
     css/inspector.css
     css/remote-display.css)
 

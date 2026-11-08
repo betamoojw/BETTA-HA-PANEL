@@ -87,7 +87,8 @@ add_executable(betta-widget-sim
     host_adapters.c
     camera_stream_stub.c
     room_air_regression.c
-    controls_regression.c
+  controls_regression.c
+  alarm_panel_regression.c
     weather_now_regression.c
     popup_contract_regression.c
     camera_regression.c
@@ -155,6 +156,9 @@ add_executable(betta-widget-sim
     "${REPO_ROOT}/main/ha/ha_sensor_value.c"
     "${REPO_ROOT}/main/ui/widgets/w_lock.c"
     "${REPO_ROOT}/main/ui/widgets/w_alarm.c"
+    "${REPO_ROOT}/main/ui/widgets/w_alarm_panel.c"
+    "${REPO_ROOT}/main/layout/alarm_panel_config.c"
+    "alarm_panel_stub.c"
     "${REPO_ROOT}/main/ui/ui_pin_pad.c"
     "${REPO_ROOT}/main/ui/widgets/w_energy_timeline.c"
     "${REPO_ROOT}/main/ui/ui_energy_timeline_popup.c"

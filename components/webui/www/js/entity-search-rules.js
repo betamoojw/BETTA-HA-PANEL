@@ -10,7 +10,7 @@ const ENTITY_SEARCH_PRIMARY = {
   wallbox_evcc: "evcc", bambu_printer: "printer", todo_list: "domain", media_player: "domain",
   sonos_favorites: "sonos", cover_tile: "domain", fan_tile: "domain", contact_tile: "contact",
   camera_tile: "domain", climate_tile: "domain", scene_tile: "domain", select_tile: "domain",
-  datetime_tile: "domain", lock_tile: "domain", alarm_tile: "domain", energy_timeline: "counter",
+  datetime_tile: "domain", lock_tile: "domain", alarm_tile: "domain", alarm_panel: "domain", energy_timeline: "counter",
   binary_tile: "domain", room_tile: "temperature", vacuum_tile: "domain", roborock_tile: "domain",
 };
 const ENTITY_SEARCH_SLOTS = {

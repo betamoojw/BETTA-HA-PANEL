@@ -169,7 +169,49 @@
         "arm_vacation": "假期布防",
         "arm_custom_bypass": "自定义旁路布防"
       },
-      "ok": "确定"
+      "ok": "确定",
+      "zones": "防区",
+      "controls": "控制",
+      "history": "事件记录",
+      "refresh": "刷新",
+      "hold": "长按2秒",
+      "enter_code": "输入密码",
+      "no_code": "无需密码",
+      "text_code": "需要文本密码，请使用Home Assistant",
+      "btn": {
+        "disarm": "撤防",
+        "away": "外出布防",
+        "home": "在家布防",
+        "night": "夜间布防",
+        "vacation": "假期布防"
+      },
+      "msg": {
+        "sent": "请求已排队",
+        "failed": "请求失败",
+        "accepted": "请求已接受",
+        "rejected": "请求失败或被拒绝",
+        "enter_code": "请先输入密码"
+      },
+      "log": {
+        "loading": "正在加载…",
+        "failed": "事件记录不可用",
+        "empty": "暂无事件",
+        "no_clock": "等待时间同步"
+      },
+      "pressed": "已按下",
+      "zone": {
+        "detected": "检测到",
+        "ok": "正常",
+        "motion": "有人活动",
+        "clear": "无人活动",
+        "open": "打开",
+        "closed": "关闭",
+        "active": "已触发",
+        "inactive": "未触发",
+        "not_ready": "未就绪"
+      },
+      "zones_active": "个防区已触发",
+      "zones_ready": "所有防区正常"
     },
     "vacmode": {
       "vacuum": "吸尘",
@@ -927,6 +969,10 @@
       "outdoor_enabled": "启用室外对比",
       "sources_hint": "湿度为必选项，请明确分配其他传感器。挥发性有机物仅显示数值；设备评分不改变 BETTA 状态。室外温度与湿度需成对选择。",
       "invalid_binding": "{role} 的实体无效。"
+    },
+    "network": {
+      "ethernet": "以太网",
+      "interface": "网络连接"
     }
   }
 }

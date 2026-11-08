@@ -15,6 +15,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "net/wifi_mgr.h"
+#include "net/net_mgr.h"
 #include "util/ota_health.h"
 
 #define OTA_VALIDATE_POLL_MS 5000
@@ -76,7 +77,7 @@ static void ota_validate_task(void *arg)
             .uptime_s = esp_timer_get_time() / 1000000,
             .boot_completed = true,
             .http_answers = esp_timer_get_time() / 1000000 >= OTA_HEALTH_MIN_UPTIME_S && http_server_answers(),
-            .network_ok = wifi_mgr_is_connected() || wifi_mgr_is_setup_ap_active(),
+            .network_ok = net_mgr_is_connected() || wifi_mgr_is_setup_ap_active(),
         };
         if (!ota_health_ok(&health)) {
             continue;

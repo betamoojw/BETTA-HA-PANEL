@@ -19,6 +19,7 @@
 #include "app_config.h"
 #include "app_events.h"
 #include "net/wifi_mgr.h"
+#include "net/net_mgr.h"
 #include "settings/device_identity.h"
 #include "util/log_tags.h"
 #include "util/notification_parse.h"
@@ -92,7 +93,7 @@ static bool mqtt_mgr_get_sta_ip(char *out, size_t out_len)
         return false;
     }
     out[0] = '\0';
-    return wifi_mgr_get_sta_ip(out, out_len) == ESP_OK && out[0] != '\0';
+    return net_mgr_get_ip(out, out_len) == ESP_OK && out[0] != '\0';
 }
 
 /* Builds the shared "device" block used by both HA discovery configs, so

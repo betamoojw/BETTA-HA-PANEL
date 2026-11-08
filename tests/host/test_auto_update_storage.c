@@ -39,6 +39,7 @@ bool reboot_log_last_run_failed(void) { return false; }
 bool boot_guard_safe_mode(void) { return false; }
 bool update_check_get_available(char *tag,size_t tn,char *url,size_t un,bool *sha) { snprintf(tag,tn,"v1.0.0"); snprintf(url,un,"https://example.invalid/test.bin"); *sha=true; return true; }
 bool wifi_mgr_is_connected(void) { return true; }
+bool net_mgr_uses_ethernet(void) { return false; }
 esp_err_t wifi_mgr_try_get_sta_rssi(int8_t *r) { *r=-40; return ESP_OK; }
 size_t heap_caps_get_free_size(unsigned cap) { (void)cap; return 8*1024*1024; }
 size_t heap_caps_get_largest_free_block(unsigned cap) { (void)cap; return 1024*1024; }

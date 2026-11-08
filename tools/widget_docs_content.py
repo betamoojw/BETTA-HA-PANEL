@@ -40,6 +40,21 @@ WIDGETS = {
                'Temperature is context only. VOC, Awair scores and IKEA ratings are displayed but never change the '
                'status. Unbound pollutants are not evaluated, and the window state does not prove sufficient '
                'ventilation.']},
+    "alarm_panel": {
+        "summary": "Shows an **alarm dashboard** for an `alarm_control_panel.*` entity with a keypad, zones, auxiliary controls and Home Assistant event history.",
+        "entities": [("Alarm panel", "`alarm_control_panel.*`", True),
+                     ("Keypad message", "`sensor.*`", False),
+                     ("Zones (up to 16)", "`binary_sensor.*`", False),
+                     ("Controls (up to 8)", "`switch.*`, `input_boolean.*`, `button.*`, `input_button.*`", False)],
+        "requirements": "Home Assistant's Logbook integration supplies event history. Alarm actions depend on the entity's supported features and code requirements.",
+        "options": [("Zones / Controls", "ordered entity bindings with optional display names; duplicate bindings within each list are rejected"),
+                    ("History hours", "1–168 hours, default 24; at most the newest 40 events are shown")],
+        "panel": ["Wide cards use three columns. Cards narrower than 900 pixels stack the keypad, zones and history in a scrollable view.",
+                  "Enter a numeric code on the panel when required, then choose an available arm or disarm action. Codes are never saved in the layout; they clear after submission, 20 seconds of inactivity, hiding the widget or losing the alarm connection. Text codes must be entered in Home Assistant.",
+                  "Home Assistant remains authoritative: an accepted request does not imply the alarm has changed state. Unsupported and unavailable actions are disabled.",
+                  "Switches use explicit on/off commands. Button entities require one continuous two-second hold; releasing or leaving the widget cancels the hold.",
+                  "Zones show their reported state; unknown or unavailable zones do not count as clear. History refreshes on demand and periodically while visible. Missing history does not disable alarm controls."],
+    },
     "alarm_tile": {
         "summary": "Shows the **state** of an `alarm_control_panel.*` entity and arms or disarms it, asking for a code when the entity needs one.",
         "entities": [("Alarm panel", "`alarm_control_panel.*`", True)],

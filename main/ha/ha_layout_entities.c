@@ -216,6 +216,14 @@ void ha_layout_entities_collect(cJSON *root, ha_layout_entity_set_t *set)
                     for (size_t b = 0; b < EVCC_ROLE_COUNT; b++) ha_layout_collect_field(widget, k_evcc_bindings[b].key, set);
                     for (size_t b = 0; b < EVCC_SITE_COUNT; b++) ha_layout_collect_field(widget, k_evcc_site_bindings[b].key, set);
                 }
+                if (cJSON_IsString(type) && !strcmp(type->valuestring, "alarm_panel")) {
+                    const char *keys[] = {"alarm_zones", "alarm_actions"};
+                    for (unsigned k = 0; k < 2; ++k) {
+                        cJSON *entry;
+                        cJSON_ArrayForEach(entry, cJSON_GetObjectItemCaseSensitive(widget, keys[k]))
+                            ha_layout_collect_field(entry, "entity_id", set);
+                    }
+                }
                 /* the room card's list and the Stocks & ETFs quotes after the first */
                 static const char *const lists[] = {"room_entities", "stock_entities", "sensor_entities"};
                 for (size_t l = 0; l < sizeof(lists) / sizeof(lists[0]); l++) {

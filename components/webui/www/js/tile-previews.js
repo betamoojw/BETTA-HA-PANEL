@@ -858,6 +858,7 @@ function tilePreviewMarkup(widget) {
       const state = editor.states.get(widget.entity_id) || "locked";
       return `<div class="tp tp-contact${previewRoomyClass(w, h)}"><div class="tp-icon-circle ${state === "jammed" && previewControlAvailable(widget.entity_id) ? "control-alert" : previewControlClass(["unlocked", "unlocking", "open", "opening"].includes(state), previewControlAvailable(widget.entity_id))}" style="${previewCircleSize(w, h)}">${["locked", "locking"].includes(state) ? "\uD83D\uDD12" : "\uD83D\uDD13"}</div><div class="tp-blind-text">${name('b', '')}<small>${escapeHtml(t(`preview.lock.state.${state}`, {}, state))}</small></div></div>${handle}`;
     }
+    case "alarm_panel": return alarmPanelPreview(widget, name);
     case "alarm_tile": {
       const state = editor.states.get(widget.entity_id) || "disarmed";
       const armed = state.startsWith("armed");

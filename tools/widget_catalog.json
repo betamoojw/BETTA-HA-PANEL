@@ -81,6 +81,7 @@
    {"type": "datetime_tile", "title": "Ruhe ab", "w": 180, "h": 140, "entity_id": "{time}"},
    {"type": "lock_tile", "title": "Schloss mit Rückfrage", "popup": true, "w": 300, "h": 120, "entity_id": "{lock}", "lock_confirm": true},
    {"type": "lock_tile", "title": "Schloss mit Verlauf", "w": 270, "h": 110, "entity_id": "{lock_2}", "history_popup": true},
+   {"type": "alarm_panel", "title": "Alarm panel", "w": 680, "h": 520, "entity_id": "{alarm}", "alarm_zones": [{"entity_id": "{motion}", "name": "Hall"}], "alarm_actions": [], "alarm_log_hours": 24, "gallery": {"slot": "alarm_panel", "title": "Alarm panel", "rect": [10,10,680,520], "caps": null, "page": "gallery_alarm_panel", "order": 56}},
    {"type": "alarm_tile", "title": "Alarm", "popup": true, "w": 310, "h": 120, "entity_id": "{alarm}", "gallery": {"slot": "alarm_tile", "title": "Alarm", "rect": [340, 330, 280, 110], "caps": "alarm_tile", "page": "gallery_h", "order": 21}},
    {"type": "alarm_tile", "title": "Alarm Auswahl", "w": 270, "h": 110, "entity_id": "{alarm}", "alarm_actions": ["disarm", "arm_home"], "history_popup": true},
    {"type": "empty_tile", "title": "Platzhalter", "w": 300, "h": 150}

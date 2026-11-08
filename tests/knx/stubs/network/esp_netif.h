@@ -2,6 +2,8 @@
  * Copyright (c) 2026 andre68723 */
 #pragma once
 #include <stdint.h>
+#include <stdbool.h>
+#include <stddef.h>
 #include "esp_err.h"
 typedef struct { int dummy; } esp_netif_t;
 typedef struct { uint32_t addr; } esp_ip4_addr_t;
@@ -19,3 +21,5 @@ esp_err_t esp_netif_get_ip_info(esp_netif_t *netif, esp_netif_ip_info_t *ip);
 esp_err_t esp_netif_get_dns_info(esp_netif_t *netif, esp_netif_dns_type_t type, esp_netif_dns_info_t *dns);
 esp_err_t esp_netif_get_mac(esp_netif_t *netif, uint8_t mac[]);
 esp_err_t esp_netif_get_hostname(esp_netif_t *netif, const char **hostname);
+bool esp_netif_is_netif_up(esp_netif_t *netif);
+char *esp_ip4addr_ntoa(const esp_ip4_addr_t *addr, char *buf, int buflen);

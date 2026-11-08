@@ -15,6 +15,23 @@ source ~/esp/esp-idf-v6.1/export.sh              # in every new terminal
 
 Builds from the development checkout can contain changes newer than any release.
 
+**Windows / VS Code.** Select the installed 6.1 setup with
+`ESP-IDF: Select Current ESP-IDF Version`. For an installation at
+`C:\esp\v6.1\esp-idf`, the workspace setting `idf.currentSetup` must point to that
+directory. Open a new ESP-IDF terminal after switching versions; existing
+terminals keep their previous environment. The equivalent PowerShell commands
+with the default EIM tools location are:
+
+```powershell
+. 'C:\Espressif\tools\Microsoft.v6.1.PowerShell_profile.ps1'
+idf.py --version                              # must report ESP-IDF v6.1.x
+./scripts/build.ps1 panel10 reconfigure build # use the intended variant
+```
+
+Use the project's build wrapper to retain the variant manifest, defaults and
+build directory. Keep machine-specific installation paths in local VS Code
+settings, not in the shared CMake presets or component manifests.
+
 **C6 adapter image.** The binary is not tracked; put the version your checkout needs into `release/` before building
 (ESP-Hosted 3.1.0 for the current source):
 
@@ -48,6 +65,33 @@ scripts/package_release.sh <built-version> panel4     # factory and OTA files pl
 Variants: `panel4`, `panel10`, `paneljc`, `paneljc-v2`, `tab5`, `panels3`. `package_release.sh` checks the version the build
 reports (for example `v0.9.0`) and publishes nothing. `flash` writes bootloader, table and app separately, not a
 merged factory file; flash the factory file with the [USB procedure](../getting-started.md#2-flash-the-panel).
+
+## Panel10 Ethernet
+
+`CONFIG_APP_ETHERNET_IP101` defaults to off. Enable it only for an external
+IP101 module attached to the LCD-X expansion interface. Wiring: RXD0/1 on
+GPIO29/30, CRS_DV on 28, TXD0/1 on 34/35, TX_EN on 49, MDC on 31, MDIO on 52,
+50 MHz RMII clock input on 50, PHY reset on 51, PHY address 1. Verify the
+module's power, reference-clock direction and address straps before connecting.
+These pins follow the P4 EMAC defaults; they are not configurable in the editor.
+
+In a fresh variant build directory:
+
+```bash
+EXTRA_DEFAULTS=config/sdkconfig.defaults.panel10.ethernet scripts/build.sh panel10 reconfigure build
+```
+
+On Windows, activate the ESP-IDF PowerShell environment, set
+`$env:EXTRA_DEFAULTS='config/sdkconfig.defaults.panel10.ethernet'`, then use
+`./scripts/build.ps1 panel10 reconfigure build`. Existing saved sdkconfig values
+override defaults: use the variant's `menuconfig` to explicitly enable or
+disable the option. Reconfigure and inspect the generated sdkconfig before
+packaging. Standard LCD-X firmware must keep it disabled when no PHY is attached.
+The option leaves the 32 MiB partition table and LCD/touch configuration intact.
+
+Qualification requires link/DHCP, unplug/replug, address change, Wi-Fi fallback,
+HA reconnection, OTA reachability and the network watchdog on the wired hardware.
+Host tests and the disabled-driver build do not establish those hardware results.
 
 ## 32 MiB P4 preservation checks
 

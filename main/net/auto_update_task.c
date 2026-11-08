@@ -22,6 +22,7 @@
 #include "freertos/task.h"
 #include "net/update_check.h"
 #include "net/wifi_mgr.h"
+#include "net/net_mgr.h"
 #include "nvs.h"
 #include "util/flash_gate.h"
 #include "ui/ui_i18n.h"
@@ -234,6 +235,7 @@ static void evaluate(void)
         .tried_today = s_state.last_attempt_day == day,
         .idle_s = user_activity_idle_s((uint32_t)(esp_timer_get_time() / 1000000)),
         .wifi_connected = wifi_mgr_is_connected(),
+        .ethernet_connected = net_mgr_uses_ethernet(),
         .rssi_dbm = -127,
         .free_internal = heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT),
         .largest_internal = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT),
@@ -252,7 +254,7 @@ static void evaluate(void)
         in.time_valid = true;
     }
 #endif
-    if (in.wifi_connected && wifi_mgr_try_get_sta_rssi(&rssi) == ESP_OK) {
+    if (!in.ethernet_connected && in.wifi_connected && wifi_mgr_try_get_sta_rssi(&rssi) == ESP_OK) {
         in.rssi_dbm = rssi;
     }
     s_decision = auto_update_decide(&in);

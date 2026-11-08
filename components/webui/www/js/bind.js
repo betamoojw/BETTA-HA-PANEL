@@ -145,6 +145,7 @@ if (el.addBambuPrinterBtn) {
   if (el.addStockQuotesBtn) el.addStockQuotesBtn.onclick = () => openLightEntityPicker("stock_quotes");
   if (el.addDatetimeTileBtn) el.addDatetimeTileBtn.onclick = () => openLightEntityPicker("datetime_tile");
   if (el.addLockTileBtn) el.addLockTileBtn.onclick = () => openLightEntityPicker("lock_tile");
+  if (el.addAlarmPanelBtn) el.addAlarmPanelBtn.onclick = () => openLightEntityPicker("alarm_panel");
   if (el.addAlarmTileBtn) el.addAlarmTileBtn.onclick = () => openLightEntityPicker("alarm_tile");
   if (el.addScriptTileBtn) el.addScriptTileBtn.onclick = () => openLightEntityPicker("script_tile");
   if (el.addDoorbellTileBtn) el.addDoorbellTileBtn.onclick = () => openLightEntityPicker("doorbell_tile");

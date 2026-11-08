@@ -2,6 +2,8 @@
   "_license": "SPDX-License-Identifier: LicenseRef-FNCL-1.1; Copyright (c) 2026 andre68723",
   "_note": "Reviewed English-equal text. New user-facing English sentences require translation, not automatic allowlisting.",
   "values": [
+    {"text":"Ethernet","languages":["es","fr","pl"],"reason":"International network technology name"},
+    {"text":"Zones","languages":["fr"],"reason":"Same plural noun in French and English"},
     {"text": "+ Alarm", "languages": ["pl"], "reason": "Shared word or accepted technical abbreviation"},
     {"text": "+ Page", "languages": ["fr"], "reason": "Shared word or accepted technical abbreviation"},
     {"text": "+ Page ▾", "languages": ["fr"], "reason": "Shared word or accepted technical abbreviation"},

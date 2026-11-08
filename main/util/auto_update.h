@@ -55,7 +55,8 @@ typedef struct {
     int start_offset_min;       /* 0..59, auto_update_start_offset_min() */
     int64_t idle_s;             /* seconds since the last touch or editor request */
     bool wifi_connected;
-    int rssi_dbm;               /* negative; only read when wifi_connected */
+    bool ethernet_connected;   /* usable wired IP; no Wi-Fi signal requirement */
+    int rssi_dbm;               /* negative; only read for the Wi-Fi path */
     size_t free_internal;
     size_t largest_internal;
     size_t free_psram;

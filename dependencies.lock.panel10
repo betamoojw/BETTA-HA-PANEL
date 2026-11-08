@@ -495,6 +495,20 @@ dependencies:
       registry_url: https://components.espressif.com
       type: service
     version: 1.5.2
+  espressif/ip101:
+    component_hash: ca74de570dda7c2e79ce501b935638b2957fd9ac42424ed30d854f1962970471
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=6.0'
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    targets:
+    - esp32
+    - esp32p4
+    - esp32s31
+    version: 1.1.0
   espressif/knob:
     component_hash: b56694054cd34a683ac2a6f3661963ba00b1dab741a4f3bb59ed6666cbc9f3fb
     dependencies:
@@ -554,7 +568,7 @@ dependencies:
       type: service
     version: 0.20260529.0
   espressif/usb:
-    component_hash: 6c2cff118141dbbca181d0d27d71801fdddfc78f7ac03ae43f6e5a8cbd89cb99
+    component_hash: 99eee72ea224d9117d4c342442717a1f20bf8112e2ab5d7d7038b827874f4c92
     dependencies:
     - name: idf
       require: private
@@ -569,7 +583,7 @@ dependencies:
     - esp32p4
     - esp32h4
     - linux
-    version: 1.5.0
+    version: 1.6.0
   espressif/usb_host_uvc:
     component_hash: ecb2604b71cb5a65d64e5f441be54793b1838096043ad8cf1fa0d3012de18a9a
     dependencies:
@@ -726,6 +740,7 @@ direct_dependencies:
 - espressif/esp_video
 - espressif/esp_websocket_client
 - espressif/esp_wifi_remote
+- espressif/ip101
 - espressif/libpng
 - espressif/mqtt
 - espressif/usb
@@ -734,6 +749,6 @@ direct_dependencies:
 - joltwallet/littlefs
 - lvgl/lvgl
 - waveshare/esp32_p4_wifi6_touch_lcd_x
-manifest_hash: 164c234913d8a2f0c9f52f19f4730d8f7a64f79f539e17dc9779a8a5b6bf9922
+manifest_hash: acd4667852d7ed279afd322f77c47898f0580a8cba52b7ac18447edf47b7710b
 target: esp32p4
 version: 3.0.0

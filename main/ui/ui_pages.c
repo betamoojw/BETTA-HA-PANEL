@@ -25,6 +25,7 @@
 #include "net/mqtt_mgr.h"
 #include "net/update_check.h"
 #include "net/wifi_mgr.h"
+#include "net/net_mgr.h"
 #include "settings/runtime_settings.h"
 #include "ui/fonts/app_symbols.h"
 #include "ui/theme/ui_typography.h"
@@ -1374,7 +1375,10 @@ void ui_pages_set_topbar_status(
         char wifi_text[32] = {0};
         snprintf(wifi_text, sizeof(wifi_text), "%s", APP_SYMBOL_WIFI_OFF);
         lv_color_t wifi_color = off;
-        if (wifi_setup_ap_active) {
+        if (net_mgr_uses_ethernet()) {
+            snprintf(wifi_text, sizeof(wifi_text), "ETH");
+            wifi_color = ui_pages_status_glyph_color(true);
+        } else if (wifi_setup_ap_active) {
             snprintf(wifi_text, sizeof(wifi_text), "%s %s", ui_i18n_get("topbar.ap", "AP"), APP_SYMBOL_WIFI);
             wifi_color = on;
         } else if (wifi_connected) {
@@ -1386,7 +1390,7 @@ void ui_pages_set_topbar_status(
             snprintf(wifi_text, sizeof(wifi_text), "%s", ui_pages_wifi_signal_symbol(s_wifi_signal_level));
             wifi_color = ui_pages_status_glyph_color(true);
         }
-        const bool show_signal = wifi_connected && !wifi_setup_ap_active;
+        const bool show_signal = wifi_connected && !wifi_setup_ap_active && !net_mgr_uses_ethernet();
         if (show_signal && !s_wifi_show_signal) {
             if (s_wifi_signal_timer == NULL) {
                 s_wifi_signal_timer = lv_timer_create(ui_pages_wifi_signal_timer_cb, TOPBAR_WIFI_SIGNAL_POLL_MS, NULL);
@@ -1396,9 +1400,10 @@ void ui_pages_set_topbar_status(
             }
         }
         s_wifi_show_signal = show_signal;
+        lv_obj_set_style_text_font(s_wifi_icon, net_mgr_uses_ethernet() ? TOPBAR_DATE_FONT : TOPBAR_ICON_FONT, LV_PART_MAIN);
         lv_label_set_text(s_wifi_icon, wifi_text);
         lv_obj_set_style_text_color(s_wifi_icon, wifi_color, LV_PART_MAIN);
-        const lv_coord_t wifi_w = wifi_setup_ap_active ? TOPBAR_WIFI_AP_CHIP_W : TOPBAR_STATUS_CHIP_W;
+        const lv_coord_t wifi_w = (wifi_setup_ap_active || net_mgr_uses_ethernet()) ? TOPBAR_WIFI_AP_CHIP_W : TOPBAR_STATUS_CHIP_W;
         if (s_wifi_chip_w != wifi_w) {
             s_wifi_chip_w = wifi_w;
             lv_obj_set_width(s_wifi_chip, wifi_w);

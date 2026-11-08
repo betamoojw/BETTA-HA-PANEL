@@ -21,6 +21,7 @@
 #include "cJSON.h"
 
 #include "app_config.h"
+#include "layout/alarm_panel_config.h"
 #include "layout/widget_types.h"
 #include "layout/layout_orientation.h"
 #include "util/entity_id.h"
@@ -1025,7 +1026,9 @@ static bool validate_widget(cJSON *widget, const char *known_widget_ids, size_t 
         }
     }
 
-    if (alarm_actions != NULL) {
+    if (cJSON_IsString(type) && !strcmp(type->valuestring, "alarm_panel")) {
+        if (!alarm_panel_validate(widget, msg, sizeof(msg))) layout_validation_add(result, msg);
+    } else if (alarm_actions != NULL) {
         bool ok = cJSON_IsString(type) && strcmp(type->valuestring, "alarm_tile") == 0 &&
                   cJSON_IsArray(alarm_actions) && cJSON_GetArraySize(alarm_actions) > 0 &&
                   cJSON_GetArraySize(alarm_actions) <= HA_ALARM_ACTION_COUNT;

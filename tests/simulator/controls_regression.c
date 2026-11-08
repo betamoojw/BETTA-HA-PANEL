@@ -506,6 +506,8 @@ int sim_controls_regression(void)
     phase = "light"; light_test(); phase = "vacuum"; vacuum_test();
     phase = "cached favorites"; cached_favorites_test();
     phase = "slider unavailable"; slider_unavailable_test();
+    void sim_alarm_panel_regression(void (*delay)(uint32_t));
+    phase = "alarm panel"; sim_alarm_panel_regression(weather_delay);
     /* A fixture can contain more entities than widget slots. Keep the firmware model's capacity. */
     ha_state_t capacity_state = {0};
     snprintf(capacity_state.state, sizeof(capacity_state.state), "1");

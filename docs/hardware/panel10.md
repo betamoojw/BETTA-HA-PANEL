@@ -44,6 +44,22 @@ For flashing, connect a USB data cable to **USB TO UART (USB-C)** on the I/O
 board shown above. It is the upper of the two USB-C ports; the lower **USB OTG**
 port has a different role.
 
+## Optional wired network
+
+The LCD-X board has no onboard Ethernet PHY or RJ45 port. Wi-Fi remains the
+default. An external IP101 RMII module can be enabled by a separate firmware
+build; see the [Ethernet build option](../development/build.md#panel10-ethernet).
+The module needs the specified clock, address, power and wiring; a USB Ethernet
+adapter is not supported by this driver.
+
+When enabled, Ethernet is preferred after link and DHCP succeed. Wi-Fi stays
+connected for fallback. Losing Ethernet link or its IP address selects usable
+Wi-Fi, and Home Assistant reconnects on interface or address changes. This is
+link/IP failover, not a test of Internet or Home Assistant reachability through
+each gateway. Settings and the connection popup report the active interface.
+The COM24 unit has no external PHY, so wired link and fallback are not yet
+hardware-qualified on it.
+
 ## Camera and sound
 
 The built-in **OV5647** front camera supplies light and presence sensing under

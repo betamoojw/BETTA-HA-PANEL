@@ -53,6 +53,7 @@ static const widget_type_info_t s_types[] = {
     {"select_tile",     {160,         80,         CBW,        200},       "select|input_select"},
     {"datetime_tile",   {180, 90, CBW,       220},       "input_datetime|time|date|datetime"},
     {"lock_tile",       {180,         80,         CBW,        200},       "lock"},
+    {"alarm_panel",     {320, 300, CBW, CBH}, "alarm_control_panel"},
     {"alarm_tile",      {180,         80,         CBW,        200},       "alarm_control_panel"},
     /* Rings above a 24 h timeline: scales from a 300x200 card up to a full page. entity_id = grid import counter. */
     {"energy_timeline", {300,         200,        CBW,        CBH},       "sensor"},

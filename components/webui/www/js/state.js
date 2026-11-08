@@ -74,6 +74,8 @@ function widgetSizeLimitsForCanvas(type) {
       return { minW: 160, minH: 80, maxW: CANVAS_WIDTH, maxH: 200 };
     case "datetime_tile":
       return { minW: 180, minH: 90, maxW: CANVAS_WIDTH, maxH: 220 };
+    case "alarm_panel":
+      return {minW:320,minH:300,maxW:CANVAS_WIDTH,maxH:CANVAS_HEIGHT};
     case "lock_tile":
     case "alarm_tile":
       return { minW: 180, minH: 80, maxW: CANVAS_WIDTH, maxH: 200 };
@@ -343,6 +345,7 @@ const el = {
   addPriceForecastBtn: document.getElementById("addPriceForecastBtn"),
   addDatetimeTileBtn: document.getElementById("addDatetimeTileBtn"),
   addLockTileBtn: document.getElementById("addLockTileBtn"),
+  addAlarmPanelBtn: document.getElementById("addAlarmPanelBtn"),
   addAlarmTileBtn: document.getElementById("addAlarmTileBtn"),
   lockOptions: document.getElementById("lockOptions"),
   priceOptions: document.getElementById("priceOptions"),

@@ -12,6 +12,7 @@
 extern "C" {
 #include "util/flash_gate.h"
 #include "net/wifi_mgr.h"
+#include "net/net_mgr.h"
 }
 #include <algorithm>
 #include <cstring>
@@ -57,17 +58,18 @@ void receive(const knx_telegram_t* t, void*) {
 void run(void*) {
     esp_knx_ip_handle_t handle = nullptr;
     uint32_t bound_ip = 0;
+    esp_netif_t *bound_netif = nullptr;
     int64_t retry_at = 0;
     for (;;) {
-        auto* netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+        auto* netif = net_mgr_active_netif();
         esp_netif_ip_info_t ip{};
-        bool online = wifi_mgr_is_connected() && netif && esp_netif_is_netif_up(netif) &&
+        bool online = net_mgr_is_connected() && netif && esp_netif_is_netif_up(netif) &&
                       esp_netif_get_ip_info(netif, &ip) == ESP_OK && ip.ip.addr;
         bool restart, want;
         {
             std::lock_guard<std::mutex> guard(state_mutex);
             want = enabled && valid_config;
-            restart = !want || !online || bound_ip != ip.ip.addr || active_generation != generation;
+            restart = !want || !online || bound_ip != ip.ip.addr || bound_netif != netif || active_generation != generation;
             if (restart) state = !enabled ? "disabled" : !valid_config ? "error" :
                                  !online ? "waiting_for_network" : "starting";
         }
@@ -103,7 +105,7 @@ void run(void*) {
             if (result == ESP_OK) result = esp_knx_ip_start(handle);
             {
                 std::lock_guard<std::mutex> guard(state_mutex);
-                if (result == ESP_OK) { bound_ip = ip.ip.addr; state = "running"; error.clear(); }
+                if (result == ESP_OK) { bound_ip = ip.ip.addr; bound_netif = netif; state = "running"; error.clear(); }
                 else { state = "error"; error = esp_err_to_name(result); }
             }
             if (result != ESP_OK) {

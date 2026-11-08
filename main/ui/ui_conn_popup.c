@@ -26,6 +26,7 @@
 #include "net/mqtt_mgr.h"
 #include "net/update_check.h"
 #include "net/wifi_mgr.h"
+#include "net/net_mgr.h"
 #include "settings/runtime_settings.h"
 #include "ui/theme/theme_default.h"
 #include "ui/theme/ui_style.h"
@@ -229,6 +230,11 @@ static void conn_popup_build_rows(conn_popup_kind_t kind, conn_popup_row_t *rows
             if (wifi_mgr_get_ap_ip(row->value, sizeof(row->value)) != ESP_OK) {
                 row->value[0] = '\0';
             }
+        } else if (net_mgr_uses_ethernet()) {
+            row = conn_popup_push(rows, row_count, ui_i18n_get("network.interface", "Connection"), false);
+            snprintf(row->value, sizeof(row->value), "%s", ui_i18n_get("network.ethernet", "Ethernet"));
+            row = conn_popup_push(rows, row_count, "IP", false);
+            (void)net_mgr_get_ip(row->value, sizeof(row->value));
         } else if (wifi_mgr_is_connected()) {
             wifi_mgr_sta_ap_info_t ap_info = {0};
             bool have_info = wifi_mgr_get_sta_ap_info(&ap_info) == ESP_OK;

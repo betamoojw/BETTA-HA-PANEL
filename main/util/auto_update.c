@@ -44,7 +44,7 @@ auto_update_decision_t auto_update_decide(const auto_update_input_t *in)
     if (in->idle_s < AUTO_UPDATE_IDLE_MIN_S) {
         return AUTO_UPDATE_WAIT_ACTIVITY;
     }
-    if (!in->wifi_connected || in->rssi_dbm < AUTO_UPDATE_MIN_RSSI_DBM) {
+    if (!in->ethernet_connected && (!in->wifi_connected || in->rssi_dbm < AUTO_UPDATE_MIN_RSSI_DBM)) {
         return AUTO_UPDATE_WAIT_WIFI;
     }
     if (in->free_internal < AUTO_UPDATE_MIN_FREE_INTERNAL || in->largest_internal < AUTO_UPDATE_MIN_LARGEST_INTERNAL ||

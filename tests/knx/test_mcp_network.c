@@ -6,12 +6,17 @@
 #include <string.h>
 #include "esp_netif.h"
 #include "net/wifi_mgr.h"
+#include "net/net_mgr.h"
 #include "xiaozhi/xiaozhi_mcp_tools.h"
 
 static bool connected = true, setup_ap, no_netif, fail_ap, fail_ip, fail_identity;
 static bool drop_during_ap, zero_ip, fail_dns, ipv6_dns;
 static unsigned ap_calls;
 static esp_netif_t station;
+static bool ethernet;
+bool net_mgr_is_connected(void) { return connected; }
+bool net_mgr_uses_ethernet(void) { return ethernet; }
+esp_netif_t *net_mgr_active_netif(void) { return connected && !no_netif ? &station : NULL; }
 static esp_ip4_addr_t address(uint8_t a, uint8_t b, uint8_t c, uint8_t d)
 {
     uint8_t bytes[] = {a,b,c,d}; esp_ip4_addr_t ip;
@@ -81,6 +86,12 @@ static void *limited_malloc(size_t size) { return allocations_left-- > 0 ? mallo
 
 int main(void)
 {
+    ethernet = true;
+    cJSON *wired = xiaozhi_mcp_network_info(); assert(wired);
+    expect_text(wired,"interface","ethernet");
+    expect_text(wired,"ip_address","192.168.71.120");
+    assert(cJSON_IsNull(field(wired,"ssid")) && cJSON_IsNull(field(wired,"rssi_dbm")) && ap_calls == 0);
+    cJSON_Delete(wired); ethernet = false;
     cJSON *root = xiaozhi_mcp_network_info(); assert(root);
     assert(cJSON_IsTrue(field(root,"connected")) && cJSON_IsFalse(field(root,"setup_ap_active")));
     expect_text(root,"ip_address","192.168.71.120"); expect_text(root,"netmask","255.255.255.0");

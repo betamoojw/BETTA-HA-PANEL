@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "ha_online": true,
+  "pages": [{"id": "alarm", "title": "Security", "widgets": [
+    {"id": "alarm_dashboard", "type": "alarm_panel", "title": "Home security", "entity_id": "alarm_control_panel.house",
+     "rect": {"x": 10, "y": 10, "w": 680, "h": 520}, "alarm_log_hours": 24,
+     "alarm_zones": [{"entity_id": "binary_sensor.door", "name": "Front door"}, {"entity_id": "binary_sensor.motion", "name": "Hall"}],
+     "alarm_actions": [{"entity_id": "switch.bypass", "name": "Bypass"}, {"entity_id": "button.panic", "name": "Panic"}]}
+  ]}],
+  "states": [
+    {"entity_id": "alarm_control_panel.house", "state": "disarmed", "attributes": {"supported_features": 55, "code_format": "number", "code_arm_required": true}},
+    {"entity_id": "binary_sensor.door", "state": "off", "attributes": {"device_class": "door"}},
+    {"entity_id": "binary_sensor.motion", "state": "off", "attributes": {"device_class": "motion"}},
+    {"entity_id": "switch.bypass", "state": "off", "attributes": {}},
+    {"entity_id": "button.panic", "state": "unknown", "attributes": {}}
+  ]
+}

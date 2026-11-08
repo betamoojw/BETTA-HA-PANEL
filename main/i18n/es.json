@@ -169,7 +169,49 @@
         "arm_vacation": "Armar de vacaciones",
         "arm_custom_bypass": "Armar con exclusión personalizada"
       },
-      "ok": "OK"
+      "ok": "OK",
+      "zones": "Zonas",
+      "controls": "Controles",
+      "history": "Historial",
+      "refresh": "Actualizar",
+      "hold": "Mantener 2 s",
+      "enter_code": "Introducir código",
+      "no_code": "No requiere código",
+      "text_code": "Código de texto: usar Home Assistant",
+      "btn": {
+        "disarm": "Desarmar",
+        "away": "Armar ausente",
+        "home": "Armar en casa",
+        "night": "Armar noche",
+        "vacation": "Vacaciones"
+      },
+      "msg": {
+        "sent": "Solicitud en cola",
+        "failed": "Solicitud fallida",
+        "accepted": "Solicitud aceptada",
+        "rejected": "Solicitud fallida o rechazada",
+        "enter_code": "Introduzca primero el código"
+      },
+      "log": {
+        "loading": "Cargando…",
+        "failed": "Historial no disponible",
+        "empty": "Sin eventos",
+        "no_clock": "Esperando sincronización"
+      },
+      "pressed": "Pulsado",
+      "zone": {
+        "detected": "Detectado",
+        "ok": "Correcto",
+        "motion": "Movimiento",
+        "clear": "Libre",
+        "open": "Abierto",
+        "closed": "Cerrado",
+        "active": "Activo",
+        "inactive": "Inactivo",
+        "not_ready": "No preparado"
+      },
+      "zones_active": "zonas activas",
+      "zones_ready": "Todas las zonas libres"
     },
     "vacmode": {
       "vacuum": "Aspirador",
@@ -927,6 +969,10 @@
       "outdoor_enabled": "Comparar con el exterior",
       "sources_hint": "La humedad es obligatoria. Asigne las demás funciones explícitamente. COV solo se muestra; la valoración del dispositivo no cambia el estado BETTA. Elija temperatura y humedad exterior como pareja.",
       "invalid_binding": "Entidad no válida para {role}."
+    },
+    "network": {
+      "ethernet": "Ethernet",
+      "interface": "Conexión"
     }
   }
 }

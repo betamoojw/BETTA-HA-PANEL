@@ -28,12 +28,19 @@ add_executable(xiaozhi_mcp_network_test test_mcp_network.c
   "${ROOT}/main/xiaozhi/xiaozhi_mcp_network.c" "${CJSON_DIR}/cJSON.c")
 target_include_directories(xiaozhi_mcp_network_test PRIVATE stubs/network stubs "${ROOT}/tests/host/stubs" "${ROOT}/main" "${CJSON_DIR}")
 add_test(NAME xiaozhi_mcp_network COMMAND xiaozhi_mcp_network_test)
+add_executable(net_mgr_test test_net_mgr.c "${ROOT}/main/net/net_mgr.c" "${ROOT}/main/util/auto_update.c" "${CJSON_DIR}/cJSON.c")
+target_include_directories(net_mgr_test PRIVATE stubs/network stubs "${ROOT}/tests/host/stubs" "${ROOT}/main" "${CJSON_DIR}")
+add_test(NAME net_mgr COMMAND net_mgr_test)
 add_executable(xiaozhi_mcp_ha_test test_mcp_ha.c
   "${ROOT}/main/xiaozhi/xiaozhi_mcp_ha.c" "${ROOT}/main/ha/ha_model.c"
   "${ROOT}/main/ha/ha_layout_entities.c" "${CJSON_DIR}/cJSON.c")
 target_sources(xiaozhi_mcp_ha_test PRIVATE "${ROOT}/main/layout/bambu_printer_slots.c" "${ROOT}/main/layout/evcc_slots.c"
+  "${ROOT}/main/layout/room_air_slots.c" "${ROOT}/main/ui/widgets/room_air_model.c"
   "${ROOT}/main/xiaozhi/xiaozhi_ha_control.c" "${ROOT}/main/ha/ha_light_capabilities.c")
 target_sources(xiaozhi_mcp_ha_test PRIVATE "${ROOT}/main/ha/ha_service_request.c")
+if(UNIX)
+  target_link_libraries(xiaozhi_mcp_ha_test PRIVATE m)
+endif()
 target_include_directories(xiaozhi_mcp_ha_test PRIVATE stubs/ha "${ROOT}/tests/host/stubs" "${ROOT}/main" "${CJSON_DIR}")
 add_test(NAME xiaozhi_mcp_ha COMMAND xiaozhi_mcp_ha_test)
 # ESP-IDF archives main's source objects. A weak fallback in the dispatcher can

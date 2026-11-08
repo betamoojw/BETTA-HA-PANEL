@@ -695,7 +695,9 @@ function renderSettings() {
     ? String(Math.round(Number(wifi.connected_channel)))
     : "n/a";
 
+  const network = settings.network;
   el.settingsWifiInfo.textContent = [
+    ...(network ? [`${t("network.interface")}: ${network.interface === "ethernet" ? t("network.ethernet") : network.interface === "wifi" ? "Wi-Fi" : t("evcc.unavailable")} (${network.ip || "—"})`] : []),
     `${t("settings.info.configured")}: ${wifi.configured ? t("common.yes") : t("common.no")}`,
     `${t("settings.info.connected")}: ${wifi.connected ? t("common.yes") : t("common.no")}`,
     `${t("settings.info.password_stored")}: ${wifi.password_set ? t("common.yes") : t("common.no")}`,

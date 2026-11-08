@@ -315,6 +315,7 @@ const WIDGET_TYPE_LABEL_KEYS = {
   datetime_tile: "layout.widgets.add_datetime",
   lock_tile: "layout.widgets.add_lock",
   alarm_tile: "layout.widgets.add_alarm",
+  alarm_panel: "layout.widgets.add_alarm_panel",
   binary_tile: "layout.widgets.add_binary",
   contact_tile: "layout.widgets.add_contact",
   camera_tile: "layout.widgets.add_camera",
@@ -882,6 +883,7 @@ function alarmLoadInspector(widget) {
 }
 
 function renderInspector() {
+  alarmPanelLoadInspector(selectedWidget());
   refreshEntitySourceWarning();
   renderEnergyTimelineColors(selectedWidget());
   updateInspectorPanels();
@@ -1865,6 +1867,7 @@ function addWidget(type, options = {}) {
       : type === "sonos_favorites" ? 360
       : type === "cover_tile" ? 360
       : (type === "scene_tile" || type === "binary_tile" || type === "select_tile" || type === "datetime_tile") ? 260
+      : type === "alarm_panel" ? CANVAS_WIDTH - 40
       : (type === "lock_tile" || type === "alarm_tile") ? 300
       : type === "room_tile" ? 400
       : type === "climate_tile" ? 320
@@ -1889,6 +1892,7 @@ function addWidget(type, options = {}) {
       : type === "fan_tile" ? 90
       : type === "camera_tile" ? 240
       : type === "contact_tile" ? 80
+      : type === "alarm_panel" ? CANVAS_HEIGHT - 40
       : (type === "select_tile" || type === "lock_tile" || type === "alarm_tile" || type === "datetime_tile") ? 100
       : (type === "scene_tile" || type === "binary_tile") ? 90
       : type === "room_tile" ? 200
@@ -2034,6 +2038,9 @@ function applyInspector(options = {}) {
   const softEntityValidation = options.softEntityValidation === true;
 
   const widgetType = widget.type;
+  let alarmPanelValue = null;
+  try { if (widgetType === "alarm_panel") alarmPanelValue = alarmPanelReadInspector(); }
+  catch (error) { setStatus(error.message, true); return false; }
   const sliderDomain = widgetType === "slider"
     ? normalizeSliderEntityDomain(el.fSliderEntityDomain?.value)
     : DEFAULT_SLIDER_ENTITY_DOMAIN;
@@ -2104,6 +2111,7 @@ function applyInspector(options = {}) {
   bambuSaveInspector(widget, widgetType);
   stockSaveInspector(widget, widgetType);
   sensorListSaveInspector(widget, widgetType);
+  alarmPanelSaveInspector(widget, widgetType, alarmPanelValue);
   if (!evccSaveInspector(widget, widgetType)) return false;
   // Energy timeline: the two battery counters go together (the firmware ignores half a battery).
   for (const [key, input] of [
@@ -2219,7 +2227,7 @@ function applyInspector(options = {}) {
   const alarmChosen = ALARM_ACTION_FIELDS.filter(([key]) => el[key]?.checked).map(([, action]) => action);
   if (widgetType === "alarm_tile" && alarmChosen.length > 0 && alarmChosen.length < ALARM_ACTION_FIELDS.length) {
     widget.alarm_actions = alarmChosen; // only a deviation from "all actions" is stored
-  } else {
+  } else if (widgetType !== "alarm_panel") {
     delete widget.alarm_actions;
   }
   if (["sensor", "binary_tile", "contact_tile", "lock_tile", "alarm_tile", "vacuum_tile"].includes(widgetType) && el.fHistoryPopup?.checked) {

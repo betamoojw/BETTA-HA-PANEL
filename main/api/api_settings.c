@@ -26,6 +26,7 @@
 #include "ha/ha_client.h"
 #include "net/mqtt_mgr.h"
 #include "net/wifi_mgr.h"
+#include "net/net_mgr.h"
 #include "settings/i18n_store.h"
 #include "app_events.h"
 #include "net/time_sync.h"
@@ -279,6 +280,7 @@ esp_err_t api_settings_get_handler(httpd_req_t *req)
     cJSON_AddBoolToObject(wifi, "password_set", settings->wifi_password[0] != '\0');
     cJSON_AddBoolToObject(wifi, "configured", runtime_settings_has_wifi(settings));
     cJSON_AddBoolToObject(wifi, "connected", wifi_mgr_is_connected());
+    net_mgr_add_json(root);
     cJSON_AddBoolToObject(wifi, "setup_ap_active", wifi_mgr_is_setup_ap_active());
     cJSON_AddStringToObject(wifi, "setup_ap_ssid", wifi_mgr_get_setup_ap_ssid());
     wifi_mgr_sta_ap_info_t sta_ap = {0};

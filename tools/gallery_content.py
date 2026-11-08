@@ -252,7 +252,7 @@ WIDGET_GROUPS = [
     ("Show values", "Numbers, trends and states you want to read at a glance.",
      ["sensor", "gauge", "graph", "binary_tile", "contact_tile", "parqet_portfolio", "stock_quotes"]),
     ("Control your home", "Switches, lights, heating, blinds and other things you operate by touch.",
-     ["button", "slider", "light_tile", "heating_tile", "climate_tile", "cover_tile", "fan_tile", "lock_tile", "alarm_tile", "select_tile", "datetime_tile", "scene_tile"]),
+     ["button", "slider", "light_tile", "heating_tile", "climate_tile", "cover_tile", "fan_tile", "lock_tile", "alarm_tile", "alarm_panel", "select_tile", "datetime_tile", "scene_tile"]),
     ("Rooms", "Everything about one room in a single card.", ["room_tile", "air_quality_tile"]),
     ("Weather and energy", "Forecasts, solar production and the energy balance.",
      ["weather_tile", "solar_forecast", "energy_price_forecast", "energy_timeline"]),
@@ -266,7 +266,7 @@ WIDGET_GROUPS = [
 ROW_DISPLAY_NAME = {
     "air_quality_tile": "Air quality", "sensor": "Sensor", "gauge": "Gauge", "car_widget": "Car", "bambu_printer": "Bambu printer", "wallbox_evcc": "Wallbox", "graph": "Graph",
     "solar_forecast": "Solar forecast", "energy_price_forecast": "Energy price forecast", "parqet_portfolio": "Parqet portfolio", "stock_quotes": "Stocks & ETFs", "weather_tile": "Weather",
-    "button": "Button", "scene_tile": "Scene", "select_tile": "Select", "lock_tile": "Lock", "alarm_tile": "Alarm", "datetime_tile": "Date/Time", "slider": "Slider", "cover_tile": "Cover",
+    "button": "Button", "scene_tile": "Scene", "select_tile": "Select", "lock_tile": "Lock", "alarm_tile": "Alarm", "alarm_panel": "Alarm panel", "datetime_tile": "Date/Time", "slider": "Slider", "cover_tile": "Cover",
     "light_tile": "Light", "fan_tile": "Fan", "climate_tile": "Climate", "heating_tile": "Heating",
     "media_player": "Media player", "sonos_favorites": "Sonos favorites", "contact_tile": "Contact",
     "binary_tile": "Binary sensor", "room_tile": "Room", "vacuum_tile": "Vacuum", "energy_timeline": "Energy timeline",

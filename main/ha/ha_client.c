@@ -53,6 +53,7 @@
 #include "ha/ha_ws.h"
 #include "layout/layout_store.h"
 #include "net/wifi_mgr.h"
+#include "net/net_mgr.h"
 #include "settings/runtime_settings.h"
 #include "util/log_tags.h"
 
@@ -560,6 +561,7 @@ static esp_err_t ha_client_force_recover_with_escalation(bool prefer_transport, 
         *out_used_transport = prefer_transport;
     }
 
+    if (net_mgr_uses_ethernet()) return ESP_OK; /* Radio recovery cannot repair the wired HA path. */
     if (prefer_transport) {
         return wifi_mgr_force_transport_recover();
     }
@@ -5688,7 +5690,26 @@ static void ha_client_task(void *arg)
         bool ping_timed_out = false;
         int64_t now_ms = ha_client_now_ms();
         int64_t ping_interval_ms = ha_client_ping_interval_ms_effective();
-        bool wifi_up = wifi_mgr_is_connected();
+        bool wifi_up = net_mgr_is_connected();
+        static net_mgr_snapshot_t previous_network;
+        if (net_mgr_connection_changed(&previous_network)) {
+            /* The existing TCP socket retains its old source address after route failover. */
+            ESP_LOGI(TAG_HA_CLIENT, "Network interface/address changed; reconnecting Home Assistant");
+            ha_ws_stop();
+            ha_client_reset_ws_rx_assembly(); ha_client_flush_ws_rx_queue(); ha_client_pending_response_expire_all(true);
+            xSemaphoreTake(s_client.mutex, portMAX_DELAY);
+            s_client.authenticated = false;
+            s_client.pending_send_auth = false;
+            s_client.pending_send_pong = false;
+            s_client.pending_pong_id = 0;
+            s_client.ping_inflight = false;
+            s_client.ping_inflight_id = 0;
+            s_client.ping_sent_unix_ms = 0;
+            s_client.ping_timeout_strikes = 0;
+            xSemaphoreGive(s_client.mutex);
+            last_ws_restart_ms = now_ms - HA_WS_RESTART_INTERVAL_MAX_MS - HA_WS_RESTART_JITTER_MS;
+            continue;
+        }
         bool ws_running = ha_ws_is_running();
         if (wifi_up) {
             wifi_seen_connected_once = true;
@@ -7273,7 +7294,7 @@ static bool ha_client_reconnect_available_locked(void)
 
 bool ha_client_reconnect_available(void)
 {
-    if (s_client.mutex == NULL || !wifi_mgr_is_connected()) return false;
+    if (s_client.mutex == NULL || !net_mgr_is_connected()) return false;
     xSemaphoreTake(s_client.mutex, portMAX_DELAY);
     bool available = ha_client_reconnect_available_locked();
     xSemaphoreGive(s_client.mutex);
@@ -7282,7 +7303,7 @@ bool ha_client_reconnect_available(void)
 
 bool ha_client_request_reconnect(void)
 {
-    if (s_client.mutex == NULL || !wifi_mgr_is_connected()) return false;
+    if (s_client.mutex == NULL || !net_mgr_is_connected()) return false;
     xSemaphoreTake(s_client.mutex, portMAX_DELAY);
     bool requested = ha_client_reconnect_available_locked() && ha_auth_state_request_retry(ha_client_now_ms());
     xSemaphoreGive(s_client.mutex);
@@ -7695,7 +7716,8 @@ esp_err_t ha_client_send_command_with_response(cJSON *command, ha_client_respons
         return ESP_ERR_NO_MEM;
     }
 
-    esp_err_t err = ha_client_send_json(command);
+    const char *kind = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(command, "type"));
+    esp_err_t err = ha_client_send_json_impl(command, !(kind && !strcmp(kind, "call_service")));
     cJSON_Delete(command);
     if (err != ESP_OK) { /* free the slot so the caller's cb is not leaked */
         ha_client_response_cb_t evicted_cb = NULL;

@@ -109,6 +109,7 @@ typedef struct {
     bool stock_ticker;      /* stock_quotes: the symbol after the name, default false */
     bool stock_selector;    /* stock_quotes: period buttons on the chart tile, default true */
     bool stock_previous;    /* stock_quotes: cards show the period's start price under the price, default false */
+    const cJSON *alarm_config; /* Borrowed only during factory creation; alarm_panel copies its configuration. */
     air_config_t air_config; /* air_quality_tile thresholds, copied into its private context */
     int x;
     int y;

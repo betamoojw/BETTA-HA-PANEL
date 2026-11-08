@@ -24,6 +24,7 @@
 #include "build_stamp.h"
 #include "net/update_check_parse.h"
 #include "net/wifi_mgr.h"
+#include "net/net_mgr.h"
 
 #define TAG_UPDATE "update_check"
 
@@ -237,7 +238,7 @@ static void update_check_task(void *arg)
         if (!manual && !due) {
             continue;
         }
-        if (!wifi_mgr_is_connected() || time(NULL) < UPDATE_CHECK_VALID_EPOCH) {
+        if (!net_mgr_is_connected() || time(NULL) < UPDATE_CHECK_VALID_EPOCH) {
             set_result(UPDATE_STATE_ERROR, "waiting for Wi-Fi and time", NULL);
             schedule_in(UPDATE_CHECK_WAIT_NET_S);
             continue;

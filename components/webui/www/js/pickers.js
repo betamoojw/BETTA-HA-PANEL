@@ -588,7 +588,7 @@ function entityFirstDomainSuggestions(entityId, deviceClass) {
     case "lock":
       return [{ key: "lock", type: "lock_tile" }, { key: "scene", type: "scene_tile" }];
     case "alarm_control_panel":
-      return [{ key: "alarm", type: "alarm_tile" }];
+      return [{ key: "alarm", type: "alarm_tile" }, { key: "alarm_panel", type: "alarm_panel" }];
     case "scene":
     case "script":
     case "button":

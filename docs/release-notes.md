@@ -12,6 +12,7 @@ Changes since [v0.9.1](#v091).
 
 | Widget | Status | What is new or changed |
 | --- | --- | --- |
+| [Alarm panel](widgets/alarm_panel.md) | <span class="release-status release-status--new">New</span> | A dashboard with numeric keypad, up to 16 zones, eight auxiliary controls and 1–168 hours of history. Modes follow Home Assistant capabilities. Button actions require a two-second hold; codes are transient and never saved in layout JSON. |
 | [Air quality](widgets/air_quality_tile.md) | <span class="release-status release-status--new">New</span> | One BETTA status (Good, Fair, Poor) from humidity, with optional temperature, CO₂ and PM2.5 as readings on a neutral card like the Room widget and one advice chip when something needs action. It works from basic sensors up to IKEA ALPSTUGA and Awair Element; VOC and device ratings are display-only. A tap on a reading opens its history graph; a tap elsewhere opens the details with the advice, every reading as a row that opens its graph, the outdoor absolute-humidity comparison and the window state. The page icon list gains matching **Humidity** and **Air quality** symbols. |
 | [Stocks & ETFs](widgets/stock_quotes.md) | <span class="release-status release-status--changed">Changed</span> | The Tiles view is part of Charts now, as the switch **Show as cards** with up to four columns. **Show the start price** adds the period's first price (**Start 126.84 €**) under the price. The 30-day period reads **1M**. A saved Tiles view opens as charts with cards. |
 | [Weather](widgets/weather_tile.md) | <span class="release-status release-status--changed">Changed</span> | Weather and Weather forecast are one tile. **View** sets whether it starts with today or the forecast days; **Show day selection** adds two buttons at the top to switch, like the Stocks periods. The hourly strip marks midnight with a divider and the weekday and drops out when the tile is too short. The panel and editor read the former Weather forecast tile as Forecast days; the saved layout is kept until an explicit save. The local editor can render the page in the LVGL simulator. |
@@ -20,6 +21,12 @@ Changes since [v0.9.1](#v091).
 | [Parqet portfolio](widgets/parqet_portfolio.md) | <span class="release-status release-status--changed">Changed</span> | The interval buttons follow the panel language like the Stocks & ETFs period buttons (**1T** instead of **1D** in German). |
 
 ### Waveshare 10.1-inch LCD-X target
+
+The optional IP101 driver from upstream `3dc138a` is adapted for an external
+RMII module, with Ethernet preference and Wi-Fi fallback shared by HA, KNX,
+MQTT discovery, OTA, diagnostics and connectivity UI. It is off in standard
+LCD-X builds because this board has no onboard PHY. Wired hardware validation
+requires the external module; see the [panel guide](hardware/panel10.md#optional-wired-network).
 
 `panel10` now targets the ready-made **ESP32-P4-WIFI6-Touch-LCD-10.1** with
 Waveshare LCD-X BSP 2.0.3, JD9365 and GT9271. The preset selects P4 Rev3.0+;

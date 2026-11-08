@@ -344,6 +344,17 @@ const ENTITY_PICKER_CONFIGS = {
     widgetFallback: "Lock widget",
     itemsFallback: "locks",
   },
+  alarm_panel: {
+    domain:"alarm_control_panel",
+     titleKey:"entity_picker.title_alarm",
+     blankKey:"layout.widgets.add_alarm_panel",
+     widgetKey:"layout.widgets.add_alarm_panel",
+     itemsKey:"entity_picker.items_alarm",
+     titleFallback:"Choose an alarm panel",
+     blankFallback:"Blank alarm panel",
+     widgetFallback:"Alarm panel",
+     itemsFallback:"alarm panels"
+  },
   alarm_tile: {
     domain: "alarm_control_panel",
     titleKey: "entity_picker.title_alarm",
@@ -604,6 +615,6 @@ const ALARM_ACTION_FIELDS = [
   ["fAlarmArmVacation", "arm_vacation"],
   ["fAlarmArmCustom", "arm_custom_bypass"],
 ];
-const WIDGET_NAME_TYPES = new Set(["wallbox_evcc", "sensor", "button", "slider", "gauge", "graph", "empty_tile", "light_tile", "heating_tile", "weather_tile", "solar_forecast", "energy_price_forecast", "parqet_portfolio", "stock_quotes", "car_widget", "bambu_printer", "todo_list", "media_player", "sonos_favorites", "cover_tile", "fan_tile", "contact_tile", "camera_tile", "climate_tile", "scene_tile", "select_tile", "energy_timeline", "datetime_tile", "lock_tile", "alarm_tile", "binary_tile", "room_tile", "vacuum_tile", "roborock_tile", "air_quality_tile"]);
+const WIDGET_NAME_TYPES = new Set(["wallbox_evcc", "sensor", "button", "slider", "gauge", "graph", "empty_tile", "light_tile", "heating_tile", "weather_tile", "solar_forecast", "energy_price_forecast", "parqet_portfolio", "stock_quotes", "car_widget", "bambu_printer", "todo_list", "media_player", "sonos_favorites", "cover_tile", "fan_tile", "contact_tile", "camera_tile", "climate_tile", "scene_tile", "select_tile", "energy_timeline", "datetime_tile", "lock_tile", "alarm_tile", "alarm_panel", "binary_tile", "room_tile", "vacuum_tile", "roborock_tile", "air_quality_tile"]);
 // Widget types whose name is hidden unless show_name is true: the weather tiles show the weather, not the place.
 const WIDGET_NAME_HIDDEN_BY_DEFAULT = new Set(["weather_tile"]);

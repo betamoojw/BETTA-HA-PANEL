@@ -19,6 +19,7 @@
 #include "ha/ha_client.h"
 #include "net/c6_memory.h"
 #include "net/wifi_mgr.h"
+#include "net/net_mgr.h"
 #include "util/log_tags.h"
 #include "util/net_watchdog.h"
 #include "util/reboot_log_esp.h"
@@ -70,7 +71,7 @@ static void ping_end(esp_ping_handle_t hdl, void *args)
 static void ping_gateway(void)
 {
     uint32_t gateway = 0;
-    if (!wifi_mgr_get_sta_gateway(&gateway)) {
+    if (!net_mgr_get_gateway(&gateway)) {
         s_ping_result = -1;
         return;
     }
@@ -112,17 +113,29 @@ static int http_self_probe(void)
 static void net_watchdog_task(void *arg)
 {
     (void)arg;
+    net_mgr_snapshot_t previous_network = {0};
+    uint32_t previous_gateway = 0;
     for (;;) {
         vTaskDelay(pdMS_TO_TICKS(NET_WD_POLL_MS));
         const int64_t now_s = esp_timer_get_time() / 1000000LL;
-        const bool link_up = wifi_mgr_is_connected();
+        const bool link_up = net_mgr_is_connected();
+        uint32_t gateway = 0;
+        (void)net_mgr_get_gateway(&gateway);
+        if (net_mgr_connection_changed(&previous_network) || gateway != previous_gateway) {
+            /* A new router may deliberately ignore ICMP; old success does not qualify it. */
+            s_ping_ever_ok = false;
+            s_ping_result = -1;
+            s_state.ping_fail_since = -1;
+            s_last_ping_s = -NET_WD_PING_EVERY_S;
+        }
+        previous_gateway = gateway;
         if (link_up && now_s - s_last_ping_s >= NET_WD_PING_EVERY_S) {
             ping_gateway();
             s_last_ping_s = now_s;
         }
         s_http_result = http_self_probe();
         const net_wd_input_t input = {
-            .wifi_expected = s_wifi_expected && !wifi_mgr_is_setup_ap_active(),
+            .wifi_expected = s_wifi_expected && (!wifi_mgr_is_setup_ap_active() || net_mgr_uses_ethernet()),
             .link_up = link_up,
             .ha_connected = s_ha_expected && ha_client_is_connected(),
             .ping = link_up ? s_ping_result : -1,
@@ -141,7 +154,7 @@ static void net_watchdog_task(void *arg)
                                   : (s_last_decision == NET_WD_RESTART_LINK ? s_state.link_down_since : s_state.ping_fail_since);
             ESP_LOGE(TAG_WIFI, "network watchdog: %s for %d s, restarting (restart %u in a row)",
                      http ? "the HTTP server does not answer"
-                          : (s_last_decision == NET_WD_RESTART_LINK ? "no Wi-Fi link" : "gateway silent, no Home Assistant traffic"),
+                          : (s_last_decision == NET_WD_RESTART_LINK ? "no network link" : "gateway silent, no Home Assistant traffic"),
                      (int)(now_s - since), (unsigned)s_rtc.restarts_in_a_row + 1U);
             s_rtc.restarts_in_a_row++;
             const uint8_t cause = http ? REBOOT_CAUSE_HTTP_WATCHDOG : REBOOT_CAUSE_NET_WATCHDOG;

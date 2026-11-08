@@ -304,6 +304,8 @@ idf_component_register(
             "settings/runtime_secrets.c"
         "settings/i18n_store.c"
         "net/wifi_mgr.c"
+        "net/eth_mgr.c"
+        "net/net_mgr.c"
         "net/wifi_diag_store.c"
         "net/c6_memory.c"
         "net/c6_memory_state.c"
@@ -390,6 +392,9 @@ idf_component_register(
         "ui/ui_days_view.c"
         "ui/widgets/w_lock.c"
         "ui/widgets/w_alarm.c"
+        "ui/widgets/w_alarm_panel.c"
+        "ha/ha_alarm_panel_client.c"
+        "layout/alarm_panel_config.c"
         "ui/ui_pin_pad.c"
         "ui/widgets/w_energy_timeline.c"
         "ui/ui_energy_timeline_popup.c"
@@ -499,7 +504,7 @@ idf_component_register(
 
 # Hardware accelerators exist only on P4; S3 uses RGB and software JPEG.
 if(IDF_TARGET STREQUAL "esp32p4")
-    idf_component_optional_requires(PRIVATE esp_driver_ppa esp_driver_jpeg)
+    idf_component_optional_requires(PRIVATE esp_driver_ppa esp_driver_jpeg esp_eth ip101)
 endif()
 if(CONFIG_APP_PANEL_VARIANT_S3_480)
     idf_component_optional_requires(PRIVATE esp_driver_dma)

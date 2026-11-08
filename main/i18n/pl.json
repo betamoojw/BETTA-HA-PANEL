@@ -169,7 +169,49 @@
         "arm_vacation": "Uzbrój na urlop",
         "arm_custom_bypass": "Uzbrój z własnym obejściem"
       },
-      "ok": "OK"
+      "ok": "OK",
+      "zones": "Strefy",
+      "controls": "Sterowanie",
+      "history": "Historia",
+      "refresh": "Odśwież",
+      "hold": "Przytrzymaj 2 s",
+      "enter_code": "Wprowadź kod",
+      "no_code": "Kod niewymagany",
+      "text_code": "Kod tekstowy: użyj Home Assistant",
+      "btn": {
+        "disarm": "Rozbrój",
+        "away": "Uzbrój poza domem",
+        "home": "Uzbrój w domu",
+        "night": "Uzbrój na noc",
+        "vacation": "Urlop"
+      },
+      "msg": {
+        "sent": "Żądanie w kolejce",
+        "failed": "Błąd żądania",
+        "accepted": "Żądanie przyjęte",
+        "rejected": "Żądanie nieudane lub odrzucone",
+        "enter_code": "Najpierw wprowadź kod"
+      },
+      "log": {
+        "loading": "Wczytywanie…",
+        "failed": "Historia niedostępna",
+        "empty": "Brak zdarzeń",
+        "no_clock": "Oczekiwanie na czas"
+      },
+      "pressed": "Naciśnięto",
+      "zone": {
+        "detected": "Wykryto",
+        "ok": "OK",
+        "motion": "Ruch",
+        "clear": "Brak ruchu",
+        "open": "Otwarte",
+        "closed": "Zamknięte",
+        "active": "Aktywne",
+        "inactive": "Nieaktywne",
+        "not_ready": "Niegotowe"
+      },
+      "zones_active": "aktywne strefy",
+      "zones_ready": "Wszystkie strefy wolne"
     },
     "vacmode": {
       "vacuum": "Odkurzacz",
@@ -927,6 +969,10 @@
       "outdoor_enabled": "Porównuj z otoczeniem",
       "sources_hint": "Wilgotność jest wymagana. Pozostałe role przypisz jawnie. LZO są tylko wyświetlane; ocena urządzenia nie zmienia stanu BETTA. Dobierz temperaturę i wilgotność zewnętrzną jako parę.",
       "invalid_binding": "Nieprawidłowa encja dla {role}."
+    },
+    "network": {
+      "ethernet": "Ethernet",
+      "interface": "Połączenie"
     }
   }
 }

@@ -36,6 +36,7 @@
 #include "ui/ui_house_page.h"
 #include "ui/ui_notification_popup.h"
 #include "ui/ui_widget_factory.h"
+#include "ui/widgets/w_alarm_panel.h"
 #include "layout/evcc_slots.h"
 #include "ha/ha_evcc_sessions.h"
 #include "layout/widget_types.h"
@@ -161,6 +162,7 @@ static const sim_widget_type_t k_types[] = {
     {"datetime_tile", w_datetime_create, w_datetime_apply_state},
     {"lock_tile", w_lock_create, w_lock_apply_state},
     {"alarm_tile", w_alarm_create, w_alarm_apply_state},
+    {"alarm_panel", w_alarm_panel_create, w_alarm_panel_apply_state},
     {"energy_price_forecast", w_energy_price_forecast_create, w_energy_price_forecast_apply_state},
     {"parqet_portfolio", w_parqet_portfolio_create, w_parqet_portfolio_apply_state},
     {"stock_quotes", w_stock_quotes_create, w_stock_quotes_apply_state},
@@ -248,6 +250,7 @@ static void copy_field(char *out, size_t capacity, const cJSON *object, const ch
 static void parse_widget_def(const cJSON *json, ui_widget_def_t *def)
 {
     memset(def, 0, sizeof(*def));
+    def->alarm_config = json;
     copy_field(def->id, sizeof(def->id), json, "id");
     copy_field(def->type, sizeof(def->type), json, "type");
     copy_field(def->title, sizeof(def->title), json, "title");
@@ -458,6 +461,16 @@ static void init_instance(const ui_widget_def_t *def, ui_widget_instance_t *out)
 
 static bool widget_uses_entity(const ui_widget_def_t *def, const char *entity_id)
 {
+    if (!strcmp(def->type, "alarm_panel")) {
+        const char *keys[] = {"alarm_zones", "alarm_actions"};
+        for (unsigned k = 0; k < 2; ++k) {
+            const cJSON *row;
+            cJSON_ArrayForEach(row, cJSON_GetObjectItemCaseSensitive(def->alarm_config, keys[k])) {
+                const char *id = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(row, "entity_id"));
+                if (id && !strcmp(id, entity_id)) return true;
+            }
+        }
+    }
     const char *ids[] = {
         def->entity_id, def->secondary_entity_id, def->tertiary_entity_id,
         def->forecast_today_entity_id, def->forecast_tomorrow_entity_id,

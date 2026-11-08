@@ -147,7 +147,7 @@ function allowedEntityDomainsForWidgetType(
   if (type === "select_tile") return ["select", "input_select"];
   if (type === "datetime_tile") return ["input_datetime", "time", "date", "datetime"];
   if (type === "lock_tile") return ["lock"];
-  if (type === "alarm_tile") return ["alarm_control_panel"];
+  if (type === "alarm_tile" || type === "alarm_panel") return ["alarm_control_panel"];
   if (type === "binary_tile") return ["binary_sensor", "event"];
   if (type === "contact_tile") return ["binary_sensor"];
   if (type === "camera_tile") return ["camera", "image"];
@@ -172,6 +172,7 @@ function expectedDomainForWidgetType(
 }
 
 function secondaryEntityConfigForWidgetType(type) {
+  if (type === "alarm_panel") return {enabled:true,domain:"sensor",optional:true,labelKey:"alarm.panel.keypad",labelFallback:"Keypad text sensor (optional)",invalidStatusKey:"layout.status.secondary_sensor_required"};
   if (type === "weather_tile") {
     return {
       enabled: true,

@@ -21,6 +21,7 @@
   <link rel="stylesheet" href="/css/evcc-wallbox.css" />
   <link rel="stylesheet" href="/css/stock-quotes.css" />
   <link rel="stylesheet" href="/css/preview-roles.css" />
+  <link rel="stylesheet" href="/css/alarm-panel.css" />
   <link rel="stylesheet" href="/css/inspector.css" />
   <link rel="stylesheet" href="/css/remote-display.css" />
 </head>
@@ -181,6 +182,7 @@
               <button id="addEnergyTimelineBtn" type="button">+ Energy timeline</button>
               <button id="addDatetimeTileBtn" type="button">+ Date/Time</button>
               <button id="addLockTileBtn" type="button">+ Lock</button>
+              <button id="addAlarmPanelBtn" type="button" data-i18n="layout.widgets.add_alarm_panel">Alarm panel</button>
               <button id="addAlarmTileBtn" type="button">+ Alarm</button>
               <button id="addScriptTileBtn" type="button">+ Script</button>
               <button id="addDoorbellTileBtn" type="button">+ Event (doorbell, button)</button>
@@ -1954,6 +1956,7 @@
                       </select>
                     </label>
                   </div>
+                  <div id="alarmPanelOptions" hidden></div>
                   <div id="alarmOptions" class="slider-options hidden">
                     <span id="alarmActionsLabel" class="meta">Actions offered on tap</span>
                     <label class="row">
@@ -2155,6 +2158,7 @@
           <button class="btn small add-tile-type" type="button" data-add-target="addEnergyTimelineBtn">Energy timeline (24 h)</button>
           <button class="btn small add-tile-type" type="button" data-add-target="addDatetimeTileBtn">Date/Time</button>
           <button class="btn small add-tile-type" type="button" data-add-target="addLockTileBtn">Lock</button>
+          <button class="btn small add-tile-type" type="button" data-add-target="addAlarmPanelBtn" data-i18n="layout.widgets.add_alarm_panel">Alarm panel</button>
           <button class="btn small add-tile-type" type="button" data-add-target="addAlarmTileBtn">Alarm</button>
           <button class="btn small add-tile-type" type="button" data-add-target="addScriptTileBtn">Script</button>
           <button class="btn small add-tile-type" type="button" data-add-target="addDoorbellTileBtn">Event (doorbell, button)</button>
@@ -2255,6 +2259,7 @@
   <script src="/js/sensor-list.js"></script>
   <script src="/js/optional-entities.js"></script>
   <script src="/js/energy-timeline-colors.js"></script>
+  <script src="/js/alarm-panel.js"></script>
   <script src="/js/tile-previews.js"></script>
   <script src="/js/layout-history.js"></script>
   <script src="/js/widget-actions.js"></script>

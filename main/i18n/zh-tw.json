@@ -169,7 +169,49 @@
         "arm_vacation": "假期佈防",
         "arm_custom_bypass": "自定義旁路佈防"
       },
-      "ok": "確定"
+      "ok": "確定",
+      "zones": "防區",
+      "controls": "控制",
+      "history": "事件記錄",
+      "refresh": "重新整理",
+      "hold": "長按2秒",
+      "enter_code": "輸入密碼",
+      "no_code": "無需密碼",
+      "text_code": "需要文字密碼，請使用Home Assistant",
+      "btn": {
+        "disarm": "撤防",
+        "away": "外出佈防",
+        "home": "在家佈防",
+        "night": "夜間佈防",
+        "vacation": "假期佈防"
+      },
+      "msg": {
+        "sent": "請求已排程",
+        "failed": "請求失敗",
+        "accepted": "請求已接受",
+        "rejected": "請求失敗或遭拒",
+        "enter_code": "請先輸入密碼"
+      },
+      "log": {
+        "loading": "正在載入…",
+        "failed": "事件記錄無法使用",
+        "empty": "尚無事件",
+        "no_clock": "等待時間同步"
+      },
+      "pressed": "已按下",
+      "zone": {
+        "detected": "偵測到",
+        "ok": "正常",
+        "motion": "有人活動",
+        "clear": "無人活動",
+        "open": "開啟",
+        "closed": "關閉",
+        "active": "已觸發",
+        "inactive": "未觸發",
+        "not_ready": "尚未就緒"
+      },
+      "zones_active": "個防區已觸發",
+      "zones_ready": "所有防區正常"
     },
     "vacmode": {
       "vacuum": "吸塵",
@@ -927,6 +969,10 @@
       "outdoor_enabled": "啟用室外比較",
       "sources_hint": "濕度為必選項，請明確分配其他感測器。揮發性有機物僅顯示數值；裝置評分不改變 BETTA 狀態。室外溫度與濕度需成對選擇。",
       "invalid_binding": "{role} 的實體無效。"
+    },
+    "network": {
+      "ethernet": "乙太網",
+      "interface": "網路連線"
     }
   }
 }

@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include "esp_netif.h"
 #include "net/wifi_mgr.h"
+#include "net/net_mgr.h"
 
 static bool add_text(cJSON *object, const char *key, const char *value)
 {
@@ -32,10 +33,12 @@ cJSON *xiaozhi_mcp_network_info(void)
     /* The Wi-Fi manager serializes the only C6 RPC, with a bounded lock wait.
      * ESP-NETIF queries below read local interface state. Never scan, reconnect
      * or load saved credentials merely to answer a voice question. */
-    bool connected = wifi_mgr_is_connected();
+    bool connected = net_mgr_is_connected();
+    bool ethernet = net_mgr_uses_ethernet();
     wifi_mgr_sta_ap_info_t ap = {0};
-    bool have_ap = connected && wifi_mgr_get_sta_ap_info(&ap) == ESP_OK;
-    esp_netif_t *netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+    bool have_ap = connected && !ethernet && wifi_mgr_get_sta_ap_info(&ap) == ESP_OK;
+    esp_netif_t *netif = net_mgr_active_netif();
+    if (!netif) netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
     esp_netif_ip_info_t ip = {0};
     bool have_ip = connected && netif && esp_netif_get_ip_info(netif, &ip) == ESP_OK && ip.ip.addr;
     esp_netif_dns_info_t dns[2] = {0};
@@ -53,14 +56,14 @@ cJSON *xiaozhi_mcp_network_info(void)
 
     /* A disconnect during the RPC must not expose the previous lease/AP as
      * current. Station MAC and hostname remain meaningful while disconnected. */
-    connected = connected && wifi_mgr_is_connected();
+    connected = connected && netif == net_mgr_active_netif();
     have_ap = have_ap && connected;
     have_ip = have_ip && connected;
     if (have_ap) format_mac(ap.bssid, bssid);
     cJSON *result = cJSON_CreateObject();
     if (!result) return NULL;
     cJSON *servers = cJSON_AddArrayToObject(result, "dns_servers");
-    bool ok = servers && cJSON_AddStringToObject(result, "interface", "wifi") &&
+    bool ok = servers && cJSON_AddStringToObject(result, "interface", ethernet ? "ethernet" : "wifi") &&
         cJSON_AddBoolToObject(result, "connected", connected) &&
         cJSON_AddBoolToObject(result, "setup_ap_active", wifi_mgr_is_setup_ap_active()) &&
         add_text(result, "ssid", have_ap ? ap.ssid : NULL) &&

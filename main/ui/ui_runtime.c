@@ -32,6 +32,7 @@
 #include "ha/ha_quote.h"
 #include "layout/layout_store.h"
 #include "net/wifi_mgr.h"
+#include "net/net_mgr.h"
 #include "util/coredump_archive.h"
 #include "ui/ui_alert_center.h"
 #include "ui/alert_policy.h"
@@ -51,6 +52,7 @@
 #include "ui/ui_display_protection.h"
 #include "settings/screen_settings_service.h"
 #include "ui/ui_widget_factory.h"
+#include "ui/widgets/w_alarm_panel.h"
 #include "layout/evcc_slots.h"
 #include "layout/widget_types.h"
 #include "util/boot_guard.h"
@@ -585,7 +587,7 @@ static void ui_runtime_refresh_topbar(void)
     if (reports && coredump_archive_snapshot(reports, &count))
         for (unsigned i = 0; i < COREDUMP_STORE_LIMIT; i++) ui_alert_center_crash(i, i < count ? &reports[i] : NULL);
     uint64_t now_ms = esp_timer_get_time() / 1000;
-    unsigned failures = alert_policy_connections(now_ms, s_alert_wifi_expected, wifi_mgr_is_connected(),
+    unsigned failures = alert_policy_connections(now_ms, s_alert_wifi_expected, net_mgr_is_connected(),
         s_alert_ha_expected, ha_client_is_connected(), s_alert_mqtt_expected, mqtt_mgr_is_connected());
     if (failures & 1U)
         ui_alert_center_set(UI_ALERT_WIFI, ui_i18n_get("alerts.wifi", "Wi-Fi disconnected"),
@@ -605,7 +607,7 @@ static void ui_runtime_refresh_topbar(void)
     struct tm info = {0};
     localtime_r(&now, &info);
 
-    bool wifi_connected = wifi_mgr_is_connected();
+    bool wifi_connected = net_mgr_is_connected();
     bool wifi_setup_ap_active = wifi_mgr_is_setup_ap_active();
     bool ha_connected = ha_client_is_connected();
     bool ha_initial_sync_done = ha_client_is_initial_sync_done();
@@ -613,7 +615,9 @@ static void ui_runtime_refresh_topbar(void)
     bool datetime_changed = !s_topbar_cache.valid || info.tm_min != s_topbar_cache.minute ||
                             info.tm_hour != s_topbar_cache.hour || info.tm_mday != s_topbar_cache.day ||
                             info.tm_mon != s_topbar_cache.month || info.tm_year != s_topbar_cache.year;
-    bool status_changed = !s_topbar_cache.valid || wifi_connected != s_topbar_cache.wifi_connected ||
+    static bool last_ethernet;
+    bool ethernet = net_mgr_uses_ethernet();
+    bool status_changed = ethernet != last_ethernet || !s_topbar_cache.valid || wifi_connected != s_topbar_cache.wifi_connected ||
                           wifi_setup_ap_active != s_topbar_cache.wifi_setup_ap_active ||
                           ha_connected != s_topbar_cache.ha_connected ||
                           ha_initial_sync_done != s_topbar_cache.ha_initial_sync_done;
@@ -625,6 +629,7 @@ static void ui_runtime_refresh_topbar(void)
         ui_pages_set_topbar_status(wifi_connected, wifi_setup_ap_active, ha_connected, ha_initial_sync_done);
     }
 
+    last_ethernet = ethernet;
     s_topbar_cache.valid = true;
     s_topbar_cache.minute = info.tm_min;
     s_topbar_cache.hour = info.tm_hour;
@@ -685,10 +690,11 @@ static ui_widget_def_t *ui_runtime_def_scratch(void)
 /* Every entity a widget shows, once each, primary first: primary, secondary, tertiary, the extras
  * (room card list, car tile) and the forecast slots (solar forecast). One list for routing, the
  * initial state and the refresh, so a new entity slot is added in one place. */
-#define UI_RUNTIME_MAX_WIDGET_ENTITIES (3 + UI_WIDGET_EXTRA_ENTITIES + 7)
+#define UI_RUNTIME_MAX_WIDGET_ENTITIES 26
 
 static size_t ui_runtime_widget_entity_ids(const ui_widget_instance_t *w, const char **out, size_t max_out)
 {
+    if (!strcmp(w->type, "alarm_panel")) return w_alarm_panel_entity_ids(w, out, max_out);
     const char *candidates[UI_RUNTIME_MAX_WIDGET_ENTITIES] = {
         w->entity_id, w->secondary_entity_id, w->tertiary_entity_id,
     };
@@ -970,6 +976,7 @@ static bool ui_runtime_widget_from_json(cJSON *widget_json, ui_widget_def_t *out
     }
 
     memset(out, 0, sizeof(*out));
+    out->alarm_config = widget_json;
     cJSON *forecast_days = cJSON_GetObjectItemCaseSensitive(widget_json, "forecast_days");
     out->forecast_days = cJSON_IsNumber(forecast_days) ? forecast_days->valueint : -1;
     out->align_forecast = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(widget_json, "align_forecast"));

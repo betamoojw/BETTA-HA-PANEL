@@ -38,6 +38,8 @@
 #include "net/update_check.h"
 #include "net/auto_update_task.h"
 #include "net/wifi_mgr.h"
+#include "net/net_mgr.h"
+#include "net/eth_mgr.h"
 #include "drivers/ambient_camera.h"
 #include "drivers/display_orientation.h"
 #include "drivers/chime.h"
@@ -111,7 +113,7 @@ static void app_show_ha_setup_screen(void)
 {
     char sta_ip[16] = {0};
     char url_line[64] = {0};
-    if (wifi_mgr_get_sta_ip(sta_ip, sizeof(sta_ip)) == ESP_OK && sta_ip[0] != '\0') {
+    if (net_mgr_get_ip(sta_ip, sizeof(sta_ip)) == ESP_OK && sta_ip[0] != '\0') {
         snprintf(url_line, sizeof(url_line), "http://%s", sta_ip);
     } else {
         snprintf(url_line, sizeof(url_line), "http://<panel-ip>");
@@ -223,6 +225,9 @@ void app_main(void)
 
     bool has_wifi_credentials = false;
     bool wifi_ready = false;
+    /* Start the wired path before the radio so both can acquire a lease. */
+    (void)eth_mgr_init();
+    (void)eth_mgr_wait_for_ip(2500);
 
 #if SOC_WIFI_SUPPORTED || CONFIG_ESP_HOSTED
     has_wifi_credentials = runtime_settings_has_wifi(&s_runtime_settings);
@@ -232,7 +237,7 @@ void app_main(void)
             .password = s_runtime_settings.wifi_password,
             .country_code = s_runtime_settings.wifi_country_code,
             .bssid = s_runtime_settings.wifi_bssid,
-            .wait_for_ip = APP_WIFI_WAIT_FOR_IP,
+            .wait_for_ip = APP_WIFI_WAIT_FOR_IP && !eth_mgr_has_ip(),
             .connect_timeout_ms = APP_WIFI_CONNECT_TIMEOUT_MS,
             .max_retries = APP_WIFI_MAX_RETRIES,
         };
@@ -241,15 +246,21 @@ void app_main(void)
             ESP_LOGW(TAG_WIFI, "Wi-Fi init failed: %s", esp_err_to_name(wifi_err));
             ui_boot_splash_set_status(ui_i18n_get("boot.wifi_connect_failed", "Wi-Fi connect failed"));
         } else {
-            wifi_ready = true;
-            time_sync_start(s_runtime_settings.ntp_server);
-            time_sync_wait_for_sync(8000);
+            wifi_ready = net_mgr_is_connected();
+
             ui_boot_splash_set_status(ui_i18n_get("boot.wifi_connected", "Wi-Fi connected"));
         }
     } else {
         ESP_LOGW(TAG_WIFI, "No Wi-Fi credentials configured, starting setup AP");
     }
 
+    wifi_ready = net_mgr_is_connected();
+    /* Also retry SNTP when a late wired lease arrives after boot's bounded wait. */
+    time_sync_start(s_runtime_settings.ntp_server);
+    if (wifi_ready) {
+        time_sync_wait_for_sync(8000);
+        ui_boot_splash_set_status(eth_mgr_has_ip() ? ui_i18n_get("network.ethernet", "Ethernet") : ui_i18n_get("boot.wifi_connected", "Wi-Fi connected"));
+    }
     if (!wifi_ready) {
         wifi_mgr_ap_config_t ap_cfg = {
             .ssid = NULL,
@@ -373,6 +384,6 @@ void app_main(void)
     knx_init();
     xiaozhi_init();
     ota_validate_start();
-    net_watchdog_start(has_wifi_credentials, runtime_settings_has_ha(&s_runtime_settings));
+    net_watchdog_start(has_wifi_credentials || eth_mgr_is_active(), runtime_settings_has_ha(&s_runtime_settings));
     ui_watchdog_start();
 }

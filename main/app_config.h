@@ -11,6 +11,12 @@
  * Defaults fall back to the 4" 720x720 baseline so an older sdkconfig
  * (pre-variant) still builds the smart86 target unchanged. */
 #if defined(CONFIG_APP_PANEL_VARIANT_S3_480)
+/* Existing sdkconfig values override defaults. Reject the old IRAM profile
+ * that prevented allocation of the internal HTTP task on this board. */
+#  if (defined(CONFIG_ESP_WIFI_IRAM_OPT) && CONFIG_ESP_WIFI_IRAM_OPT) || \
+      (defined(CONFIG_ESP_WIFI_RX_IRAM_OPT) && CONFIG_ESP_WIFI_RX_IRAM_OPT)
+#    error "panels3 requires Wi-Fi IRAM optimizations disabled; regenerate build/panels3/sdkconfig from defaults (docs/development/build.md)"
+#  endif
 #  define APP_NAME               "betta-ha-panel-s3"
 #  define APP_BOARD_DESCRIPTION  "Guition ESP32-S3-4848S040"
 #  define APP_SCREEN_WIDTH       480

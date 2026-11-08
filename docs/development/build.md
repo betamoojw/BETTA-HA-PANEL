@@ -129,6 +129,16 @@ Activate ESP-IDF 6.1 with the ESP32-S3 tools installed, then build **only**
 `panels3`. Its independent defaults select `esp32s3`, 16 MB flash and Octal
 80 MHz PSRAM. Do not combine them with the P4 base defaults. No C6 image is needed.
 
+The S3 defaults disable `CONFIG_ESP_WIFI_IRAM_OPT` and
+`CONFIG_ESP_WIFI_RX_IRAM_OPT` to leave internal memory for HTTP startup while
+retaining its 14 KiB task stack. This trades Wi-Fi throughput for memory;
+see the [COM18 trial](panels3-startup-validation.md). An older generated
+sdkconfig can keep these options enabled despite changed defaults; the build
+rejects that configuration. Preserve its ELF and sdkconfig, then move the old
+`build/panels3` directory aside and build from defaults. Reapply only necessary
+local overrides after comparison. No `EXTRA_DEFAULTS` overlay is needed for
+this memory profile. Reconfiguring an old sdkconfig alone does not migrate it.
+
 ```bash
 scripts/build.sh panels3 build
 scripts/build.sh panels3 -p <port> flash monitor

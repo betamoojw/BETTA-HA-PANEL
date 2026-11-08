@@ -60,6 +60,7 @@ Layout fixes for cut-off or overlapping text and weak contrast on Air quality, C
 
 ### Panel and editor
 
+- **S3 web-server startup:** the `panels3` defaults disable two Wi-Fi IRAM speed optimizations to free internal memory for its unchanged 14 KiB HTTP task. Builds reject stale configs that retain either optimization. The [COM18 trial](development/panels3-startup-validation.md) passed startup, editor, page switching and clock-saver checks; Wi-Fi throughput and a fresh OTA rollback cycle remain unqualified.
 - **ESP-Hosted 3.1.0 and LVGL adapter 0.7.5:** a C6 on another firmware version is updated once after the first boot of this image, with one extra restart. The SDIO receive staging uses one slot instead of two, which leaves panel4 about 16 KB more internal memory; Panel JC and Tab5 are unchanged.
 - **Home Assistant states:** changed states are reconciled from the cache revisions instead of a periodic full replay, which reduces display lock contention.
 - **Camera:** an unavailable camera shows its unavailable state instead of the last picture.

@@ -296,3 +296,4 @@ This review made no device writes or firmware changes.
 - [ESPHome board configuration](https://devices.esphome.io/devices/guition-esp32-s3-4848s040/)
 
 See [Device notes](device-notes.md#panels3) for wiring and driver details.
+The [COM18 startup validation](../development/panels3-startup-validation.md) records the 2026-11-08 application-only update.

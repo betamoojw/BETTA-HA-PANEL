@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: LicenseRef-FNCL-1.1
 # Copyright (c) 2026 Cpt_Kirk
+# Modified 2026 by andre68723 in the andre68723/BETTA-HA-PANEL fork
 # Core behavior defaults for development
 CONFIG_LOG_DEFAULT_LEVEL_INFO=y
 # Wall-clock time (HH:MM:SS.sss) instead of milliseconds-since-boot: the device has real time from
@@ -38,6 +39,11 @@ CONFIG_ESP_WIFI_SOFTAP_SUPPORT=y
 CONFIG_ESP_WIFI_STATIC_RX_BUFFER_NUM=8
 CONFIG_ESP_WIFI_DYNAMIC_RX_BUFFER_NUM=16
 CONFIG_ESP_WIFI_DYNAMIC_TX_BUFFER_NUM=16
+# Keep internal RAM available for the 14 KiB HTTP task. The COM18 trial reclaimed
+# 18 KiB with these options off; Wi-Fi throughput is traded for memory headroom.
+# See docs/development/panels3-startup-validation.md.
+# CONFIG_ESP_WIFI_IRAM_OPT is not set
+# CONFIG_ESP_WIFI_RX_IRAM_OPT is not set
 CONFIG_LWIP_MAX_SOCKETS=32
 CONFIG_LWIP_TCP_MSS=1200
 CONFIG_LWIP_TCP_SND_BUF_DEFAULT=8192

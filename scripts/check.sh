@@ -109,7 +109,7 @@ checks() {
   if in_group web; then
     REQUIRE=node step 'editor JavaScript syntax' 'components/webui/www/js' bash -c 'for f in components/webui/www/js/*.js; do node --check "$f" || exit 1; done'
     REQUIRE=node step 'editor unit tests' 'components/webui tests/webui main tools/editor_local CMakeLists.txt docs/widgets' bash -c 'node --test tests/webui/*.test.mjs'
-    step 'tooling tests' 'tools scripts tests/tools components/webui tests/simulator main/layout' python3 -m unittest discover -s tests/tools -p 'test_*.py'
+    step 'tooling tests' 'tools scripts tests/tools components/webui tests/simulator main/layout main/app_config.h config/sdkconfig.defaults.panels3' python3 -m unittest discover -s tests/tools -p 'test_*.py'
     SKIP_RC=2 SKIP_WHY='fontTools not installed' step 'font subsets' 'tools/generate_widget_fonts.py main/ui/fonts components/webui/www/styles.css' python3 tools/generate_widget_fonts.py --check
     step 'translation catalog assets' 'tools/generate_i18n.py main/i18n components/webui/i18n components/webui/www/js' python3 tools/generate_i18n.py --check
     step 'time zone catalog' 'tools/generate_timezones.py main/settings components/webui/www/js/timezones.js' python3 tools/generate_timezones.py --check

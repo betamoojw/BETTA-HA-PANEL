@@ -101,6 +101,7 @@ nav = [
       { "S3 discovery follow-up validation" = "development/panels3-entity-discovery-followup-validation.md" },
       { "S3 HTTP memory budget" = "development/panels3-http-budget.md" },
       { "S3 HTTP budget validation" = "development/panels3-http-budget-validation.md" },
+      { "S3 ce2ffa7 validation" = "development/panels3-ce2ffa7-validation.md" },
       { "Native settings validation" = "development/native-settings-validation.md" },
       { "AI Assistant spectrum baseline" = "development/assistant-spectrum-baseline.md" },
       { "AI Assistant acceptance baseline" = "development/assistant-acceptance.md" },

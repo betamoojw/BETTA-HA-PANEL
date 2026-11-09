@@ -230,6 +230,12 @@ byte. HA state remains 17,200 bytes; no stack was added. The image/source archiv
 is `.local/firmware/panels3-entity-review-cef3fce-dirty-2026-11-08/`; review logs
 are `.local/validation/panels3-entity-review-2026-11-08/`. No device request,
 serial open, flash, reset or configuration write was made during this review.
-The final recorded Asia/Tokyo timezone, 22:00 night start, flip saver and 12-hour
-format remain the preservation baseline. The new edge-case fixes have local
-test/build evidence only; all hardware limits in the COM18 record still apply.
+That review's preservation baseline was Asia/Tokyo, 22:00 night start, flip saver
+and 12-hour format. At that point the new edge-case fixes had local test/build
+evidence only; the COM18 record's hardware limits still applied.
+
+The later [ce2ffa7 device validation](panels3-ce2ffa7-validation.md) rebuilt the
+committed fixes, flashed only COM18's application and recorded eight successful
+queries, measured memory release and owner-confirmed flip-saver operation.
+It records the owner's later America/New_York and Simplified Chinese choices
+and separately lists the failure paths that were not induced on hardware.

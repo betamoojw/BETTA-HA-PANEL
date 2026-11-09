@@ -206,3 +206,7 @@ revalidated this evidence offline and corrected request-header error handling,
 post-I/O deadline checks and parse-boundary memory sampling. Those fixes were
 tested and built locally without accessing the panel. They are absent from the
 21:21:39 image above; this trial must not be presented as their hardware test.
+
+The [ce2ffa7 validation](panels3-ce2ffa7-validation.md) records a later, separate
+COM18 installation of the committed review fixes and its bounded query,
+memory, data-preservation and flip-saver checks.

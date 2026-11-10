@@ -19,6 +19,8 @@ dependencies:
       - if: "target in [esp32p4]"
   # Preserve the existing panel10 dependency versions when adding the camera
   # causes the component manager to resolve transitive dependencies again.
+  espressif/esp_sccb_intf:
+    version: "0.0.9"
   espressif/button:
     version: "4.2.2"
   espressif/libpng:

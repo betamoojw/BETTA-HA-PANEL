@@ -37,6 +37,9 @@ After a version change update the `esp_cam_sensor`, `esp_video`, `esp_ipa` and `
 files, rebuild the affected camera variants and check each camera on its panel (`POST /api/camera/test`, the
 `ambient_cam: luma ...` log line). Tab5 awaits its first device test.
 
+Panel10 also pins `esp_sccb_intf` to 0.0.9 so resolving the vendored camera's
+open dependency range does not silently upgrade its SCCB interface driver.
+
 Versions stop at `esp_video` 2.3.0, `esp_ipa` 2.2.0~1 and `esp_cam_sensor` 2.3.0 on purpose: the prebuilt `libesp_ipa.a`
 of esp_ipa 2.3.0+ contains RISC-V Zba/Zbb instructions (`sh2add`, ...; `objdump` counts 0 up to 2.2.0, 163 in 2.3.0, 193
 in 2.4.0) that P4 rev v1.x silicon does not execute. A trial with esp_video 2.5.0 crashed the camera task with an illegal

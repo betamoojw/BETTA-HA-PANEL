@@ -68,6 +68,15 @@ else
 fi
 out="$(mktemp -d)"
 trap 'rm -rf "$out"' EXIT
+cc -std=gnu11 -D_POSIX_C_SOURCE=200809L -Wall -Wextra -Werror -I main -I tests/host/stubs "${variant_flags[@]}" "${cjson_flags[@]}" \
+  tests/host/test_layout_capacity.c main/ui/nav_layout.c main/ui/display_geometry.c \
+  main/layout/layout_validate.c main/layout/layout_orientation.c main/layout/widget_types.c \
+  main/layout/alarm_panel_config.c main/layout/room_air_slots.c main/layout/bambu_printer_slots.c main/layout/evcc_slots.c \
+  main/util/entity_id.c main/util/room_extra.c main/util/chime_synth.c main/ha/ha_alarm_state.c main/ha/ha_sensor_value.c \
+  main/ui/widgets/room_air_model.c main/ha/ha_timestamp_format.c \
+  main/ha/ha_datetime_value.c main/util/iso_time.c \
+  "${cjson_sources[@]}" "${cjson_libs[@]}" -lm -o "$out/test_layout_capacity"
+"$out/test_layout_capacity"
 cc -std=c11 -Wall -Wextra -Werror -I main "${cjson_flags[@]}" \
   tests/host/test_camera_config.c main/camera/camera_config.c main/camera/camera_motion.c main/camera/camera_image.c \
   "${cjson_sources[@]}" "${cjson_libs[@]}" -lm -o "$out/test_camera_config"

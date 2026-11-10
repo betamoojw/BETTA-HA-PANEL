@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-FNCL-1.1
 # Copyright (c) 2026 andre68723 -- file added in the andre68723/BETTA-HA-PANEL fork, see docs/release-notes.md
 """Exercise local saves/restart and device isolation through the actual HTTP API."""
+import io
 import json
 from pathlib import Path
 import sys
@@ -16,6 +17,64 @@ from editor_local import build_server, demo_responses
 import editor_local
 from editor_local_demo import all_widgets_fixture
 import re
+
+
+class LocalCapacityHandlerTest(unittest.TestCase):
+    """Exercise real handlers without requiring a listening network socket."""
+
+    def handler(self, variant, directory):
+        fixture = {'version': 1, 'pages': [], 'states': [
+            {'entity_id': 'sensor.demo_quote', 'state': '100', 'platform': 'easy_stock',
+             'attributes': {'symbol': 'DEMO', 'friendly_name': 'Demo quote'}}]}
+        with patch.object(editor_local, 'demo_fixture', return_value=(fixture, {})), \
+                patch.object(editor_local, 'DemoHTTPServer') as server:
+            instance = build_server(variant=variant, state_path=Path(directory) / f'{variant}.json')
+            handler_type = server.call_args.args[1].func
+            handler = handler_type.__new__(handler_type)
+            handler.server = instance
+            handler.reply = lambda value, status=200: (status, json.loads(json.dumps(value)))
+            return handler
+
+    def request(self, handler, path, method='GET', body=None):
+        raw = json.dumps(body).encode() if body is not None else b''
+        handler.path, handler.command = path, method
+        handler.headers = {'Content-Length': str(len(raw))}
+        handler.rfile = io.BytesIO(raw)
+        return handler.do_GET() if method == 'GET' else handler.mutation()
+
+    def test_capacity_metadata_and_atomic_total_limit_on_all_variants(self):
+        with tempfile.TemporaryDirectory() as directory:
+            for variant, page_limit, widget_limit in [('panel4', 8, 224), ('panel10', 12, 224),
+                    ('paneljc', 12, 224), ('paneljc-v2', 12, 224), ('tab5', 12, 224), ('panels3', 5, 160)]:
+                with self.subTest(variant=variant):
+                    handler = self.handler(variant, directory)
+                    status, limits = self.request(handler, '/api/layout?limits=1')
+                    self.assertEqual(status, 200)
+                    self.assertEqual(limits['max_pages'], page_limit)
+                    self.assertEqual(limits['max_widgets_per_page'], 32)
+                    self.assertEqual(limits['max_widgets_total'], widget_limit)
+                    self.assertNotIn('pages', limits)
+                    original = self.request(handler, '/api/layout')[1]
+                    pages = [{'id': f'p{p}', 'visible': False, 'widgets': [
+                        {'id': f'w{p}_{w}'} for w in range(32)]} for p in range(widget_limit // 32)]
+                    pages.append({'id': 'overflow', 'widgets': [{'id': 'overflow'}]})
+                    layout = {'version': 1, 'pages': pages}
+                    self.assertEqual(self.request(handler, '/api/layout', 'PUT', layout)[0], 400)
+                    self.assertEqual(self.request(handler, '/api/layout')[1], original)
+                    pages.pop()
+                    self.assertEqual(self.request(handler, '/api/layout', 'PUT', layout)[0], 200)
+                    self.assertEqual(self.request(handler, '/api/layout')[1], layout)
+                    stored = json.loads((Path(directory) / f'{variant}.json').read_text())
+                    self.assertEqual(stored['/api/layout'], layout)
+
+    def test_layout_limit_does_not_interfere_with_knx_configuration(self):
+        with tempfile.TemporaryDirectory() as directory:
+            handler = self.handler('panel10', directory)
+            original = self.request(handler, '/api/layout')[1]
+            config = {'media_type': 'knx_ip', 'comObjects': []}
+            self.assertEqual(self.request(handler, '/api/knx/config', 'PUT', config)[0], 200)
+            self.assertEqual(self.request(handler, '/api/knx/config')[1], config)
+            self.assertEqual(self.request(handler, '/api/layout')[1], original)
 
 
 class LocalEditorTest(unittest.TestCase):
@@ -74,6 +133,23 @@ class LocalEditorTest(unittest.TestCase):
         self.start()
         self.assertEqual(json.loads(self.request('/api/layout')[1]), layout)
         self.assertEqual(self.request('/__local__/entity-fields.js')[0], 200)
+
+    def test_capacity_endpoint_and_total_widget_save_limit(self):
+        status, raw = self.request('/api/layout?limits=1')
+        self.assertEqual(status, 200)
+        limits = json.loads(raw)
+        self.assertEqual(limits['max_pages'], 12)
+        self.assertEqual(limits['max_widgets_per_page'], 32)
+        self.assertEqual(limits['max_widgets_total'], 224)
+        self.assertNotIn('pages', limits)
+        original = self.request('/api/layout')[1]
+        pages = [{'id': f'p{p}', 'widgets': [{'id': f'w{p}_{w}'} for w in range(32)]} for p in range(7)]
+        pages.append({'id': 'p7', 'widgets': [{'id': 'overflow'}]})
+        status, _ = self.request('/api/layout', 'PUT', {'version': 1, 'pages': pages}, self.base)
+        self.assertEqual(status, 400)
+        self.assertEqual(self.request('/api/layout')[1], original)
+        pages[-1]['widgets'] = []
+        self.assertEqual(self.request('/api/layout', 'PUT', {'version': 1, 'pages': pages}, self.base)[0], 200)
 
     def test_brightness_preview_is_temporary_and_updates_do_not_extend_it(self):
         original = json.loads(self.request('/api/settings')[1])

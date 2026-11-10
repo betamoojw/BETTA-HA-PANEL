@@ -3,6 +3,7 @@
  * Modified 2026 by andre68723 in the andre68723/BETTA-HA-PANEL fork, see docs/release-notes.md
  */
 #include "api/api_routes.h"
+#include "api/api_layout.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -16,6 +17,7 @@
 #include "layout/layout_store.h"
 #include "layout/layout_validate.h"
 #include "layout/layout_orientation.h"
+#include "layout/layout_limits.h"
 #include "layout/widget_types.h"
 #include "ui/display_geometry.h"
 #include "util/log_tags.h"
@@ -26,8 +28,34 @@ static void set_json_headers(httpd_req_t *req)
     httpd_resp_set_hdr(req, "Cache-Control", "no-store");
 }
 
+void api_layout_add_limits(cJSON *root)
+{
+    const int width = APP_VIEW_WIDTH;
+    cJSON_AddNumberToObject(root, "screen_w", width);
+    cJSON_AddNumberToObject(root, "screen_h", width == APP_SCREEN_WIDTH ? APP_SCREEN_HEIGHT : APP_SCREEN_WIDTH);
+    cJSON_AddNumberToObject(root, "max_pages", layout_max_pages_for_width(width));
+    cJSON_AddNumberToObject(root, "max_pages_capacity", APP_MAX_PAGES);
+    cJSON_AddNumberToObject(root, "max_widgets_per_page", APP_MAX_WIDGETS_PER_PAGE);
+    cJSON_AddNumberToObject(root, "max_widgets_total", layout_max_widgets_for_width(width));
+    cJSON_AddNumberToObject(root, "full_nav_pages", nav_layout_full_pages(width, 90));
+}
+
 esp_err_t api_layout_get_handler(httpd_req_t *req)
 {
+    char query[32], limits[4];
+    if (httpd_req_get_url_query_str(req, query, sizeof(query)) == ESP_OK &&
+        httpd_query_key_value(query, "limits", limits, sizeof(limits)) == ESP_OK && !strcmp(limits, "1")) {
+        cJSON *root = cJSON_CreateObject();
+        if (!root) return httpd_resp_send_500(req);
+        api_layout_add_limits(root);
+        char *payload = cJSON_PrintUnformatted(root);
+        cJSON_Delete(root);
+        if (!payload) return httpd_resp_send_500(req);
+        set_json_headers(req);
+        esp_err_t err = httpd_resp_sendstr(req, payload);
+        cJSON_free(payload);
+        return err;
+    }
     char *json = NULL;
     esp_err_t err = layout_store_load(&json);
     if (err != ESP_OK && err != ESP_ERR_NOT_FOUND) return httpd_resp_send_500(req);
@@ -117,6 +145,11 @@ esp_err_t api_layout_put_handler(httpd_req_t *req)
     if (!edited || !layout_orientation_canonicalize(edited)) {
         cJSON_Delete(edited); free(buf);
         return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid orientation layout");
+    }
+    if (cJSON_GetArraySize(cJSON_GetObjectItemCaseSensitive(edited, "pages")) > layout_max_pages_for_width(APP_VIEW_WIDTH)) {
+        cJSON_Delete(edited); free(buf);
+        return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST,
+            "Too many pages for the current display width. Reduce pages or rotate back before saving.");
     }
     free(buf);
     buf = cJSON_PrintUnformatted(edited);

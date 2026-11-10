@@ -100,14 +100,21 @@ The clock adds no saved page or bottom tab; the top bar and editor remain availa
 New installations start with an empty layout. Existing pages default to
 visible. Hidden pages still count toward the saved page and widget limits.
 
-| | 4-inch panel | 10-inch and Tab5 (1280 px wide) |
-| --- | --- | --- |
-| Pages | up to **8** | up to **12** |
-| Tabs with icon and title | up to 5 pages | up to 10 pages |
+| Current logical width | Examples | Pages | Widgets per page | Widgets total |
+| --- | --- | --- | --- | --- |
+| 480 px | Guition S3, any rotation | 5 | 32 | 160 |
+| 720 px | Waveshare 4-inch; Tab5 portrait | 8 | 32 | 224 |
+| 800 px | Waveshare/Guition 10-inch portrait | 8 | 32 | 224 |
+| 1280 px | Tab5 and 10-inch landscape | 12 | 32 | 224 |
+
+These limits follow the current logical width, not the browser window. Rotation retains existing pages.
+A layout above the narrower limit uses scrollable navigation; the editor shows the excess and requires
+fewer pages or the wider orientation before saving. The capacity strip counts all saved and unsaved
+pages, including hidden pages. Full icon-and-title tabs fit up to five pages at 720 px and ten at 1280 px.
 
 Beyond that the bottom bar turns compact: the shown page keeps its title, the others show an icon or a number.
 Give every page its own **navigation icon** so compact tabs stay recognisable; the editor warns when a page
-has no icon or shares one. A dashboard holds up to **224 widgets** in total.
+has no icon or shares one. A dashboard holds up to **224 widgets** in total (**160** on S3).
 
 !!! info "Tab5 rotation"
 

@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: LicenseRef-FNCL-1.1
  * Copyright (c) 2026 andre68723 -- see docs/release-notes.md
  */
-function validateLayoutStructure(layout) {
+function validateLayoutStructure(layout, { stored = false } = {}) {
   if (!layout || !Array.isArray(layout.pages)) throw new Error(t("layout.status.invalid_json"));
-  if (layout.pages.length > maxPages()) throw new Error(t("layout.status.max_pages", { max: maxPages() }));
+  const pageLimit = stored ? (editor.appMaxPagesCapacity || pageLimitForWidth(Math.max(editor.appScreenW || CANVAS_WIDTH, editor.appScreenH || 0))) : maxPages();
+  if (layout.pages.length > pageLimit) throw new Error(t("layout.status.max_pages", { max: pageLimit }));
   const pages = new Set(), widgets = new Set();
   const validId = (id) => typeof id === "string" && id.length > 0 && !id.includes("\0") && layoutJsonBytes(id) < 32;
   for (const page of layout.pages) {
@@ -16,7 +17,7 @@ function validateLayoutStructure(layout) {
     }
     if (page.widgets === undefined) page.widgets = [];
     if (!Array.isArray(page.widgets)) throw new Error(t("layout.status.invalid_json"));
-    if (page.widgets.length > MAX_WIDGETS_PER_PAGE) throw new Error(t("layout.status.max_widgets_page", { max: MAX_WIDGETS_PER_PAGE }));
+    if (page.widgets.length > maxWidgetsPerPage()) throw new Error(t("layout.status.max_widgets_page", { max: maxWidgetsPerPage() }));
     for (const widget of page.widgets) {
       if (!widget || !validId(widget.id) || widgets.has(widget.id) || typeof widget.type !== "string") {
         throw new Error(t("layout.status.invalid_ids"));
@@ -24,7 +25,7 @@ function validateLayoutStructure(layout) {
       widgets.add(widget.id);
     }
   }
-  const totalLimit = Math.min(224, maxPages() * MAX_WIDGETS_PER_PAGE);
+  const totalLimit = stored ? Math.min(224, pageLimit * maxWidgetsPerPage()) : maxWidgetsTotal();
   if (widgets.size > totalLimit) throw new Error(t("layout.status.max_widgets_total", { max: totalLimit }));
 }
 
@@ -47,6 +48,7 @@ function layoutStoredBytes(layout) {
 }
 
 function transferWidget(sourcePageId, widgetId, targetPageId, mode) {
+  if (layoutOrientationStale()) throw new Error(t("layout.capacity.rotated"));
   if (!["copy", "move"].includes(mode)) throw new Error(t("layout.transfer.invalid_target"));
   const source = editor.layout?.pages?.find((page) => page.id === sourcePageId);
   const target = editor.layout?.pages?.find((page) => page.id === targetPageId);

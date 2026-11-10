@@ -2185,5 +2185,12 @@ WEB_I18N_BUILTIN["zh-tw"] = {
   "entity_picker.reason_request": "Home Assistant 尚未傳回實體清單。",
   "entity_picker.waiting_reason": "{reason}正在等待重試…",
   "entity_picker.timeout": "實體搜尋逾時。{reason}請選擇「重試」。",
-  "entity_picker.failed": "實體搜尋已停止。{reason}請選擇「重試」。"
+  "entity_picker.failed": "實體搜尋已停止。{reason}請選擇「重試」。",
+  "layout.capacity.pages": "頁面：剩餘 {remaining}（已用 {used}/{max}）",
+  "layout.capacity.page": "目前頁面：可新增 {remaining} 個元件（已用 {used}/{max}）",
+  "layout.capacity.total": "全部元件：剩餘 {remaining}（已用 {used}/{max}）",
+  "layout.capacity.fixed": "目前頁面：無可編輯元件",
+  "layout.capacity.rotated": "螢幕方向已變更，請重新載入佈局後再編輯或儲存。",
+  "layout.capacity.exceeded": "目前超出頁面上限 {count} 頁。請減少頁面或切回原方向後儲存。",
+  "layout.capacity.help": "隱藏頁面也計入容量。目前頁面可新增數量同時受元件總數限制。房間概覽卡片和能源節點分開計算；JSON 大小及頁面空間可能更早達到限制。"
 };

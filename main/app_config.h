@@ -119,7 +119,8 @@
 #define APP_SETUP_AP_CHANNEL 1
 #define APP_SETUP_AP_MAX_CONNECTIONS 4
 
-/* Page limit: a tab for every page must stay hit-able and readable. Up to a few pages the tabs show icon and title; beyond that
+/* Static storage capacity; layout/layout_limits.h applies the same tiers to the current logical width for editing.
+ * A tab for every page must stay hit-able and readable. Up to a few pages the tabs show icon and title; beyond that
  * the bar turns compact (ui/nav_layout.c): the shown page keeps its title, the others show an icon or a number. 8 tabs fit the
  * 720 px bar at 64 px each, 12 the 1280 px bar comfortably; the limit is nav_layout_max_pages() (host-tested), not memory. */
 #if APP_SCREEN_WIDTH >= 1000

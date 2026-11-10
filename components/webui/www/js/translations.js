@@ -146,6 +146,7 @@ function applyWebTranslations() {
   setTextById("pagesHeading", "layout.pages.heading");
   setTextById("addPageBtn", "layout.pages.add");
   setTextById("addEnergyPageBtn", "layout.pages.add_energy");
+  renderLayoutCapacity();
   setTextById("deletePageBtn", "layout.pages.delete");
   setPlaceholderById("pageTitleInput", "layout.pages.title_placeholder");
   setTextById("applyPageBtn", "layout.pages.apply_title");

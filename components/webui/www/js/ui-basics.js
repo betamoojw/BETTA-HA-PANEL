@@ -399,6 +399,7 @@ async function loadAppVersion() {
     editor.appScreenH = Number(payload?.screen_h) || 0;
     editor.appMaxPages = Number(payload?.max_pages) || 0;
     editor.appFullNavPages = Number(payload?.full_nav_pages) || 0;
+    applyLayoutLimits(payload);
     editor.appBoard = typeof payload?.board === "string" ? payload.board : "";
     editor.appText = payload?.text && Array.isArray(payload.text.roles) && Array.isArray(payload.text.sizes) ? payload.text : null;
     updateTextStepInfo();

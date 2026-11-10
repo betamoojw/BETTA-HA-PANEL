@@ -2181,5 +2181,12 @@
   "entity_picker.reason_request": "Home Assistant aún no ha devuelto la lista de entidades.",
   "entity_picker.waiting_reason": "{reason} Esperando para reintentar...",
   "entity_picker.timeout": "La búsqueda de entidades agotó el tiempo de espera. {reason} Selecciona Reintentar.",
-  "entity_picker.failed": "La búsqueda de entidades se detuvo. {reason} Selecciona Reintentar."
+  "entity_picker.failed": "La búsqueda de entidades se detuvo. {reason} Selecciona Reintentar.",
+  "layout.capacity.pages": "Páginas: quedan {remaining} ({used}/{max})",
+  "layout.capacity.page": "Esta página: quedan {remaining} widgets ({used}/{max})",
+  "layout.capacity.total": "Widgets totales: quedan {remaining} ({used}/{max})",
+  "layout.capacity.fixed": "Esta página: sin widgets editables",
+  "layout.capacity.rotated": "La pantalla ha girado. Recarga el diseño antes de editarlo o guardarlo.",
+  "layout.capacity.exceeded": "Se supera el límite actual en {count} páginas. Elimina páginas o vuelve a la orientación anterior antes de guardar.",
+  "layout.capacity.help": "Las páginas ocultas cuentan. El límite total de widgets también se aplica a esta página. Las tarjetas de habitaciones y los nodos de energía se cuentan aparte; el tamaño JSON y el espacio pueden limitar antes."
 }

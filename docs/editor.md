@@ -53,6 +53,17 @@ Use **Navigation → Visible on panel** to hide or restore the selected page, th
 You can also delete the last page and save an empty layout. The panel then shows
 its default flip clock. Use hiding when you want to retain page content and graph history.
 
+The capacity strip above the header shows remaining pages, widgets that can be added to the selected page,
+and widgets remaining across the whole layout, each with used/maximum counts. It includes unsaved edits
+and hidden pages, and updates after add, delete, copy, move, import, Undo and Redo. Fixed Energy and Room
+overview pages have no editable widgets; their generated nodes/cards are separate. The current-page
+allowance also respects the total widget budget. JSON size and available canvas space remain separate limits.
+
+The page budget follows the panel’s current logical width, including rotation; the editor checks it every
+10 seconds while visible and before loading or saving. A changed orientation requires Reload. If an existing
+layout exceeds the narrower page budget, all pages stay visible in the editor with zero remaining and an
+excess warning; reduce the page count or rotate back before saving. Nothing is deleted automatically.
+
 The header groups the page title, status and **Text size** on the left. Undo, Redo, Reload and Save are icon buttons on the
 right, beside the JSON menu and the dark/light toggle. Hover an icon to read its action; JSON offers Export and
 Import JSON, from a file or pasted text. The info button beside Text size shows the panel's current font sizes. With **Panel follows** (off by default, remembered by

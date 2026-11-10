@@ -131,10 +131,9 @@ const LIGHT_ENTITY_PICKER_MAX_TOTAL_POLLS = 270;
 const LIGHT_ENTITY_PICKER_STALL_MS = 45000;
 const LIGHT_ENTITY_PICKER_TIMEOUT_MS = 180000;
 const ENTITY_PICKER_SEARCH_DEBOUNCE_MS = 350;
-// Page limit of the connected panel (APP_MAX_PAGES in main/app_config.h): 12 on the 10", 8 on the 4"; /api/version's
-// max_pages replaces the guess once it is loaded.
+// Current logical width, capped by firmware policy (including older firmware's static max_pages).
 function maxPages() {
-  return editor.appMaxPages > 0 ? editor.appMaxPages : (CANVAS_WIDTH >= 1000 ? 12 : CANVAS_WIDTH >= 700 ? 8 : 5);
+  return Math.min(editor.appMaxPages || 12, pageLimitForWidth(editor.appScreenW || CANVAS_WIDTH));
 }
 // Pages with icon and title tabs (nav_layout_full_pages in firmware); beyond it the bottom bar shows icons.
 function fullNavPages() {

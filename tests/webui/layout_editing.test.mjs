@@ -58,6 +58,8 @@ function setup() {
       'renderPages', 'renderPageEditor', 'renderWidgets', 'renderInspector', 'renderCanvas',
       'updateCanvasScale', 'refreshInspectorLayout']) globalThis[name] = () => {};
     bindUi();
+    // Capacity endpoint/polling has its own suite; keep reload-response ordering isolated here.
+    refreshLayoutLimits = async () => {};
     editor.activePane = 'layout';
     editor.layout = { version: 1, pages: [
       { id: 'one', title: 'First', widgets: [{ id: 'energy', type: 'energy_timeline', title: 'Energy',

@@ -798,6 +798,9 @@ async function startEditor() {
   window.setTimeout(loadHaDiagnostics, 8000);
   window.setTimeout(loadHaDiagnostics, 15000);
   window.setInterval(refreshStates, 5000);
+  window.setInterval(() => {
+    if (!document.hidden && editor.activePane === "layout") void refreshLayoutLimits();
+  }, 10000);
   window.setInterval(loadEnergyPreview, 15000);
   window.setInterval(loadHaDiagnostics, 30000);
 }

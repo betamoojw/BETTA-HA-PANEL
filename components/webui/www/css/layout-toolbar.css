@@ -1,5 +1,24 @@
 /* SPDX-License-Identifier: LicenseRef-FNCL-1.1 | Copyright (c) 2026 andre68723 */
 /* Layout title, status and text size share the header; actions stay at the right. */
+.layout-capacity {
+  --capacity-warning: #ff8991;
+  flex-basis: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 20px;
+  padding: 8px 0 10px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.layout-capacity .capacity-full { font-weight: 700; }
+/* Small warning text needs more contrast than the shared danger button fill. */
+:root[data-theme="light"] .layout-capacity { --capacity-warning: #b32635; }
+.layout-capacity .capacity-over { color: var(--capacity-warning); font-weight: 700; }
+#layoutCapacityHint { flex-basis: 100%; }
 .workspace-top {
   flex-wrap: wrap;
   justify-content: flex-start;

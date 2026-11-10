@@ -2185,5 +2185,12 @@ WEB_I18N_BUILTIN["fr"] = {
   "entity_picker.reason_request": "Home Assistant n’a pas encore renvoyé la liste des entités.",
   "entity_picker.waiting_reason": "{reason} En attente d’un nouvel essai...",
   "entity_picker.timeout": "La recherche d’entités a dépassé le délai. {reason} Sélectionnez Réessayer.",
-  "entity_picker.failed": "La recherche d’entités s’est arrêtée. {reason} Sélectionnez Réessayer."
+  "entity_picker.failed": "La recherche d’entités s’est arrêtée. {reason} Sélectionnez Réessayer.",
+  "layout.capacity.pages": "Pages : {remaining} restantes ({used}/{max})",
+  "layout.capacity.page": "Cette page : {remaining} widgets restants ({used}/{max})",
+  "layout.capacity.total": "Tous les widgets : {remaining} restants ({used}/{max})",
+  "layout.capacity.fixed": "Cette page : aucun widget modifiable",
+  "layout.capacity.rotated": "Écran pivoté. Rechargez la disposition avant de la modifier ou de l’enregistrer.",
+  "layout.capacity.exceeded": "{count} pages au-delà de la limite actuelle. Retirez des pages ou rétablissez l’orientation avant d’enregistrer.",
+  "layout.capacity.help": "Les pages masquées comptent. Le nombre total de widgets limite aussi cette page. Les cartes des pièces et les nœuds d’énergie sont comptés séparément ; la taille JSON et l’espace peuvent limiter plus tôt."
 };

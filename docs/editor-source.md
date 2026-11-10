@@ -34,6 +34,7 @@ www/js/i18n-{es,fr,pl,zh-*}.js generated additional catalogs (sources in compone
 www/js/state.js       size limits, the `editor` state object, the DOM element map `el`
 www/js/util.js        normalizers, layout normalization, status line, `t()`, storage
 www/js/ui-basics.js   style cards, firmware info, HA diagnostics, canvas geometry
+www/js/layout-capacity.js current-width budgets, capacity strip and lightweight rotation polling
 www/js/inspector-hints.js Inspector info icons and help popups; settings sentence summaries
 www/js/translations.js loading and applying translations, language files
 www/js/timezones.js   searchable location picker and bounded device-clock polling
@@ -86,6 +87,12 @@ sequence and tile validation. Remote input uses its own LVGL pointer device,
 explicit control opt-in, a one-second heartbeat lease and physical-touch priority.
 OTA suspension cancels input; a geometry change forces a fresh connection.
 Disable `CONFIG_APP_REMOTE_DISPLAY` to omit the routes and hide the pane.
+
+`GET /api/layout?limits=1` returns current logical geometry, editing limits, static page capacity and
+full-tab threshold without loading the layout. The same fields appear in `/api/version`. The editor polls
+only while the Layout pane is visible; rotation metadata never resizes or replaces an unsaved layout.
+Static storage validation accepts wider saved layouts on load, while PUT enforces the current-width page
+budget and the total widget cap.
 
 The scripts are classic scripts sharing one global scope, run in `<script>` order: top-level code may only use what an
 earlier file defines (calls inside functions run later). `bundle_assets.py` keeps that order and inserts semicolon

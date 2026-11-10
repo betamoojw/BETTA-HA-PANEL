@@ -2185,5 +2185,12 @@ WEB_I18N_BUILTIN["zh-cn"] = {
   "entity_picker.reason_request": "Home Assistant 尚未返回实体列表。",
   "entity_picker.waiting_reason": "{reason}正在等待重试…",
   "entity_picker.timeout": "实体搜索超时。{reason}请选择“重试”。",
-  "entity_picker.failed": "实体搜索已停止。{reason}请选择“重试”。"
+  "entity_picker.failed": "实体搜索已停止。{reason}请选择“重试”。",
+  "layout.capacity.pages": "页面：剩余 {remaining}（已用 {used}/{max}）",
+  "layout.capacity.page": "当前页：可添加 {remaining} 个控件（已用 {used}/{max}）",
+  "layout.capacity.total": "全部控件：剩余 {remaining}（已用 {used}/{max}）",
+  "layout.capacity.fixed": "当前页：无可编辑控件",
+  "layout.capacity.rotated": "屏幕方向已变化，请重新加载布局后再编辑或保存。",
+  "layout.capacity.exceeded": "当前超出页面上限 {count} 页。请减少页面或切回原方向后保存。",
+  "layout.capacity.help": "隐藏页面也计入容量。当前页可添加数量同时受控件总数限制。房间概览卡片和能源节点单独计算；JSON 大小及页面空间可能更早达到限制。"
 };

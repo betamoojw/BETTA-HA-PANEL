@@ -2181,5 +2181,12 @@
   "entity_picker.reason_request": "Home Assistant nie zwrócił jeszcze listy encji.",
   "entity_picker.waiting_reason": "{reason} Oczekiwanie na ponowienie...",
   "entity_picker.timeout": "Upłynął limit czasu wyszukiwania encji. {reason} Wybierz Ponów.",
-  "entity_picker.failed": "Wyszukiwanie encji zostało zatrzymane. {reason} Wybierz Ponów."
+  "entity_picker.failed": "Wyszukiwanie encji zostało zatrzymane. {reason} Wybierz Ponów.",
+  "layout.capacity.pages": "Strony: pozostało {remaining} ({used}/{max})",
+  "layout.capacity.page": "Ta strona: pozostało {remaining} widżetów ({used}/{max})",
+  "layout.capacity.total": "Wszystkie widżety: pozostało {remaining} ({used}/{max})",
+  "layout.capacity.fixed": "Ta strona: brak edytowalnych widżetów",
+  "layout.capacity.rotated": "Ekran obrócono. Wczytaj układ ponownie przed edycją lub zapisem.",
+  "layout.capacity.exceeded": "Limit przekroczony o {count} stron. Usuń strony lub przywróć orientację przed zapisem.",
+  "layout.capacity.help": "Ukryte strony są wliczane. Limit łącznej liczby widżetów dotyczy też tej strony. Karty pomieszczeń i węzły energii są liczone osobno; rozmiar JSON i dostępne miejsce mogą ograniczyć dodawanie wcześniej."
 }

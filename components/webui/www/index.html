@@ -980,6 +980,12 @@
 
     <main class="workspace">
       <div class="workspace-top">
+        <div id="layoutCapacity" class="layout-capacity layout-toolbar-only" role="status" aria-live="polite" aria-atomic="true">
+          <span id="layoutCapacityPages"></span>
+          <span id="layoutCapacityPage"></span>
+          <span id="layoutCapacityTotal"></span>
+          <span id="layoutCapacityHint" class="capacity-over" hidden></span>
+        </div>
         <h2 id="canvasTitle">Canvas</h2>
         <div id="status" class="status" role="status">Idle</div>
         <div class="layout-text-size layout-toolbar-only">
@@ -2242,6 +2248,7 @@
   <script src="/js/state.js"></script>
   <script src="/js/util.js"></script>
   <script src="/js/ui-basics.js"></script>
+  <script src="/js/layout-capacity.js"></script>
   <script src="/js/inspector-hints.js"></script>
   <script src="/js/translations.js"></script>
   <script src="/js/timezones.js"></script>

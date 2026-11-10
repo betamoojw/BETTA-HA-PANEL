@@ -486,6 +486,11 @@ function createRoomImportPage() {
   const layout = roomImportLayout();
   if (!layout.placed.length || layout.overflow.length) return;
   const roomName = roomImport.roomName;
+  if (!requireLayoutCapacity({ widgets: layout.placed.length })) return;
+  if (layout.placed.length > maxWidgetsPerPage()) {
+    setStatus(t("layout.status.max_widgets_page", { max: maxWidgetsPerPage() }), true);
+    return;
+  }
   const target = editor.layout.pages.find((page) =>
     page.id === roomImport.targetPageId && !isFixedPage(page) && !page.widgets.length);
   if (target) {

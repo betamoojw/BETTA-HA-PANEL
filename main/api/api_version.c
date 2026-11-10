@@ -3,6 +3,7 @@
  * Modified 2026 by andre68723 in the andre68723/BETTA-HA-PANEL fork, see docs/release-notes.md
  */
 #include "api/api_routes.h"
+#include "api/api_layout.h"
 
 #include "cJSON.h"
 #include "esp_app_desc.h"
@@ -205,8 +206,6 @@ esp_err_t api_version_get_handler(httpd_req_t *req)
     /* Panel geometry for the web editor canvas (px) - lets the same
      * the editor scale itself for both the 4" 720x720 and 10.1" 1280x800
      * variants without a separate build. */
-    cJSON_AddNumberToObject(root, "screen_w", APP_VIEW_WIDTH);
-    cJSON_AddNumberToObject(root, "screen_h", APP_VIEW_HEIGHT);
     cJSON_AddNumberToObject(root, "canvas_w", APP_VIEW_CONTENT_WIDTH);
     cJSON_AddNumberToObject(root, "canvas_h", APP_VIEW_CONTENT_HEIGHT);
     /* Font manager counters (ui/text_font.h): live instances of UI_FONT_MAX_INSTANCES, requests answered by a substitute because the
@@ -453,8 +452,7 @@ esp_err_t api_version_get_handler(httpd_req_t *req)
     }
     net_watchdog_add_json(root);
     ui_watchdog_add_json(root);
-    cJSON_AddNumberToObject(root, "max_pages", (double)APP_MAX_PAGES);
-    cJSON_AddNumberToObject(root, "full_nav_pages", (double)nav_layout_full_pages(APP_VIEW_WIDTH, 90)); /* beyond it the bar shows icons */
+    api_layout_add_limits(root);
     cJSON_AddNumberToObject(root, "layout_max_bytes", (double)APP_LAYOUT_MAX_JSON_LEN); /* the editor checks its size against it */
     cJSON_AddStringToObject(root, "last_reboot", reboot_log_last_label()); /* how the previous run ended, see GET /api/reboot-log */
     cJSON_AddStringToObject(root, "ota_image_state", ota_validate_image_state()); /* "pending_verify" until the rollback is cancelled */

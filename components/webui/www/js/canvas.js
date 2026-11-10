@@ -1362,6 +1362,7 @@ function renderAll() {
   renderWidgets();
   renderInspector();
   renderCanvas();
+  renderLayoutCapacity();
   updateCanvasScale();
   refreshInspectorLayout();
   // Every real edit goes through renderAll(); markDirty() compares the layout with the loaded/saved snapshot,
@@ -1371,6 +1372,7 @@ function renderAll() {
 }
 
 function addPage() {
+  if (!requireLayoutCapacity({ pages: 1 })) return;
   layoutHistoryBoundary();
   const pageId = uniqueId("page", editor.layout.pages);
   const pageNumber = editor.layout.pages.length + 1;
@@ -1389,6 +1391,7 @@ function addPage() {
 function duplicatePage(page) {
   layoutHistoryBoundary();
   if (!page || isFixedPage(page)) return;
+  if (!requireLayoutCapacity({ pages: 1, widgets: page.widgets?.length || 0 })) return;
   if (editor.layout.pages.length >= maxPages()) {
     setStatus(t("layout.status.max_pages", { max: maxPages() }), true);
     return;
@@ -1471,6 +1474,7 @@ function normalizeHouseConfig(page) {
 }
 
 function addHousePage() {
+  if (!requireLayoutCapacity({ pages: 1 })) return;
   layoutHistoryBoundary();
   if (editor.layout.pages.length >= maxPages()) {
     setStatus(t("layout.status.max_pages", { max: maxPages() }), true);
@@ -1733,6 +1737,7 @@ function renderHouseOptions(page) {
 }
 
 function addEnergyPage() {
+  if (!requireLayoutCapacity({ pages: 1 })) return;
   layoutHistoryBoundary();
   const pageId = uniqueId("energy", editor.layout.pages);
   editor.layout.pages.push({
@@ -1841,6 +1846,7 @@ function addWidget(type, options = {}) {
   layoutHistoryBoundary();
   const page = selectedPage();
   if (!page) return;
+  if (!requireLayoutCapacity({ widgets: 1, page })) return null;
   if (isFixedPage(page)) {
     setStatus(t("layout.status.energy_page_only"), true);
     return null;
@@ -1990,6 +1996,7 @@ function duplicateWidget(widgetId = editor.selectedWidgetId) {
   const page = selectedPage();
   const widget = page?.widgets?.find((w) => w.id === widgetId);
   if (!page || !widget || isFixedPage(page)) return null;
+  if (!requireLayoutCapacity({ widgets: 1, page })) return null;
   if (page.widgets.length >= MAX_WIDGETS_PER_PAGE) {
     setStatus(t("layout.status.max_widgets_page", { max: MAX_WIDGETS_PER_PAGE }), true);
     return null;
@@ -2594,6 +2601,9 @@ function bindInspectorAutoApply(input, events = ["change"], options = {}) {
 }
 
 async function saveLayout() {
+  await refreshLayoutLimits();
+  if (layoutOrientationStale()) throw new Error(t("layout.capacity.rotated"));
+  validateLayoutStructure(editor.layout);
   if (isEnergyPage(selectedPage())) {
     applyEnergyPageConfig({ render: false });
   }
@@ -2665,6 +2675,7 @@ function countWidgetsOutsideCanvas(layout) {
 }
 
 function importLayoutFromText(text) {
+  if (layoutOrientationStale()) throw new Error(t("layout.capacity.rotated"));
   // The panel itself refuses more than APP_LAYOUT_MAX_JSON_LEN at Save; checking it here too means
   // that is known right away instead of only after editing and trying to save.
   const bytes = new Blob([text]).size;

@@ -1120,9 +1120,11 @@ async function loadLayout() {
   const previous = layoutSnapshot();
   setStatus(t("layout.status.loading"));
   try {
+    const limits = refreshLayoutLimits();
     const candidate = await apiGet("/api/layout");
+    await limits;
     if (requestId !== layoutLoadRequest) return false;
-    validateLayoutStructure(candidate);
+    validateLayoutStructure(candidate, { stored: true });
     if (layoutSnapshot() !== previous) {
       setStatus(t("layout.status.load_changed"), true);
       return false;

@@ -124,6 +124,8 @@ def demo_responses(variant, fixture_path=None, all_widgets=False):
                    max_pages=5 if variant == 'panels3' else (8 if width < 1000 else 12),
                    full_nav_pages=3 if variant == 'panels3' else (5 if width < 1000 else 10),
                    version='LOCAL-EDITOR', safe_mode=False)
+    version.update(max_pages_capacity=version['max_pages'], max_widgets_per_page=32,
+                   max_widgets_total=min(224, version['max_pages'] * 32))
     sizes = (16, 20, 24, 28, 32, 36, 42, 48, 56, 64)
     offset = -1 if variant == 'panels3' else (1 if variant == 'tab5' else 0)
     version['text'].update(board=variant, floor=20 if variant in ('panel4', 'tab5') else 16,
@@ -295,6 +297,10 @@ def build_server(port=8766, variant='paneljc', fixture_path=None, state_path=Non
                     return self.reply({'objects': [dict(o, valid=False) for o in objects[offset:offset+20]],
                                        'has_more': offset+20 < len(objects), 'next_offset': min(len(objects), offset+20),
                                        'local_only': True})
+                if url.path == '/api/layout' and query.get('limits') == ['1']:
+                    version = responses['/api/version']
+                    return self.reply({key: version[key] for key in ('screen_w', 'screen_h', 'max_pages',
+                        'max_pages_capacity', 'max_widgets_per_page', 'max_widgets_total', 'full_nav_pages')})
                 value = responses.get(url.path, {'items': []})
                 if url.path == '/api/state' and 'entity_id' in query:
                     value = {'items': [s for s in value['items'] if s['entity_id'] == query['entity_id'][0]]}
@@ -372,6 +378,8 @@ def build_server(port=8766, variant='paneljc', fixture_path=None, state_path=Non
                     if any(not isinstance(page, dict) or not isinstance(page.get('widgets', []), list)
                            or len(page.get('widgets', [])) > 32 for page in pages):
                         return self.reply({'errors': ['Invalid widget list or too many widgets']}, 400)
+                    if sum(len(page.get('widgets', [])) for page in pages) > responses['/api/version']['max_widgets_total']:
+                        return self.reply({'errors': ['Too many widgets in layout']}, 400)
                     responses[path] = body
                     store.persist()
                     return self.reply({'ok': True, 'local_only': True})

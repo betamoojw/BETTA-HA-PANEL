@@ -1389,6 +1389,7 @@ bool layout_validate_json(const char *json, layout_validation_result_t *result)
 
     size_t known_page_ids_len = 0;
     size_t known_widget_ids_len = 0;
+    int total_widgets = 0;
 
     for (int i = 0; i < page_count; i++) {
         cJSON *page = cJSON_GetArrayItem(pages, i);
@@ -1503,6 +1504,7 @@ bool layout_validate_json(const char *json, layout_validation_result_t *result)
         }
 
         int widget_count = cJSON_GetArraySize(widgets);
+        total_widgets += widget_count;
         if (widget_count > APP_MAX_WIDGETS_PER_PAGE) {
             snprintf(msg, sizeof(msg), "page %s: too many widgets", cJSON_IsString(page_id) ? page_id->valuestring : "?");
             layout_validation_add(result, msg);
@@ -1527,6 +1529,9 @@ bool layout_validate_json(const char *json, layout_validation_result_t *result)
         }
     }
 
+    if (total_widgets > APP_MAX_WIDGETS_TOTAL) {
+        layout_validation_add(result, "too many widgets in layout");
+    }
     free(known_page_ids);
     free(known_widget_ids);
     cJSON_Delete(root);

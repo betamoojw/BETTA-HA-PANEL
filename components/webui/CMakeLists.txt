@@ -22,6 +22,7 @@ set(WEBUI_JS_SOURCES
     js/state.js
     js/util.js
     js/ui-basics.js
+    js/layout-capacity.js
     js/inspector-hints.js
     js/translations.js
     js/timezones.js

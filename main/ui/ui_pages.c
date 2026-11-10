@@ -8,6 +8,7 @@
 #include "xiaozhi/xiaozhi.h"
 #endif
 #include "ui/display_geometry.h"
+#include "layout/layout_limits.h"
 #include "ui/ui_pages.h"
 #include "ui/ui_flip_clock.h"
 #include "ui/ui_alert_center.h"
@@ -281,8 +282,8 @@ static void ui_pages_apply_tab_style(uint16_t selected_index)
         title_w[i] = sz.x;
     }
     nav_layout_t layout;
-    const bool scroll_nav = display_geometry_portrait() && s_page_count > 8;
-    const int nav_width = scroll_nav ? 1280 : APP_VIEW_WIDTH;
+    const bool scroll_nav = s_page_count > layout_max_pages_for_width(APP_VIEW_WIDTH);
+    const int nav_width = scroll_nav ? APP_SCREEN_WIDTH : APP_VIEW_WIDTH;
     lv_obj_set_scrollable(s_nav_bar, scroll_nav);
     lv_obj_set_scroll_dir(s_nav_bar, LV_DIR_HOR);
     nav_layout_compute(&layout, nav_width, s_page_count, selected_index, title_w);

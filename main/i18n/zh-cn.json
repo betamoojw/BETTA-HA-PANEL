@@ -714,7 +714,10 @@
       "loading_dashboard": "正在加载仪表盘",
       "setup_ap_prefix": "配网热点",
       "setup_ap_password": "密码",
-      "offline_mode": "离线模式"
+      "offline_mode": "离线模式",
+      "wifi_unreachable": "Wi-Fi 无法连接",
+      "wifi_auto_reconnect": "网络恢复后将自动重连",
+      "wifi_or_setup": "或重新配置，热点："
     },
     "xiaozhi": {
       "title": "AI Assistant",

@@ -56,6 +56,7 @@ set(WEBUI_JS_SOURCES
     js/xiaozhi.js
     js/knx.js
     js/camera-editor.js
+    js/lvgl-preview.js
     js/main.js)
 
 # Base editor styles first, then one file per appearance style (docs/appearance.md).
@@ -78,7 +79,8 @@ set(WEBUI_CSS_SOURCES
     css/preview-roles.css
     css/alarm-panel.css
     css/inspector.css
-    css/remote-display.css)
+    css/remote-display.css
+    css/live-preview.css)
 
 set(WEBUI_JS_DEPENDS "")
 set(_webui_js_fingerprint "")

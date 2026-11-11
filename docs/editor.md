@@ -71,6 +71,12 @@ the browser) the panel shows the page you choose in the editor, as far as it is 
 Standard, Larger and Largest apply immediately to the whole
 panel and are saved on their own, independent of the layout's Save button.
 
+The **Live view** button after **Panel follows** shows one screenshot of what the panel displays, popups included, taken when the dialog opens.
+**Refresh** takes a new one, **Download** saves the shown image. Supported P4 panels use JPEG, which can soften fine text;
+S3 uses lossless PNG. This snapshot updates when opened or refreshed; it
+does not save the layout, apply unsaved editor changes or change the panel's page (use **Panel follows** or the panel
+itself), and it is no proof of backlight or touch behavior. If a request fails or takes longer than 30 s, the previous image stays, marked as such.
+
 ??? info "Tab5: portrait and landscape"
 
     The editor loads the orientation currently shown on the device. Both layouts are stored separately, and

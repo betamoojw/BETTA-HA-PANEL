@@ -17,6 +17,7 @@
 #include "esp_random.h"
 #include "esp_netif.h"
 #include "esp_timer.h"
+#include "esp_system.h"
 #include "esp_wifi.h"
 #include "driver/gpio.h"
 #include "soc/soc_caps.h"
@@ -29,7 +30,6 @@
 #include "esp_app_desc.h"
 #include "esp_app_format.h"
 #include "esp_hosted.h"
-#include "esp_system.h"
 #include "esp_heap_caps.h"
 #include "net/c6_image.h"
 #endif
@@ -37,6 +37,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
 #include "freertos/semphr.h"
+#include "freertos/task.h"
 
 #include "app_config.h"
 #include "ui/ui_boot_splash.h"
@@ -58,6 +59,8 @@ static EventGroupHandle_t s_wifi_event_group = NULL;
  * RSSI reading. Serialize our own calls into the RPC layer until we're on
  * a version with the upstream fix. */
 static SemaphoreHandle_t s_wifi_api_mutex = NULL;
+static bool wifi_mgr_api_lock(uint32_t timeout_ms);
+static void wifi_mgr_api_unlock(void);
 static esp_event_handler_instance_t s_wifi_event_instance = NULL;
 static esp_event_handler_instance_t s_ip_event_instance = NULL;
 static esp_netif_t *s_wifi_sta_netif = NULL;
@@ -187,8 +190,20 @@ static void wifi_mgr_build_default_setup_ssid(char *out, size_t out_len)
         return;
     }
 
+    /* On ESP32-P4 with ESP-Hosted the radio sits on the C6: the P4's eFuse table has no Wi-Fi MAC and esp_read_mac() fails,
+     * which left every panel with the same plain SSID. The MAC from the radio itself is unique per unit. */
     uint8_t mac[6] = {0};
-    esp_err_t mac_err = esp_read_mac(mac, ESP_MAC_WIFI_SOFTAP);
+    esp_err_t mac_err = ESP_ERR_TIMEOUT;
+    if (wifi_mgr_api_lock(2000)) {
+        mac_err = esp_wifi_get_mac(WIFI_IF_AP, mac);
+        if (mac_err != ESP_OK) {
+            mac_err = esp_wifi_get_mac(WIFI_IF_STA, mac);
+        }
+        wifi_mgr_api_unlock();
+    }
+    if (mac_err != ESP_OK) {
+        mac_err = esp_read_mac(mac, ESP_MAC_WIFI_SOFTAP);
+    }
     if (mac_err == ESP_OK) {
         snprintf(out, out_len, "%s-%02X%02X", APP_SETUP_AP_SSID_PREFIX, mac[4], mac[5]);
         return;
@@ -1592,6 +1607,87 @@ esp_err_t wifi_mgr_start_setup_ap(const wifi_mgr_ap_config_t *cfg)
     wifi_mgr_set_setup_ap_state(true, ap_ssid);
     c6_memory_allow(!s_c6_update_deferred);
     ESP_LOGW(TAG_WIFI, "Setup AP active: SSID=%s", s_setup_ap_ssid);
+    return ESP_OK;
+#endif
+}
+
+#define WIFI_RECOVERY_INTERVAL_MS 60000U
+#define WIFI_RECOVERY_PROBE_MS 20000U
+
+/* One attempt to join the saved network from the setup access point mode; true once the station has an IP address. */
+static bool wifi_mgr_recovery_probe(void)
+{
+    if (!wifi_mgr_api_lock(2000)) return false;
+    wifi_sta_list_t clients = {0};
+    if (!s_setup_ap_active || !s_cached_sta_cfg_valid ||
+        (esp_wifi_ap_get_sta_list(&clients) == ESP_OK && clients.num > 0)) {
+        wifi_mgr_api_unlock();
+        return false; /* Keep the access point stable while somebody is configuring the panel. */
+    }
+    if (esp_wifi_set_config(WIFI_IF_STA, &s_cached_sta_cfg) != ESP_OK) {
+        wifi_mgr_api_unlock();
+        return false;
+    }
+    esp_err_t err = esp_wifi_connect();
+    wifi_mgr_api_unlock(); /* Do not block scans/status RPCs during the bounded IP wait. */
+    if (err != ESP_OK && err != ESP_ERR_WIFI_CONN) {
+        ESP_LOGW(TAG_WIFI, "Wi-Fi recovery: connect failed: %s", esp_err_to_name(err));
+        return false;
+    }
+    char ip[16];
+    for (uint32_t waited = 0; waited < WIFI_RECOVERY_PROBE_MS; waited += 250U) {
+        vTaskDelay(pdMS_TO_TICKS(250));
+        if (!s_setup_ap_active) return false;
+        if (wifi_mgr_get_ip_for_netif(s_wifi_sta_netif, ip, sizeof(ip)) == ESP_OK) {
+            return true;
+        }
+    }
+    if (wifi_mgr_api_lock(2000)) {
+        if (s_setup_ap_active) {
+            wifi_ap_record_t ap = {0};
+            ESP_LOGI(TAG_WIFI, "Wi-Fi recovery: saved network not usable yet (%s)",
+                     esp_wifi_sta_get_ap_info(&ap) == ESP_OK ? "joined but no IP address" : "not joined");
+            (void)esp_wifi_disconnect();
+        }
+        wifi_mgr_api_unlock();
+    }
+    return false;
+}
+
+static void wifi_mgr_recovery_task(void *arg)
+{
+    (void)arg;
+    for (;;) {
+        vTaskDelay(pdMS_TO_TICKS(WIFI_RECOVERY_INTERVAL_MS));
+        if (!s_setup_ap_active) {
+            break;
+        }
+        if (wifi_mgr_recovery_probe()) {
+            ESP_LOGW(TAG_WIFI, "Wi-Fi recovery: the saved network answers, restarting");
+            reboot_log_mark(REBOOT_CAUSE_WIFI_RECOVERED);
+            vTaskDelay(pdMS_TO_TICKS(500));
+            esp_restart();
+        }
+    }
+    vTaskDelete(NULL);
+}
+
+esp_err_t wifi_mgr_start_recovery(void)
+{
+#if !SOC_WIFI_SUPPORTED && !CONFIG_ESP_HOSTED
+    return ESP_ERR_NOT_SUPPORTED;
+#else
+    static bool started = false;
+    if (started) {
+        return ESP_OK;
+    }
+    if (!s_setup_ap_active || !s_cached_sta_cfg_valid) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    if (xTaskCreate(wifi_mgr_recovery_task, "wifi_recover", 4096, NULL, 3, NULL) != pdPASS) {
+        return ESP_ERR_NO_MEM;
+    }
+    started = true;
     return ESP_OK;
 #endif
 }

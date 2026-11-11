@@ -714,7 +714,10 @@
       "loading_dashboard": "Cargando panel",
       "setup_ap_prefix": "AP de setup",
       "setup_ap_password": "Contrasena",
-      "offline_mode": "Modo sin conexion"
+      "offline_mode": "Modo sin conexion",
+      "wifi_unreachable": "Wi-Fi no accesible",
+      "wifi_auto_reconnect": "Se reconectará automáticamente cuando vuelva",
+      "wifi_or_setup": "O configura de nuevo, AP:"
     },
     "xiaozhi": {
       "title": "AI Assistant",

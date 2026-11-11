@@ -714,7 +714,10 @@
       "loading_dashboard": "正在載入儀表盤",
       "setup_ap_prefix": "配網熱點",
       "setup_ap_password": "密碼",
-      "offline_mode": "離線模式"
+      "offline_mode": "離線模式",
+      "wifi_unreachable": "無法連線至 Wi-Fi",
+      "wifi_auto_reconnect": "網路恢復後會自動重新連線",
+      "wifi_or_setup": "或重新設定，熱點："
     },
     "xiaozhi": {
       "title": "AI Assistant",

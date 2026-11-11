@@ -229,6 +229,7 @@ idf_component_register(
         "api/api_factory_reset.c"
         "api/api_restart.c"
         "api/api_screenshot.c"
+        "api/api_screenshot_image.c"
         "api/api_remote_display.c"
         "ui/ui_remote_display.c"
         "api/api_ota.c"
@@ -497,6 +498,7 @@ idf_component_register(
         esp_app_format
         esp_lcd
         lvgl
+        espressif__zlib
         ${JSON_COMPONENT_NAME}
         littlefs
         webui

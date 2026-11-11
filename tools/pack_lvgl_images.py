@@ -15,10 +15,11 @@ import struct
 SOURCES = ('ui/assets/Temp.c', 'ui/assets/RGB.c', 'ui/assets/visiblecolor.c',
            'ui/fonts/notification_emoji_data.c')
 ARRAY = re.compile(r'(uint8_t\s+(\w+)\[)(\d*)(\]\s*=\s*\{)(.*?)(\};)', re.S)
+MAX_MATCH_CANDIDATES = 128
 
 
 def lz4_block(data):
-    """Deterministic greedy encoder; LVGL supplies the production safe decoder."""
+    """Bounded longest-match encoder; LVGL supplies the production safe decoder."""
     output = bytearray()
     previous = {}
     anchor = pos = 0
@@ -33,14 +34,24 @@ def lz4_block(data):
     # five bytes to be literals, including for overlapping match copies.
     while pos <= len(data) - 12:
         key = data[pos:pos + 4]
-        match = previous.get(key)
-        previous[key] = pos
-        if match is None or pos - match > 65535:
+        candidates = previous.get(key, [])
+        match, end = None, pos + 3
+        # A recent short match must not hide an older, longer repeated pixel run.
+        # Search a bounded history while retaining LZ4's 64 KiB offset limit.
+        for candidate in reversed(candidates):
+            if pos - candidate > 65535:
+                break
+            candidate_end = pos + 4
+            while candidate_end < len(data) - 5 and data[candidate_end] == data[candidate + candidate_end - pos]:
+                candidate_end += 1
+            if candidate_end > end:
+                match, end = candidate, candidate_end
+            if end == len(data) - 5:
+                break
+        previous[key] = (candidates + [pos])[-MAX_MATCH_CANDIDATES:]
+        if match is None:
             pos += 1
             continue
-        end = pos + 4
-        while end < len(data) - 5 and data[end] == data[match + end - pos]:
-            end += 1
         literals, matched = pos - anchor, end - pos - 4
         output.append((min(literals, 15) << 4) | min(matched, 15))
         if literals >= 15:
@@ -50,7 +61,8 @@ def lz4_block(data):
         if matched >= 15:
             length_extra(matched - 15)
         for i in range(pos + 1, end):
-            previous[data[i:i + 4]] = i
+            key_i = data[i:i + 4]
+            previous[key_i] = (previous.get(key_i, []) + [i])[-MAX_MATCH_CANDIDATES:]
         pos = anchor = end
     literals = len(data) - anchor
     output.append(min(literals, 15) << 4)

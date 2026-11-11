@@ -431,6 +431,19 @@ cc -std=gnu11 -Wall -Wextra -Werror -g -I tests/host/auth_stubs -I main \
   tests/host/test_admin_auth.c -o "$out/test_admin_auth"
 "$out/test_admin_auth"
 
+# Production screenshots: shared layer capture, PNG pixels/CRCs, failures and JPEG engine cleanup.
+cc -std=gnu11 -Wall -Wextra -Werror -g -I tests/host/screenshot_stubs -I main \
+  tests/host/test_screenshot.c -lz -o "$out/test_screenshot"
+"$out/test_screenshot"
+# ESP32-S3 has no JPEG engine; PNG and the explicit unsupported response remain available.
+cc -std=gnu11 -Wall -Wextra -Werror -g -DSOC_JPEG_ENCODE_SUPPORTED=0 -I tests/host/screenshot_stubs -I main \
+  tests/host/test_screenshot.c -lz -o "$out/test_screenshot_png"
+"$out/test_screenshot_png"
+# The same test under AddressSanitizer and UndefinedBehaviorSanitizer: freed buffers, bounds, overflows.
+cc -std=gnu11 -Wall -Wextra -Werror -g -O1 -fno-omit-frame-pointer -fsanitize=address,undefined -fno-sanitize-recover=undefined \
+  -I tests/host/screenshot_stubs -I main tests/host/test_screenshot.c -lz -o "$out/test_screenshot_san"
+"$out/test_screenshot_san"
+
 # Crash evidence: two-report rotation, raw-byte downloads, failed writes, restart/dedup and individual deletion.
 cc -std=gnu11 -Wall -Wextra -Werror -g -I main "${cjson_flags[@]}" \
   tests/host/test_coredump_store.c main/util/coredump_store.c main/util/coredump_diagnostics.c main/util/sha256_soft.c \

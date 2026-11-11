@@ -3,6 +3,7 @@
  * Modified 2026 by andre68723 in the andre68723/BETTA-HA-PANEL fork, see docs/release-notes.md
  */
 #include "api/api_routes.h"
+#include "api/api_screenshot_capture.h"
 
 #include <limits.h>
 #include <stdint.h>
@@ -58,7 +59,7 @@ static bool snapshot_valid(const lv_draw_buf_t *buf, uint32_t width, uint32_t he
 
 /* Caller holds the display lock. Never publish a base-only image if capturing
  * an overlay fails: allocation/render failures must remain visible to clients. */
-static lv_draw_buf_t *capture_screen(void)
+lv_draw_buf_t *api_screenshot_capture_locked(void)
 {
     lv_display_t *display = lv_display_get_default();
     if (!display) return NULL;
@@ -125,7 +126,7 @@ esp_err_t api_screenshot_bmp_get_handler(httpd_req_t *req)
         return send_text_error(req, "503 Service Unavailable", "Display is busy");
     }
 
-    snapshot = capture_screen();
+    snapshot = api_screenshot_capture_locked();
     display_unlock();
 
     if (snapshot == NULL) {

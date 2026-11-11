@@ -70,6 +70,8 @@ class PackedImagesTests(unittest.TestCase):
                     self.assertEqual(data, original[match[2]])
         self.assertEqual(count, 151)
         self.assertGreater(raw_total - packed_total, 250000)
+        # The merged Panel10 feature set must still fit its unchanged OTA slots.
+        self.assertLessEqual(packed_total, 171000)
 
     def test_unknown_source_shape_fails_closed(self):
         for text in ('', 'uint8_t a[4] = {0x00};', 'uint8_t a[] = {SYMBOL};',

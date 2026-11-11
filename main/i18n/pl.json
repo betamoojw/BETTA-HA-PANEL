@@ -714,7 +714,10 @@
       "loading_dashboard": "Ładowanie panelu",
       "setup_ap_prefix": "AP konfiguracji",
       "setup_ap_password": "Hasło",
-      "offline_mode": "Tryb offline"
+      "offline_mode": "Tryb offline",
+      "wifi_unreachable": "Sieć Wi-Fi niedostępna",
+      "wifi_auto_reconnect": "Po powrocie sieci połączy się automatycznie",
+      "wifi_or_setup": "Lub skonfiguruj ponownie, AP:"
     },
     "xiaozhi": {
       "title": "AI Assistant",

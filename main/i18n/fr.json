@@ -714,7 +714,10 @@
       "loading_dashboard": "Chargement du tableau de bord",
       "setup_ap_prefix": "AP de configuration",
       "setup_ap_password": "Mot de passe",
-      "offline_mode": "Mode hors ligne"
+      "offline_mode": "Mode hors ligne",
+      "wifi_unreachable": "Wi-Fi inaccessible",
+      "wifi_auto_reconnect": "Reconnexion automatique dès son retour",
+      "wifi_or_setup": "Ou reconfigurez, point d’accès :"
     },
     "xiaozhi": {
       "title": "AI Assistant",

@@ -488,6 +488,7 @@ if (el.addBambuPrinterBtn) {
     el.followPageToggle.checked = followPageEnabled();
     el.followPageToggle.addEventListener("change", () => setFollowPage(el.followPageToggle.checked));
   }
+  initLiveView();
   bindInspectorHints();
   if (el.uploadOtaBtn) {
     el.uploadOtaBtn.onclick = () => {

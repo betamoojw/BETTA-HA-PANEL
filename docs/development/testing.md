@@ -107,8 +107,11 @@ fixtures for numeric and discrete details.
 ## Screenshots
 
 `scripts/panel_screenshot.sh <panel-ip> [out.png]` saves what the panel shows (popups and the update screen included) via
-`GET /api/screenshot.bmp`. Do not give `curl` a short timeout: the image is about 3 MB on the 10-inch panel and a timeout
-truncates it silently.
+`GET /api/screenshot.png`, a lossless PNG. `/api/screenshot.jpg` uses the P4 hardware encoder; S3 returns 501 and Live view
+falls back to PNG. `/api/screenshot.bmp` remains available. Use PNG or BMP for pixel comparisons.
+
+Native screenshot tests exercise PNG decoding/CRCs, overlays, allocation/send failures and JPEG engine cleanup,
+including a build without a JPEG engine. The shared capture implementation also has the real-LVGL checks below.
 
 The endpoint captures the active screen and top layer. An opaque full-screen cover uses one RGB snapshot;
 partial overlays retain alpha composition. Incomplete/invalid captures return HTTP 500, never a successful

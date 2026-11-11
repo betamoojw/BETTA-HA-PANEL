@@ -236,7 +236,7 @@ class AllWidgetsDemoTest(unittest.TestCase):
                 fixture = all_widgets_fixture(variant)
                 widgets = [w for p in fixture['pages'] for w in p['widgets']]
                 self.assertEqual({w['type'] for w in widgets}, types)
-                self.assertEqual(len(fixture['pages']), 10)
+                self.assertEqual(len(fixture['pages']), 11)
                 # Compact navigation needs a distinct, explicit icon for every page.
                 icons = [page['icon'] for page in fixture['pages']]
                 self.assertEqual(len(set(icons)), len(icons))
@@ -297,7 +297,7 @@ class AllWidgetsDemoTest(unittest.TestCase):
             demo = build_server(port=0, all_widgets=True)
             try:
                 self.assertNotEqual(original.local_store.path, demo.local_store.path)
-                self.assertEqual(len(demo.local_store.seed['/api/layout']['pages']), 10)
+                self.assertEqual(len(demo.local_store.seed['/api/layout']['pages']), 11)
             finally:
                 original.server_close()
                 demo.server_close()

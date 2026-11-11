@@ -4,6 +4,25 @@
 
 Changes of **this fork**, compared with upstream v0.8.2. The release notes of the original project (v0.8.2 and earlier, by Cpt_Kirk) are kept unchanged in [Upstream release notes](release-notes-upstream.md).
 
+## v0.9.2-rc2
+
+Changes since [v0.9.2-rc1](#v092-rc1).
+
+- **Editor, Live view and Preview:** an editor opened from a panel gains **Live view** after **Panel follows**, a snapshot of the screen
+  with popups (Refresh, Download as JPEG or PNG). In the local editor the same toolbar button, **Preview**, renders the selected page in the
+  simulator, including unsaved changes.
+- **Screenshots:** `/api/screenshot.jpg` adds hardware JPEG encoding on supported P4 boards; `/api/screenshot.png` adds lossless capture.
+  Live view falls back to PNG on S3 and keeps the matching download extension. `/api/screenshot.bmp` remains available. All three formats
+  share the existing full-screen clock/overlay capture and report capture failures. Live Display and remote touch remain available separately.
+- **Panel10 capacity:** the lossless bitmap packer saves another 13,661 bytes for the merged feature set. All 151 bitmap payloads,
+  their pixels and the existing OTA partition layout are retained.
+- **Wi-Fi setup:** the setup access point name carries the radio's address (`BETTA-Setup-XXXX`); on the ESP32-P4 boards the suffix was
+  missing. A panel whose saved network is unreachable at boot keeps the access point, retries the network every minute and restarts into
+  the dashboard once it answers. The setup screen names the saved network.
+
+- **Documentation:** correct the stable release status, replace outdated download links with release selection,
+  and identify v0.9.2-rc1 as the first LCD-X `panel10` profile. Update the flash-budget and font-storage references.
+
 ## v0.9.2-rc1
 
 Changes since [v0.9.1](#v091).

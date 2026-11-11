@@ -68,7 +68,7 @@ def all_widgets_fixture(variant):
                      rect=dict(zip(('x', 'y', 'w', 'h'), rect)))
             w.update(options)
             widgets.append(w)
-        icons = ['floorplan', 'climate', 'room', 'weather', 'music', 'garage', 'dashboard', 'sofa']
+        icons = ['floorplan', 'climate', 'room', 'weather', 'music', 'garage', 'dashboard', 'sofa', 'tv']
         pages.append(dict(id=f'test_{len(pages)}', title=page_title, icon=icons[len(pages)], widgets=widgets))
 
     # Keep the layout inside every wide board's 600 px minimum content height.
@@ -147,6 +147,9 @@ def all_widgets_fixture(variant):
             'sensor.demo_humidity', 'sensor.demo_power', 'sensor.demo_car_battery', 'sensor.demo_portfolio_value'])),
         ('sensor', 'Zustände', (760, 20, 500, 540), dict(entity_id='binary_sensor.demo_front_door', sensor_view='list',
             sensor_entities=['binary_sensor.demo_motion', 'sensor.demo_robot_battery'])),
+    ])
+    page('Alarmübersicht', [
+        ('alarm_panel', 'Alarmzentrale', (20, 20, 680, 520), {}),
     ])
     for kind, title in [('house_dashboard', 'Raumübersicht'), ('energy_dashboard', 'Energieseite')]:
         special = copy.deepcopy(next(p for p in gallery['pages'] if p.get('type') == kind))

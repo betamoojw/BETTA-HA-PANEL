@@ -37,11 +37,11 @@ jobs:
       # Slow Azure downloads can keep making progress without triggering APT's data timeout.
       # Prefer Ubuntu's archive, retaining the runner's other mirror entries as fallbacks.
       - name: Install system packages
-        if: matrix.group != 'web'
         timeout-minutes: 6
         run: |
           sudo sed -i '\|://azure\.archive\.ubuntu\.com/|d' /etc/apt/apt-mirrors.txt
           case "$CHECK_GROUP" in
+            web) packages=(libcjson-dev pkg-config) ;;
             host) packages=(libcjson-dev zlib1g-dev pkg-config) ;;
             sim-*) packages=(libsdl2-dev) ;;
             *) echo "Unexpected check group: $CHECK_GROUP" >&2; exit 1 ;;

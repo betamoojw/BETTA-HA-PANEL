@@ -2,6 +2,7 @@
 """Exercise the real mailbox/worker with deterministic RTOS and transport doubles."""
 import os
 from pathlib import Path
+import shlex
 import shutil
 import subprocess
 import tempfile
@@ -97,6 +98,15 @@ class AlarmClientTest(unittest.TestCase):
         if not compiler:
             self.skipTest("native C compiler required")
         cjson = ROOT / "managed_components/espressif__cjson/cJSON"
+        if (cjson / "cJSON.c").is_file():
+            cjson_flags = ["-I", str(cjson)]
+            cjson_link = [str(cjson / "cJSON.c")]
+        else:
+            # Fresh CI checkouts use the same system dependency as tools/test_host.sh.
+            cjson_flags = shlex.split(subprocess.check_output(
+                ["pkg-config", "--cflags", "libcjson"], text=True))
+            cjson_link = shlex.split(subprocess.check_output(
+                ["pkg-config", "--libs", "libcjson"], text=True))
         with tempfile.TemporaryDirectory(prefix="betta_alarm_client_") as temp:
             folder = Path(temp)
             for name, text in STUBS.items():
@@ -107,8 +117,8 @@ class AlarmClientTest(unittest.TestCase):
             source.write_text(HARNESS)
             binary = folder / ("test.exe" if os.name == "nt" else "test")
             subprocess.run([compiler, "-std=gnu11", "-Wall", "-Wextra", "-Werror",
-                            "-I", str(folder), "-I", str(ROOT / "main"), "-I", str(cjson),
-                            str(source), str(cjson / "cJSON.c"), "-o", str(binary)], check=True)
+                            "-I", str(folder), "-I", str(ROOT / "main"), *cjson_flags,
+                            str(source), *cjson_link, "-o", str(binary)], check=True)
             subprocess.run([str(binary)], check=True)
 
 if __name__ == "__main__":

@@ -32,6 +32,8 @@ cycles with their baseline lifecycle; extra retained memory must stay within the
 
 Host tests need system libcjson development files or fetched cJSON sources; missing cJSON exits2. Missing Node/SDL
 prerequisites are reported as unavailable and fail in CI. Node22 requires test files, not a directory argument.
+The Python alarm mailbox test also compiles real C code and uses fetched cJSON sources or system libcjson via
+`pkg-config`. The CI web group installs these development packages; no firmware build is needed first.
 Firmware builds and SDL/host results never establish physical touch, display rotation/colors or optical backlight behavior.
 Device tests remain deliberate, separately authorized actions; they are not triggered by a changed source path.
 

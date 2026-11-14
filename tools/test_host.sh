@@ -343,7 +343,7 @@ cc -std=gnu11 -Wall -Wextra -Werror -g -I main "${cjson_flags[@]}" \
   "${cjson_sources[@]}" "${cjson_libs[@]}" -o "$out/test_alarm_state"
 "$out/test_alarm_state"
 
-cc -std=gnu11 -Wall -Wextra -Werror -g -I main "${cjson_flags[@]}" \
+cc -std=gnu11 -Wall -Wextra -Werror -g -I main -I tests/host/stubs "${variant_flags[@]}" "${cjson_flags[@]}" \
   tests/host/test_alarm_panel_config.c main/layout/alarm_panel_config.c main/util/entity_id.c \
   "${cjson_sources[@]}" "${cjson_libs[@]}" -o "$out/test_alarm_panel_config"
 "$out/test_alarm_panel_config"

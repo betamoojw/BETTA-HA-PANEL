@@ -10,8 +10,12 @@
 #include <zlib.h>
 #include "driver/jpeg_encode.h"
 
+static int fail_deflate_at, deflate_calls;
+static int test_deflate(z_streamp stream, int flush);
+#define deflate test_deflate
 #include "api/api_screenshot.c" /* NOLINT: the production file, with the stubs of tests/host/screenshot_stubs */
 #include "api/api_screenshot_image.c"
+#undef deflate
 
 static int failures;
 #define CHECK(cond) do { if (!(cond)) { printf("FAIL %s:%d %s\n", __FILE__, __LINE__, #cond); failures++; } } while (0)
@@ -23,12 +27,26 @@ static int live_bufs, lock_calls, unlock_calls, take_calls;
 static int fail_chunk_at; /* 1-based chunk index that fails, 0 = never */
 static int chunks;
 static char status[64], type[32];
-static uint8_t body[1 << 18];
+static uint8_t body[4 << 20];
 static size_t body_len;
 static int sendstr_calls;
 static lv_display_t display;
 static int32_t display_w = 3, display_h = 2;
 static bool opaque_cover;
+static int fail_take_at, heap_calls, fail_alloc_at, cases;
+static size_t snapshot_bytes, heap_bytes, peak_bytes, peak_snapshot_bytes, peak_heap_bytes;
+static void record_peak(void)
+{
+    if (snapshot_bytes > peak_snapshot_bytes) peak_snapshot_bytes = snapshot_bytes;
+    if (heap_bytes > peak_heap_bytes) peak_heap_bytes = heap_bytes;
+    if (snapshot_bytes + heap_bytes > peak_bytes) peak_bytes = snapshot_bytes + heap_bytes;
+}
+static int test_deflate(z_streamp stream, int flush)
+{
+    CHECK(!locked);
+    if (++deflate_calls == fail_deflate_at) return Z_STREAM_ERROR;
+    return deflate(stream, flush);
+}
 
 lv_display_t *lv_display_get_default(void) { return &display; }
 int32_t lv_display_get_horizontal_resolution(lv_display_t *d) { (void)d; return display_w; }
@@ -45,33 +63,38 @@ lv_obj_t *lv_layer_top(void) { return &top_obj; }
 static uint32_t top_children = 1;
 uint32_t lv_obj_get_child_count(const lv_obj_t *obj) { (void)obj; return top_children; }
 int64_t esp_timer_get_time(void) { static int64_t t; return t += 1000; }
-bool display_lock(uint32_t timeout_ms) { (void)timeout_ms; lock_calls++; locked = lock_ok; return lock_ok; }
-void display_unlock(void) { unlock_calls++; locked = false; }
+bool display_lock(uint32_t timeout_ms) { CHECK(timeout_ms == 1500 && !locked); lock_calls++; locked = lock_ok; return lock_ok; }
+void display_unlock(void) { CHECK(locked); unlock_calls++; locked = false; }
 lv_draw_buf_t *lv_snapshot_take(lv_obj_t *obj, lv_color_format_t cf)
 {
     (void)cf;
     take_calls++;
     CHECK(locked);
+    if (take_calls == fail_take_at) return NULL;
     lv_draw_buf_t *src = obj == &screen_obj ? page_buf : top_buf;
     if (src == NULL) return NULL;
     if (obj == &screen_obj) page_buf = NULL;
     else top_buf = NULL;
     live_bufs++;
+    snapshot_bytes += src->data_size;
+    record_peak();
     return src;
 }
 void lv_draw_buf_destroy(lv_draw_buf_t *buf)
 {
     live_bufs--;
+    snapshot_bytes -= buf->data_size;
     if (buf->data != NULL) free(buf->data);
     free(buf);
 }
 esp_err_t httpd_resp_set_hdr(httpd_req_t *r, const char *f, const char *v) { (void)r; (void)f; (void)v; return ESP_OK; }
 esp_err_t httpd_resp_set_status(httpd_req_t *r, const char *s) { (void)r; snprintf(status, sizeof(status), "%s", s); return ESP_OK; }
 esp_err_t httpd_resp_set_type(httpd_req_t *r, const char *t) { (void)r; snprintf(type, sizeof(type), "%s", t); return ESP_OK; }
-esp_err_t httpd_resp_sendstr(httpd_req_t *r, const char *s) { (void)r; (void)s; sendstr_calls++; return ESP_OK; }
+esp_err_t httpd_resp_sendstr(httpd_req_t *r, const char *s) { (void)r; (void)s; CHECK(!locked); sendstr_calls++; return fail_chunk_at == -2 ? ESP_FAIL : ESP_OK; }
 esp_err_t httpd_resp_send_chunk(httpd_req_t *r, const char *buf, ssize_t len)
 {
     (void)r;
+    CHECK(!locked);
     chunks++;
     if (fail_chunk_at != 0 && chunks == fail_chunk_at) return ESP_FAIL;
     if (buf != NULL && body_len + (size_t)len <= sizeof(body)) { memcpy(body + body_len, buf, (size_t)len); body_len += (size_t)len; }
@@ -82,9 +105,31 @@ esp_err_t httpd_resp_send_chunk(httpd_req_t *r, const char *buf, ssize_t len)
 static int fail_heap_malloc, engines, jpeg_mem, fail_engine_new, fail_jpeg_process, jpeg_calls;
 static uint32_t jpeg_size_to_write = 5000;
 static uint8_t jpeg_in_first;
+/* Track production ownership only; pre-created LVGL fixtures and the HTTP sink
+ * are not device allocations. No allocator metadata or DMA scratch is modeled. */
+typedef union { max_align_t alignment; size_t size; } heap_header_t;
+void *heap_caps_malloc(size_t size, unsigned caps)
+{
+    (void)caps;
+    CHECK(!locked);
+    heap_calls++;
+    if (fail_heap_malloc || heap_calls == fail_alloc_at) return NULL;
+    heap_header_t *h = malloc(sizeof(*h) + size);
+    if (!h) abort();
+    h->size = size;
+    jpeg_mem++; heap_bytes += size; record_peak();
+    return h + 1;
+}
+void heap_caps_free(void *p)
+{
+    if (!p) return;
+    heap_header_t *h = (heap_header_t *)p - 1;
+    jpeg_mem--; heap_bytes -= h->size;
+    free(h);
+}
 esp_err_t jpeg_new_encoder_engine(const jpeg_encode_engine_cfg_t *cfg, jpeg_encoder_handle_t *ret)
 {
-    (void)cfg;
+    CHECK(!locked && cfg->timeout_ms == 4000);
     if (fail_engine_new) return ESP_FAIL;
     engines++;
     *ret = (jpeg_encoder_handle_t)&engines;
@@ -94,21 +139,19 @@ esp_err_t jpeg_del_encoder_engine(jpeg_encoder_handle_t e) { (void)e; engines--;
 void *jpeg_alloc_encoder_mem(size_t size, const jpeg_encode_memory_alloc_cfg_t *cfg, size_t *allocated)
 {
     CHECK(cfg->buffer_direction == JPEG_ENC_ALLOC_OUTPUT_BUFFER);
-    jpeg_mem++;
     *allocated = size;
-    return calloc(1, size);
+    return heap_caps_malloc(size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
 }
-void heap_caps_free(void *p) { if (p != NULL) jpeg_mem--; free(p); }
-void *heap_caps_malloc(size_t size, unsigned caps) { (void)caps; if (fail_heap_malloc) return NULL; jpeg_mem++; return malloc(size); }
 esp_err_t jpeg_encoder_process(jpeg_encoder_handle_t e, const jpeg_encode_cfg_t *cfg, const uint8_t *in, uint32_t in_size,
                                uint8_t *out, uint32_t out_size, uint32_t *written)
 {
     (void)e;
+    CHECK(!locked);
     jpeg_calls++;
     CHECK(cfg->src_type == JPEG_ENCODE_IN_FORMAT_RGB888 && in_size == cfg->width * cfg->height * 3U);
     jpeg_in_first = in[0];
     if (fail_jpeg_process) return ESP_FAIL;
-    CHECK(jpeg_size_to_write <= out_size);
+    if (jpeg_size_to_write > out_size) { *written = jpeg_size_to_write; return ESP_OK; }
     out[0] = 0xFF; out[1] = 0xD8;
     for (uint32_t i = 2; i < jpeg_size_to_write; i++) out[i] = (uint8_t)i;
     *written = jpeg_size_to_write;
@@ -117,6 +160,7 @@ esp_err_t jpeg_encoder_process(jpeg_encoder_handle_t e, const jpeg_encode_cfg_t 
 esp_err_t httpd_resp_send(httpd_req_t *r, const char *buf, ssize_t len)
 {
     (void)r;
+    CHECK(!locked && live_bufs == 0 && engines == 0);
     sendstr_calls += 100;
     if (fail_chunk_at == -1) return ESP_FAIL;
     if ((size_t)len <= sizeof(body)) { memcpy(body, buf, (size_t)len); body_len = (size_t)len; }
@@ -136,7 +180,8 @@ static lv_draw_buf_t *make_buf(uint32_t w, uint32_t h, lv_color_format_t cf, uin
 
 static void reset(void)
 {
-    CHECK(live_bufs == 0 && engines == 0 && jpeg_mem == 0);
+    CHECK(live_bufs == 0 && engines == 0 && jpeg_mem == 0 && snapshot_bytes == 0 && heap_bytes == 0 && !locked);
+    cases++;
     /* Fixtures never returned by a failed capture are still owned by the test. */
     if (page_buf) { free(page_buf->data); free(page_buf); }
     if (top_buf) { free(top_buf->data); free(top_buf); }
@@ -147,6 +192,8 @@ static void reset(void)
     fail_chunk_at = chunks = 0;
     body_len = 0; status[0] = type[0] = '\0'; sendstr_calls = 0;
     fail_heap_malloc = 0;
+    fail_take_at = heap_calls = fail_alloc_at = fail_deflate_at = deflate_calls = 0;
+    peak_bytes = peak_snapshot_bytes = peak_heap_bytes = 0;
     fail_engine_new = fail_jpeg_process = jpeg_calls = 0; jpeg_size_to_write = 5000;
 }
 
@@ -182,6 +229,8 @@ static bool decode_png(uint32_t w, uint32_t h, uint8_t *rgb)
     free(raw);
     return ok;
 }
+
+#include "screenshot_large_cases.h"
 
 int main(void)
 {
@@ -292,6 +341,8 @@ int main(void)
 
     reset();
 
-    if (failures == 0) printf("screenshot handler tests passed\n");
+    test_large_screenshots(&req);
+    reset();
+    if (failures == 0) printf("screenshot handler tests passed (%d scenarios)\n", cases - 1);
     return failures == 0 ? 0 : 1;
 }

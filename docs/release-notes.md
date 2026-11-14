@@ -8,6 +8,8 @@ Changes of **this fork**, compared with upstream v0.8.2. The release notes of th
 
 Changes since [v0.9.2-rc1](#v092-rc1).
 
+- **Live view cancellation:** closing or timing out during image decode releases the pending browser image and Blob URL immediately.
+
 - **Editor, Live view and Preview:** an editor opened from a panel gains **Live view** after **Panel follows**, a snapshot of the screen
   with popups (Refresh, Download as JPEG or PNG). In the local editor the same toolbar button, **Preview**, renders the selected page in the
   simulator, including unsaved changes.

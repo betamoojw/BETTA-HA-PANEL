@@ -76,6 +76,7 @@ The **Live view** button after **Panel follows** shows one screenshot of what th
 S3 uses lossless PNG. This snapshot updates when opened or refreshed; it
 does not save the layout, apply unsaved editor changes or change the panel's page (use **Panel follows** or the panel
 itself), and it is no proof of backlight or touch behavior. If a request fails or takes longer than 30 s, the previous image stays, marked as such.
+Closing or timing out releases the pending browser image. A screenshot already started on the panel may still finish.
 
 ??? info "Tab5: portrait and landscape"
 

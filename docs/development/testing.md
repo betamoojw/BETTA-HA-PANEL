@@ -112,6 +112,8 @@ falls back to PNG. `/api/screenshot.bmp` remains available. Use PNG or BMP for p
 
 Native screenshot tests exercise PNG decoding/CRCs, overlays, allocation/send failures and JPEG engine cleanup,
 including a build without a JPEG engine. The shared capture implementation also has the real-LVGL checks below.
+The [screenshot resource review](screenshot-resources.md) details the 1280 × 800
+failure regressions, buffer lifetimes, scheduling limits and pending Panel10 measurements.
 
 The endpoint captures the active screen and top layer. An opaque full-screen cover uses one RGB snapshot;
 partial overlays retain alpha composition. Incomplete/invalid captures return HTTP 500, never a successful

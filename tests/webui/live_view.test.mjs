@@ -34,6 +34,65 @@ const tick = () => new Promise((resolve) => setImmediate(resolve));
 const ok = (body = "bmp", type = "image/jpeg") => `({ ok: true, status: 200, blob: async () => ({ type: "${type}", body: "${body}" }) })`;
 const fail = (status) => `({ ok: false, status: ${status}, statusText: "x", json: async () => ({ error: "boom" }) })`;
 
+test('real decode service detaches a cancelled image and settles without an image event', async () => {
+  const { run } = loadEditor();
+  run(`
+    globalThis.images = [];
+    globalThis.Image = class {
+      constructor() { images.push(this); }
+      removeAttribute(key) { delete this[key]; }
+    };
+    globalThis.controller = new AbortController();
+    globalThis.decoded = liveViewEnv.decode('blob:large', controller.signal);
+  `);
+  const rejected = assert.rejects(run('decoded'), /aborted/);
+  run('controller.abort()');
+  await rejected;
+  assert.equal(run('images[0].src'), undefined);
+  assert.equal(run('images[0].onload'), null);
+  assert.equal(run('images[0].onerror'), null);
+  await assert.rejects(run("liveViewEnv.decode('blob:late', controller.signal)"), /aborted/);
+  assert.equal(run('images[1].src'), undefined);
+});
+
+for (const cancel of ['liveViewClose()', '[...log.timers.values()][0].fn()']) {
+  test(`pending decode releases its Blob URL immediately on ${cancel}`, async () => {
+    const run = setup();
+    run('liveViewLoad()');
+    run(`pending[0].resolve(${ok()})`);
+    await tick();
+    run(cancel);
+    // Cancellation must not depend on Image.onload/onerror ever arriving.
+    assert.equal(run('JSON.stringify(log.revoked)'), JSON.stringify(['blob:0']));
+    assert.equal(run('log.timers.size'), 0);
+    run('liveViewLoad()');
+    run(`pending[1].resolve(${ok()})`);
+    await tick();
+    run('log.decodes[1].resolve()');
+    await tick();
+    run("log.decodes[0].reject(new Error('late decode failure'))");
+    await tick();
+    assert.equal(run('liveView.current.url'), 'blob:1');
+    assert.equal(run('JSON.stringify(log.revoked)'), JSON.stringify(['blob:0']));
+    run('liveViewClose()');
+    assert.equal(run('JSON.stringify(log.revoked)'), JSON.stringify(['blob:0', 'blob:1']));
+  });
+}
+
+test('cancel during response body consumption discards the late body before decode', async () => {
+  const run = setup();
+  run('liveViewLoad()');
+  run(`pending[0].resolve({ok:true, status:200, blob:() => new Promise(resolve => {globalThis.finishBody=resolve})})`);
+  await tick();
+  run('liveViewClose(); liveViewLoad(); finishBody({type:"image/jpeg"})');
+  await tick();
+  assert.equal(run('log.created.length'), 0);
+  assert.equal(run('liveView.load !== null'), true);
+  run('liveViewClose()');
+  await tick();
+  assert.equal(run('log.timers.size'), 0);
+});
+
 test("labels follow the environment in both languages", () => {
   const run = setup();
   assert.equal(run('t(liveViewKey("button"))'), "Live view");

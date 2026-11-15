@@ -562,6 +562,7 @@ const SETTINGS_NAV_ITEMS = [
   { group: "settings.nav.group_look", sectionId: "settingsAlertsSection", headingId: "settingsAlertsHeading", labelKey: "settings.nav.alerts" },
   { group: "settings.nav.group_system", sectionId: "settingsUiSection", headingId: "settingsLanguageHeading", labelKey: "settings.ui.heading" },
   { group: "settings.nav.group_system", sectionId: "settingsUsersSection", headingId: "settingsUsersHeading", labelKey: "users.title" },
+  { group: "settings.nav.group_system", sectionId: "settingsLicenseSection", headingId: "settingsLicenseHeading", labelKey: "license.title" },
   { group: "settings.nav.group_system", sectionId: "settingsBackupSection", headingId: "settingsBackupHeading", labelKey: "settings.nav.backup" },
   { group: "settings.nav.group_system", sectionId: "settingsOtaSection", headingId: "settingsOtaHeading", labelKey: "settings.nav.system" },
 ];

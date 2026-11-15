@@ -168,6 +168,7 @@ Everything outside the dashboard is under **Settings**, in three groups:
 | | **Alerts** | Doorbell and event cards ([guide](notifications.md#doorbell-and-event-alerts)) |
 | System | **Language & time** | Language, searchable city time zone, device local time, time server |
 | | **Users** | Accounts, roles and enabled state; see [Users](users.md) |
+| | **License** | Device activation status, signed key import and Agreement reading record; see [License management](license-management.md) |
 | | **Backup & security** | Backup and restore, factory reset |
 | | **Firmware** | Update check, manual install, versions and memory |
 

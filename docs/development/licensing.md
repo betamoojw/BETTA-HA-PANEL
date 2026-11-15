@@ -21,6 +21,16 @@ exactly 3,600 seconds of monotonic uptime per boot. There is no enforced trial,
 calendar expiry, online activation or revocation list. This runtime license does
 not replace the repository's source license.
 
+The Settings → System → License page independently adapts the status/banner,
+device ID, activation and Agreement tab structure shown in
+[DarkForgeUI's license and trial documentation](https://github.com/alaltitov/DarkForgeUI-firmware#license-and-trial-period).
+That README describes device-bound, indefinite keys stored in device memory,
+trial use, no permanent lock and re-entry after flash/NVS erasure; its S3 edition
+is free. The reviewed public tree contains the distribution website and binary
+firmware, not a verifiable firmware license implementation. Its exact trial
+duration, signature algorithm and expiry behavior were not established.
+No DarkForgeUI code, key format or agreement text is incorporated into BETTA.
+
 ## Identity and format
 
 All variants compile the shared service. The device ID is SHA-256 of ASCII
@@ -87,8 +97,28 @@ General settings/layout backups do not contain licenses.
 There is no service task, periodic NVS write or display lock. Status reads use
 atomic state and uptime. Verification occurs at boot or on the serialized HTTP
 import path. Upload memory is bounded to 202 bytes plus crypto internals.
-The browser reads metadata once per minute while visible, with a ten-second
-deadline; it does not request screenshots or operate the panel.
+The browser reads metadata when the License page opens and once per minute while
+that page and browser tab are visible, with a ten-second deadline. A local
+monotonic countdown interpolates the last response. Leaving the page or signing
+out cancels requests and clears unsent keys; stale responses cannot replace a
+newer page/session state. A cancelled mutation may already have reached storage;
+reopening or refreshing retrieves the authoritative state. License requests do
+not request screenshots or operate the panel.
+
+## Agreement page
+
+`tools/generate_license_agreement.py` embeds the complete root `LICENSE` as text
+in `www/js/license-agreement.js`; run it whenever LICENSE changes. Node tests
+compare both the text and its SHA-256 revision to the source. The asset joins
+the normal ordered web bundle and needs no external connection. Render it with
+`textContent`; do not interpret license text as HTML.
+
+The optional reading checkbox stores an ISO timestamp in browser localStorage,
+keyed by agreement hash, device ID and username (or the open-access identity).
+It is a local convenience, not proof of legal acceptance or a device-wide audit
+record. No new firmware/NVS/API field, consent gate or activation prerequisite
+is introduced. Storage failures remain visible. Source licensing and device
+activation are separate, and third-party notices remain part of the displayed text.
 
 ## Validation
 

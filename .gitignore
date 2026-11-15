@@ -33,6 +33,7 @@ tools/*
 !tools/editor_local.py
 !tools/test_host.sh
 !tools/license_issuer.py
+!tools/generate_license_agreement.py
 !tools/editor_local_demo.py
 !tools/editor_local/
 !tools/editor_local/**

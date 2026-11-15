@@ -11,12 +11,14 @@ let userBarObserver = null;
 
 function userCanEdit() { return ["installer", "administrator"].includes(userAccess.role); }
 function userSettingsSections() {
-  return userAccess.role === "installer" ? SETTINGS_NAV_ITEMS.filter(item => item.sectionId === "settingsThemeSection") : SETTINGS_NAV_ITEMS;
+  return SETTINGS_NAV_ITEMS.filter(item => userIsAdmin() || item.sectionId === "settingsLicenseSection"
+    || (userAccess.role === "installer" && item.sectionId === "settingsThemeSection"));
 }
 function userIsAdmin() { return userAccess.role === "administrator"; }
 function userElement(id) { return document.getElementById(id); }
 function userTranslate() {
   for (const node of document.querySelectorAll("[data-user-i18n]")) node.textContent = t(node.dataset.userI18n);
+  licenseRender();
   const label = userElement("userIdentity");
   if (label) label.textContent = userAccess.enabled
     ? `${userAccess.username} · ${t(`users.role.${userAccess.role}`)}` : t("users.open");
@@ -35,7 +37,7 @@ function userShowLogin(message = "") {
   userSnapshotUrl = null;
   userElement("userSnapshot").removeAttribute("src");
   userElement("userPasswordDialog")?.close();
-  userElement("licenseDialog")?.close();
+  licenseReset();
   userElement("userLoginName").focus();
 }
 

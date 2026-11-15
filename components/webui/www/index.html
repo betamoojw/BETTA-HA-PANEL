@@ -44,34 +44,12 @@
   <div id="userAccountBar" class="user-account-bar" hidden>
     <span id="userIdentity"></span><span id="userBarMessage" role="status"></span>
     <button id="usersOpen" class="btn small" type="button" data-user-i18n="users.title">Users</button>
-    <button id="licenseOpen" class="btn small" type="button" data-user-i18n="license.title">License</button>
     <button id="userPasswordOpen" class="btn small" type="button" data-user-i18n="users.change_password">Change password</button>
     <button id="userLogout" class="btn small" type="button" data-user-i18n="users.logout">Sign out</button>
   </div>
-  <dialog id="licenseDialog" class="user-card" aria-labelledby="licenseHeading">
-    <h2 id="licenseHeading" data-user-i18n="license.title">License</h2>
-    <p class="no-shorten" data-user-i18n="license.hint">License status is informational. All panel features remain available, including after the trial ends.</p>
-    <p id="licenseStatus" role="status"></p><p id="licenseTrial"></p>
-    <label for="licenseDevice" data-user-i18n="license.device">Device ID</label>
-    <input id="licenseDevice" readonly autocomplete="off" />
-    <button id="licenseCopy" class="btn" type="button" data-user-i18n="license.copy">Copy device ID</button>
-    <p data-user-i18n="license.request">Send this device ID to your supplier to request a signed DEVICE_KEY file.</p>
-    <div id="licenseActions" hidden>
-      <label for="licenseFile" data-user-i18n="license.file">Signed license file</label>
-      <input id="licenseFile" type="file" />
-      <div class="row">
-        <button id="licenseImport" class="btn primary" type="button" data-user-i18n="license.import">Import license</button>
-        <button id="licenseRemove" class="btn" type="button" data-user-i18n="license.remove">Remove license</button>
-      </div>
-    </div>
-    <p id="licenseAdminHint" data-user-i18n="license.admin">An administrator can import or remove a license.</p>
-    <p id="licenseMessage" class="user-message" role="status" aria-live="polite"></p>
-    <div class="row">
-      <button id="licenseRefresh" class="btn" type="button" data-user-i18n="license.refresh">Refresh</button>
-      <button id="licenseClose" class="btn" type="button" data-user-i18n="license.close">Close</button>
-    </div>
-  </dialog>
   <main id="userViewer" class="user-viewer" hidden>
+    <div id="userViewerScreen">
+    <button id="userSettingsOpen" type="button" class="btn" data-user-i18n="tabs.settings">Settings</button>
     <h1 data-user-i18n="users.snapshot">Panel screen</h1>
     <p data-user-i18n="users.snapshot_hint">Refresh to view the current screen. This image does not accept touch input.</p>
     <div class="row"><button id="userRefreshSnapshot" type="button" class="btn" data-user-i18n="users.refresh">Refresh</button></div>
@@ -80,6 +58,18 @@
       <button id="userNavigate" type="button" class="btn" data-user-i18n="users.navigate">Show on panel</button>
     </div>
     <p id="userViewerMessage" role="status"></p><img id="userSnapshot" alt="Panel screen snapshot" />
+    </div>
+    <div id="userViewerSettings" hidden>
+      <button id="userSettingsClose" type="button" class="btn" data-user-i18n="users.snapshot">Panel screen</button>
+      <h1 data-user-i18n="tabs.settings">Settings</h1>
+      <div class="license-viewer-workspace">
+        <nav aria-labelledby="userSettingsSystem">
+          <h2 id="userSettingsSystem" data-user-i18n="settings.nav.group_system">System</h2>
+          <button id="userLicenseNav" class="settings-nav-btn active" type="button" aria-current="page" data-user-i18n="license.title">License</button>
+        </nav>
+        <div id="userLicenseMount"></div>
+      </div>
+    </div>
   </main>
   <dialog id="userPasswordDialog" class="user-card" aria-labelledby="userPasswordTitle">
     <h2 id="userPasswordTitle" data-user-i18n="users.change_password">Change password</h2>
@@ -989,6 +979,47 @@
           </div>
         </section>
 
+        <section id="settingsLicenseSection" class="display-settings license-settings">
+          <h2 id="settingsLicenseHeading" data-user-i18n="license.title">License</h2>
+          <div class="license-tabs" role="tablist" aria-labelledby="settingsLicenseHeading">
+            <button id="licenseTab" type="button" role="tab" aria-selected="true" aria-controls="licensePanel" data-user-i18n="license.title">License</button>
+            <button id="agreementTab" type="button" role="tab" aria-selected="false" aria-controls="agreementPanel" tabindex="-1" data-user-i18n="license.agreement">Agreement</button>
+          </div>
+          <div id="licensePanel" role="tabpanel" aria-labelledby="licenseTab">
+            <div class="license-status-heading"><h3 data-user-i18n="license.status">License status</h3><span id="licenseBadge" class="license-badge"></span></div>
+            <div id="licenseBanner" class="license-banner"><p id="licenseStatus" role="status"></p><p id="licenseTrial"></p></div>
+            <p class="no-shorten" data-user-i18n="license.hint">License status is informational. All panel features remain available, including after the trial ends.</p>
+            <label for="licenseDevice" data-user-i18n="license.device">Device ID</label>
+            <div class="license-device-row">
+              <input id="licenseDevice" readonly autocomplete="off" />
+              <button id="licenseCopy" class="btn" type="button" data-user-i18n="license.copy">Copy device ID</button>
+            </div>
+            <div id="licenseActions" hidden>
+              <div id="licenseActivation">
+                <p data-user-i18n="license.request">Send this device ID to your supplier to request a signed DEVICE_KEY file.</p>
+                <label for="licenseKey" data-user-i18n="license.key">License key</label>
+                <textarea id="licenseKey" rows="4" maxlength="202" autocomplete="off" spellcheck="false" aria-describedby="licenseInputHint"></textarea>
+                <p id="licenseInputHint" data-user-i18n="license.input_hint">Paste the signed key, or choose a DEVICE_KEY file. Selecting a file clears the pasted key.</p>
+                <label for="licenseFile" data-user-i18n="license.file">Signed license file</label>
+                <input id="licenseFile" type="file" />
+                <button id="licenseImport" class="btn primary" type="button" data-user-i18n="license.import">Activate license</button>
+              </div>
+              <button id="licenseRemove" class="btn" type="button" data-user-i18n="license.remove">Remove license</button>
+            </div>
+            <p id="licenseAdminHint" data-user-i18n="license.admin">An administrator can import or remove a license.</p>
+            <p id="licenseMessage" class="user-message" role="status" aria-live="polite"></p>
+            <button id="licenseRefresh" class="btn" type="button" data-user-i18n="license.refresh">Refresh</button>
+          </div>
+          <div id="agreementPanel" role="tabpanel" aria-labelledby="agreementTab" hidden>
+            <h3 data-user-i18n="license.agreement_title">Software license agreement</h3>
+            <p class="no-shorten" data-user-i18n="license.agreement_hint">The repository LICENSE and third-party notices below apply independently of device activation. A device key does not grant additional software rights.</p>
+            <pre id="licenseAgreementText" class="license-agreement-text" tabindex="0" aria-labelledby="licenseAgreementLabel"></pre>
+            <p id="licenseAgreementLabel">LICENSE · FNCL 1.1</p>
+            <label class="license-ack"><input id="licenseAgreementRead" type="checkbox" /><span data-user-i18n="license.read">I have read this license and its third-party notices.</span></label>
+            <p data-user-i18n="license.read_scope">This optional record is saved only in this browser for this device, account and license revision. Clearing browser data removes it. It does not restrict panel use or activate a license.</p>
+            <p id="licenseAgreementMessage" role="status" aria-live="polite"></p>
+          </div>
+        </section>
         <section id="settingsUsersSection">
           <h2 id="settingsUsersHeading" data-user-i18n="users.title">Users</h2>
           <p class="meta no-shorten" data-user-i18n="users.hint">Up to 16 accounts. Account changes sign out all browsers. Keep one enabled administrator.</p>
@@ -2362,6 +2393,7 @@
   <script src="/js/camera-editor.js"></script>
   <script src="/js/lvgl-preview.js"></script>
   <script src="/js/users.js"></script>
+  <script src="/js/license-agreement.js"></script>
   <script src="/js/license.js"></script>
   <script src="/js/main.js"></script>
 </body>

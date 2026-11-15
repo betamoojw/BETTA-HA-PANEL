@@ -60,6 +60,7 @@ set(WEBUI_JS_SOURCES
     js/camera-editor.js
     js/lvgl-preview.js
     js/users.js
+    js/license-agreement.js
     js/license.js
     js/main.js)
 

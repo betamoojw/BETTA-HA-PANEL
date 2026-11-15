@@ -1,84 +1,188 @@
 /* SPDX-License-Identifier: LicenseRef-FNCL-1.1 | Copyright (c) 2026 andre68723 */
-let licenseState = null, licenseBusy = false, licensePoll = null;
+let licenseState = null, licenseBusy = false, licensePoll = null, licenseAbort = null;
+let licenseBound = false, licenseVisible = false, licenseEpoch = 0, licenseLoadedAt = 0, licenseAttemptAt = 0;
 const licenseNode = id => document.getElementById(id);
 
+function licenseRemaining() {
+  return Math.max(0, Math.ceil((Number(licenseState?.trial_seconds) || 0) - (performance.now() - licenseLoadedAt) / 1000));
+}
+function licenseRenderTime() {
+  const seconds = licenseRemaining(), valid = licenseState?.key_state === "valid";
+  const time = [Math.floor(seconds / 3600), Math.floor(seconds / 60) % 60, seconds % 60]
+    .map(value => String(value).padStart(2, "0")).join(":");
+  licenseNode("licenseTrial").textContent = !licenseState || valid ? "" : seconds > 0
+    ? t("license.trial", { time }) : t("license.expired");
+  const badge = !licenseState ? "unknown" : valid ? "activated" : seconds > 0 ? "trial_badge" : "ended";
+  licenseNode("licenseBadge").textContent = t(`license.${badge}`);
+}
+function licenseAgreementKey() {
+  if (!licenseState?.device_id || userAccess.local || !userAccess.authenticated) return null;
+  return `betta-license-read:${LICENSE_AGREEMENT.revision}:${licenseState.device_id}:${encodeURIComponent(userAccess.username || "@open")}`;
+}
+function licenseAgreementRender() {
+  const key = licenseAgreementKey(), checkbox = licenseNode("licenseAgreementRead");
+  checkbox.disabled = !key;
+  try {
+    const record = key ? JSON.parse(window.localStorage.getItem(key) || "null") : null;
+    checkbox.checked = !!record?.readAt;
+    licenseNode("licenseAgreementMessage").textContent = record?.readAt
+      ? t("license.read_saved", { date: new Date(record.readAt).toLocaleString() }) : "";
+  } catch (_) {
+    checkbox.checked = false;
+    licenseNode("licenseAgreementMessage").textContent = t("license.read_failed");
+  }
+}
+function licenseAgreementChange() {
+  const key = licenseAgreementKey();
+  if (!key) { licenseAgreementRender(); return; }
+  try {
+    if (licenseNode("licenseAgreementRead").checked) window.localStorage.setItem(key, JSON.stringify({ readAt: new Date().toISOString() }));
+    else window.localStorage.removeItem(key);
+    licenseAgreementRender();
+  } catch (_) {
+    licenseAgreementRender();
+    licenseNode("licenseAgreementMessage").textContent = t("license.read_failed");
+  }
+}
 function licenseRender() {
-  if (!licenseState) return;
-  const state = licenseState.key_state;
+  if (!licenseBound) return;
+  const state = licenseState?.key_state;
   const known = ["valid", "missing", "invalid", "error", "unconfigured"].includes(state) ? state : "error";
-  licenseNode("licenseStatus").textContent = t(`license.${known}`);
-  licenseNode("licenseOpen").textContent = `${t("license.title")}: ${t(`license.${known}`)}`;
-  licenseNode("licenseDevice").value = licenseState.device_id || "";
-  const seconds = Math.max(0, Number(licenseState.trial_seconds) || 0);
-  licenseNode("licenseTrial").textContent = state === "valid" ? "" : seconds > 0
-    ? t("license.trial", { minutes: Math.ceil(seconds / 60) }) : t("license.expired");
+  licenseNode("licenseStatus").textContent = userAccess.local ? t("license.local")
+    : licenseState ? t(`license.${known}`) : t("license.unknown");
+  licenseNode("licenseBanner").dataset.state = licenseState ? known : "unknown";
+  licenseNode("licenseBadge").dataset.state = licenseState ? known : "unknown";
+  licenseNode("licenseDevice").value = licenseState?.device_id || "";
+  licenseNode("licenseCopy").disabled = !licenseState?.device_id;
   licenseNode("licenseActions").hidden = !userIsAdmin();
   licenseNode("licenseAdminHint").hidden = userIsAdmin();
-  licenseNode("licenseImport").disabled = licenseBusy || !userIsAdmin() || state === "unconfigured" || userAccess.local;
+  licenseNode("licenseActivation").hidden = state === "valid";
+  const cannotImport = licenseBusy || !licenseState || !userIsAdmin() || state === "unconfigured" || userAccess.local;
+  for (const id of ["licenseImport", "licenseKey", "licenseFile"]) licenseNode(id).disabled = cannotImport;
+  licenseNode("licenseRemove").hidden = !["valid", "invalid", "error"].includes(state);
   licenseNode("licenseRemove").disabled = licenseBusy || !userIsAdmin() || userAccess.local;
+  licenseNode("licenseRefresh").disabled = licenseBusy || userAccess.local;
+  licenseRenderTime(); licenseAgreementRender();
 }
-
 async function licenseRequest(method = "GET", body) {
   const abort = new AbortController(), timer = window.setTimeout(() => abort.abort(), 10000);
+  licenseAbort = abort;
   try {
     const response = await fetch("/api/license", { method, body, signal: abort.signal,
       headers: method === "POST" ? { "Content-Type": "application/octet-stream" } : {} });
-    if (!response.ok) throw new Error(t(response.status === 400 ? "license.invalid_file" : response.status === 403
-      ? "users.denied" : "license.unavailable"));
+    if (!response.ok) throw new Error(t(response.status === 400 ? "license.invalid_file" : response.status === 403 ? "users.denied" : "license.unavailable"));
     return await response.json();
-  } finally { window.clearTimeout(timer); }
+  } finally {
+    window.clearTimeout(timer);
+    if (licenseAbort === abort) licenseAbort = null;
+  }
 }
-
 async function licenseLoad() {
   if (licenseBusy || !userAccess.authenticated || userAccess.local) return;
-  licenseBusy = true;
+  const epoch = licenseEpoch;
+  licenseAttemptAt = performance.now();
+  licenseBusy = true; licenseRender();
   try {
-    licenseState = await licenseRequest();
-    if (!userAccess.authenticated) { licenseState = null; return; }
+    const result = await licenseRequest();
+    if (epoch !== licenseEpoch || !userAccess.authenticated) return;
+    licenseState = result; licenseLoadedAt = performance.now();
     licenseNode("licenseMessage").textContent = "";
-  } catch (_) { licenseNode("licenseMessage").textContent = t("license.unavailable"); }
-  finally { licenseBusy = false; licenseRender(); }
+  } catch (_) {
+    if (epoch === licenseEpoch) licenseNode("licenseMessage").textContent = t("license.unavailable");
+  } finally {
+    if (epoch === licenseEpoch) { licenseBusy = false; licenseRender(); }
+  }
 }
-
 async function licenseChange(remove = false) {
-  if (licenseBusy || !userIsAdmin() || userAccess.local) return;
+  if (licenseBusy || !userAccess.authenticated || !userIsAdmin() || userAccess.local || !licenseState) return;
+  if (!remove && licenseState.key_state === "unconfigured") return;
   if (remove && !window.confirm(t("license.confirm_remove"))) return;
+  const epoch = licenseEpoch;
   licenseBusy = true; licenseRender();
   try {
     let text;
     if (!remove) {
       const file = licenseNode("licenseFile").files?.[0];
-      if (!file || file.size < 200 || file.size > 202) throw new Error(t("license.invalid_file"));
-      text = await file.text();
+      if (file && (file.size < 200 || file.size > 202)) throw new Error(t("license.invalid_file"));
+      text = file ? await file.text() : licenseNode("licenseKey").value;
       if (!/^BETTA1:[0-9a-f]{64}:[0-9a-f]{128}(?:\r?\n)?$/.test(text)) throw new Error(t("license.invalid_file"));
+      if (epoch !== licenseEpoch || !userAccess.authenticated || !userIsAdmin()) return;
     }
     const result = await licenseRequest(remove ? "DELETE" : "POST", text);
-    if (!userAccess.authenticated) return;
-    licenseState = result;
+    if (epoch !== licenseEpoch || !userAccess.authenticated) return;
+    licenseState = result; licenseLoadedAt = performance.now();
     licenseNode("licenseMessage").textContent = t(remove ? "license.removed" : "license.saved");
-  } catch (error) { licenseNode("licenseMessage").textContent = error.name === "AbortError" ? t("license.unavailable") : error.message; }
-  finally { licenseNode("licenseFile").value = ""; licenseBusy = false; licenseRender(); }
+  } catch (error) {
+    if (epoch === licenseEpoch) licenseNode("licenseMessage").textContent = error.message;
+  } finally {
+    if (epoch === licenseEpoch) { licenseClearInput(); licenseBusy = false; licenseRender(); }
+  }
 }
-
+function licenseClearInput() {
+  licenseNode("licenseFile").value = "";
+  licenseNode("licenseKey").value = "";
+}
+function licenseSetVisible(visible) {
+  if (!licenseBound || licenseVisible === visible) return;
+  licenseVisible = visible;
+  if (visible) { void licenseLoad(); return; }
+  ++licenseEpoch; licenseAbort?.abort(); licenseBusy = false;
+  licenseClearInput();
+}
+function licenseReset() {
+  if (!licenseBound) return;
+  licenseSetVisible(false);
+  ++licenseEpoch; licenseAbort?.abort(); licenseBusy = false; licenseState = null;
+  window.clearInterval(licensePoll); licensePoll = null;
+  licenseClearInput(); licenseRender();
+}
+function licenseSelectTab(agreement, focus = false) {
+  for (const [id, selected] of [["licenseTab", !agreement], ["agreementTab", agreement]]) {
+    const tab = licenseNode(id);
+    tab.setAttribute("aria-selected", String(selected)); tab.tabIndex = selected ? 0 : -1;
+    if (selected && focus) tab.focus();
+  }
+  licenseNode("licensePanel").hidden = agreement;
+  licenseNode("agreementPanel").hidden = !agreement;
+}
 function licenseBind() {
-  licenseNode("licenseOpen").onclick = () => {
-    licenseNode("licenseDialog").showModal(); void licenseLoad();
+  if (licenseBound) return;
+  licenseBound = true;
+  licenseNode("licenseAgreementText").textContent = LICENSE_AGREEMENT.text;
+  licenseNode("licenseAgreementRead").onchange = licenseAgreementChange;
+  licenseNode("licenseTab").onclick = () => licenseSelectTab(false);
+  licenseNode("agreementTab").onclick = () => licenseSelectTab(true);
+  for (const id of ["licenseTab", "agreementTab"]) licenseNode(id).onkeydown = event => {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    licenseSelectTab(event.key === "End" || (event.key !== "Home" && id === "licenseTab"), true);
   };
-  licenseNode("licenseClose").onclick = () => licenseNode("licenseDialog").close();
-  licenseNode("licenseDialog").addEventListener("close", () => { licenseNode("licenseFile").value = ""; });
   licenseNode("licenseRefresh").onclick = licenseLoad;
   licenseNode("licenseImport").onclick = () => licenseChange();
   licenseNode("licenseRemove").onclick = () => licenseChange(true);
+  licenseNode("licenseFile").onchange = () => { licenseNode("licenseKey").value = ""; };
+  licenseNode("licenseKey").oninput = () => { licenseNode("licenseFile").value = ""; };
   licenseNode("licenseCopy").onclick = async () => {
-    try {
-      await navigator.clipboard.writeText(licenseNode("licenseDevice").value);
-      licenseNode("licenseMessage").textContent = t("license.copied");
-    } catch (_) {
-      licenseNode("licenseDevice").select(); licenseNode("licenseMessage").textContent = t("license.copy_failed");
-    }
+    try { await navigator.clipboard.writeText(licenseNode("licenseDevice").value); licenseNode("licenseMessage").textContent = t("license.copied"); }
+    catch (_) { licenseNode("licenseDevice").select(); licenseNode("licenseMessage").textContent = t("license.copy_failed"); }
   };
-  void licenseLoad();
-  if (!licensePoll && !userAccess.local) licensePoll = window.setInterval(() => {
-    if (!document.hidden) void licenseLoad();
-  }, 60000);
+  // Read-only roles reuse the section without bootstrapping the editor or admin settings.
+  if (!userCanEdit()) {
+    licenseNode("userLicenseMount").appendChild(licenseNode("settingsLicenseSection"));
+    const showSettings = visible => {
+      licenseNode("userViewerScreen").hidden = visible;
+      licenseNode("userViewerSettings").hidden = !visible;
+      licenseSetVisible(visible);
+    };
+    licenseNode("userSettingsOpen").onclick = () => showSettings(true);
+    licenseNode("userSettingsClose").onclick = () => showSettings(false);
+    licenseNode("userLicenseNav").onclick = () => licenseSelectTab(false, true);
+  }
+  licenseRender();
+  licenseSetVisible(userCanEdit() && editor.activePane === "settings" && editor.activeSettingsSection === "settingsLicenseSection");
+  if (!userAccess.local) licensePoll = window.setInterval(() => {
+    if (!licenseVisible || document.hidden || !userAccess.authenticated) return;
+    if (!licenseBusy && performance.now() - licenseAttemptAt >= 60000) void licenseLoad();
+    licenseRenderTime();
+  }, 1000);
 }

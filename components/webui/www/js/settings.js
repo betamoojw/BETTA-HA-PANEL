@@ -269,12 +269,13 @@ function setActiveSettingsSection(sectionId) {
     return;
   }
   editor.activeSettingsSection = item.sectionId;
+  licenseSetVisible(editor.activePane === "settings" && item.sectionId === "settingsLicenseSection");
   if (item.sectionId === "settingsUsersSection" && typeof usersLoad === "function") void usersLoad();
   // KNX owns a separate save action; the generic shortcut would save unrelated settings.
   if (el.stackedSaveBtn) el.stackedSaveBtn.classList.toggle("hidden",
-    editor.activePane !== "settings" || !userIsAdmin() || ["settingsKnxSection","settingsCameraSection","settingsUsersSection"].includes(item.sectionId));
+    editor.activePane !== "settings" || !userIsAdmin() || ["settingsKnxSection","settingsCameraSection","settingsUsersSection","settingsLicenseSection"].includes(item.sectionId));
   const sidebarActions = document.getElementById("settingsSidebarActions");
-  if (sidebarActions) sidebarActions.hidden = !userIsAdmin() || item.sectionId === "settingsUsersSection";
+  if (sidebarActions) sidebarActions.hidden = !userIsAdmin() || ["settingsUsersSection", "settingsLicenseSection"].includes(item.sectionId);
   if (item.sectionId === "settingsAlertsSection") {
     renderAlertList(); // the draft survives leaving and returning; a reloaded layout replaces it
   }
@@ -328,6 +329,7 @@ function setActivePane(pane) {
   el.layoutTabBtn.classList.toggle("active", showLayout);
   el.settingsTabBtn.classList.toggle("active", showSettings);
   if (!showSettings) {
+    licenseSetVisible(false);
     clearOtaStatusPoll();
     if (showLayout) renderCanvas();
     if (showRemote && el.canvasTitle) el.canvasTitle.textContent = document.getElementById("remoteTabBtn").textContent;

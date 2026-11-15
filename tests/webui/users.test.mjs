@@ -134,10 +134,10 @@ test("fetch transport adds CSRF marker only to same-origin API mutations and exp
   assert.equal(run("userAccess.authenticated"), false);
 });
 
-test("installer settings navigation is limited to themes and simulator cannot create accounts", async () => {
+test("installer settings navigation includes only themes and licensing; simulator cannot create accounts", async () => {
   const run = setup();
   run("userAccess.role='installer'");
-  assert.equal(run("userSettingsSections().length"), 1);
+  assert.equal(run("userSettingsSections().map(item => item.sectionId).join(',')"), "settingsThemeSection,settingsLicenseSection");
   assert.equal(run("activeSettingsNavItem('settingsUsersSection').sectionId"), "settingsThemeSection");
   run("userAccess.role='administrator'; userAccess.local=true");
   await run("usersLoad()");

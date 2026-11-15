@@ -10,7 +10,10 @@ Changes since [v0.9.2-rc1](#v092-rc1).
 
 - **License management:** device-bound signed license import, persistent status and
   an informational 60-minute trial across all firmware profiles. All features stay
-  available regardless of license state. See [License management](license-management.md).
+  available regardless of license state. **Settings → System → License** includes
+  License/Agreement tabs, paste or file activation and an optional browser-local
+  reading record for the complete repository license and third-party notices.
+  See [License management](license-management.md).
 
 - **Users:** optional accounts with viewer/operator/installer/administrator roles, seven-language sign-in and account forms,
   HttpOnly sessions, server-side route permissions, last-administrator protection and legacy admin-password migration.

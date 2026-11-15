@@ -69,7 +69,8 @@ www/js/xiaozhi.js     optional panel-microphone assistant controls and bounded s
 www/js/knx.js         optional KNX Routing configuration, status and commissioning controls
 www/js/camera-editor.js camera settings, timed preview, motion zones and saved source management
 www/js/users.js       cookie session bootstrap, role-specific workspace and account lifecycle
-www/js/license.js     signed license import and bounded status polling
+www/js/license-agreement.js generated LICENSE text and content revision
+www/js/license.js     System license/Agreement tabs, signed key import and bounded status polling
 www/js/main.js        calls `userBootstrap()` once everything has loaded
 ```
 

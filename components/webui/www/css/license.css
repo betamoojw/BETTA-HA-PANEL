@@ -1,8 +1,32 @@
 /* SPDX-License-Identifier: LicenseRef-FNCL-1.1 | Copyright (c) 2026 andre68723 */
-#licenseDialog { width: min(600px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow: auto; box-sizing: border-box; }
-#licenseDialog p { overflow-wrap: anywhere; }
-#licenseDevice { width: 100%; min-width: 0; box-sizing: border-box; font-family: monospace; }
-#licenseActions { margin: 16px 0; }
-#licenseFile { display: block; max-width: 100%; margin: 8px 0; }
-#licenseOpen { white-space: normal; text-align: start; }
-.user-account-bar ~ .user-viewer { padding-top: 24px; }
+.license-settings { min-width: 0; }
+.license-settings p { line-height: 1.6; overflow-wrap: anywhere; }
+.license-tabs { display: flex; gap: 20px; border-bottom: 1px solid var(--line); margin-bottom: 24px; }
+.license-tabs button { border: 0; border-bottom: 3px solid transparent; background: transparent; color: var(--text-2); padding: 12px 4px; font: inherit; cursor: pointer; }
+.license-tabs button[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); }
+.license-settings :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.license-status-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.license-status-heading h3 { margin: 0; font-size: 1.1rem; }
+.license-badge { padding: 5px 12px; border: 1px solid var(--line); border-radius: 20px; font-size: .85rem; }
+.license-banner { border: 1px solid var(--line); border-left: 4px solid #c89436; background: color-mix(in srgb, #c89436 10%, var(--panel)); border-radius: 8px; padding: 12px 16px; margin: 16px 0; }
+.license-banner p { margin: 0; }
+.license-banner[data-state="valid"] { border-left-color: #49a97c; background: color-mix(in srgb, #49a97c 10%, var(--panel)); }
+.license-badge[data-state="valid"] { border-color: #49a97c; }
+.license-banner[data-state="error"], .license-banner[data-state="invalid"] { border-left-color: var(--danger); }
+.license-device-row { display: flex; gap: 12px; flex-wrap: wrap; margin: 8px 0 20px; }
+#licenseDevice { flex: 1 1 320px; min-width: 0; width: 100%; font-family: monospace; }
+#licenseKey { display: block; width: 100%; min-height: 120px; margin-top: 8px; resize: vertical; font-family: monospace; overflow-wrap: anywhere; }
+#licenseFile { display: block; max-width: 100%; margin: 8px 0 20px; }
+#licenseRemove { margin-top: 12px; }
+.license-agreement-text { max-height: 42vh; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; line-height: 1.6; border: 1px solid var(--line); border-radius: 8px; padding: 20px; background: var(--panel); }
+.license-settings label.license-ack { display: flex; align-items: flex-start; gap: 10px; line-height: 1.6; }
+.license-ack input { flex: 0 0 20px; width: 20px; height: 20px; margin-top: 3px; }
+.license-viewer-workspace { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 24px; }
+.license-viewer-workspace nav h2 { font-size: .9rem; color: var(--muted); }
+.license-viewer-workspace .license-settings { padding: 24px; border: 1px solid var(--line); border-radius: 12px; }
+@media (max-width: 640px) {
+  .license-viewer-workspace { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .license-viewer-workspace .license-settings { padding: 16px; }
+  .license-status-heading { align-items: flex-start; flex-wrap: wrap; }
+  .license-agreement-text { padding: 12px; }
+}

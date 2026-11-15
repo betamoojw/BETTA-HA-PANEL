@@ -24,6 +24,11 @@ and may use an older password or allow open access.
 | Installer | Layout editor, entity search, room import, themes and read-only Live Display | Save layout, themes and custom translations; run existing display/sound/camera tests |
 | Administrator | Full editor, settings and account management | Connection settings, firmware, restart/reset, camera configuration, KNX, voice assistant, diagnostics and crash dumps; remote touch |
 
+All signed-in roles can open **Settings → System → License** and read its Agreement.
+Viewer and operator accounts reach Settings from their panel-screen page; they
+cannot access other system settings. Only administrators can activate or remove
+a device license. Reading confirmation is local to each browser and account.
+
 The server checks permissions even when a client bypasses the browser controls. Unclassified API
 routes require an administrator. Physical touch remains trusted. These accounts do not restrict
 Home Assistant, MQTT or KNX operations: those integrations retain their existing credentials and controls.

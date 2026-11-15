@@ -4,6 +4,7 @@
  * Shared settings policy, semantic typography and deferred storage are used here.
  */
 #include "ui/ui_transition.h"
+#include "ui/ui_license_warning.h"
 #include "ui/ui_screen_settings.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -285,6 +286,7 @@ void ui_screen_settings_open(void)
     lv_obj_t *title = label(header, tr("title", "System settings"), UI_TEXT_LABEL);
     lv_obj_set_flex_grow(title, 1);
     view->cancel = button(header, tr("cancel", "Cancel"), close_clicked, view);
+    (void)ui_license_warning_attach(header, view->cancel, APP_CONTENT_BOX_Y);
     view->body = container(view->root, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_height(view->body, 0);
     lv_obj_set_flex_grow(view->body, 1);

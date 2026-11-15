@@ -976,6 +976,13 @@
     "network": {
       "ethernet": "乙太網",
       "interface": "網路連線"
+    },
+    "license_lcd": {
+      "missing": "未授權",
+      "invalid": "授權無效",
+      "unconfigured": "未設定簽發公鑰",
+      "error": "授權狀態無法取得",
+      "compact": "授權提示"
     }
   }
 }

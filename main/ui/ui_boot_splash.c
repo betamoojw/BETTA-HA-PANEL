@@ -4,6 +4,7 @@
  */
 #include "ui/display_geometry.h"
 #include "ui/ui_boot_splash.h"
+#include "ui/ui_license_warning.h"
 
 #include <stdint.h>
 #include <stdatomic.h>
@@ -102,6 +103,9 @@ typedef struct {
 
 static boot_splash_state_t s_splash = {0};
 static atomic_bool s_hide_requested;
+static atomic_bool s_setup_mode;
+
+void ui_boot_splash_set_setup(void) { atomic_store(&s_setup_mode, true); }
 static bool s_manual_progress;
 
 /* Called only while LVGL is locked, including from its timer callback. */
@@ -252,6 +256,8 @@ static void splash_timer_cb(lv_timer_t *timer)
         return;
     }
     if (!s_manual_progress) splash_step_progress();
+    if (atomic_load(&s_setup_mode))
+        (void)ui_license_warning_attach(s_splash.root, NULL, APP_CONTENT_BOX_Y);
 }
 
 static lv_obj_t *splash_create_emblem(lv_obj_t *parent)
@@ -308,6 +314,7 @@ esp_err_t ui_boot_splash_show(void)
 
     lv_obj_t *top_layer = lv_layer_top();
     s_splash.root = lv_obj_create(top_layer);
+    atomic_store(&s_setup_mode, false);
     lv_obj_set_size(s_splash.root, APP_VIEW_WIDTH, APP_VIEW_HEIGHT);
     lv_obj_set_pos(s_splash.root, 0, 0);
     lv_obj_set_scrollable(s_splash.root, false);

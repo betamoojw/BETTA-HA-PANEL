@@ -19,6 +19,9 @@ Changes since [v0.9.2-rc1](#v092-rc1).
   without restricting use. Valid activation removes the strip and its top spacing.
   File selection and pasting remain available to administrators without an issuer
   public key; activation stays disabled with a translated explanation.
+  The LCD adds a translucent top-bar warning after 30 minutes of each boot,
+  including persistent setup and native settings. Seven languages, compact
+  text, touch passthrough and fullscreen/saver priorities preserve normal use.
   See [License management](license-management.md).
 
 - **Users:** optional accounts with viewer/operator/installer/administrator roles, seven-language sign-in and account forms,

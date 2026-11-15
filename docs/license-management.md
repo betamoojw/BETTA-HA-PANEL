@@ -25,6 +25,26 @@ other tabs refresh periodically while visible. All seven editor languages are
 supported. Before sign-in, the browser language is used. Local editor previews
 do not claim or request a device license.
 
+## LCD warning after 30 minutes
+
+After 30 minutes of uptime, a translucent black/yellow warning overlays the LCD
+top bar when the license is missing or invalid, the issuer is not configured,
+or its status is unavailable. Each condition has its own message. Small screens
+and enlarged text may show a shorter license warning. All seven panel languages
+are supported. The 60-minute informational trial and immediate web warning keep
+their existing timing.
+
+The overlay partly covers left-side date, weather or stock information. It adds
+no top spacing and leaves the clock, connection controls and settings button
+usable. It also appears in the native settings header and persistent Wi-Fi/HA
+setup screen. Fullscreen dialogs and overlays keep priority; screensavers and
+screen-off modes suppress the warning without being woken by it.
+
+A valid activation hides the warning on the next display update. Removing a
+license after 30 minutes shows it again. Only reboot restarts the delay; page
+changes, network reconnection, language changes and clock adjustments do not.
+The warning never restricts features, changes brightness or writes settings.
+
 ## Import a license
 
 1. Copy the **Device ID** and send it to your supplier.

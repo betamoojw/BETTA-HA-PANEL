@@ -338,6 +338,7 @@ idf_component_register(
         "ui/ui_camera_view.c"
         "ui/ui_ota_progress.c"
         "ui/ui_pages.c"
+        "ui/ui_license_warning.c"
         "ui/ui_flip_clock.c"
         "ui/ui_transition.c"
         "ui/ui_conn_popup.c"

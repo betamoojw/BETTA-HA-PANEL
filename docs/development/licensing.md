@@ -15,8 +15,8 @@ Trial expiration schedules a red blink and restart; pending restart runs before
 the next validation, even if a key was imported meanwhile.
 
 BETTA implements the workflow independently with signatures. At the owner's
-request, status is **informational only**. HA, KNX, MQTT, camera, audio, LVGL,
-remote input and control permissions do not consult the license. The trial uses
+request, status is **informational only**. HA, KNX, MQTT, camera, audio, display,
+remote input and control permissions are never restricted by the license. The trial uses
 exactly 3,600 seconds of monotonic uptime per boot. There is no enforced trial,
 calendar expiry, online activation or revocation list. This runtime license does
 not replace the repository's source license.
@@ -127,6 +127,48 @@ same variable offsets login, setup, editor/viewer and overlay content. A valid
 state sets the height to zero. The black/yellow diagonal pattern follows the
 WLED development-banner reference; this implementation remains independent of
 WLED's unconditional development notice and its fixed 24-pixel layout.
+
+## Native LCD warning
+
+`license_warning_due()` uses a separate 64-bit monotonic deadline of 1,800 seconds
+per boot. It does not change the 3,600-second trial or immediate web warning.
+VALID hides the LCD warning; MISSING, INVALID, UNCONFIGURED and ERROR have distinct
+localized messages. Rejected imports preserve the previously verified state.
+
+`ui_license_warning` draws in the existing header's post-draw event: three
+translucent rectangles, two narrow stripe rails and semantic-role text. It adds
+no LVGL object, framebuffer, full-screen opacity layer or top-layer sibling.
+Touch hit testing and popup-based rotation detection therefore keep their
+existing object trees. Text fits before the first protected control, falls back
+to a compact translation, then `!` when necessary; the stripe remains visible
+if no readable text fits. The underlying left-side information is partly covered.
+
+One shared one-second LVGL timer samples cached license state and uptime through
+an injected source. It invalidates header bounds only when visibility, state,
+language or font changes. Drawing follows normal header/layout invalidation.
+The firmware source also suppresses the warning during display protection.
+Callbacks perform no NVS, crypto, network, backlight or activity operations.
+They run in LVGL context; no new task or nested display-lock wait is introduced.
+Deleting the last owner deletes the timer; repeated attachment is idempotent.
+
+Dashboard and native settings attach to their existing headers. Persistent
+Wi-Fi/HA setup is marked atomically and attached by the splash's LVGL timer,
+even when the dashboard runtime never starts. Normal boot has no warning.
+Fullscreen surfaces retain their drawing order. Snapshots include the warning
+in its existing owner; a dashboard warning alone does not make the top layer
+nonempty or require another full-frame ARGB snapshot.
+
+The simulator's `--license-warning missing|valid|invalid|error|unconfigured`
+injects a synthetic status at exactly 30 minutes. It changes neither firmware
+settings nor real device licenses. `license-warning-lifecycle-and-layout`
+checks boundary/state pixels, unchanged content/control bounds, touch hit
+testing, timer teardown/rebuild and seven languages at three text sizes.
+The boot-splash regression also exercises setup with deferred hide.
+
+Host/SDL results do not measure P4 timing or heap peaks. After an authorized
+installation, measure LVGL response/lock duration, CPU and PSRAM/internal-RAM
+peaks, frame/DMA/VSYNC intervals and audio continuity during ordinary camera/HA
+activity. Verify physical flicker and touch separately from screenshot pixels.
 
 ## Agreement page
 

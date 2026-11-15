@@ -1030,6 +1030,7 @@ int main(int argc, char **argv)
     bool parqet_regression = false;
     bool price_regression = false;
     bool screen_settings_regression = false; bool alerts_regression = false;
+    bool license_warning_regression = false;
     bool font_budget_regression = false;
     bool energy_regression = false;
     bool bambu_regression = false;
@@ -1040,6 +1041,7 @@ int main(int argc, char **argv)
     const char *style_name = ui_style_name(UI_STYLE_DEFAULT);
     const char *language = "en";
     const char *screenshot_path = NULL;
+    const char *license_warning_state = NULL;
     const char *layout_path = NULL;
     int exit_after_ms = 0;
     int rotation = -1;
@@ -1064,6 +1066,7 @@ int main(int argc, char **argv)
         else if (strcmp(argv[i - 1], "--regression") == 0 && strcmp(value, "controls") == 0) controls_regression = true;
         else if (strcmp(argv[i - 1], "--regression") == 0 && strcmp(value, "alerts") == 0) alerts_regression = true;
         else if (strcmp(argv[i - 1], "--regression") == 0 && strcmp(value, "screen-settings") == 0) screen_settings_regression = true;
+        else if (strcmp(argv[i - 1], "--regression") == 0 && strcmp(value, "license-warning") == 0) license_warning_regression = true;
         else if (strcmp(argv[i - 1], "--regression") == 0 && strcmp(value, "notification") == 0) notification_regression = true;
         else if (strcmp(argv[i - 1], "--regression") == 0 && strcmp(value, "price") == 0) price_regression = true;
         else if (strcmp(argv[i - 1], "--regression") == 0 && strcmp(value, "parqet") == 0) parqet_regression = true;
@@ -1099,6 +1102,7 @@ int main(int argc, char **argv)
         else if (strcmp(argv[i - 1], "--style") == 0) style_name = value;
         else if (strcmp(argv[i - 1], "--language") == 0) language = value;
         else if (strcmp(argv[i - 1], "--screenshot") == 0) screenshot_path = value;
+        else if (strcmp(argv[i - 1], "--license-warning") == 0) license_warning_state = value;
         else if (strcmp(argv[i - 1], "--dump-layout") == 0) layout_path = value;
         else if (strcmp(argv[i - 1], "--exit-after-ms") == 0) {
             char *end = NULL;
@@ -1202,6 +1206,13 @@ int main(int argc, char **argv)
         cJSON_Delete(root);
         return 1;
     }
+    if (license_warning_state) {
+        extern bool sim_license_warning_fixture(const char *state);
+        if (!sim_license_warning_fixture(license_warning_state)) {
+            fprintf(stderr, "Invalid synthetic license state: %s\n", license_warning_state);
+            return 2;
+        }
+    }
     lv_display_t *display = lv_sdl_window_create(APP_VIEW_WIDTH, APP_VIEW_HEIGHT);
     if (display == NULL) {
         fprintf(stderr, "SDL display creation failed\n");
@@ -1238,6 +1249,7 @@ int main(int argc, char **argv)
     }
     if (alerts_regression) { extern int sim_alert_center_regression(void); cJSON_Delete(root); return sim_alert_center_regression(); }
     if (screen_settings_regression) { extern int sim_screen_settings_regression(void); cJSON_Delete(root); return sim_screen_settings_regression(); }
+    if (license_warning_regression) { extern int sim_license_warning_regression(void); cJSON_Delete(root); return sim_license_warning_regression(); }
     if (notification_regression) {
         cJSON_Delete(root);
         return sim_notification_regression();

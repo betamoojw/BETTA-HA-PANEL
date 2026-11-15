@@ -5,6 +5,9 @@
 
 #include "ui/ui_transition.h"
 #include "settings/license_manager.h"
+#include "ui/ui_license_warning.h"
+#include "ui/ui_display_protection.h"
+#include "esp_timer.h"
 #include "xiaozhi/xiaozhi.h"
 #include "knx/knx.h"
 #include "camera/camera_store.h"
@@ -79,6 +82,7 @@ typedef enum {
 
 static void app_show_wifi_setup_screen(const char *saved_ssid)
 {
+    ui_boot_splash_set_setup();
     char ap_ip[16] = "192.168.4.1";
     if (wifi_mgr_get_ap_ip(ap_ip, sizeof(ap_ip)) != ESP_OK) {
         strlcpy(ap_ip, "192.168.4.1", sizeof(ap_ip));
@@ -123,6 +127,7 @@ static void app_show_wifi_setup_screen(const char *saved_ssid)
 
 static void app_show_ha_setup_screen(void)
 {
+    ui_boot_splash_set_setup();
     char sta_ip[16] = {0};
     char url_line[64] = {0};
     if (net_mgr_get_ip(sta_ip, sizeof(sta_ip)) == ESP_OK && sta_ip[0] != '\0') {
@@ -177,6 +182,14 @@ static esp_err_t init_net_stack(void)
     return ESP_OK;
 }
 
+static ui_license_warning_status_t app_license_warning_status(void)
+{
+    license_status_t status;
+    license_manager_status(&status);
+    return (ui_license_warning_status_t){.state = status.key_state,
+        .uptime_us = esp_timer_get_time(), .suppressed = ui_display_protection_is_active()};
+}
+
 void app_main(void)
 {
     const esp_app_desc_t *app_desc = esp_app_get_description();
@@ -191,6 +204,7 @@ void app_main(void)
 
     ESP_ERROR_CHECK(init_nvs());
     license_manager_init();
+    ui_license_warning_set_source(app_license_warning_status);
     reboot_log_init(); /* why the previous run ended: needs NVS, before anything else can restart */
     ESP_ERROR_CHECK(init_littlefs());
     coredump_archive_init(); /* preserve the previous panic before network/UI can fail again */

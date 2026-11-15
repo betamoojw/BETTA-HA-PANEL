@@ -2,6 +2,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include "settings/license_manager.c"
+#include "settings/license_warning.h"
 /* Storage/lifecycle test uses fake crypto. The separate PSA target verifies real signatures. */
 const char *test_public_key = "configured";
 static char disk[LICENSE_FILE_MAX], pending[LICENSE_FILE_MAX];
@@ -51,7 +52,16 @@ esp_err_t nvs_commit(nvs_handle_t h) {
 }
 static license_status_t snapshot(void) { license_status_t s; license_manager_status(&s); assert(!opened); return s; }
 int main(void) {
+    for (int state = LICENSE_MISSING; state <= LICENSE_UNCONFIGURED; ++state) {
+        assert(!license_warning_due(state, -1));
+        assert(!license_warning_due(state, 0));
+        assert(!license_warning_due(state, LICENSE_LCD_DELAY_US - 1));
+        assert(license_warning_due(state, LICENSE_LCD_DELAY_US) == (state != LICENSE_VALID));
+        assert(license_warning_due(state, INT64_MAX) == (state != LICENSE_VALID));
+    }
     license_manager_init(); assert(snapshot().key_state == LICENSE_MISSING); assert(snapshot().trial_seconds == 3600);
+    clock_us = LICENSE_LCD_DELAY_US;
+    assert(snapshot().trial_seconds == 1800 && license_warning_due(snapshot().key_state, clock_us));
     clock_us = 3599999999LL; assert(snapshot().trial_seconds == 1);
     clock_us = 3600000000LL; assert(snapshot().trial_seconds == 0);
     clock_us = INT64_MAX; assert(snapshot().trial_seconds == 0);
@@ -61,6 +71,7 @@ int main(void) {
     key[3] = 0; unsigned before = writes;
     assert(license_manager_import(key, sizeof(key)) == ESP_ERR_INVALID_ARG);
     assert(writes == before && snapshot().key_state == LICENSE_VALID); key[3] = 'k';
+    assert(!license_warning_due(snapshot().key_state, clock_us));
     commit_error = ESP_FAIL; assert(license_manager_remove() == ESP_FAIL); assert(snapshot().key_state == LICENSE_ERROR);
     commit_error = 0; license_manager_init(); assert(snapshot().key_state == LICENSE_VALID);
     assert(license_manager_remove() == ESP_OK); assert(snapshot().key_state == LICENSE_MISSING && snapshot().trial_seconds == 0);

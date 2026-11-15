@@ -976,6 +976,13 @@
     "network": {
       "ethernet": "以太网",
       "interface": "网络连接"
+    },
+    "license_lcd": {
+      "missing": "未授权",
+      "invalid": "授权无效",
+      "unconfigured": "未配置签发公钥",
+      "error": "授权状态不可用",
+      "compact": "授权提示"
     }
   }
 }

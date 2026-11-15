@@ -976,6 +976,13 @@
     "network": {
       "ethernet": "Ethernet",
       "interface": "Connexion"
+    },
+    "license_lcd": {
+      "missing": "Sans licence",
+      "invalid": "Licence invalide",
+      "unconfigured": "Émetteur non configuré",
+      "error": "État de licence indisponible",
+      "compact": "Alerte de licence"
     }
   }
 }

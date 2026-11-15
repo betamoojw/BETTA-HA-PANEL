@@ -9,6 +9,8 @@
 #include "esp_err.h"
 
 esp_err_t ui_boot_splash_show(void);
+/* Mark a persistent provisioning screen; applied by its LVGL timer. */
+void ui_boot_splash_set_setup(void);
 void ui_boot_splash_set_title(const char *title_text);
 void ui_boot_splash_clear_status(void);
 void ui_boot_splash_set_status(const char *status_text);

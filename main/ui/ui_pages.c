@@ -4,6 +4,7 @@
  */
 
 #include "ui/ui_transition.h"
+#include "ui/ui_license_warning.h"
 #ifdef ESP_PLATFORM
 #include "xiaozhi/xiaozhi.h"
 #endif
@@ -1015,6 +1016,7 @@ static void ui_pages_create_topbar(lv_obj_t *screen)
     lv_obj_set_style_text_font(s_wifi_icon, TOPBAR_ICON_FONT, 0);
     lv_label_set_text(s_wifi_icon, APP_SYMBOL_WIFI_OFF);
     ui_pages_layout_topbar_right();
+    (void)ui_license_warning_attach(s_topbar, s_time_label, APP_CONTENT_BOX_Y);
 }
 
 static void ui_pages_create_nav(lv_obj_t *screen)

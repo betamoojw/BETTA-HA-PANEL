@@ -102,6 +102,7 @@ add_executable(betta-widget-sim
     flip_clock_regression.c
     popup_transition_regression.c
     screen_settings_regression.c
+    license_warning_regression.c
     alert_center_regression.c
     "${REPO_ROOT}/main/settings/brightness_model.c"
     price_regression.c
@@ -171,6 +172,7 @@ add_executable(betta-widget-sim
     "${REPO_ROOT}/main/ui/ui_camera_view.c"
     "${REPO_ROOT}/main/ui/ui_widget_factory.c"
     "${REPO_ROOT}/main/ui/ui_pages.c"
+    "${REPO_ROOT}/main/ui/ui_license_warning.c"
     "${REPO_ROOT}/main/ui/ui_flip_clock.c"
     "${REPO_ROOT}/main/ui/ui_transition.c"
     "${REPO_ROOT}/main/ui/ui_screen_settings.c"
@@ -283,6 +285,9 @@ target_compile_definitions(betta-remote-test PRIVATE CONFIG_APP_REMOTE_DISPLAY=1
 target_compile_options(betta-remote-test PRIVATE -Wall -Wextra -Werror -Wno-unused-parameter -UNDEBUG)
 target_link_libraries(betta-remote-test PRIVATE lvgl SDL2::SDL2 m)
 enable_testing()
+add_test(NAME license-warning-lifecycle-and-layout
+    COMMAND betta-widget-sim --regression license-warning --fixture "${CMAKE_CURRENT_LIST_DIR}/screen_settings.json")
+set_tests_properties(license-warning-lifecycle-and-layout PROPERTIES ENVIRONMENT "SDL_VIDEODRIVER=dummy;BETTA_SIM_NOW=1792233000")
 add_test(NAME weather-legacy-layout-compat
     COMMAND ${Python3_EXECUTABLE} "${CMAKE_CURRENT_LIST_DIR}/weather_legacy_regression.py" $<TARGET_FILE:betta-widget-sim>)
 foreach(board 4INCH_720 10INCH_1280 10INCH_JC TAB5_1280 S3_480)
@@ -382,7 +387,8 @@ target_compile_definitions(betta-reply-font-test PRIVATE XIAOZHI_FONT_TEST=1)
 target_compile_options(betta-reply-font-test PRIVATE -Wall -Wextra -Werror)
 target_link_libraries(betta-reply-font-test PRIVATE lvgl SDL2::SDL2 m)
 add_test(NAME xiaozhi-reply-font COMMAND betta-reply-font-test "${CMAKE_CURRENT_BINARY_DIR}/reply-font.ttf")
-add_executable(betta-splash-test boot_splash_regression.c sim_clock.c "${REPO_ROOT}/main/ui/ui_boot_splash.c")
+add_executable(betta-splash-test boot_splash_regression.c sim_clock.c
+    "${REPO_ROOT}/main/ui/ui_boot_splash.c" "${REPO_ROOT}/main/ui/ui_license_warning.c")
 target_include_directories(betta-splash-test PRIVATE "${REPO_ROOT}/main" "${CMAKE_CURRENT_LIST_DIR}/stubs")
 target_compile_definitions(betta-splash-test PRIVATE CONFIG_APP_PANEL_VARIANT_S3_480=1)
 target_compile_options(betta-splash-test PRIVATE -Wall -Wextra -Werror -Wno-unused-parameter)

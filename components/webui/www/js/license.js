@@ -1,7 +1,16 @@
 /* SPDX-License-Identifier: LicenseRef-FNCL-1.1 | Copyright (c) 2026 andre68723 */
 let licenseState = null, licenseBusy = false, licensePoll = null, licenseAbort = null;
 let licenseBound = false, licenseVisible = false, licenseEpoch = 0, licenseLoadedAt = 0, licenseAttemptAt = 0;
+let licenseMessageKey = "";
 const licenseNode = id => document.getElementById(id);
+
+function licenseSetMessage(key) {
+  licenseMessageKey = key;
+  licenseNode("licenseMessage").textContent = key ? t(key) : "";
+}
+function licenseRenderFile() {
+  licenseNode("licenseFileName").textContent = licenseNode("licenseFile").files?.[0]?.name || t("license.no_file");
+}
 
 function licenseRemaining() {
   return Math.max(0, Math.ceil((Number(licenseState?.trial_seconds) || 0) - (performance.now() - licenseLoadedAt) / 1000));
@@ -26,7 +35,8 @@ function licenseAgreementRender() {
     const record = key ? JSON.parse(window.localStorage.getItem(key) || "null") : null;
     checkbox.checked = !!record?.readAt;
     licenseNode("licenseAgreementMessage").textContent = record?.readAt
-      ? t("license.read_saved", { date: new Date(record.readAt).toLocaleString() }) : "";
+      ? t("license.read_saved", { date: new Date(record.readAt).toLocaleString(
+        WEB_I18N_BUILTIN[editor.i18nLanguage] ? editor.i18nLanguage : "en") }) : "";
   } catch (_) {
     checkbox.checked = false;
     licenseNode("licenseAgreementMessage").textContent = t("license.read_failed");
@@ -58,10 +68,12 @@ function licenseRender() {
   licenseNode("licenseAdminHint").hidden = userIsAdmin();
   licenseNode("licenseActivation").hidden = state === "valid";
   const cannotImport = licenseBusy || !licenseState || !userIsAdmin() || state === "unconfigured" || userAccess.local;
-  for (const id of ["licenseImport", "licenseKey", "licenseFile"]) licenseNode(id).disabled = cannotImport;
+  for (const id of ["licenseImport", "licenseKey", "licenseFile", "licenseChooseFile"]) licenseNode(id).disabled = cannotImport;
   licenseNode("licenseRemove").hidden = !["valid", "invalid", "error"].includes(state);
   licenseNode("licenseRemove").disabled = licenseBusy || !userIsAdmin() || userAccess.local;
   licenseNode("licenseRefresh").disabled = licenseBusy || userAccess.local;
+  licenseSetMessage(licenseMessageKey);
+  licenseRenderFile();
   licenseRenderTime(); licenseAgreementRender();
 }
 async function licenseRequest(method = "GET", body) {
@@ -70,7 +82,7 @@ async function licenseRequest(method = "GET", body) {
   try {
     const response = await fetch("/api/license", { method, body, signal: abort.signal,
       headers: method === "POST" ? { "Content-Type": "application/octet-stream" } : {} });
-    if (!response.ok) throw new Error(t(response.status === 400 ? "license.invalid_file" : response.status === 403 ? "users.denied" : "license.unavailable"));
+    if (!response.ok) throw new Error(response.status === 400 ? "license.invalid_file" : response.status === 403 ? "users.denied" : "license.unavailable");
     return await response.json();
   } finally {
     window.clearTimeout(timer);
@@ -86,9 +98,9 @@ async function licenseLoad() {
     const result = await licenseRequest();
     if (epoch !== licenseEpoch || !userAccess.authenticated) return;
     licenseState = result; licenseLoadedAt = performance.now();
-    licenseNode("licenseMessage").textContent = "";
+    licenseSetMessage("");
   } catch (_) {
-    if (epoch === licenseEpoch) licenseNode("licenseMessage").textContent = t("license.unavailable");
+    if (epoch === licenseEpoch) licenseSetMessage("license.unavailable");
   } finally {
     if (epoch === licenseEpoch) { licenseBusy = false; licenseRender(); }
   }
@@ -103,17 +115,18 @@ async function licenseChange(remove = false) {
     let text;
     if (!remove) {
       const file = licenseNode("licenseFile").files?.[0];
-      if (file && (file.size < 200 || file.size > 202)) throw new Error(t("license.invalid_file"));
+      if (file && (file.size < 200 || file.size > 202)) throw new Error("license.invalid_file");
       text = file ? await file.text() : licenseNode("licenseKey").value;
-      if (!/^BETTA1:[0-9a-f]{64}:[0-9a-f]{128}(?:\r?\n)?$/.test(text)) throw new Error(t("license.invalid_file"));
+      if (!/^BETTA1:[0-9a-f]{64}:[0-9a-f]{128}(?:\r?\n)?$/.test(text)) throw new Error("license.invalid_file");
       if (epoch !== licenseEpoch || !userAccess.authenticated || !userIsAdmin()) return;
     }
     const result = await licenseRequest(remove ? "DELETE" : "POST", text);
     if (epoch !== licenseEpoch || !userAccess.authenticated) return;
     licenseState = result; licenseLoadedAt = performance.now();
-    licenseNode("licenseMessage").textContent = t(remove ? "license.removed" : "license.saved");
+    licenseSetMessage(remove ? "license.removed" : "license.saved");
   } catch (error) {
-    if (epoch === licenseEpoch) licenseNode("licenseMessage").textContent = error.message;
+    if (epoch === licenseEpoch) licenseSetMessage(["license.invalid_file", "users.denied"].includes(error?.message)
+      ? error.message : "license.unavailable");
   } finally {
     if (epoch === licenseEpoch) { licenseClearInput(); licenseBusy = false; licenseRender(); }
   }
@@ -121,6 +134,7 @@ async function licenseChange(remove = false) {
 function licenseClearInput() {
   licenseNode("licenseFile").value = "";
   licenseNode("licenseKey").value = "";
+  licenseRenderFile();
 }
 function licenseSetVisible(visible) {
   if (!licenseBound || licenseVisible === visible) return;
@@ -134,6 +148,7 @@ function licenseReset() {
   licenseSetVisible(false);
   ++licenseEpoch; licenseAbort?.abort(); licenseBusy = false; licenseState = null;
   window.clearInterval(licensePoll); licensePoll = null;
+  licenseSetMessage("");
   licenseClearInput(); licenseRender();
 }
 function licenseSelectTab(agreement, focus = false) {
@@ -160,11 +175,12 @@ function licenseBind() {
   licenseNode("licenseRefresh").onclick = licenseLoad;
   licenseNode("licenseImport").onclick = () => licenseChange();
   licenseNode("licenseRemove").onclick = () => licenseChange(true);
-  licenseNode("licenseFile").onchange = () => { licenseNode("licenseKey").value = ""; };
-  licenseNode("licenseKey").oninput = () => { licenseNode("licenseFile").value = ""; };
+  licenseNode("licenseChooseFile").onclick = () => licenseNode("licenseFile").click();
+  licenseNode("licenseFile").onchange = () => { licenseNode("licenseKey").value = ""; licenseRenderFile(); };
+  licenseNode("licenseKey").oninput = () => { licenseNode("licenseFile").value = ""; licenseRenderFile(); };
   licenseNode("licenseCopy").onclick = async () => {
-    try { await navigator.clipboard.writeText(licenseNode("licenseDevice").value); licenseNode("licenseMessage").textContent = t("license.copied"); }
-    catch (_) { licenseNode("licenseDevice").select(); licenseNode("licenseMessage").textContent = t("license.copy_failed"); }
+    try { await navigator.clipboard.writeText(licenseNode("licenseDevice").value); licenseSetMessage("license.copied"); }
+    catch (_) { licenseNode("licenseDevice").select(); licenseSetMessage("license.copy_failed"); }
   };
   // Read-only roles reuse the section without bootstrapping the editor or admin settings.
   if (!userCanEdit()) {

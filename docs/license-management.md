@@ -54,8 +54,11 @@ Browser storage errors are shown without reporting a successful confirmation.
 No reading record is sent to the device, supplier or another service. The local
 editor preview displays the agreement but cannot save a device reading record.
 
-English, German and Simplified Chinese labels are translated; other editor
-languages currently use English for these pages. The LICENSE text remains in
-its original English to preserve the actual terms.
+Labels, status, feedback and reading dates follow the editor language in English,
+German, Spanish, French, Polish, Simplified Chinese and Traditional Chinese.
+The page's file-selection button and empty-file hint also follow the editor language;
+the system file dialog uses the browser or operating system language.
+Reading records remain unchanged when the language changes.
+The LICENSE text remains in its original English to preserve the actual terms.
 
 For builders: [Issuer setup and signature verification](development/licensing.md).

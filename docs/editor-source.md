@@ -33,7 +33,7 @@ www/js/i18n-knx.js    KNX additions to the English and German catalogs
 www/js/i18n-camera.js camera additions to the English and German catalogs
 www/js/i18n-{es,fr,pl,zh-*}.js generated additional catalogs (sources in components/webui/i18n/)
 www/js/i18n-users.js  account UI strings for all seven built-in languages
-www/js/i18n-license.js license strings and explicit language fallbacks
+www/js/i18n-license.js license and Agreement strings for all seven built-in languages
 www/js/state.js       size limits, the `editor` state object, the DOM element map `el`
 www/js/util.js        normalizers, layout normalization, status line, `t()`, storage
 www/js/ui-basics.js   style cards, firmware info, HA diagnostics, canvas geometry

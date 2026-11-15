@@ -13,6 +13,8 @@ Changes since [v0.9.2-rc1](#v092-rc1).
   available regardless of license state. **Settings → System → License** includes
   License/Agreement tabs, paste or file activation and an optional browser-local
   reading record for the complete repository license and third-party notices.
+  Labels, file-selection controls, status and feedback support all seven editor languages;
+  language changes refresh messages and reading dates while preserving reading records.
   See [License management](license-management.md).
 
 - **Users:** optional accounts with viewer/operator/installer/administrator roles, seven-language sign-in and account forms,

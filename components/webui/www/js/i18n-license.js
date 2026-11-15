@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LicenseRef-FNCL-1.1 | Copyright (c) 2026 andre68723 */
 Object.assign(WEB_I18N_BUILTIN.en, {
+  "license.choose_file": "Choose file", "license.no_file": "No file selected",
   "license.title": "License", "license.device": "Device ID", "license.copy": "Copy device ID",
   "license.hint": "License status is informational. All panel features remain available, including after the trial ends.",
   "license.request": "Send this device ID to your supplier to request a signed DEVICE_KEY file.",
@@ -24,6 +25,7 @@ Object.assign(WEB_I18N_BUILTIN.en, {
   "license.read_failed": "The reading record could not be read or saved in this browser. Panel use is unaffected."
 });
 Object.assign(WEB_I18N_BUILTIN.de, {
+  "license.choose_file": "Datei auswählen", "license.no_file": "Keine Datei ausgewählt",
   "license.title": "Lizenz", "license.device": "Geräte-ID", "license.copy": "Geräte-ID kopieren",
   "license.hint": "Der Lizenzstatus dient nur zur Information. Alle Funktionen bleiben verfügbar, auch nach Ende der Testzeit.",
   "license.request": "Senden Sie diese Geräte-ID an Ihren Anbieter, um eine signierte DEVICE_KEY-Datei anzufordern.",
@@ -48,6 +50,7 @@ Object.assign(WEB_I18N_BUILTIN.de, {
   "license.read_failed": "Der Lesevermerk konnte in diesem Browser nicht gelesen oder gespeichert werden. Die Nutzung bleibt möglich."
 });
 Object.assign(WEB_I18N_BUILTIN["zh-cn"], {
+  "license.choose_file": "选择文件", "license.no_file": "未选择文件",
   "license.title": "授权管理", "license.device": "设备编号", "license.copy": "复制设备编号",
   "license.hint": "授权状态仅供查看。试用结束后，面板所有功能仍可正常使用。",
   "license.request": "请将设备编号提供给供应商，获取已签名的 DEVICE_KEY 授权文件。",
@@ -70,9 +73,102 @@ Object.assign(WEB_I18N_BUILTIN["zh-cn"], {
   "license.read_saved": "已在当前浏览器记录阅读确认：{date}",
   "license.read_failed": "当前浏览器无法读取或保存阅读记录，不影响面板使用。"
 });
-// Additional catalogs use explicit English fallback until translations are supplied.
-for (const catalog of Object.values(WEB_I18N_BUILTIN)) {
-  for (const [key, value] of Object.entries(WEB_I18N_BUILTIN.en)) {
-    if (key.startsWith("license.") && !(key in catalog)) catalog[key] = value;
-  }
-}
+Object.assign(WEB_I18N_BUILTIN.es, {
+  "license.choose_file": "Elegir archivo", "license.no_file": "Ningún archivo seleccionado",
+  "license.title": "Licencia", "license.device": "ID del dispositivo", "license.copy": "Copiar ID del dispositivo",
+  "license.hint": "El estado de la licencia es informativo. Todas las funciones del panel siguen disponibles, incluso al terminar el período de prueba.",
+  "license.request": "Envíe este ID del dispositivo a su proveedor para solicitar un archivo DEVICE_KEY firmado.",
+  "license.file": "Archivo de licencia firmado", "license.import": "Activar licencia", "license.remove": "Eliminar licencia",
+  "license.confirm_remove": "¿Eliminar la licencia guardada? Las funciones del panel seguirán disponibles.",
+  "license.valid": "Licencia permanente", "license.missing": "No se ha importado ninguna licencia", "license.invalid": "La licencia guardada no es válida",
+  "license.error": "Error al guardar o verificar la licencia", "license.unconfigured": "La clave pública del proveedor no está configurada en este firmware",
+  "license.trial": "Tiempo de prueba restante desde este inicio: {time}", "license.expired": "El período de prueba ha terminado; todas las funciones siguen disponibles",
+  "license.invalid_file": "Este archivo no es válido o pertenece a otro dispositivo o proveedor.",
+  "license.unavailable": "No se ha podido leer o guardar la licencia. Actualice para consultar su estado actual.",
+  "license.copied": "ID del dispositivo copiado", "license.copy_failed": "Seleccione el ID del dispositivo y cópielo manualmente.",
+  "license.saved": "Licencia guardada", "license.removed": "Licencia eliminada", "license.admin": "Un administrador puede importar o eliminar una licencia.",
+  "license.refresh": "Actualizar", "license.local": "Vista previa local; no se lee ni se modifica ninguna licencia del dispositivo.",
+  "license.agreement": "Acuerdo", "license.status": "Estado de la licencia", "license.key": "Clave de licencia",
+  "license.activated": "Activada", "license.trial_badge": "Prueba", "license.ended": "Prueba finalizada", "license.unknown": "Estado no disponible",
+  "license.input_hint": "Pegue la clave firmada o seleccione un archivo DEVICE_KEY. Al seleccionar un archivo se borra la clave pegada.",
+  "license.agreement_title": "Acuerdo de licencia del software",
+  "license.agreement_hint": "La LICENSE del repositorio y los avisos de terceros que figuran a continuación se aplican independientemente de la activación del dispositivo. Una clave del dispositivo no otorga derechos adicionales sobre el software.",
+  "license.read": "He leído esta licencia y sus avisos de terceros.",
+  "license.read_scope": "Este registro opcional se guarda solo en este navegador para este dispositivo, cuenta y versión de la licencia. Al borrar los datos del navegador se elimina el registro. No restringe el uso del panel ni activa una licencia.",
+  "license.read_saved": "Lectura confirmada en este navegador: {date}",
+  "license.read_failed": "No se ha podido leer o guardar el registro de lectura en este navegador. El uso del panel no se ve afectado."
+});
+Object.assign(WEB_I18N_BUILTIN.fr, {
+  "license.choose_file": "Choisir un fichier", "license.no_file": "Aucun fichier sélectionné",
+  "license.title": "Licence", "license.device": "Identifiant de l’appareil", "license.copy": "Copier l’identifiant de l’appareil",
+  "license.hint": "L’état de la licence est fourni à titre informatif. Toutes les fonctions du panneau restent disponibles, même après la période d’essai.",
+  "license.request": "Envoyez cet identifiant à votre fournisseur pour demander un fichier DEVICE_KEY signé.",
+  "license.file": "Fichier de licence signé", "license.import": "Activer la licence", "license.remove": "Supprimer la licence",
+  "license.confirm_remove": "Supprimer la licence enregistrée ? Les fonctions du panneau resteront disponibles.",
+  "license.valid": "Licence permanente", "license.missing": "Aucune licence importée", "license.invalid": "La licence enregistrée n’est pas valide",
+  "license.error": "Erreur d’enregistrement ou de vérification de la licence", "license.unconfigured": "La clé publique du fournisseur n’est pas configurée dans ce micrologiciel",
+  "license.trial": "Temps d’essai restant depuis ce démarrage : {time}", "license.expired": "La période d’essai est terminée ; toutes les fonctions restent disponibles",
+  "license.invalid_file": "Ce fichier n’est pas valide ou appartient à un autre appareil ou fournisseur.",
+  "license.unavailable": "Impossible de lire ou d’enregistrer la licence. Actualisez pour vérifier son état actuel.",
+  "license.copied": "Identifiant de l’appareil copié", "license.copy_failed": "Sélectionnez l’identifiant de l’appareil et copiez-le manuellement.",
+  "license.saved": "Licence enregistrée", "license.removed": "Licence supprimée", "license.admin": "Un administrateur peut importer ou supprimer une licence.",
+  "license.refresh": "Actualiser", "license.local": "Aperçu local ; aucune licence d’appareil n’est lue ni modifiée.",
+  "license.agreement": "Accord", "license.status": "État de la licence", "license.key": "Clé de licence",
+  "license.activated": "Activée", "license.trial_badge": "Essai", "license.ended": "Essai terminé", "license.unknown": "État indisponible",
+  "license.input_hint": "Collez la clé signée ou sélectionnez un fichier DEVICE_KEY. La sélection d’un fichier efface la clé collée.",
+  "license.agreement_title": "Accord de licence du logiciel",
+  "license.agreement_hint": "La LICENSE du dépôt et les mentions relatives aux composants tiers ci-dessous s’appliquent indépendamment de l’activation de l’appareil. Une clé d’appareil n’accorde aucun droit supplémentaire sur le logiciel.",
+  "license.read": "J’ai lu cette licence et les mentions relatives aux composants tiers.",
+  "license.read_scope": "Cette confirmation facultative est conservée uniquement dans ce navigateur, pour cet appareil, ce compte et cette version de la licence. L’effacement des données du navigateur la supprime. Elle ne limite pas l’utilisation du panneau et n’active aucune licence.",
+  "license.read_saved": "Lecture confirmée dans ce navigateur : {date}",
+  "license.read_failed": "Impossible de lire ou d’enregistrer la confirmation de lecture dans ce navigateur. L’utilisation du panneau n’est pas affectée."
+});
+Object.assign(WEB_I18N_BUILTIN.pl, {
+  "license.choose_file": "Wybierz plik", "license.no_file": "Nie wybrano pliku",
+  "license.title": "Licencja", "license.device": "Identyfikator urządzenia", "license.copy": "Kopiuj identyfikator urządzenia",
+  "license.hint": "Stan licencji ma charakter informacyjny. Wszystkie funkcje panelu pozostają dostępne, również po zakończeniu okresu próbnego.",
+  "license.request": "Wyślij ten identyfikator urządzenia dostawcy, aby uzyskać podpisany plik DEVICE_KEY.",
+  "license.file": "Podpisany plik licencji", "license.import": "Aktywuj licencję", "license.remove": "Usuń licencję",
+  "license.confirm_remove": "Usunąć zapisaną licencję? Funkcje panelu pozostaną dostępne.",
+  "license.valid": "Licencja bezterminowa", "license.missing": "Nie zaimportowano licencji", "license.invalid": "Zapisana licencja jest nieprawidłowa",
+  "license.error": "Błąd zapisu lub weryfikacji licencji", "license.unconfigured": "Klucz publiczny dostawcy nie jest skonfigurowany w tym oprogramowaniu układowym",
+  "license.trial": "Pozostały czas próbny od tego uruchomienia: {time}", "license.expired": "Okres próbny zakończony; wszystkie funkcje pozostają dostępne",
+  "license.invalid_file": "Ten plik jest nieprawidłowy lub należy do innego urządzenia albo dostawcy.",
+  "license.unavailable": "Nie można odczytać ani zapisać licencji. Odśwież, aby sprawdzić jej aktualny stan.",
+  "license.copied": "Skopiowano identyfikator urządzenia", "license.copy_failed": "Zaznacz identyfikator urządzenia i skopiuj go ręcznie.",
+  "license.saved": "Licencja zapisana", "license.removed": "Licencja usunięta", "license.admin": "Administrator może importować lub usuwać licencję.",
+  "license.refresh": "Odśwież", "license.local": "Podgląd lokalny; licencja urządzenia nie jest odczytywana ani zmieniana.",
+  "license.agreement": "Umowa", "license.status": "Stan licencji", "license.key": "Klucz licencyjny",
+  "license.activated": "Aktywowana", "license.trial_badge": "Okres próbny", "license.ended": "Okres próbny zakończony", "license.unknown": "Stan niedostępny",
+  "license.input_hint": "Wklej podpisany klucz lub wybierz plik DEVICE_KEY. Wybranie pliku usuwa wklejony klucz.",
+  "license.agreement_title": "Umowa licencyjna oprogramowania",
+  "license.agreement_hint": "Poniższa LICENSE repozytorium i informacje o licencjach komponentów zewnętrznych obowiązują niezależnie od aktywacji urządzenia. Klucz urządzenia nie przyznaje dodatkowych praw do oprogramowania.",
+  "license.read": "Potwierdzam przeczytanie tej licencji i informacji o licencjach komponentów zewnętrznych.",
+  "license.read_scope": "To opcjonalne potwierdzenie jest zapisywane tylko w tej przeglądarce, dla tego urządzenia, konta i wersji licencji. Wyczyszczenie danych przeglądarki usuwa potwierdzenie. Nie ogranicza ono korzystania z panelu ani nie aktywuje licencji.",
+  "license.read_saved": "Przeczytanie potwierdzone w tej przeglądarce: {date}",
+  "license.read_failed": "Nie można odczytać ani zapisać potwierdzenia przeczytania w tej przeglądarce. Nie wpływa to na korzystanie z panelu."
+});
+Object.assign(WEB_I18N_BUILTIN["zh-tw"], {
+  "license.choose_file": "選擇檔案", "license.no_file": "尚未選擇檔案",
+  "license.title": "授權管理", "license.device": "裝置編號", "license.copy": "複製裝置編號",
+  "license.hint": "授權狀態僅供查看。試用結束後，面板所有功能仍可正常使用。",
+  "license.request": "請將裝置編號提供給供應商，取得已簽署的 DEVICE_KEY 授權檔案。",
+  "license.file": "已簽署的授權檔案", "license.import": "啟用授權", "license.remove": "移除授權",
+  "license.confirm_remove": "移除已儲存的授權？面板功能不受影響。",
+  "license.valid": "永久授權", "license.missing": "尚未匯入授權", "license.invalid": "已儲存的授權無效",
+  "license.error": "授權儲存或驗證失敗", "license.unconfigured": "目前韌體尚未設定供應商公鑰",
+  "license.trial": "本次開機試用剩餘時間：{time}", "license.expired": "試用已結束，所有功能仍可使用",
+  "license.invalid_file": "檔案無效，或不屬於此裝置或供應商。", "license.unavailable": "無法讀取或儲存授權，請重新整理以查看目前狀態。",
+  "license.copied": "已複製裝置編號", "license.copy_failed": "請選取裝置編號並手動複製。",
+  "license.saved": "授權已儲存", "license.removed": "授權已移除", "license.admin": "管理員可以匯入或移除授權。",
+  "license.refresh": "重新整理", "license.local": "本機預覽，不讀取或修改裝置授權。",
+  "license.agreement": "協議", "license.status": "授權狀態", "license.key": "授權碼",
+  "license.activated": "已啟用", "license.trial_badge": "試用", "license.ended": "試用已結束", "license.unknown": "狀態暫時無法取得",
+  "license.input_hint": "貼上已簽署的授權碼，或選擇 DEVICE_KEY 檔案。選擇檔案會清空已貼上的授權碼。",
+  "license.agreement_title": "軟體授權協議",
+  "license.agreement_hint": "以下專案 LICENSE 及第三方授權聲明獨立於裝置啟用狀態適用。裝置授權碼不會授予額外的軟體使用權。",
+  "license.read": "我已閱讀本授權協議及第三方授權聲明。",
+  "license.read_scope": "此選用記錄僅儲存在目前瀏覽器，依裝置、帳號和協議版本分別記錄。清除瀏覽器資料會移除記錄。它不會限制面板使用，也不會啟用裝置授權。",
+  "license.read_saved": "已在目前瀏覽器記錄閱讀確認：{date}",
+  "license.read_failed": "目前瀏覽器無法讀取或儲存閱讀記錄，不影響面板使用。"
+});

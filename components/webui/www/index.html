@@ -1000,8 +1000,12 @@
                 <label for="licenseKey" data-user-i18n="license.key">License key</label>
                 <textarea id="licenseKey" rows="4" maxlength="202" autocomplete="off" spellcheck="false" aria-describedby="licenseInputHint"></textarea>
                 <p id="licenseInputHint" data-user-i18n="license.input_hint">Paste the signed key, or choose a DEVICE_KEY file. Selecting a file clears the pasted key.</p>
-                <label for="licenseFile" data-user-i18n="license.file">Signed license file</label>
-                <input id="licenseFile" type="file" />
+                <label id="licenseFileLabel" for="licenseChooseFile" data-user-i18n="license.file">Signed license file</label>
+                <div class="license-file-row">
+                  <button id="licenseChooseFile" class="btn" type="button" aria-labelledby="licenseFileLabel licenseChooseFile" data-user-i18n="license.choose_file">Choose file</button>
+                  <span id="licenseFileName" role="status" aria-live="polite"></span>
+                  <input id="licenseFile" type="file" aria-labelledby="licenseFileLabel" hidden />
+                </div>
                 <button id="licenseImport" class="btn primary" type="button" data-user-i18n="license.import">Activate license</button>
               </div>
               <button id="licenseRemove" class="btn" type="button" data-user-i18n="license.remove">Remove license</button>

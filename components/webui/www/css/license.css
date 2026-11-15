@@ -16,7 +16,8 @@
 .license-device-row { display: flex; gap: 12px; flex-wrap: wrap; margin: 8px 0 20px; }
 #licenseDevice { flex: 1 1 320px; min-width: 0; width: 100%; font-family: monospace; }
 #licenseKey { display: block; width: 100%; min-height: 120px; margin-top: 8px; resize: vertical; font-family: monospace; overflow-wrap: anywhere; }
-#licenseFile { display: block; max-width: 100%; margin: 8px 0 20px; }
+.license-file-row { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin: 8px 0 20px; }
+#licenseFileName { flex: 1 1 200px; min-width: 0; overflow-wrap: anywhere; }
 #licenseRemove { margin-top: 12px; }
 .license-agreement-text { max-height: 42vh; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; line-height: 1.6; border: 1px solid var(--line); border-radius: 8px; padding: 20px; background: var(--panel); }
 .license-settings label.license-ack { display: flex; align-items: flex-start; gap: 10px; line-height: 1.6; }

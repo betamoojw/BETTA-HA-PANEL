@@ -37,8 +37,10 @@ rejected without replacing the existing license. A lost connection during import
 may hide a successful save; reconnect and refresh before trying again.
 
 **Issuer public key is not configured** means the firmware builder must first
-configure your supplier's public key. Import is unavailable until then; ordinary
-panel use is unchanged. Older WLED license files are not compatible.
+configure your supplier's public key. Administrators can still choose a file or
+paste a key locally; selection alone does not upload or activate it. **Activate
+license** stays disabled with an explanation until compatible firmware is installed.
+Ordinary panel use is unchanged. Older WLED license files are not compatible.
 
 **Remove license** deletes only the saved license after confirmation. It does not
 change users, dashboards or settings. License data survives ordinary restarts
@@ -47,6 +49,8 @@ clears it. Keep the original signed file for reimport. Changing the issuer key
 requires licenses signed by the new issuer.
 
 Selecting a file clears the pasted key; typing a key clears the file selection.
+Cancelling the file picker preserves a pasted key. Refreshing status retains the
+selected file or pasted key.
 After activation the key entry is hidden; **Refresh** and **Remove license** remain
 available. Leaving this settings page clears the unsent key. Viewer and operator
 accounts open **Settings** from their panel-screen page; only License is available.

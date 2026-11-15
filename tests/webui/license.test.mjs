@@ -15,6 +15,8 @@ function setup(role = "administrator", local = false) {
       querySelector(){return this.label ||= {textContent:''};}, getBoundingClientRect(){return {height:28};},
       set value(v){this._value=v;if(id==='licenseFile'&&!v)this.files=[];}, get value(){return this._value;},
       setAttribute(k,v){this.attrs[k]=v;}, appendChild(n){this.child=n;}, focus(){this.focused=true;}, select(){this.selected=true;}, click(){this.clicked=true;}};
+    document.getElementById('licenseIssuerHint').dataset.userI18n='license.issuer_required';
+    document.querySelectorAll=selector=>selector==='[data-user-i18n]'?[nodes.licenseIssuerHint]:[];
     globalThis.storage = new Map();
     document.documentElement.style = {setProperty(){},getPropertyValue(){return '';}};
     window.localStorage = {getItem:k=>storage.get(k),setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)};
@@ -127,11 +129,66 @@ test("local preview and unconfigured issuer disable activation; cancel and concu
   const run = setup(); await settle(run);
   run("saved.key_state='unconfigured'"); await run("licenseLoad()");
   assert.equal(run("nodes.licenseImport.disabled"), true);
-  assert.equal(run("nodes.licenseChooseFile.disabled"), true);
+  assert.equal(run("nodes.licenseChooseFile.disabled"), false);
+  assert.equal(run("nodes.licenseIssuerHint.hidden"), false);
   await run("licenseChange()");
   run("window.confirm=()=>false"); await run("licenseChange(true)");
   run("window.confirm=()=>true; licenseBusy=true"); await run("licenseChange(true)");
   assert.equal(run("requests.filter(r=>r.method!=='GET').length"), 0);
+});
+
+test("an unconfigured issuer allows local selection and paste while activation sends nothing", async () => {
+  const run = setup(); await settle(run);
+  run("saved.key_state='unconfigured'"); await run("licenseLoad()");
+  for (const id of ["licenseChooseFile", "licenseFile", "licenseKey"]) assert.equal(run(`nodes.${id}.disabled`), false);
+  run("nodes.licenseChooseFile.onclick()");
+  assert.equal(run("nodes.licenseFile.clicked"), true);
+  run(`nodes.licenseKey.value='draft'; nodes.licenseFile.files=[{name:'DEVICE_KEY',size:200,text:async()=>${JSON.stringify(key)}}]; nodes.licenseFile.onchange()`);
+  assert.equal(run("nodes.licenseKey.value"), "");
+  assert.equal(run("nodes.licenseFileName.textContent"), "DEVICE_KEY");
+  await run("licenseChange()");
+  assert.equal(run("requests.filter(r=>r.method!=='GET').length"), 0);
+  assert.equal(run("nodes.licenseFile.files.length"), 1);
+  const count = run("requests.length");
+  for (const language of ["en", "de", "es", "fr", "pl", "zh-cn", "zh-tw"]) {
+    run(`editor.i18nMap=WEB_I18N_BUILTIN[${JSON.stringify(language)}]; userTranslate()`);
+    assert.equal(run("nodes.licenseIssuerHint.textContent"), run("t('license.issuer_required')"));
+    assert.equal(run("nodes.licenseFileName.textContent"), "DEVICE_KEY");
+    assert.equal(run("nodes.licenseImport.disabled"), true);
+  }
+  assert.equal(run("requests.length"), count);
+  run("globalThis.loading=licenseLoad()");
+  assert.equal(run("nodes.licenseChooseFile.disabled"), true);
+  await run("loading");
+  assert.equal(run("nodes.licenseChooseFile.disabled"), false);
+  assert.equal(run("nodes.licenseFile.files.length"), 1);
+  run(`nodes.licenseKey.value=${JSON.stringify(key)}; nodes.licenseKey.oninput()`);
+  assert.equal(run("nodes.licenseFile.files.length"), 0);
+  await run("licenseChange()");
+  assert.equal(run("nodes.licenseKey.value"), key);
+  assert.equal(run("requests.filter(r=>r.method!=='GET').length"), 0);
+  run("saved.key_state='missing'"); await run("licenseLoad()");
+  assert.equal(run("nodes.licenseIssuerHint.hidden"), true);
+  assert.equal(run("nodes.licenseImport.disabled"), false);
+  assert.equal(run("nodes.licenseKey.value"), key);
+  await run("nodes.licenseImport.onclick()");
+  assert.equal(run("requests.find(r=>r.method==='POST').body"), key);
+  await run("licenseLoad()");
+  assert.equal(run("licenseState.key_state"), "valid");
+  assert.equal(run("nodes.licenseActivation.hidden"), true);
+  assert.equal(run("nodes.licenseKey.value"), "");
+});
+
+test("empty file selection preserves a pasted key, and unavailable sessions disable preparation", async () => {
+  const run = setup(); await settle(run);
+  run("nodes.licenseKey.value='keep this draft'; nodes.licenseChooseFile.onclick(); nodes.licenseFile.onchange()");
+  assert.equal(run("nodes.licenseKey.value"), "keep this draft");
+  assert.equal(run("nodes.licenseFileName.textContent"), run("t('license.no_file')"));
+  assert.equal(run("requests.filter(r=>r.method!=='GET').length"), 0);
+  run("licenseState=null; licenseRender()");
+  assert.equal(run("nodes.licenseChooseFile.disabled"), true);
+  run("licenseState=saved; userAccess.authenticated=false; licenseRender()");
+  for (const id of ["licenseChooseFile", "licenseFile", "licenseKey", "licenseImport"]) assert.equal(run(`nodes.${id}.disabled`), true);
 });
 
 test("license tabs support click and keyboard without changing draft or device", async () => {

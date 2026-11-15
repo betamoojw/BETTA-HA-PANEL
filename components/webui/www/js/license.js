@@ -67,8 +67,11 @@ function licenseRender() {
   licenseNode("licenseActions").hidden = !userIsAdmin();
   licenseNode("licenseAdminHint").hidden = userIsAdmin();
   licenseNode("licenseActivation").hidden = state === "valid";
-  const cannotImport = licenseBusy || !licenseState || !userIsAdmin() || state === "unconfigured" || userAccess.local;
-  for (const id of ["licenseImport", "licenseKey", "licenseFile", "licenseChooseFile"]) licenseNode(id).disabled = cannotImport;
+  // Choosing a local file needs no issuer key; verification and storage do.
+  const cannotEdit = licenseBusy || !licenseState || !userAccess.authenticated || !userIsAdmin() || userAccess.local;
+  for (const id of ["licenseKey", "licenseFile", "licenseChooseFile"]) licenseNode(id).disabled = cannotEdit;
+  licenseNode("licenseImport").disabled = cannotEdit || state === "unconfigured";
+  licenseNode("licenseIssuerHint").hidden = state !== "unconfigured";
   licenseNode("licenseRemove").hidden = !["valid", "invalid", "error"].includes(state);
   licenseNode("licenseRemove").disabled = licenseBusy || !userIsAdmin() || userAccess.local;
   licenseNode("licenseRefresh").disabled = licenseBusy || userAccess.local;
@@ -178,7 +181,10 @@ function licenseBind() {
   licenseNode("licenseImport").onclick = () => licenseChange();
   licenseNode("licenseRemove").onclick = () => licenseChange(true);
   licenseNode("licenseChooseFile").onclick = () => licenseNode("licenseFile").click();
-  licenseNode("licenseFile").onchange = () => { licenseNode("licenseKey").value = ""; licenseRenderFile(); };
+  licenseNode("licenseFile").onchange = () => {
+    if (licenseNode("licenseFile").files?.length) licenseNode("licenseKey").value = "";
+    licenseRenderFile();
+  };
   licenseNode("licenseKey").oninput = () => { licenseNode("licenseFile").value = ""; licenseRenderFile(); };
   licenseNode("licenseCopy").onclick = async () => {
     try { await navigator.clipboard.writeText(licenseNode("licenseDevice").value); licenseSetMessage("license.copied"); }

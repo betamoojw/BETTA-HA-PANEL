@@ -1008,7 +1008,8 @@
                   <span id="licenseFileName" role="status" aria-live="polite"></span>
                   <input id="licenseFile" type="file" aria-labelledby="licenseFileLabel" hidden />
                 </div>
-                <button id="licenseImport" class="btn primary" type="button" data-user-i18n="license.import">Activate license</button>
+                <p id="licenseIssuerHint" class="no-shorten" data-user-i18n="license.issuer_required" hidden>You can choose a file or paste a key. Activation requires firmware with your supplier's public key; contact your supplier.</p>
+                <button id="licenseImport" class="btn primary" type="button" aria-describedby="licenseIssuerHint" data-user-i18n="license.import">Activate license</button>
               </div>
               <button id="licenseRemove" class="btn" type="button" data-user-i18n="license.remove">Remove license</button>
             </div>

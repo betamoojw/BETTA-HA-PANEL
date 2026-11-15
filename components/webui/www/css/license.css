@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LicenseRef-FNCL-1.1 | Copyright (c) 2026 andre68723 */
 .license-settings { min-width: 0; }
+.license-settings button:disabled { opacity: .5; cursor: not-allowed; }
 .license-settings p { line-height: 1.6; overflow-wrap: anywhere; }
 .license-tabs { display: flex; gap: 20px; border-bottom: 1px solid var(--line); margin-bottom: 24px; }
 .license-tabs button { border: 0; border-bottom: 3px solid transparent; background: transparent; color: var(--text-2); padding: 12px 4px; font: inherit; cursor: pointer; }

@@ -110,6 +110,13 @@ newer page/session state. A cancelled mutation may already have reached storage;
 reopening or refreshing retrieves the authoritative state. License requests do
 not request screenshots or operate the panel.
 
+File selection and pasting are local administrator actions, independent of issuer
+configuration. An unconfigured issuer disables only activation, with a translated
+explanation; neither selecting a file nor a blocked activation sends a mutation.
+Refresh retains the input, while navigation/logout clears it. Disabled controls
+are visibly dimmed. Server-side public-key verification and access checks remain
+authoritative; a client-selected file is not a verified license.
+
 The shared `license-warning.js` starts independently of account/editor bootstrap.
 It reads the public state at startup and at most once per minute while visible,
 with one request in flight and a ten-second deadline. Hidden tabs skip polling;

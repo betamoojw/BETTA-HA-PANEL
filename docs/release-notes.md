@@ -17,6 +17,8 @@ Changes since [v0.9.2-rc1](#v092-rc1).
   language changes refresh messages and reading dates while preserving reading records.
   A shared black/yellow warning strip covers login, setup, editor and viewer pages
   without restricting use. Valid activation removes the strip and its top spacing.
+  File selection and pasting remain available to administrators without an issuer
+  public key; activation stays disabled with a translated explanation.
   See [License management](license-management.md).
 
 - **Users:** optional accounts with viewer/operator/installer/administrator roles, seven-language sign-in and account forms,

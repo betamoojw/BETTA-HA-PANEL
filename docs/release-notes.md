@@ -8,6 +8,13 @@ Changes of **this fork**, compared with upstream v0.8.2. The release notes of th
 
 Changes since [v0.9.2-rc1](#v092-rc1).
 
+- **Users:** optional accounts with viewer/operator/installer/administrator roles, seven-language sign-in and account forms,
+  HttpOnly sessions, server-side route permissions, last-administrator protection and legacy admin-password migration.
+  Account changes revoke existing sessions, Live Display tickets and camera streams. See [Users](users.md) for scope and recovery.
+
+- **Panel10 language storage:** losslessly pack five built-in LVGL catalogs, saving 87,493 payload bytes before
+  decoder code and alignment. All seven languages and custom overrides remain available; OTA partitions stay unchanged.
+
 - **Live view cancellation:** closing or timing out during image decode releases the pending browser image and Blob URL immediately.
 
 - **Editor, Live view and Preview:** an editor opened from a panel gains **Live view** after **Panel follows**, a snapshot of the screen

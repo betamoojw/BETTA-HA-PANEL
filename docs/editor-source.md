@@ -24,6 +24,7 @@ www/css/preview-roles.css  preview texts in the panel's text roles (`--r-meta` â
 www/css/settings.css compact settings forms and the offline alert example
 www/css/layout-toolbar.css compact layout header, icon actions and JSON menu
 www/css/layout-actions.css widget context menu and page-transfer dialog
+www/css/users.css    account bar, login, account forms and restricted viewer
 www/css/inspector.css compact Inspector fields, tabs and independently scrolling desktop lists
 www/js/config.js      constants, the entity picker configurations
 www/js/i18n.js        built-in English translations
@@ -31,6 +32,7 @@ www/js/i18n-de.js     built-in German translations
 www/js/i18n-knx.js    KNX additions to the English and German catalogs
 www/js/i18n-camera.js camera additions to the English and German catalogs
 www/js/i18n-{es,fr,pl,zh-*}.js generated additional catalogs (sources in components/webui/i18n/)
+www/js/i18n-users.js  account UI strings for all seven built-in languages
 www/js/state.js       size limits, the `editor` state object, the DOM element map `el`
 www/js/util.js        normalizers, layout normalization, status line, `t()`, storage
 www/js/ui-basics.js   style cards, firmware info, HA diagnostics, canvas geometry
@@ -65,7 +67,8 @@ www/js/menus.js       dropdown menus
 www/js/xiaozhi.js     optional panel-microphone assistant controls and bounded status polling
 www/js/knx.js         optional KNX Routing configuration, status and commissioning controls
 www/js/camera-editor.js camera settings, timed preview, motion zones and saved source management
-www/js/main.js        calls `bootstrap()` once everything has loaded
+www/js/users.js       cookie session bootstrap, role-specific workspace and account lifecycle
+www/js/main.js        calls `userBootstrap()` once everything has loaded
 ```
 
 `js/remote-display.js` loads before `main.js`, with `css/remote-display.css`.
@@ -277,3 +280,5 @@ All panel layout responses carry `orientation`, `canvas_w` and `canvas_h`. Portr
 into `rect` and adds the canonical `landscape_rect`; PUT restores landscape `rect` and stores edited portrait positions
 separately. Stored JSON keeps the 32 KiB limit; the API accepts up to 64 KiB on the wire for these aliases. A mismatched
 orientation is rejected with HTTP 409. Version refreshes do not resize a loaded layout: reload after rotating.
+
+Account policy and migration: [Users](users.md), [Security implementation](security-implementation.md).

@@ -167,7 +167,8 @@ Everything outside the dashboard is under **Settings**, in three groups:
 | | **Sound** | Volume and night mute, on displays with audio ([guide](notifications.md#sound)) |
 | | **Alerts** | Doorbell and event cards ([guide](notifications.md#doorbell-and-event-alerts)) |
 | System | **Language & time** | Language, searchable city time zone, device local time, time server |
-| | **Backup & security** | Backup and restore, admin password, factory reset |
+| | **Users** | Accounts, roles and enabled state; see [Users](users.md) |
+| | **Backup & security** | Backup and restore, factory reset |
 | | **Firmware** | Update check, manual install, versions and memory |
 
 Many settings apply live; the Save button on the right applies the rest and restarts the panel only when Wi-Fi,
@@ -182,7 +183,7 @@ Open **Settings → Backup & security** to export or restore the dashboard confi
 | Full backup | Layout, non-secret settings, custom themes and translations |
 | Layout JSON (Layout tab) | Pages, widgets and configured alerts |
 
-Wi-Fi and MQTT passwords, the Home Assistant token and the admin password are **excluded**: enter them again
+Wi-Fi and MQTT passwords, the Home Assistant token and all panel accounts/password hashes are **excluded**: enter them again
 after a factory flash or a move to another device. Local graph samples are not part of the exports. Backups
 still contain entity IDs, network names and server addresses, so review them before sharing.
 

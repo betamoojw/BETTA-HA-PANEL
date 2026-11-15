@@ -8,4 +8,4 @@
  * (see docs/editor-source.md).
  */
 
-bootstrap();
+userBootstrap();

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LicenseRef-FNCL-1.1
  * Copyright (c) 2026 Cpt_Kirk
+ * Modified 2026 by andre68723 in the andre68723/BETTA-HA-PANEL fork, see docs/release-notes.md
  */
 #include "ui/ui_i18n.h"
 
@@ -60,12 +61,8 @@ esp_err_t ui_i18n_init(const char *language_code)
         strlcpy(normalized, APP_UI_DEFAULT_LANGUAGE, sizeof(normalized));
     }
 
-    const char *builtin_json = i18n_store_builtin_translation_json(normalized);
-    if (builtin_json == NULL) {
-        builtin_json = i18n_store_builtin_translation_json(APP_UI_DEFAULT_LANGUAGE);
-    }
-
-    cJSON *next_root = ui_i18n_parse_object_or_empty(builtin_json);
+    const char *builtin_language = i18n_store_is_builtin_language(normalized) ? normalized : APP_UI_DEFAULT_LANGUAGE;
+    cJSON *next_root = i18n_store_parse_builtin_translation(builtin_language);
     if (next_root == NULL) {
         return ESP_ERR_NO_MEM;
     }

@@ -33,6 +33,7 @@
 #include "net/update_check.h"
 #include "net/auto_update_task.h"
 #include "settings/admin_auth.h"
+#include "api/http_user_auth.h"
 #include "settings/device_identity.h"
 #include "settings/night_mode.h"
 #include "settings/runtime_settings.h"
@@ -346,7 +347,7 @@ esp_err_t api_settings_get_handler(httpd_req_t *req)
     }
     {
         cJSON *security = cJSON_CreateObject();
-        cJSON_AddBoolToObject(security, "password_set", admin_auth_enabled());
+        cJSON_AddBoolToObject(security, "password_set", user_auth_state() != USER_AUTH_OPEN);
         cJSON_AddStringToObject(security, "user", ADMIN_AUTH_USER);
         cJSON_AddItemToObject(root, "security", security);
     }
@@ -427,6 +428,7 @@ esp_err_t api_settings_get_handler(httpd_req_t *req)
 
     cJSON_AddBoolToObject(root, "ok", true);
 
+    http_user_auth_filter_settings(root);
     char *payload = cJSON_PrintUnformatted(root);
     cJSON_Delete(root);
     free(settings);
@@ -579,6 +581,11 @@ esp_err_t api_settings_put_handler(httpd_req_t *req)
     if (!cJSON_IsObject(root)) {
         cJSON_Delete(root);
         return send_json_error(req, "400 Bad Request", "Invalid JSON");
+    }
+
+    if (cJSON_HasObjectItem(root, "security") && user_auth_migrated()) {
+        cJSON_Delete(root);
+        return send_json_error(req, "409 Conflict", "Manage credentials through Users");
     }
 
     /* settings[1] keeps the stored values for "reboot": "auto"; one allocation, so every
@@ -1014,6 +1021,7 @@ esp_err_t api_settings_put_handler(httpd_req_t *req)
      * settings save succeeded. A rejected PUT must never change authentication. */
     if (save_err == ESP_OK && change_admin_password) {
         save_err = admin_auth_set_password(admin_password);
+        user_auth_revoke_all();
     }
     if (save_err == ESP_OK && !reboot) {
         apply_hardware_settings_live(settings);

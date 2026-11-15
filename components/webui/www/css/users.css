@@ -1,0 +1,37 @@
+/* SPDX-License-Identifier: LicenseRef-FNCL-1.1 | Copyright (c) 2026 andre68723 */
+[hidden] { display: none !important; }
+.user-account-bar { display: flex; align-items: center; justify-content: flex-end; gap: 12px; padding: 8px 16px; flex-wrap: wrap; border-bottom: 1px solid var(--line, #394350); background: var(--panel, #18212c); }
+.user-account-bar .btn { min-height: 36px; }
+.user-account-bar + .user-viewer { padding-top: 24px; }
+body:has(.user-account-bar:not([hidden])) .shell { height: calc(100dvh - var(--user-bar-height, 54px)); min-height: 0; }
+.user-login { position: fixed; inset: 0; z-index: 10000; display: grid; place-items: center; padding: 24px; background: var(--bg, #101822); overflow: auto; }
+.user-card { width: min(100%, 420px); margin: auto; padding: 28px; border: 1px solid var(--line, #394350); border-radius: 16px; background: var(--panel, #18212c); color: var(--text, #edf2f8); }
+.user-card h1, .user-card h2 { margin-top: 0; }
+.user-card form, .users-form { display: grid; gap: 16px; }
+.user-card label, .users-form label { display: grid; gap: 6px; }
+.user-card input, .users-form input, .users-form select { width: 100%; min-width: 0; min-height: 44px; }
+.user-card .btn { min-height: 44px; }
+dialog.user-card { max-height: 90dvh; }
+dialog.user-card::backdrop { background: #0009; }
+.user-message { overflow-wrap: anywhere; min-height: 1.4em; }
+.users-table-wrap { overflow-x: auto; margin: 16px 0; }
+.users-table { width: 100%; border-collapse: collapse; }
+.users-table th, .users-table td { padding: 12px 8px; text-align: left; border-bottom: 1px solid var(--line, #394350); }
+.users-table td { overflow-wrap: anywhere; }
+.users-table .btn { min-height: 36px; margin: 3px; }
+.users-form { max-width: 440px; margin: 20px 0; }
+.users-form .user-checkbox { display: flex; align-items: center; }
+.users-form .user-checkbox input { width: 20px; min-height: 20px; }
+.user-viewer { width: min(100% - 32px, 1280px); margin: 24px auto; overflow: auto; max-height: calc(100dvh - var(--user-bar-height, 54px) - 48px); }
+.user-viewer img { width: 100%; height: auto; object-fit: contain; margin-top: 16px; border-radius: 12px; }
+body[data-user-role="installer"] #settingsAppearanceHeading + .form,
+body[data-user-role="installer"] #settingsSidebarActions,
+body[data-user-role="installer"] #crashBanner,
+body[data-user-role="installer"] #updateBanner,
+body[data-user-role="installer"] #stackedSaveBtn { display: none !important; }
+@media (max-width: 600px) {
+  .user-account-bar { justify-content: flex-start; gap: 8px; }
+  .user-account-bar #userIdentity { flex-basis: 100%; }
+  .users-table th, .users-table td { padding: 8px 4px; }
+  .users-table td:last-child { min-width: 86px; }
+}

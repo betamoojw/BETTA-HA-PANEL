@@ -598,7 +598,6 @@ if (el.addBambuPrinterBtn) {
   bindBrightnessTests();
   initEditorTheme();
   if (el.settingsDeviceRoom) el.settingsDeviceRoom.addEventListener("input", renderDeviceId);
-  bindSecurityControls();
   bindStatusControls();
   if (el.uploadLanguageCode) {
     el.uploadLanguageCode.oninput = () => {
@@ -790,20 +789,22 @@ async function startEditor() {
   setActivePane("layout");
   await Promise.all([loadLayout(), loadEntities(), refreshStates()]);
   await loadEnergyPreview();
-  await loadHaDiagnostics();
+  if (userIsAdmin()) await loadHaDiagnostics();
   restoreEditorLocation();
   /* Poll diagnostics again shortly after startup so the banner appears automatically
    * once the ha_client watchdog has classified the missing entities (typically ~5-8 s
    * after WebSocket auth). Further refreshes are less frequent. */
-  window.setTimeout(loadHaDiagnostics, 3000);
-  window.setTimeout(loadHaDiagnostics, 8000);
-  window.setTimeout(loadHaDiagnostics, 15000);
+  if (userIsAdmin()) {
+    window.setTimeout(loadHaDiagnostics, 3000);
+    window.setTimeout(loadHaDiagnostics, 8000);
+    window.setTimeout(loadHaDiagnostics, 15000);
+  }
   window.setInterval(refreshStates, 5000);
   window.setInterval(() => {
     if (!document.hidden && editor.activePane === "layout") void refreshLayoutLimits();
   }, 10000);
   window.setInterval(loadEnergyPreview, 15000);
-  window.setInterval(loadHaDiagnostics, 30000);
+  if (userIsAdmin()) window.setInterval(loadHaDiagnostics, 30000);
 }
 
 // First-time setup: the browser language, when the editor has a built-in translation for it.
@@ -839,7 +840,7 @@ async function bootstrap() {
     showBootError();
     return;
   }
-  const stage = provisioningStageForSettings(settings);
+  const stage = userIsAdmin() ? provisioningStageForSettings(settings) : null;
   // A panel that has no Wi-Fi yet and still has the default language: follow the browser and store it
   // together with the Wi-Fi settings, so the panel screens speak the same language afterwards.
   if (stage === "wifi" && settings && !settings.wifi?.configured &&

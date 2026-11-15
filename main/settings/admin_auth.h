@@ -7,6 +7,7 @@
 #pragma once
 
 #include <stdbool.h>
+#include <stdint.h>
 
 #include "esp_err.h"
 
@@ -47,3 +48,6 @@ esp_err_t admin_auth_set_password(const char *password);
 /* True when the value of an "Authorization: Basic ..." header carries the right user and password. With no password set it is true; when
  * the credentials cannot be read it is false whatever the header says. */
 bool admin_auth_check_basic(const char *header_value);
+
+/* Internal one-time migration; never serialize this material into an HTTP response. */
+bool admin_auth_export(uint8_t salt[16], uint8_t hash[32]);

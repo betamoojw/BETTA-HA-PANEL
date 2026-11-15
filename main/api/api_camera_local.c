@@ -2,6 +2,7 @@
 #include "api/api_camera_local.h"
 
 #include "api/http_guard.h"
+#include "api/http_user_auth.h"
 #include "cJSON.h"
 #include "camera/camera_output.h"
 #include "camera/camera_source_fetch.h"
@@ -142,6 +143,7 @@ typedef struct
 {
         httpd_req_t *req;
         bool stream;
+        user_auth_lease_t auth_lease;
         char id[CAMERA_SOURCE_ID_LEN];
 } image_request_t;
 static bool output_enabled(bool stream)
@@ -157,6 +159,10 @@ static void image_task(void *arg)
     unsigned failures = 0;
     do
     {
+        if (!user_auth_lease_valid(&job->auth_lease)) {
+            if (!sent) error(req, "401 Unauthorized", "Session expired");
+            break;
+        }
         if (!strcmp(job->id, "local") && !output_enabled(job->stream))
         {
             if (!sent)
@@ -181,7 +187,7 @@ static void image_task(void *arg)
             vTaskDelay(pdMS_TO_TICKS(500));
             continue;
         }
-        if (!strcmp(job->id, "local") && !output_enabled(job->stream))
+        if (!user_auth_lease_valid(&job->auth_lease) || (!strcmp(job->id, "local") && !output_enabled(job->stream)))
         {
             free(jpeg);
             if (!sent)
@@ -246,6 +252,11 @@ static esp_err_t image_get(httpd_req_t *req)
         return httpd_resp_send_500(req);
     }
     job->stream = stream;
+    if (!user_auth_lease_capture(http_user_auth_token(), &job->auth_lease)) {
+        free(job);
+        atomic_store(&s_image_busy, false);
+        return error(req, "401 Unauthorized", "Session expired");
+    }
     snprintf(job->id, sizeof(job->id), "%s", id);
     if (httpd_req_async_handler_begin(req, &job->req) != ESP_OK)
     {

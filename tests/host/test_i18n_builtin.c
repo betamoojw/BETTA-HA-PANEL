@@ -26,15 +26,8 @@ static int failures;
 
 static cJSON *parse_strict(const char *lang)
 {
-    const char *json = i18n_store_builtin_translation_json(lang);
-    CHECK(json != NULL, "%s: no built-in document", lang);
-    if (json == NULL) {
-        return NULL;
-    }
-    const char *end = NULL;
-    cJSON *root = cJSON_ParseWithOpts(json, &end, 1);
-    CHECK(root != NULL, "%s: not strict JSON, parse stopped near offset %ld", lang,
-          end != NULL ? (long)(end - json) : -1L);
+    cJSON *root = i18n_store_parse_builtin_translation(lang);
+    CHECK(root != NULL, "%s: no valid built-in document", lang);
     return root;
 }
 
@@ -131,6 +124,8 @@ static void test_lookup(void)
         CHECK(strcmp(got, cases[i].expected) == 0, "%s %s: got \"%s\", want \"%s\"", cases[i].lang, cases[i].key, got,
               cases[i].expected);
     }
+    CHECK(ui_i18n_init("custom-language") == ESP_OK, "unknown language fallback");
+    CHECK(strcmp(ui_i18n_get("energy.water", ""), "Water") == 0, "English fallback");
     ui_i18n_reset();
 }
 
@@ -170,6 +165,8 @@ static void test_chinese_weekdays(void)
 
 int main(void)
 {
+    CHECK(i18n_store_parse_builtin_translation(NULL) == NULL, "NULL language");
+    CHECK(i18n_store_parse_builtin_translation("unknown") == NULL, "unknown language");
     test_documents();
     test_lookup();
     test_chinese_weekdays();

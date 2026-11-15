@@ -54,6 +54,13 @@ configuration. It requires `CONFIG_LV_USE_LZ4`, `CONFIG_LV_USE_LZ4_INTERNAL` and
 back up its sdkconfig and regenerate from the maintained defaults. Compare
 any previous local overrides before flashing. See [bitmap storage](../hardware/storage.md#panel10-bitmap-compression).
 
+Panel10 also packs the five generated LVGL translation catalogs with Python's
+standard-library zlib. English and German retain their direct flash strings.
+The other catalogs are expanded into bounded temporary PSRAM buffers for parsing,
+then freed; the parsed translations and custom overrides use the existing path.
+No extra Python package or partition migration is needed. See
+[translation storage](../hardware/storage.md#panel10-translation-compression).
+
 ## Build and flash a variant
 
 ```bash

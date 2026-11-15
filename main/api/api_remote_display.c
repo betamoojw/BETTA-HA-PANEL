@@ -18,6 +18,7 @@
 #include "lwip/tcp.h"
 #include "ui/ui_remote_display.h"
 #include "api/http_guard.h"
+#include "api/http_user_auth.h"
 
 #define TILE 32U
 #define PACKET_BYTES 16384U
@@ -31,11 +32,19 @@ typedef struct {
     bool baseline_valid, in_frame, ended;
     int64_t frame_started, rate_start;
     unsigned input_rate, message_rate;
+    user_role_t role;
+    user_auth_lease_t auth_lease;
 } session_t;
 /* All transport state is owned by the HTTP server task, including free_ctx. */
 static session_t *s_session;
 static char s_token[33];
 static int64_t s_token_expires;
+static struct { user_role_t role; user_auth_lease_t auth_lease; } s_ticket_auth;
+
+static bool auth_valid(const session_t *s)
+{
+    return user_auth_lease_valid(&s->auth_lease);
+}
 
 static bool same_origin(httpd_req_t *req)
 {
@@ -62,6 +71,8 @@ static esp_err_t token_handler(httpd_req_t *req)
     esp_fill_random(bytes, sizeof(bytes));
     for (unsigned i = 0; i < sizeof(bytes); ++i) snprintf(s_token + i * 2, 3, "%02x", bytes[i]);
     s_token_expires = esp_timer_get_time() + 30000000;
+    s_ticket_auth.role = http_user_auth_current()->role;
+    if (!user_auth_lease_capture(http_user_auth_token(), &s_ticket_auth.auth_lease)) return ESP_FAIL;
     char json[80];
     snprintf(json, sizeof(json), "{\"token\":\"%s\",\"version\":1}", s_token);
     httpd_resp_set_type(req, "application/json");
@@ -90,7 +101,7 @@ static esp_err_t guarded_token_handler(httpd_req_t *req)
 static esp_err_t pre_handshake(httpd_req_t *req)
 {
     char query[64], token[40];
-    if (!same_origin(req) || !s_token[0] || esp_timer_get_time() > s_token_expires ||
+    if (!same_origin(req) || !s_token[0] || esp_timer_get_time() > s_token_expires || !user_auth_lease_valid(&s_ticket_auth.auth_lease) ||
         httpd_req_get_url_query_str(req, query, sizeof(query)) != ESP_OK ||
         httpd_query_key_value(query, "token", token, sizeof(token)) != ESP_OK || strcmp(token, s_token)) {
         error(req, "403 Forbidden", "Invalid live display session"); return ESP_FAIL;
@@ -99,6 +110,8 @@ static esp_err_t pre_handshake(httpd_req_t *req)
     if (s_session) { error(req, "409 Conflict", "Live display busy"); return ESP_FAIL; }
     session_t *s = calloc(1, sizeof(*s));
     if (!s) return ESP_ERR_NO_MEM;
+    s->role = s_ticket_auth.role;
+    s->auth_lease = s_ticket_auth.auth_lease;
     if (!ui_remote_display_geometry(&s->width, &s->height)) {
         session_free(s);
         error(req, "503 Service Unavailable", "Display geometry unavailable");
@@ -229,7 +242,7 @@ static bool integer(const cJSON *root, const char *name, uint32_t maximum, uint3
 static esp_err_t post_handshake(httpd_req_t *req)
 {
     session_t *s = req->sess_ctx;
-    if (!s || s != s_session || !ui_remote_display_available()) return ESP_FAIL;
+    if (!s || s != s_session || !ui_remote_display_available() || !auth_valid(s)) return ESP_FAIL;
     char json[180];
     snprintf(json, sizeof(json), "{\"type\":\"hello\",\"version\":1,\"epoch\":%lu,\"width\":%u,\"height\":%u,\"format\":\"rgb565le\",\"maxPayload\":16384}", (unsigned long)s->epoch, s->width, s->height);
     return text_frame(req, json);
@@ -239,6 +252,7 @@ static esp_err_t ws_handler(httpd_req_t *req)
 {
     session_t *s = req->sess_ctx;
     if (!s || s != s_session || !ui_remote_display_available()) return ESP_FAIL;
+    if (!auth_valid(s)) { ui_remote_display_control(false); return ESP_FAIL; }
     uint8_t buffer[256];
     httpd_ws_frame_t frame = {0};
     if (httpd_ws_recv_frame(req, &frame, 0) != ESP_OK || frame.len == 0 ||
@@ -274,6 +288,10 @@ static esp_err_t ws_handler(httpd_req_t *req)
         ui_remote_display_ack();
         result = ESP_OK;
     } else if (!strcmp(type->valuestring, "control")) {
+        if (s->role != USER_ROLE_ADMIN) {
+            result = text_frame(req, "{\"type\":\"control\",\"enabled\":false}");
+            goto done;
+        }
         cJSON *enabled = cJSON_GetObjectItemCaseSensitive(json, "enabled");
         if (!cJSON_IsBool(enabled)) goto done;
         bool allowed = ui_remote_display_control(cJSON_IsTrue(enabled));
@@ -282,6 +300,7 @@ static esp_err_t ws_handler(httpd_req_t *req)
         bool control = ui_remote_display_heartbeat();
         result = text_frame(req, control ? "{\"type\":\"pong\",\"control\":true}" : "{\"type\":\"pong\",\"control\":false}");
     } else if (!strcmp(type->valuestring, "pointer")) {
+        if (s->role != USER_ROLE_ADMIN) goto done;
         uint32_t kind, x, y, seq;
         if (!integer(json, "kind", 3, &kind) || !integer(json, "x", s->width - 1, &x) ||
             !integer(json, "y", s->height - 1, &y) || !integer(json, "seq", UINT32_MAX, &seq) || seq <= s->input_sequence) goto done;

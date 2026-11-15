@@ -130,6 +130,31 @@ for encoder boundaries and full payload checks. The simulator CTest
 `lossless-image-compression` independently uses the real LVGL decoder and
 compares raw/packed rendering on light and dark backgrounds for every image.
 
+## Panel10 translation compression
+
+Panel10 stores the Spanish, French, Polish and two Chinese LVGL catalogs as
+zlib streams. English and German remain direct flash strings. The build-only
+`tools/pack_i18n.py` uses the maintained JSON catalogs and Python's standard
+library; the generated arrays retain every original JSON byte after decoding.
+The five payloads shrink from 138,309 to 50,816 bytes, saving 87,493 bytes before
+decoder code and alignment. This is an asset measurement, not a finished-image
+size or hardware qualification.
+
+Each load uses a temporary buffer in PSRAM, limited to 32 KiB of JSON plus its
+terminator, and zlib's work allocations also use PSRAM. The buffer is freed before the parsed tree reaches
+its caller; no shared cache or persistent scratch buffer is added. Strict JSON,
+stream checksum, complete input consumption and exact expanded size are checked.
+A failed language load leaves the current UI language intact. Custom translation
+overrides and the seven-language list keep their existing behavior. Other
+profiles retain their direct flash catalogs; partitions and stored settings do
+not change.
+
+Run `python -m unittest discover -s tests/tools -p test_pack_i18n.py` for exact
+catalog-byte parity, generated output and size bounds. `tools/test_host.sh`
+checks both catalog paths, all seven languages, custom overrides, corrupt or
+truncated data and allocation failures with the actual zlib decoder. Device
+acceptance must still exercise language switching and translation export.
+
 ## Crash diagnostics (coredump partition)
 
 `panel4` and `panel10` have a `coredump` partition (`config/partitions.csv`) and `CONFIG_ESP_COREDUMP_ENABLE_TO_FLASH`:

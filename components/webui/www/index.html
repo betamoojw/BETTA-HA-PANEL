@@ -25,8 +25,47 @@
   <link rel="stylesheet" href="/css/inspector.css" />
   <link rel="stylesheet" href="/css/remote-display.css" />
   <link rel="stylesheet" href="/css/live-preview.css" />
+  <link rel="stylesheet" href="/css/users.css" />
 </head>
 <body>
+  <div id="userLogin" class="user-login">
+    <div class="user-card">
+      <h1>BETTA HA Panel</h1>
+      <p data-user-i18n="users.login_hint">Sign in to your panel.</p>
+      <form id="userLoginForm">
+        <label><span data-user-i18n="users.name">Username</span><input id="userLoginName" autocomplete="username" maxlength="32" required /></label>
+        <label><span data-user-i18n="users.password">Password</span><input id="userLoginPassword" type="password" autocomplete="current-password" maxlength="64" required /></label>
+        <button id="userLoginSubmit" class="btn primary" data-user-i18n="users.login">Sign in</button>
+        <p id="userLoginMessage" class="user-message" role="status" aria-live="polite"></p>
+      </form>
+    </div>
+  </div>
+  <div id="userAccountBar" class="user-account-bar" hidden>
+    <span id="userIdentity"></span><span id="userBarMessage" role="status"></span>
+    <button id="usersOpen" class="btn small" type="button" data-user-i18n="users.title">Users</button>
+    <button id="userPasswordOpen" class="btn small" type="button" data-user-i18n="users.change_password">Change password</button>
+    <button id="userLogout" class="btn small" type="button" data-user-i18n="users.logout">Sign out</button>
+  </div>
+  <main id="userViewer" class="user-viewer" hidden>
+    <h1 data-user-i18n="users.snapshot">Panel screen</h1>
+    <p data-user-i18n="users.snapshot_hint">Refresh to view the current screen. This image does not accept touch input.</p>
+    <div class="row"><button id="userRefreshSnapshot" type="button" class="btn" data-user-i18n="users.refresh">Refresh</button></div>
+    <div id="userNavigateRow" class="row" hidden>
+      <label><span data-user-i18n="users.page">Page</span><select id="userPage"></select></label>
+      <button id="userNavigate" type="button" class="btn" data-user-i18n="users.navigate">Show on panel</button>
+    </div>
+    <p id="userViewerMessage" role="status"></p><img id="userSnapshot" alt="Panel screen snapshot" />
+  </main>
+  <dialog id="userPasswordDialog" class="user-card" aria-labelledby="userPasswordTitle">
+    <h2 id="userPasswordTitle" data-user-i18n="users.change_password">Change password</h2>
+    <form id="userPasswordForm">
+      <label><span data-user-i18n="users.current_password">Current password</span><input id="userOldPassword" type="password" autocomplete="current-password" maxlength="64" required /></label>
+      <label><span data-user-i18n="users.new_password">New password</span><input id="userNewPassword" type="password" autocomplete="new-password" maxlength="64" required /></label>
+      <label><span data-user-i18n="users.repeat">Repeat password</span><input id="userRepeatPassword" type="password" autocomplete="new-password" maxlength="64" required /></label>
+      <p id="userPasswordMessage" class="user-message" role="status"></p>
+      <div class="row"><button id="userPasswordSave" class="btn primary" data-user-i18n="users.save">Save</button><button id="userPasswordCancel" type="button" class="btn" data-user-i18n="users.cancel">Cancel</button></div>
+    </form>
+  </dialog>
   <div id="provisioningRoot" class="provisioning-shell hidden">
     <div class="provisioning-card">
       <div id="provisioningWifiPage" class="provisioning-page hidden">
@@ -925,6 +964,30 @@
           </div>
         </section>
 
+        <section id="settingsUsersSection">
+          <h2 id="settingsUsersHeading" data-user-i18n="users.title">Users</h2>
+          <p class="meta no-shorten" data-user-i18n="users.hint">Up to 16 accounts. Account changes sign out all browsers. Keep one enabled administrator.</p>
+          <div class="row"><button id="usersAdd" type="button" class="btn primary" data-user-i18n="users.add">Add user</button><button id="usersRefresh" type="button" class="btn" data-user-i18n="users.refresh">Refresh</button></div>
+          <p id="usersEmpty" data-user-i18n="users.empty">Access is open. Create an administrator to require sign-in.</p>
+          <div class="users-table-wrap"><table class="users-table">
+            <thead><tr><th data-user-i18n="users.name">Username</th><th data-user-i18n="users.role">Role</th><th data-user-i18n="users.status">Status</th><th data-user-i18n="users.actions">Actions</th></tr></thead>
+            <tbody id="usersTableBody"></tbody>
+          </table></div>
+          <form id="usersForm" class="users-form" hidden>
+            <h3 id="usersFormTitle"></h3>
+            <label><span data-user-i18n="users.name">Username</span><input id="usersName" autocomplete="off" maxlength="32" required /></label>
+            <label><span data-user-i18n="users.password_hint">Password (blank keeps current)</span><input id="usersPassword" type="password" autocomplete="new-password" maxlength="64" /></label>
+            <label><span data-user-i18n="users.repeat">Repeat password</span><input id="usersRepeat" type="password" autocomplete="new-password" maxlength="64" /></label>
+            <label><span data-user-i18n="users.role">Role</span><select id="usersRole">
+              <option value="viewer" data-user-i18n="users.role.viewer">Viewer</option><option value="operator" data-user-i18n="users.role.operator">Operator</option><option value="installer" data-user-i18n="users.role.installer">Installer</option><option value="administrator" data-user-i18n="users.role.administrator">Administrator</option>
+            </select></label>
+            <p class="meta no-shorten" data-user-i18n="users.permissions">Viewers read the screen. Operators also navigate. Installers edit dashboards. Administrators manage the device and users.</p>
+            <label class="user-checkbox"><input id="usersEnabled" type="checkbox" checked /><span data-user-i18n="users.enabled">Enabled</span></label>
+            <div class="row"><button class="btn primary" data-user-i18n="users.save">Save</button><button id="usersCancel" type="button" class="btn" data-user-i18n="users.cancel">Cancel</button></div>
+          </form>
+          <p id="usersMessage" class="user-message" role="status" aria-live="polite"></p>
+        </section>
+
         <section>
           <h2 id="settingsBackupHeading">Backup</h2>
           <div class="form">
@@ -939,23 +1002,6 @@
               <button id="settingsBackupRestore" type="button" class="btn small">Restore backup</button>
             </div>
             <div class="meta" id="settingsBackupMsg"></div>
-          </div>
-
-          <h2 id="settingsSecurityHeading">Admin password</h2>
-          <div class="form">
-            <div class="meta no-shorten" id="settingsSecurityStatus"></div>
-            <div class="meta no-shorten" id="settingsSecurityHint"></div>
-            <label class="field-md"><span id="settingsSecurityNewLabel">New password</span>
-              <input id="settingsSecurityNew" type="password" autocomplete="new-password" maxlength="64" />
-            </label>
-            <label class="field-md"><span id="settingsSecurityRepeatLabel">Repeat password</span>
-              <input id="settingsSecurityRepeat" type="password" autocomplete="new-password" maxlength="64" />
-            </label>
-            <div class="row">
-              <button id="settingsSecuritySet" type="button" class="btn small primary">Set password</button>
-              <button id="settingsSecurityClear" type="button" class="btn small danger">Remove password</button>
-            </div>
-            <div class="meta" id="settingsSecurityMsg"></div>
           </div>
 
           <h2 id="settingsFactoryHeading">Factory reset</h2>
@@ -2250,6 +2296,7 @@
   <script src="/js/i18n-pl.js"></script>
   <script src="/js/i18n-zh-cn.js"></script>
   <script src="/js/i18n-zh-tw.js"></script>
+  <script src="/js/i18n-users.js"></script>
   <script src="/js/state.js"></script>
   <script src="/js/util.js"></script>
   <script src="/js/ui-basics.js"></script>
@@ -2288,6 +2335,7 @@
   <script src="/js/knx.js"></script>
   <script src="/js/camera-editor.js"></script>
   <script src="/js/lvgl-preview.js"></script>
+  <script src="/js/users.js"></script>
   <script src="/js/main.js"></script>
 </body>
 </html>

@@ -176,6 +176,7 @@ function setupSettingsWorkspace() {
     if (!section.classList.contains("display-settings")) wrapSettingsBoxes(section);
     section.classList.add("settings-content-section", "hidden");
     contentPane.appendChild(section);
+    if (!userSettingsSections().includes(item)) continue;
 
     if (item.group && item.group !== lastNavGroup) {
       lastNavGroup = item.group;
@@ -236,7 +237,8 @@ function applySettingsNavTranslations() {
 }
 
 function activeSettingsNavItem(sectionId = editor.activeSettingsSection) {
-  return SETTINGS_NAV_ITEMS.find((item) => item.sectionId === sectionId) || SETTINGS_NAV_ITEMS[0];
+  const items = userSettingsSections();
+  return items.find((item) => item.sectionId === sectionId) || items[0];
 }
 
 // Per-tab navigation survives reloads without changing the device's configuration.
@@ -267,9 +269,12 @@ function setActiveSettingsSection(sectionId) {
     return;
   }
   editor.activeSettingsSection = item.sectionId;
+  if (item.sectionId === "settingsUsersSection" && typeof usersLoad === "function") void usersLoad();
   // KNX owns a separate save action; the generic shortcut would save unrelated settings.
   if (el.stackedSaveBtn) el.stackedSaveBtn.classList.toggle("hidden",
-    editor.activePane !== "settings" || ["settingsKnxSection","settingsCameraSection"].includes(item.sectionId));
+    editor.activePane !== "settings" || !userIsAdmin() || ["settingsKnxSection","settingsCameraSection","settingsUsersSection"].includes(item.sectionId));
+  const sidebarActions = document.getElementById("settingsSidebarActions");
+  if (sidebarActions) sidebarActions.hidden = !userIsAdmin() || item.sectionId === "settingsUsersSection";
   if (item.sectionId === "settingsAlertsSection") {
     renderAlertList(); // the draft survives leaving and returning; a reloaded layout replaces it
   }
@@ -1162,6 +1167,7 @@ async function uploadOtaFile() {
       const xhr = new XMLHttpRequest();
       xhr.open("POST", "/api/ota/upload");
       xhr.setRequestHeader("Content-Type", "application/octet-stream");
+      xhr.setRequestHeader("X-Betta-Request", "1");
       xhr.upload.onprogress = (event) => {
         if (!event.lengthComputable) return;
         const progress = Math.min(100, Math.max(0, (event.loaded * 100) / event.total));
@@ -1173,6 +1179,7 @@ async function uploadOtaFile() {
         }));
       };
       xhr.onload = () => {
+        if (xhr.status === 401) userShowLogin(t("users.expired"));
         const data = parseJsonMaybe(xhr.responseText) || {};
         if (xhr.status < 200 || xhr.status >= 300 || data.ok === false) {
           reject(new Error(data.error || `${xhr.status} ${xhr.statusText}`));
@@ -1818,55 +1825,6 @@ function bindStatusControls() {
       link.download = "betta-panel-log.txt";
       link.click();
       setTimeout(() => URL.revokeObjectURL(link.href), 2000);
-    });
-  }
-}
-
-function renderSecurityStatus() {
-  const on = !!(editor.settings && editor.settings.security && editor.settings.security.password_set);
-  setTextById("settingsSecurityStatus", on ? "settings.security.status_on" : "settings.security.status_off");
-  const clear = document.getElementById("settingsSecurityClear");
-  if (clear) clear.hidden = !on;
-}
-
-async function saveAdminPassword(password) {
-  const msg = document.getElementById("settingsSecurityMsg");
-  try {
-    await putSettings({ reboot: false, security: { admin_password: password } });
-    editor.settings.security = { ...(editor.settings.security || {}), password_set: password !== "" };
-    for (const id of ["settingsSecurityNew", "settingsSecurityRepeat"]) {
-      const input = document.getElementById(id);
-      if (input) input.value = "";
-    }
-    renderSecurityStatus();
-    if (msg) msg.textContent = t(password ? "settings.security.saved" : "settings.security.removed");
-  } catch (err) {
-    if (msg) msg.textContent = localizedRequestError(err);
-  }
-}
-
-function bindSecurityControls() {
-  const setBtn = document.getElementById("settingsSecuritySet");
-  const clearBtn = document.getElementById("settingsSecurityClear");
-  const msg = document.getElementById("settingsSecurityMsg");
-  if (setBtn) {
-    setBtn.addEventListener("click", () => {
-      const first = document.getElementById("settingsSecurityNew").value;
-      const second = document.getElementById("settingsSecurityRepeat").value;
-      if (first.length < 6) {
-        if (msg) msg.textContent = t("settings.security.short");
-        return;
-      }
-      if (first !== second) {
-        if (msg) msg.textContent = t("settings.security.mismatch");
-        return;
-      }
-      saveAdminPassword(first);
-    });
-  }
-  if (clearBtn) {
-    clearBtn.addEventListener("click", () => {
-      if (window.confirm(t("settings.security.confirm_clear"))) saveAdminPassword("");
     });
   }
 }

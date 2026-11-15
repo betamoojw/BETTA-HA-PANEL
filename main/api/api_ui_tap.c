@@ -4,7 +4,7 @@
  * POST /api/ui/tap {"widget": "<widget id>"} taps a tile the way a finger would, for device tests without touch
  * (the tile's popup opens; "topbar_stock" is the stock chip, a tap there, "topbar_stock_12m" also selects the year); {"close": true} dismisses the popup that tap opened. Only tiles whose tap opens a
  * read-only popup answer (the UI task checks the type), so this cannot switch a light or unlock a door. Like every
- * write endpoint it needs the admin login when one is set.
+ * write endpoint it follows the shared account policy; operator or higher is required when accounts are enabled.
  */
 #include "api/api_routes.h"
 

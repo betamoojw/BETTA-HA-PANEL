@@ -47,6 +47,8 @@ export function loadEditor({ width = 1280, height = 680, now } = {}) {
   for (const file of SCRIPTS) {
     vm.runInContext(fs.readFileSync(path.join(JS_DIR, file), "utf8"), context, { filename: file });
   }
+  // Existing editor tests exercise an authenticated administrator workspace.
+  vm.runInContext(`userAccess = {enabled:true, authenticated:true, role:"administrator", username:"owner"};`, context);
   // CANVAS_WIDTH/HEIGHT are top-level `let`s shared by every script of the context.
   vm.runInContext(`CANVAS_WIDTH = ${width}; CANVAS_HEIGHT = ${height};`, context);
   return {

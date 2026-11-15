@@ -179,6 +179,7 @@ idf_component_register(
         "app_events.c"
         "api/http_server.c"
         "api/http_guard.c"
+        "api/http_user_auth.c"
         "xiaozhi/xiaozhi.c"
         "xiaozhi/xiaozhi_mcp_tools.c"
         "xiaozhi/xiaozhi_mcp_network.c"
@@ -204,6 +205,9 @@ idf_component_register(
         "settings/night_mode.c"
         "settings/device_identity.c"
         "settings/admin_auth.c"
+        "settings/user_auth.c"
+        "settings/user_auth_policy.c"
+        "settings/user_password.c"
         "api/api_layout.c"
         "api/api_energy.c"
         "api/api_entities.c"
@@ -578,6 +582,22 @@ if(CONFIG_APP_PANEL_VARIANT_10INCH_JC)
         # Vendored GSL3680 headers (esp_lcd_gsl3680.h, esp_lcd_gsl3680_fw.h)
         "${CMAKE_CURRENT_SOURCE_DIR}/drivers/gsl3680"
     )
+endif()
+
+# Keep catalog contents intact while fitting panel10's existing OTA slots.
+if(CONFIG_APP_PANEL_VARIANT_10INCH_1280)
+    set(PACKED_I18N_DIR "${CMAKE_CURRENT_BINARY_DIR}/packed_i18n")
+    set(_catalog_inputs "${CMAKE_SOURCE_DIR}/tools/pack_i18n.py")
+    foreach(_language es fr pl zh-cn zh-tw)
+        list(APPEND _catalog_inputs "${CMAKE_CURRENT_LIST_DIR}/i18n/${_language}.json")
+    endforeach()
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${_catalog_inputs})
+    execute_process(COMMAND "${PYTHON}" "${CMAKE_SOURCE_DIR}/tools/pack_i18n.py"
+        --output "${PACKED_I18N_DIR}/i18n_packed_catalogs.h" COMMAND_ERROR_IS_FATAL ANY)
+    target_include_directories(${COMPONENT_LIB} PRIVATE "${PACKED_I18N_DIR}")
+    target_compile_definitions(${COMPONENT_LIB} PRIVATE APP_I18N_COMPRESSED=1)
+    target_sources(${COMPONENT_LIB} PRIVATE "settings/i18n_packed.c")
+    idf_component_optional_requires(PRIVATE zlib)
 endif()
 
 set(APP_HAVE_HOSTED_C6_FW_IMAGE 0)

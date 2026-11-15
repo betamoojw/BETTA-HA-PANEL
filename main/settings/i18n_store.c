@@ -13,11 +13,16 @@
 #include <string.h>
 #include <sys/stat.h>
 
+#ifdef APP_I18N_COMPRESSED
+#include "settings/i18n_packed.h"
+#include "i18n_packed_catalogs.h"
+#else
 #include "i18n/es.inc"
 #include "i18n/fr.inc"
 #include "i18n/pl.inc"
 #include "i18n/zh-cn.inc"
 #include "i18n/zh-tw.inc"
+#endif
 
 static const char *I18N_BUILTIN_DE =
     "{\"lvgl\":{"
@@ -178,7 +183,7 @@ bool i18n_store_is_builtin_language(const char *language_code)
            strcmp(language_code, "zh-cn") == 0 || strcmp(language_code, "zh-tw") == 0;
 }
 
-const char *i18n_store_builtin_translation_json(const char *language_code)
+static const char *builtin_translation_json(const char *language_code)
 {
     if (language_code == NULL) {
         return NULL;
@@ -186,15 +191,32 @@ const char *i18n_store_builtin_translation_json(const char *language_code)
     if (strcmp(language_code, "en") == 0) {
         return I18N_BUILTIN_EN;
     }
+#ifndef APP_I18N_COMPRESSED
     if (strcmp(language_code, "es") == 0) return I18N_BUILTIN_ES;
     if (strcmp(language_code, "fr") == 0) return I18N_BUILTIN_FR;
     if (strcmp(language_code, "pl") == 0) return I18N_BUILTIN_PL;
     if (strcmp(language_code, "zh-cn") == 0) return I18N_BUILTIN_ZH_CN;
     if (strcmp(language_code, "zh-tw") == 0) return I18N_BUILTIN_ZH_TW;
+#endif
     if (strcmp(language_code, "de") == 0) {
         return I18N_BUILTIN_DE;
     }
     return NULL;
+}
+
+cJSON *i18n_store_parse_builtin_translation(const char *language_code)
+{
+    if (!language_code) return NULL;
+#ifdef APP_I18N_COMPRESSED
+    for (size_t i = 0; i < sizeof(i18n_packed_catalogs) / sizeof(i18n_packed_catalogs[0]); i++) {
+        if (strcmp(language_code, i18n_packed_catalogs[i].code) == 0) {
+            return i18n_packed_parse(i18n_packed_catalogs[i].data, i18n_packed_catalogs[i].size,
+                                     i18n_packed_catalogs[i].json_size);
+        }
+    }
+#endif
+    const char *json = builtin_translation_json(language_code);
+    return json ? cJSON_ParseWithOpts(json, NULL, true) : NULL;
 }
 
 static bool i18n_store_ensure_dir(void)

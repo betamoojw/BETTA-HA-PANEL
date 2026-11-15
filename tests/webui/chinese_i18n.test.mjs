@@ -43,7 +43,7 @@ for (const code of ['es', 'fr', 'pl', 'zh-cn', 'zh-tw']) {
   });
   test(`${code}: complete panel catalog and printf argument order`, () => {
     const root = JSON.parse(read(`main/i18n/${code}.json`));
-    const generated = read(`main/i18n/${code}.inc`).split(' =\n')[1];
+    const generated = read(`main/i18n/${code}.inc`).split(/ =\r?\n/)[1];
     const embedded = JSON.parse([...generated.matchAll(/"(?:\\.|[^"\\])*"/g)].map(m => JSON.parse(m[0])).join(''));
     assert.deepEqual(embedded, root, 'generated firmware catalog matches its JSON source');
     assert.deepEqual(Object.keys(root), ['lvgl']);

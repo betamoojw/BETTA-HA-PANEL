@@ -190,12 +190,8 @@ esp_err_t api_i18n_effective_get_handler(httpd_req_t *req)
         selected_language_from_settings(lang, sizeof(lang));
     }
 
-    const char *builtin_json = i18n_store_builtin_translation_json(lang);
-    if (builtin_json == NULL) {
-        builtin_json = i18n_store_builtin_translation_json(APP_UI_DEFAULT_LANGUAGE);
-    }
-
-    cJSON *root = parse_object_or_empty(builtin_json);
+    const char *builtin_language = i18n_store_is_builtin_language(lang) ? lang : APP_UI_DEFAULT_LANGUAGE;
+    cJSON *root = i18n_store_parse_builtin_translation(builtin_language);
     if (root == NULL) {
         return httpd_resp_send_500(req);
     }

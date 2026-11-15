@@ -24,6 +24,7 @@ tools/*
 !tools/build.ps1
 !tools/flash_storage_check.py
 !tools/pack_c6_image.py
+!tools/pack_i18n.py
 !tools/widget_cases.py
 !tools/check_web.py
 !tools/check_camera_editor.py

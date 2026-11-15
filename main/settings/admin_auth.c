@@ -135,6 +135,14 @@ bool admin_auth_enabled(void)
     return admin_auth_state() != ADMIN_AUTH_UNSET;
 }
 
+bool admin_auth_export(uint8_t salt[16], uint8_t hash[32])
+{
+    if (admin_auth_state() != ADMIN_AUTH_SET) return false;
+    memcpy(salt, s_salt, sizeof(s_salt));
+    memcpy(hash, s_hash, sizeof(s_hash));
+    return true;
+}
+
 admin_auth_decision_t admin_auth_decide(admin_auth_state_t state, bool public_route)
 {
     if (public_route || state == ADMIN_AUTH_UNSET) {

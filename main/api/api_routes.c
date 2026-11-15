@@ -7,6 +7,7 @@
 #include "xiaozhi/xiaozhi.h"
 #include "knx/knx.h"
 #include "api/http_guard.h"
+#include "api/http_user_auth.h"
 
 #include "esp_check.h"
 
@@ -233,6 +234,7 @@ esp_err_t api_routes_register(httpd_handle_t server)
         return ESP_ERR_INVALID_ARG;
     }
 
+    ESP_RETURN_ON_ERROR(http_user_auth_register(server), "api_routes", "User routes");
     ESP_RETURN_ON_ERROR(xiaozhi_api_register(server), "api_routes", "AI Assistant routes");
     ESP_RETURN_ON_ERROR(knx_api_register(server), "api_routes", "KNX routes");
     httpd_uri_t get_layout = {

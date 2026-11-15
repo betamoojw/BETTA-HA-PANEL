@@ -379,6 +379,19 @@ cc -std=gnu11 -Wall -Wextra -Werror -g -I main -I tests/host/stubs "${variant_fl
   "${cjson_sources[@]}" "${cjson_libs[@]}" -lm -o "$out/test_i18n_builtin"
 "$out/test_i18n_builtin"
 
+# Panel10 packed catalogs: the same seven-language lifecycle, exact trees and allocation/corruption failures.
+python3 tools/pack_i18n.py --output "$out/i18n_packed_catalogs.h"
+for test in test_i18n_builtin test_i18n_packed; do
+  i18n_ui_source=(main/ui/ui_i18n.c)
+  if [ "$test" = test_i18n_packed ]; then i18n_ui_source=(); fi
+  cc -std=gnu11 -Wall -Wextra -Werror -g -DAPP_I18N_COMPRESSED=1 -I "$out" -I main \
+    -I tests/host/c6_image_stubs -I tests/host/stubs "${variant_flags[@]}" "${cjson_flags[@]}" "${zlib_flags[@]}" \
+    "tests/host/$test.c" tests/host/i18n_packed_alloc.c main/settings/i18n_packed.c \
+    main/settings/i18n_store.c "${i18n_ui_source[@]}" main/util/atomic_file.c tests/host/flash_gate_stub.c \
+    "${cjson_sources[@]}" "${cjson_libs[@]}" "${zlib_sources[@]}" "${zlib_libs[@]}" -lm -o "$out/$test-packed"
+  "$out/$test-packed"
+done
+
 # Energy dashboard preferences: flat grid sources, power-only grid, battery power sensors, two solar sources, legacy flow arrays.
 cc -std=gnu11 -Wall -Wextra -Werror -g -I main "${cjson_flags[@]}" \
   tests/host/test_energy_prefs.c main/ha/ha_energy_prefs.c \
@@ -430,6 +443,14 @@ cc -std=gnu11 -Wall -Wextra -Werror -Wno-unused-parameter -g \
 cc -std=gnu11 -Wall -Wextra -Werror -g -I tests/host/auth_stubs -I main \
   tests/host/test_admin_auth.c -o "$out/test_admin_auth"
 "$out/test_admin_auth"
+
+# User account migration, bounded sessions, revocation and the real HTTP guard.
+cc -std=gnu11 -Wall -Wextra -Werror -g -I tests/host/user_auth_stubs -I tests/host/auth_stubs -I main \
+  tests/host/test_user_auth.c -o "$out/test_user_auth"
+"$out/test_user_auth"
+cc -std=gnu11 -Wall -Wextra -Werror -g -I tests/host/user_auth_stubs -I tests/host/auth_stubs -I main \
+  "${cjson_flags[@]}" tests/host/test_user_http.c "${cjson_sources[@]}" "${cjson_libs[@]}" -lm -o "$out/test_user_http"
+"$out/test_user_http"
 
 # Production screenshots: shared layer capture, PNG pixels/CRCs, failures and JPEG engine cleanup.
 cc -std=gnu11 -Wall -Wextra -Werror -g -I tests/host/screenshot_stubs -I main \

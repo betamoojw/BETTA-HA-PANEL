@@ -181,7 +181,7 @@
                 const pixels = decoder.end(message);
                 ctx.putImageData(new ImageData(pixels, decoder.width, decoder.height), 0, 0);
                 hasFrame = true; el("remoteScreenshot").disabled = false;
-                el("remoteControl").disabled = false;
+                el("remoteControl").disabled = typeof userIsAdmin === "function" && !userIsAdmin();
                 el("remoteFrameTime").textContent = new Date().toLocaleTimeString();
                 status(controlled ? 9 : 8);
                 if (!send("ack", {seq: decoder.sequence})) throw new Error("Send failed");

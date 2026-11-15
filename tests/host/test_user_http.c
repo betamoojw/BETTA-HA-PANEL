@@ -71,6 +71,7 @@ static void login(const char *name, char *cookie) {
     CHECK(!strstr(r.response,"password1")); CHECK(!strstr(r.response,"token"));
     snprintf(cookie,96,"%.*s",78,r.set_cookie);
 }
+#ifndef LICENSE_HTTP_REUSE
 int main(void) {
     fresh(); http_user_auth_register((void *)1); CHECK(route_count == 6);
     expect(request(HTTP_GET,"/api/auth/session",NULL,NULL,NULL,NULL),200);
@@ -127,3 +128,4 @@ int main(void) {
     http_guard_handle(&basic,protected_handler); expect(basic,415);
     printf("HTTP user lifecycle: %u checks passed\n",checks); return 0;
 }
+#endif

@@ -8,6 +8,10 @@ Changes of **this fork**, compared with upstream v0.8.2. The release notes of th
 
 Changes since [v0.9.2-rc1](#v092-rc1).
 
+- **License management:** device-bound signed license import, persistent status and
+  an informational 60-minute trial across all firmware profiles. All features stay
+  available regardless of license state. See [License management](license-management.md).
+
 - **Users:** optional accounts with viewer/operator/installer/administrator roles, seven-language sign-in and account forms,
   HttpOnly sessions, server-side route permissions, last-administrator protection and legacy admin-password migration.
   Account changes revoke existing sessions, Live Display tickets and camera streams. See [Users](users.md) for scope and recovery.

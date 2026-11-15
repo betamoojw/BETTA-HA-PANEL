@@ -33,6 +33,7 @@ www/js/i18n-knx.js    KNX additions to the English and German catalogs
 www/js/i18n-camera.js camera additions to the English and German catalogs
 www/js/i18n-{es,fr,pl,zh-*}.js generated additional catalogs (sources in components/webui/i18n/)
 www/js/i18n-users.js  account UI strings for all seven built-in languages
+www/js/i18n-license.js license strings and explicit language fallbacks
 www/js/state.js       size limits, the `editor` state object, the DOM element map `el`
 www/js/util.js        normalizers, layout normalization, status line, `t()`, storage
 www/js/ui-basics.js   style cards, firmware info, HA diagnostics, canvas geometry
@@ -68,6 +69,7 @@ www/js/xiaozhi.js     optional panel-microphone assistant controls and bounded s
 www/js/knx.js         optional KNX Routing configuration, status and commissioning controls
 www/js/camera-editor.js camera settings, timed preview, motion zones and saved source management
 www/js/users.js       cookie session bootstrap, role-specific workspace and account lifecycle
+www/js/license.js     signed license import and bounded status polling
 www/js/main.js        calls `userBootstrap()` once everything has loaded
 ```
 

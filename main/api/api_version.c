@@ -199,6 +199,7 @@ esp_err_t api_version_get_handler(httpd_req_t *req)
     }
 
     cJSON_AddBoolToObject(root, "ok", true);
+    cJSON_AddBoolToObject(root, "license_status_only", true);
     cJSON_AddStringToObject(root, "name", APP_NAME);
     cJSON_AddStringToObject(root, "project", project_name);
     cJSON_AddStringToObject(root, "version", version);

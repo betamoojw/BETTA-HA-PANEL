@@ -33,6 +33,7 @@ nav = [
     { "Dashboard" = [
       { "Web editor" = "editor.md" },
       { "Users" = "users.md" },
+      { "License management" = "license-management.md" },
       { "Pages and layouts" = "pages.md" },
       { "Top bar" = "top-bar.md" },
     ] },
@@ -106,6 +107,7 @@ nav = [
       { "S3 ce2ffa7 validation" = "development/panels3-ce2ffa7-validation.md" },
       { "Native settings validation" = "development/native-settings-validation.md" },
       { "User management validation" = "development/user-management.md" },
+      { "Device licensing" = "development/licensing.md" },
       { "AI Assistant spectrum baseline" = "development/assistant-spectrum-baseline.md" },
       { "AI Assistant acceptance baseline" = "development/assistant-acceptance.md" },
       { "Xiaozhi acceptance baseline" = "development/xiaozhi-acceptance.md" },

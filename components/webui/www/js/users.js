@@ -35,6 +35,7 @@ function userShowLogin(message = "") {
   userSnapshotUrl = null;
   userElement("userSnapshot").removeAttribute("src");
   userElement("userPasswordDialog")?.close();
+  userElement("licenseDialog")?.close();
   userElement("userLoginName").focus();
 }
 
@@ -279,6 +280,7 @@ async function userBootstrap() {
       if (settings.ui?.language) await loadI18nLanguage(settings.ui.language, true);
       userTranslate(); await userStartViewer();
     }
+    licenseBind();
     if (!userAccess.local) window.setInterval(async () => {
       try {
         const session = await userRequest("/api/auth/session");

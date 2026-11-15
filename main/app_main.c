@@ -4,6 +4,7 @@
  */
 
 #include "ui/ui_transition.h"
+#include "settings/license_manager.h"
 #include "xiaozhi/xiaozhi.h"
 #include "knx/knx.h"
 #include "camera/camera_store.h"
@@ -189,6 +190,7 @@ void app_main(void)
     ESP_LOGI("app_init", "App version: %s", app_version);
 
     ESP_ERROR_CHECK(init_nvs());
+    license_manager_init();
     reboot_log_init(); /* why the previous run ended: needs NVS, before anything else can restart */
     ESP_ERROR_CHECK(init_littlefs());
     coredump_archive_init(); /* preserve the previous panic before network/UI can fail again */

@@ -26,6 +26,7 @@
   <link rel="stylesheet" href="/css/remote-display.css" />
   <link rel="stylesheet" href="/css/live-preview.css" />
   <link rel="stylesheet" href="/css/users.css" />
+  <link rel="stylesheet" href="/css/license.css" />
 </head>
 <body>
   <div id="userLogin" class="user-login">
@@ -43,9 +44,33 @@
   <div id="userAccountBar" class="user-account-bar" hidden>
     <span id="userIdentity"></span><span id="userBarMessage" role="status"></span>
     <button id="usersOpen" class="btn small" type="button" data-user-i18n="users.title">Users</button>
+    <button id="licenseOpen" class="btn small" type="button" data-user-i18n="license.title">License</button>
     <button id="userPasswordOpen" class="btn small" type="button" data-user-i18n="users.change_password">Change password</button>
     <button id="userLogout" class="btn small" type="button" data-user-i18n="users.logout">Sign out</button>
   </div>
+  <dialog id="licenseDialog" class="user-card" aria-labelledby="licenseHeading">
+    <h2 id="licenseHeading" data-user-i18n="license.title">License</h2>
+    <p class="no-shorten" data-user-i18n="license.hint">License status is informational. All panel features remain available, including after the trial ends.</p>
+    <p id="licenseStatus" role="status"></p><p id="licenseTrial"></p>
+    <label for="licenseDevice" data-user-i18n="license.device">Device ID</label>
+    <input id="licenseDevice" readonly autocomplete="off" />
+    <button id="licenseCopy" class="btn" type="button" data-user-i18n="license.copy">Copy device ID</button>
+    <p data-user-i18n="license.request">Send this device ID to your supplier to request a signed DEVICE_KEY file.</p>
+    <div id="licenseActions" hidden>
+      <label for="licenseFile" data-user-i18n="license.file">Signed license file</label>
+      <input id="licenseFile" type="file" />
+      <div class="row">
+        <button id="licenseImport" class="btn primary" type="button" data-user-i18n="license.import">Import license</button>
+        <button id="licenseRemove" class="btn" type="button" data-user-i18n="license.remove">Remove license</button>
+      </div>
+    </div>
+    <p id="licenseAdminHint" data-user-i18n="license.admin">An administrator can import or remove a license.</p>
+    <p id="licenseMessage" class="user-message" role="status" aria-live="polite"></p>
+    <div class="row">
+      <button id="licenseRefresh" class="btn" type="button" data-user-i18n="license.refresh">Refresh</button>
+      <button id="licenseClose" class="btn" type="button" data-user-i18n="license.close">Close</button>
+    </div>
+  </dialog>
   <main id="userViewer" class="user-viewer" hidden>
     <h1 data-user-i18n="users.snapshot">Panel screen</h1>
     <p data-user-i18n="users.snapshot_hint">Refresh to view the current screen. This image does not accept touch input.</p>
@@ -2297,6 +2322,7 @@
   <script src="/js/i18n-zh-cn.js"></script>
   <script src="/js/i18n-zh-tw.js"></script>
   <script src="/js/i18n-users.js"></script>
+  <script src="/js/i18n-license.js"></script>
   <script src="/js/state.js"></script>
   <script src="/js/util.js"></script>
   <script src="/js/ui-basics.js"></script>
@@ -2336,6 +2362,7 @@
   <script src="/js/camera-editor.js"></script>
   <script src="/js/lvgl-preview.js"></script>
   <script src="/js/users.js"></script>
+  <script src="/js/license.js"></script>
   <script src="/js/main.js"></script>
 </body>
 </html>

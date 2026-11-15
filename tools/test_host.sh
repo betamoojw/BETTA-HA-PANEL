@@ -452,6 +452,14 @@ cc -std=gnu11 -Wall -Wextra -Werror -g -I tests/host/user_auth_stubs -I tests/ho
   "${cjson_flags[@]}" tests/host/test_user_http.c "${cjson_sources[@]}" "${cjson_libs[@]}" -lm -o "$out/test_user_http"
 "$out/test_user_http"
 
+# License persistence and real HTTP authorization; crypto vectors have a separate PSA target.
+cc -std=gnu11 -Wall -Wextra -Werror -g -I tests/host/license_stubs -I tests/host/user_auth_stubs -I tests/host/auth_stubs -I main \
+  tests/host/test_license_manager.c -o "$out/test_license_manager"
+"$out/test_license_manager"
+cc -std=gnu11 -Wall -Wextra -Werror -g -I tests/host/user_auth_stubs -I tests/host/auth_stubs -I main \
+  "${cjson_flags[@]}" tests/host/test_license_http.c "${cjson_sources[@]}" "${cjson_libs[@]}" -lm -o "$out/test_license_http"
+"$out/test_license_http"
+
 # Production screenshots: shared layer capture, PNG pixels/CRCs, failures and JPEG engine cleanup.
 cc -std=gnu11 -Wall -Wextra -Werror -g -I tests/host/screenshot_stubs -I main \
   tests/host/test_screenshot.c -lz -o "$out/test_screenshot"

@@ -1,0 +1,8 @@
+/* SPDX-License-Identifier: LicenseRef-FNCL-1.1 | Copyright (c) 2026 andre68723 */
+#licenseDialog { width: min(600px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow: auto; box-sizing: border-box; }
+#licenseDialog p { overflow-wrap: anywhere; }
+#licenseDevice { width: 100%; min-width: 0; box-sizing: border-box; font-family: monospace; }
+#licenseActions { margin: 16px 0; }
+#licenseFile { display: block; max-width: 100%; margin: 8px 0; }
+#licenseOpen { white-space: normal; text-align: start; }
+.user-account-bar ~ .user-viewer { padding-top: 24px; }

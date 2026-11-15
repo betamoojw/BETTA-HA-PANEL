@@ -8,6 +8,7 @@
 #include "knx/knx.h"
 #include "api/http_guard.h"
 #include "api/http_user_auth.h"
+#include "api/api_license.h"
 
 #include "esp_check.h"
 
@@ -558,5 +559,6 @@ esp_err_t api_routes_register(httpd_handle_t server)
     ESP_RETURN_ON_ERROR(
         httpd_register_uri_handler(server, &post_notifications), "api_routes", "POST /api/notifications");
 
+    ESP_RETURN_ON_ERROR(api_license_register(server), "api_routes", "register license management");
     return api_camera_local_register(server);
 }

@@ -20,6 +20,7 @@ set(WEBUI_JS_SOURCES
     js/i18n-zh-cn.js
     js/i18n-zh-tw.js
     js/i18n-users.js
+    js/i18n-license.js
     js/state.js
     js/util.js
     js/ui-basics.js
@@ -59,6 +60,7 @@ set(WEBUI_JS_SOURCES
     js/camera-editor.js
     js/lvgl-preview.js
     js/users.js
+    js/license.js
     js/main.js)
 
 # Base editor styles first, then one file per appearance style (docs/appearance.md).
@@ -83,7 +85,8 @@ set(WEBUI_CSS_SOURCES
     css/inspector.css
     css/remote-display.css
     css/live-preview.css
-    css/users.css)
+    css/users.css
+    css/license.css)
 
 set(WEBUI_JS_DEPENDS "")
 set(_webui_js_fingerprint "")

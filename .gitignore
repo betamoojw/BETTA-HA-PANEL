@@ -32,6 +32,7 @@ tools/*
 !tools/check_page_animation_editor.py
 !tools/editor_local.py
 !tools/test_host.sh
+!tools/license_issuer.py
 !tools/editor_local_demo.py
 !tools/editor_local/
 !tools/editor_local/**

@@ -1,0 +1,28 @@
+/* SPDX-License-Identifier: LicenseRef-FNCL-1.1 | Copyright (c) 2026 andre68723 */
+:root { --license-warning-height: 0px; }
+.license-warning {
+  position: fixed; inset: 0 0 auto; z-index: 20000;
+  min-height: 28px; padding: 3px 12px; text-align: center;
+  background: repeating-linear-gradient(45deg, #f4c542 0 10px, #222 10px 20px);
+  color: #ffe083; font: 600 13px/1.5 "Segoe UI", sans-serif;
+  overflow-wrap: anywhere;
+}
+.license-warning span { display: inline-block; padding: 1px 10px; background: #171717; border-radius: 3px; }
+body { padding-top: var(--license-warning-height); }
+.shell, .provisioning-shell { min-height: calc(100dvh - var(--license-warning-height)); }
+body:has(.user-account-bar:not([hidden])) .shell {
+  height: calc(100dvh - var(--user-bar-height, 54px) - var(--license-warning-height)); min-height: 0;
+}
+.user-login, .modal-overlay, .live-view { top: var(--license-warning-height); }
+.user-viewer { max-height: calc(100dvh - var(--user-bar-height, 54px) - 48px - var(--license-warning-height)); }
+.modal-card { max-height: min(720px, calc(100dvh - 36px - var(--license-warning-height))); }
+.live-view-card { max-height: calc(94dvh - var(--license-warning-height)); }
+.live-view-body img { max-height: calc(94dvh - 150px - var(--license-warning-height)); }
+dialog.user-card, dialog.inspector-help-dialog { max-height: calc(90dvh - var(--license-warning-height)); }
+@media (min-width: 1101px) {
+  .compact-inspector:has(#layoutPane:not(.hidden)) .sidebar { top: var(--license-warning-height); height: calc(100dvh - var(--license-warning-height)); }
+  aside.actions-panel { top: calc(18px + var(--license-warning-height)); }
+}
+@media (max-width: 1100px) {
+  .workspace-top { top: var(--license-warning-height); }
+}

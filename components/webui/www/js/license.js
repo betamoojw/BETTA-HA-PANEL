@@ -98,6 +98,7 @@ async function licenseLoad() {
     const result = await licenseRequest();
     if (epoch !== licenseEpoch || !userAccess.authenticated) return;
     licenseState = result; licenseLoadedAt = performance.now();
+    licenseWarningUpdate(result.key_state);
     licenseSetMessage("");
   } catch (_) {
     if (epoch === licenseEpoch) licenseSetMessage("license.unavailable");
@@ -123,6 +124,7 @@ async function licenseChange(remove = false) {
     const result = await licenseRequest(remove ? "DELETE" : "POST", text);
     if (epoch !== licenseEpoch || !userAccess.authenticated) return;
     licenseState = result; licenseLoadedAt = performance.now();
+    licenseWarningUpdate(result.key_state);
     licenseSetMessage(remove ? "license.removed" : "license.saved");
   } catch (error) {
     if (epoch === licenseEpoch) licenseSetMessage(["license.invalid_file", "users.denied"].includes(error?.message)

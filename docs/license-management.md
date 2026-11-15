@@ -12,6 +12,19 @@ restart, brightness change, audio interruption or control restriction.
 The trial counts uptime from each boot; importing or removing a license does
 not restart it.
 
+A black-and-yellow warning strip appears at the top of login, initial Wi-Fi/HA
+setup, editor settings/layout, Live Display and viewer pages when no valid license
+is available. It names missing or invalid licenses, verification/storage errors
+and an unconfigured issuer separately. If a status request fails, it says the
+status is unavailable rather than claiming the license is invalid.
+
+The strip is informational and cannot be dismissed. Its reserved space follows
+wrapped text on small screens, keeping controls below it. A valid license removes
+both the strip and its reserved space. Activation/removal updates it immediately;
+other tabs refresh periodically while visible. All seven editor languages are
+supported. Before sign-in, the browser language is used. Local editor previews
+do not claim or request a device license.
+
 ## Import a license
 
 1. Copy the **Device ID** and send it to your supplier.

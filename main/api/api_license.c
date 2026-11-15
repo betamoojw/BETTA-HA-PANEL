@@ -6,6 +6,17 @@
 #include "settings/user_password.h"
 #include <stdio.h>
 
+static const char *license_state_name(license_key_state_t state)
+{
+    switch (state) {
+    case LICENSE_MISSING: return "missing";
+    case LICENSE_VALID: return "valid";
+    case LICENSE_INVALID: return "invalid";
+    case LICENSE_UNCONFIGURED: return "unconfigured";
+    default: return "error";
+    }
+}
+
 static esp_err_t license_reply(httpd_req_t *req, const char *status, const char *body)
 {
     httpd_resp_set_status(req, status);
@@ -18,11 +29,20 @@ static esp_err_t license_get(httpd_req_t *req)
 {
     license_status_t s;
     license_manager_status(&s);
-    const char *states[] = {"missing", "valid", "invalid", "error", "unconfigured"};
     char body[256];
     snprintf(body, sizeof(body), "{\"device_id\":\"%s\",\"key_state\":\"%s\","
         "\"trial_seconds\":%lu,\"status_only\":true,\"trial_per_boot\":true}",
-        s.device_id, states[s.key_state], (unsigned long)s.trial_seconds);
+        s.device_id, license_state_name(s.key_state), (unsigned long)s.trial_seconds);
+    return license_reply(req, "200 OK", body);
+}
+
+/* Login and setup need only the state: never publish device identity or key material. */
+static esp_err_t license_status_get(httpd_req_t *req)
+{
+    license_status_t s;
+    license_manager_status(&s);
+    char body[40];
+    snprintf(body, sizeof(body), "{\"key_state\":\"%s\"}", license_state_name(s.key_state));
     return license_reply(req, "200 OK", body);
 }
 
@@ -55,12 +75,14 @@ static esp_err_t license_delete(httpd_req_t *req)
 }
 
 static esp_err_t guarded_license_get(httpd_req_t *req) { return http_guard_handle(req, license_get); }
+static esp_err_t guarded_license_status_get(httpd_req_t *req) { return http_guard_handle(req, license_status_get); }
 static esp_err_t guarded_license_post(httpd_req_t *req) { return http_guard_handle(req, license_post); }
 static esp_err_t guarded_license_delete(httpd_req_t *req) { return http_guard_handle(req, license_delete); }
 
 esp_err_t api_license_register(httpd_handle_t server)
 {
     const httpd_uri_t routes[] = {
+        {.uri = "/api/license/status", .method = HTTP_GET, .handler = guarded_license_status_get},
         {.uri = "/api/license", .method = HTTP_GET, .handler = guarded_license_get},
         {.uri = "/api/license", .method = HTTP_POST, .handler = guarded_license_post},
         {.uri = "/api/license", .method = HTTP_DELETE, .handler = guarded_license_delete},

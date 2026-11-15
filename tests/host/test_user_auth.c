@@ -124,6 +124,9 @@ int main(void) {
     struct { const char *method, *uri; user_role_t role; } cases[] = {
         {"GET", "/", USER_ROLE_NONE}, {"GET", "/api/version", USER_ROLE_NONE},
         {"GET", "/api/version?tasks=1", USER_ROLE_ADMIN}, {"GET", "/api/auth/session", USER_ROLE_NONE},
+        {"GET", "/api/license/status", USER_ROLE_NONE}, {"GET", "/api/license/status?refresh=1", USER_ROLE_NONE},
+        {"GET", "/api/license", USER_ROLE_VIEWER}, {"GET", "/api/license/status/extra", USER_ROLE_ADMIN},
+        {"POST", "/api/license/status", USER_ROLE_ADMIN}, {"DELETE", "/api/license/status", USER_ROLE_ADMIN},
         {"GET", "/api/layout?limits=1", USER_ROLE_VIEWER}, {"PUT", "/api/layout", USER_ROLE_INSTALLER},
         {"POST", "/api/navigate", USER_ROLE_OPERATOR}, {"POST", "/api/users", USER_ROLE_ADMIN},
         {"GET", "/api/users", USER_ROLE_ADMIN}, {"POST", "/api/factory-reset", USER_ROLE_ADMIN},

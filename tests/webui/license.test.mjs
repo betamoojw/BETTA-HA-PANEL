@@ -12,9 +12,11 @@ function setup(role = "administrator", local = false) {
     globalThis.performance = {now:()=>clock};
     document.getElementById = id => nodes[id] ||= {id, textContent:'', hidden:false, disabled:false,
       dataset:{}, attrs:{}, files:[], _value:'', checked:false,
+      querySelector(){return this.label ||= {textContent:''};}, getBoundingClientRect(){return {height:28};},
       set value(v){this._value=v;if(id==='licenseFile'&&!v)this.files=[];}, get value(){return this._value;},
       setAttribute(k,v){this.attrs[k]=v;}, appendChild(n){this.child=n;}, focus(){this.focused=true;}, select(){this.selected=true;}, click(){this.clicked=true;}};
     globalThis.storage = new Map();
+    document.documentElement.style = {setProperty(){},getPropertyValue(){return '';}};
     window.localStorage = {getItem:k=>storage.get(k),setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)};
     globalThis.saved = {device_id:'a'.repeat(64), key_state:'missing', trial_seconds:3600, status_only:true};
     globalThis.requests = []; globalThis.status = 200;
@@ -43,12 +45,14 @@ test("settings license events paste, activate, reload, remove and expire without
   await run("nodes.licenseImport.onclick()");
   assert.equal(run("saved.key_state"), "valid");
   assert.equal(run("nodes.licenseActivation.hidden"), true);
+  assert.equal(run("nodes.licenseWarning.hidden"), true);
   assert.equal(run("nodes.licenseKey.value"), "");
   assert.equal(run("requests.find(r=>r.method==='POST').body.length"), 200);
   assert.equal(run("requests.find(r=>r.method==='POST').headers['Content-Type']"), "application/octet-stream");
   run("licenseState=null"); await run("nodes.licenseRefresh.onclick()");
   assert.equal(run("licenseState.key_state"), "valid");
   await run("nodes.licenseRemove.onclick()");
+  assert.equal(run("nodes.licenseWarning.hidden"), false);
   run("saved.trial_seconds=1"); await run("licenseLoad()");
   run("clock+=2000; tick()");
   assert.match(run("nodes.licenseTrial.textContent"), /all features remain available/);

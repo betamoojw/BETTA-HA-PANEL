@@ -94,6 +94,11 @@ Responses are not cached and never contain the signature. `/api/version`
 advertises `license_status_only: true` without publishing identity or license data.
 General settings/layout backups do not contain licenses.
 
+`GET /api/license/status` is public for the login and initial setup warning strip.
+Its only field is `key_state`; it contains no device ID, signature, trial counter
+or account data. It retains the HTTP guard, rate/concurrency limits and no-store
+response policy. The detailed endpoint and mutations keep their existing roles.
+
 There is no service task, periodic NVS write or display lock. Status reads use
 atomic state and uptime. Verification occurs at boot or on the serialized HTTP
 import path. Upload memory is bounded to 202 bytes plus crypto internals.
@@ -104,6 +109,17 @@ out cancels requests and clears unsent keys; stale responses cannot replace a
 newer page/session state. A cancelled mutation may already have reached storage;
 reopening or refreshing retrieves the authoritative state. License requests do
 not request screenshots or operate the panel.
+
+The shared `license-warning.js` starts independently of account/editor bootstrap.
+It reads the public state at startup and at most once per minute while visible,
+with one request in flight and a ten-second deadline. Hidden tabs skip polling;
+page departure cancels requests. Import/remove results invalidate older reads.
+Unknown or failed reads produce an unavailable-status message, never activation.
+`ResizeObserver` keeps `--license-warning-height` aligned with wrapped text; the
+same variable offsets login, setup, editor/viewer and overlay content. A valid
+state sets the height to zero. The black/yellow diagonal pattern follows the
+WLED development-banner reference; this implementation remains independent of
+WLED's unconditional development notice and its fixed 24-pixel layout.
 
 ## Agreement page
 

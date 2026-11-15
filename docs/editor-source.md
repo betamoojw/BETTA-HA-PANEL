@@ -70,9 +70,13 @@ www/js/knx.js         optional KNX Routing configuration, status and commissioni
 www/js/camera-editor.js camera settings, timed preview, motion zones and saved source management
 www/js/users.js       cookie session bootstrap, role-specific workspace and account lifecycle
 www/js/license-agreement.js generated LICENSE text and content revision
+www/js/license-warning.js shared license warning, public-state polling and measured top spacing
 www/js/license.js     System license/Agreement tabs, signed key import and bounded status polling
 www/js/main.js        calls `userBootstrap()` once everything has loaded
 ```
+
+`css/license-warning.css` reserves the warning's measured height across login,
+setup, editor and viewer surfaces; a valid license removes the warning and gap.
 
 `js/remote-display.js` loads before `main.js`, with `css/remote-display.css`.
 Its Live Display pane decodes acknowledged RGB565 tile frames independently of

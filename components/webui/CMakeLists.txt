@@ -61,6 +61,7 @@ set(WEBUI_JS_SOURCES
     js/lvgl-preview.js
     js/users.js
     js/license-agreement.js
+    js/license-warning.js
     js/license.js
     js/main.js)
 
@@ -87,7 +88,8 @@ set(WEBUI_CSS_SOURCES
     css/remote-display.css
     css/live-preview.css
     css/users.css
-    css/license.css)
+    css/license.css
+    css/license-warning.css)
 
 set(WEBUI_JS_DEPENDS "")
 set(_webui_js_fingerprint "")

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LicenseRef-FNCL-1.1 | Copyright (c) 2026 andre68723 */
 Object.assign(WEB_I18N_BUILTIN.en, {
+  "license.warning_usage": "All panel features remain available.",
   "license.choose_file": "Choose file", "license.no_file": "No file selected",
   "license.title": "License", "license.device": "Device ID", "license.copy": "Copy device ID",
   "license.hint": "License status is informational. All panel features remain available, including after the trial ends.",
@@ -25,6 +26,7 @@ Object.assign(WEB_I18N_BUILTIN.en, {
   "license.read_failed": "The reading record could not be read or saved in this browser. Panel use is unaffected."
 });
 Object.assign(WEB_I18N_BUILTIN.de, {
+  "license.warning_usage": "Alle Funktionen bleiben verfügbar.",
   "license.choose_file": "Datei auswählen", "license.no_file": "Keine Datei ausgewählt",
   "license.title": "Lizenz", "license.device": "Geräte-ID", "license.copy": "Geräte-ID kopieren",
   "license.hint": "Der Lizenzstatus dient nur zur Information. Alle Funktionen bleiben verfügbar, auch nach Ende der Testzeit.",
@@ -50,6 +52,7 @@ Object.assign(WEB_I18N_BUILTIN.de, {
   "license.read_failed": "Der Lesevermerk konnte in diesem Browser nicht gelesen oder gespeichert werden. Die Nutzung bleibt möglich."
 });
 Object.assign(WEB_I18N_BUILTIN["zh-cn"], {
+  "license.warning_usage": "面板所有功能仍可正常使用。",
   "license.choose_file": "选择文件", "license.no_file": "未选择文件",
   "license.title": "授权管理", "license.device": "设备编号", "license.copy": "复制设备编号",
   "license.hint": "授权状态仅供查看。试用结束后，面板所有功能仍可正常使用。",
@@ -74,6 +77,7 @@ Object.assign(WEB_I18N_BUILTIN["zh-cn"], {
   "license.read_failed": "当前浏览器无法读取或保存阅读记录，不影响面板使用。"
 });
 Object.assign(WEB_I18N_BUILTIN.es, {
+  "license.warning_usage": "Todas las funciones del panel siguen disponibles.",
   "license.choose_file": "Elegir archivo", "license.no_file": "Ningún archivo seleccionado",
   "license.title": "Licencia", "license.device": "ID del dispositivo", "license.copy": "Copiar ID del dispositivo",
   "license.hint": "El estado de la licencia es informativo. Todas las funciones del panel siguen disponibles, incluso al terminar el período de prueba.",
@@ -99,6 +103,7 @@ Object.assign(WEB_I18N_BUILTIN.es, {
   "license.read_failed": "No se ha podido leer o guardar el registro de lectura en este navegador. El uso del panel no se ve afectado."
 });
 Object.assign(WEB_I18N_BUILTIN.fr, {
+  "license.warning_usage": "Toutes les fonctions du panneau restent disponibles.",
   "license.choose_file": "Choisir un fichier", "license.no_file": "Aucun fichier sélectionné",
   "license.title": "Licence", "license.device": "Identifiant de l’appareil", "license.copy": "Copier l’identifiant de l’appareil",
   "license.hint": "L’état de la licence est fourni à titre informatif. Toutes les fonctions du panneau restent disponibles, même après la période d’essai.",
@@ -124,6 +129,7 @@ Object.assign(WEB_I18N_BUILTIN.fr, {
   "license.read_failed": "Impossible de lire ou d’enregistrer la confirmation de lecture dans ce navigateur. L’utilisation du panneau n’est pas affectée."
 });
 Object.assign(WEB_I18N_BUILTIN.pl, {
+  "license.warning_usage": "Wszystkie funkcje panelu pozostają dostępne.",
   "license.choose_file": "Wybierz plik", "license.no_file": "Nie wybrano pliku",
   "license.title": "Licencja", "license.device": "Identyfikator urządzenia", "license.copy": "Kopiuj identyfikator urządzenia",
   "license.hint": "Stan licencji ma charakter informacyjny. Wszystkie funkcje panelu pozostają dostępne, również po zakończeniu okresu próbnego.",
@@ -149,6 +155,7 @@ Object.assign(WEB_I18N_BUILTIN.pl, {
   "license.read_failed": "Nie można odczytać ani zapisać potwierdzenia przeczytania w tej przeglądarce. Nie wpływa to na korzystanie z panelu."
 });
 Object.assign(WEB_I18N_BUILTIN["zh-tw"], {
+  "license.warning_usage": "面板所有功能仍可正常使用。",
   "license.choose_file": "選擇檔案", "license.no_file": "尚未選擇檔案",
   "license.title": "授權管理", "license.device": "裝置編號", "license.copy": "複製裝置編號",
   "license.hint": "授權狀態僅供查看。試用結束後，面板所有功能仍可正常使用。",

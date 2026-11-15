@@ -39,13 +39,30 @@ static httpd_req_t license_request(int method, const char *body, const char *coo
     else license_result = guarded_license_delete(&r);
     return r;
 }
+static httpd_req_t public_status(void) {
+    clock_us += 1000000;
+    httpd_req_t r = {.uri = "/api/license/status", .method = HTTP_GET};
+    strcpy(r.status, "200 OK");
+    license_result = guarded_license_status_get(&r);
+    return r;
+}
 int main(void) {
-    fresh(); CHECK(api_license_register((void *)1) == ESP_OK); CHECK(route_count == 3);
+    fresh(); CHECK(api_license_register((void *)1) == ESP_OK); CHECK(route_count == 4);
     CHECK(user_auth_update("owner", "password1", USER_ROLE_ADMIN, true, true) == ESP_OK);
     CHECK(user_auth_update("reader", "password1", USER_ROLE_VIEWER, true, true) == ESP_OK);
     CHECK(user_auth_update("installer", "password1", USER_ROLE_INSTALLER, true, true) == ESP_OK);
     char owner[96], reader[96], installer[96]; login("owner", owner); login("reader", reader); login("installer", installer);
     char file[203]; memset(file, 'k', 200); file[200] = 0;
+    const char *states[] = {"missing", "valid", "invalid", "error", "unconfigured"};
+    for (unsigned i = 0; i < 5; ++i) {
+        license_snapshot.key_state = (license_key_state_t)i;
+        httpd_req_t status = public_status(); expect(status, 200);
+        char expected[40]; snprintf(expected, sizeof(expected), "{\"key_state\":\"%s\"}", states[i]);
+        CHECK(strcmp(status.response, expected) == 0);
+        CHECK(license_result == ESP_OK && imports == 0 && removals == 0);
+    }
+    license_snapshot.key_state = LICENSE_MISSING;
+    send_failure = true; public_status(); CHECK(license_result == ESP_FAIL); send_failure = false;
     expect(license_request(HTTP_GET, NULL, NULL, NULL), 401);
     httpd_req_t r = license_request(HTTP_GET, NULL, reader, NULL); expect(r, 200);
     CHECK(strstr(r.response, "\"status_only\":true")); CHECK(!strstr(r.response, file));
@@ -71,5 +88,5 @@ int main(void) {
     CHECK(license_result == ESP_FAIL && imports == before + 1); send_failure = false;
     /* Lost response does not undo a durable write; a fresh GET recovers its status. */
     r = license_request(HTTP_GET, NULL, owner, NULL); expect(r, 200); CHECK(strstr(r.response, "valid"));
-    puts("license HTTP: PASS (real roles/CSRF, bounded upload, error mapping, status-only expiry)");
+    puts("license HTTP: PASS (public state only, real roles/CSRF, bounded upload, error mapping, status-only expiry)");
 }

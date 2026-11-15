@@ -17,7 +17,7 @@ user_role_t user_auth_required_role(const char *uri, const char *method)
     if (strcmp(method, "GET") == 0) {
         /* Public static assets contain no device data. Only registered routes reach this policy. */
         if (strncmp(uri, "/api/", 5) != 0 || strcmp(uri, "/api/version") == 0 ||
-            path_is(uri, "/api/auth/session")) return USER_ROLE_NONE;
+            path_is(uri, "/api/auth/session") || path_is(uri, "/api/license/status")) return USER_ROLE_NONE;
         const char *viewer[] = {"/api/license", "/api/layout", "/api/state", "/api/entities", "/api/settings",
             "/api/i18n/languages", "/api/i18n/effective", "/api/themes", "/api/themes/active", "/api/themes/get",
             "/api/screenshot.jpg", "/api/screenshot.png", "/api/screenshot.bmp", "/api/time"};

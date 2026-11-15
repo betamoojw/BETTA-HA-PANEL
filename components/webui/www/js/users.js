@@ -19,6 +19,7 @@ function userElement(id) { return document.getElementById(id); }
 function userTranslate() {
   for (const node of document.querySelectorAll("[data-user-i18n]")) node.textContent = t(node.dataset.userI18n);
   licenseRender();
+  licenseWarningRender();
   const label = userElement("userIdentity");
   if (label) label.textContent = userAccess.enabled
     ? `${userAccess.username} · ${t(`users.role.${userAccess.role}`)}` : t("users.open");
@@ -244,6 +245,7 @@ async function userBootstrap() {
   const code = lang.startsWith("zh") ? (/(tw|hk|hant)/.test(lang) ? "zh-tw" : "zh-cn") : lang.split("-")[0];
   editor.i18nMap = { ...WEB_I18N_BUILTIN.en, ...(WEB_I18N_BUILTIN[code] || {}) };
   userTranslate(); userInstallFetch(); usersBind();
+  licenseWarningStart();
   userElement("userLoginForm").onsubmit = async event => {
     event.preventDefault(); userElement("userLoginSubmit").disabled = true;
     try {

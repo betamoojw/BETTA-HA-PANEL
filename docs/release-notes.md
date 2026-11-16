@@ -19,6 +19,8 @@ Changes since [v0.9.2-rc1](#v092-rc1).
   without restricting use. Valid activation removes the strip and its top spacing.
   File selection and pasting remain available to administrators without an issuer
   public key; activation stays disabled with a translated explanation.
+  This fork's Panel10 defaults configure the owner's issuer public key for signed
+  device licenses; private signing material stays outside the repository.
   Device-ID copying works over local HTTP with a selected-input fallback when
   the Clipboard API is unavailable or denied, and manual-copy guidance on failure.
   The LCD adds a translucent top-bar warning after 30 minutes of each boot,

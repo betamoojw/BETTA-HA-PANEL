@@ -68,8 +68,12 @@ Key generation prompts for a passphrase and refuses to overwrite either file.
 The public command prints `CONFIG_APP_LICENSE_PUBLIC_KEY_HEX="..."`, a 130-character
 uncompressed SEC1 P-256 key starting with `04`. Add this public value to private
 build defaults or configure it through menuconfig using the variant wrapper.
-Reconfigure and build the intended variants. The default is empty: no production
-or test issuer is trusted by this repository.
+Reconfigure and build the intended variants. The Kconfig default is empty. This
+fork's Panel10 defaults pin the owner's issuer public key; other stock profiles
+remain unconfigured. No private signing key or trusted test issuer is included.
+Existing build directories retain saved sdkconfig values over defaults: update
+the public key through the variant's menuconfig, or regenerate sdkconfig after
+preserving any local overrides. Check the effective key before packaging.
 
 ```bash
 python tools/license_issuer.py sign --private-key /secure/issuer.pem --device-id <copied-device-id> --output DEVICE_KEY

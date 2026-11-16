@@ -52,6 +52,11 @@ The warning never restricts features, changes brightness or writes settings.
 3. Paste the signed key or choose the file, then select **Activate license**.
 4. Confirm **Licensed permanently**. Refresh checks the saved state again.
 
+**Copy device ID** supports the panel's local HTTP page as well as secure browser
+contexts. If browser permissions prevent copying, the complete ID is selected
+and a manual-copy message appears; use your browser's Copy action or Ctrl+C/Cmd+C.
+Copying an ID never imports a license or changes panel settings.
+
 A malformed file, another device's file or a file signed by another supplier is
 rejected without replacing the existing license. A lost connection during import
 may hide a successful save; reconnect and refresh before trying again.

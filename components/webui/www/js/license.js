@@ -12,6 +12,28 @@ function licenseRenderFile() {
   licenseNode("licenseFileName").textContent = licenseNode("licenseFile").files?.[0]?.name || t("license.no_file");
 }
 
+async function licenseCopyDeviceId() {
+  const field = licenseNode("licenseDevice"), text = field.value, epoch = licenseEpoch;
+  if (!text || !licenseVisible || !userAccess.authenticated || userAccess.local) return;
+  let copied = false;
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      copied = true;
+    }
+  } catch (_) { /* Permission denied: try the selected-input compatibility path. */ }
+  if (epoch !== licenseEpoch || !licenseVisible || !userAccess.authenticated || field.value !== text) return;
+  if (!copied) {
+    // LAN HTTP does not expose the secure-context Clipboard API. Keep this
+    // fallback synchronous with the click when that API is absent.
+    field.focus({ preventScroll: true });
+    field.select();
+    field.setSelectionRange(0, text.length);
+    try { copied = document.execCommand?.("copy") === true; } catch (_) { /* Manual copy remains available. */ }
+  }
+  licenseSetMessage(copied ? "license.copied" : "license.copy_failed");
+}
+
 function licenseRemaining() {
   return Math.max(0, Math.ceil((Number(licenseState?.trial_seconds) || 0) - (performance.now() - licenseLoadedAt) / 1000));
 }
@@ -186,10 +208,7 @@ function licenseBind() {
     licenseRenderFile();
   };
   licenseNode("licenseKey").oninput = () => { licenseNode("licenseFile").value = ""; licenseRenderFile(); };
-  licenseNode("licenseCopy").onclick = async () => {
-    try { await navigator.clipboard.writeText(licenseNode("licenseDevice").value); licenseSetMessage("license.copied"); }
-    catch (_) { licenseNode("licenseDevice").select(); licenseSetMessage("license.copy_failed"); }
-  };
+  licenseNode("licenseCopy").onclick = licenseCopyDeviceId;
   // Read-only roles reuse the section without bootstrapping the editor or admin settings.
   if (!userCanEdit()) {
     licenseNode("userLicenseMount").appendChild(licenseNode("settingsLicenseSection"));

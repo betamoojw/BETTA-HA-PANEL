@@ -117,6 +117,14 @@ Refresh retains the input, while navigation/logout clears it. Disabled controls
 are visibly dimmed. Server-side public-key verification and access checks remain
 authoritative; a client-selected file is not a verified license.
 
+Device-ID copying first uses the secure-context Clipboard API when available.
+LAN HTTP uses a synchronous selected-input `execCommand("copy")` compatibility
+fallback during the click. A rejected Clipboard API request also tries that
+fallback. Only a successful browser result reports completion; otherwise the
+full ID stays selected with localized manual-copy guidance. Late clipboard
+results after navigation, logout or identity changes cannot update the page.
+Copying sends no HTTP request and does not modify the activation input.
+
 The shared `license-warning.js` starts independently of account/editor bootstrap.
 It reads the public state at startup and at most once per minute while visible,
 with one request in flight and a ten-second deadline. Hidden tabs skip polling;

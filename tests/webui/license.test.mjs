@@ -14,7 +14,8 @@ function setup(role = "administrator", local = false) {
       dataset:{}, attrs:{}, files:[], _value:'', checked:false,
       querySelector(){return this.label ||= {textContent:''};}, getBoundingClientRect(){return {height:28};},
       set value(v){this._value=v;if(id==='licenseFile'&&!v)this.files=[];}, get value(){return this._value;},
-      setAttribute(k,v){this.attrs[k]=v;}, appendChild(n){this.child=n;}, focus(){this.focused=true;}, select(){this.selected=true;}, click(){this.clicked=true;}};
+      setAttribute(k,v){this.attrs[k]=v;}, appendChild(n){this.child=n;}, focus(){this.focused=true;}, select(){this.selected=true;},
+      setSelectionRange(start,end){this.selectionStart=start;this.selectionEnd=end;}, click(){this.clicked=true;}};
     document.getElementById('licenseIssuerHint').dataset.userI18n='license.issuer_required';
     document.querySelectorAll=selector=>selector==='[data-user-i18n]'?[nodes.licenseIssuerHint]:[];
     globalThis.storage = new Map();
@@ -39,6 +40,99 @@ function setup(role = "administrator", local = false) {
 }
 const settle = run => run("Promise.resolve().then(()=>{}).then(()=>{})");
 const key = "BETTA1:" + "a".repeat(64) + ":" + "b".repeat(128);
+
+test("LAN HTTP copy uses the complete selected ID synchronously without changing the key or device", async () => {
+  const run = setup(); await settle(run);
+  run(`
+    nodes.licenseKey.value='retained draft';
+    document.execCommand=command=>{
+      if(command!=='copy'||!nodes.licenseDevice.focused||!nodes.licenseDevice.selected) throw Error('invalid copy');
+      globalThis.clipboardText=nodes.licenseDevice.value.slice(nodes.licenseDevice.selectionStart,nodes.licenseDevice.selectionEnd);
+      return true;
+    };
+    globalThis.copyPending=nodes.licenseCopy.onclick();
+  `);
+  // No Promise turn before the legacy copy: the browser's click activation is retained.
+  assert.equal(run("clipboardText"), "a".repeat(64));
+  await run("copyPending");
+  assert.equal(run("nodes.licenseMessage.textContent"), run("t('license.copied')"));
+  assert.equal(run("nodes.licenseKey.value"), "retained draft");
+  assert.equal(run("requests.length"), 1);
+});
+
+test("secure clipboard success avoids legacy copy; rejection falls back to the full ID", async () => {
+  for (const rejected of [false, true]) {
+    const run = setup(); await settle(run);
+    run(`
+      globalThis.legacyCalls=0;
+      navigator.clipboard={writeText:async text=>{${rejected ? "throw Error('NotAllowedError');" : "globalThis.clipboardText=text;"}}};
+      document.execCommand=()=>{legacyCalls++;globalThis.clipboardText=nodes.licenseDevice.value;return true;};
+    `);
+    await run("nodes.licenseCopy.onclick()");
+    assert.equal(run("clipboardText"), "a".repeat(64));
+    assert.equal(run("legacyCalls"), rejected ? 1 : 0);
+    assert.equal(run("nodes.licenseMessage.textContent"), run("t('license.copied')"));
+  }
+});
+
+test("blocked or unsupported copying selects the entire ID and never claims success in any language", async () => {
+  for (const command of ["undefined", "()=>false", "()=>{throw Error('blocked')}"]) {
+    const run = setup(); await settle(run);
+    run(`document.execCommand=${command}`);
+    await run("nodes.licenseCopy.onclick()");
+    assert.equal(run("nodes.licenseDevice.focused"), true);
+    assert.equal(run("nodes.licenseDevice.selectionStart"), 0);
+    assert.equal(run("nodes.licenseDevice.selectionEnd"), 64);
+    for (const language of ["en", "de", "es", "fr", "pl", "zh-cn", "zh-tw"]) {
+      run(`editor.i18nMap=WEB_I18N_BUILTIN[${JSON.stringify(language)}]; userTranslate()`);
+      assert.equal(run("nodes.licenseMessage.textContent"), run("t('license.copy_failed')"));
+    }
+    assert.equal(run("requests.length"), 1);
+  }
+});
+
+test("copy is inert without a visible authenticated device and ignores late results after navigation or logout", async () => {
+  for (const change of ["nodes.licenseDevice.value=''", "licenseSetVisible(false)", "userAccess.authenticated=false", "userAccess.local=true"]) {
+    const run = setup(); await settle(run);
+    run(`navigator.clipboard={writeText:()=>{throw Error('must not copy')}}; document.execCommand=()=>{throw Error('must not copy')}; ${change}`);
+    await run("nodes.licenseCopy.onclick()");
+    assert.equal(run("nodes.licenseMessage.textContent"), "");
+    assert.equal(run("nodes.licenseDevice.selected"), undefined);
+  }
+  for (const change of ["licenseSetVisible(false)", "userAccess.authenticated=false;licenseReset()", "licenseState.device_id='c'.repeat(64);licenseRender()"]) {
+    for (const rejected of [false, true]) {
+      const run = setup(); await settle(run);
+      run(`navigator.clipboard={writeText:()=>new Promise((resolve,reject)=>{globalThis.finishCopy=${rejected ? "reject" : "resolve"}})};
+        document.execCommand=()=>{throw Error('must not copy stale ID')};globalThis.copyPending=nodes.licenseCopy.onclick();${change};finishCopy();`);
+      await run("copyPending");
+      assert.equal(run("nodes.licenseMessage.textContent"), "");
+      assert.equal(run("nodes.licenseDevice.selected"), undefined);
+    }
+  }
+});
+
+test("activation button serializes clicks, recovers after HTTP failure, and reloads the saved state", async () => {
+  const run = setup(); await settle(run);
+  run(`nodes.licenseKey.value=${JSON.stringify(key)};
+    globalThis.originalFetch=fetch;
+    fetch=(url,options)=>{requests.push({url,...options});return new Promise(resolve=>globalThis.finishImport=resolve)};
+    globalThis.importPending=nodes.licenseImport.onclick();`);
+  assert.equal(run("nodes.licenseImport.disabled"), true);
+  assert.equal(run("nodes.licenseChooseFile.disabled"), true);
+  await run("nodes.licenseImport.onclick()");
+  assert.equal(run("requests.filter(r=>r.method==='POST').length"), 1);
+  run("finishImport({ok:false,status:503})"); await run("importPending");
+  assert.equal(run("licenseState.key_state"), "missing");
+  assert.equal(run("nodes.licenseImport.disabled"), false);
+  assert.equal(run("nodes.licenseMessage.textContent"), run("t('license.unavailable')"));
+  run(`fetch=originalFetch;nodes.licenseKey.value=${JSON.stringify(key)}`);
+  await run("nodes.licenseImport.onclick()");
+  assert.equal(run("licenseState.key_state"), "valid");
+  assert.equal(run("nodes.licenseMessage.textContent"), run("t('license.saved')"));
+  assert.equal(run("nodes.licenseActivation.hidden"), true);
+  run("licenseState=null"); await run("nodes.licenseRefresh.onclick()");
+  assert.equal(run("licenseState.key_state"), "valid");
+});
 
 test("settings license events paste, activate, reload, remove and expire without gating", async () => {
   const run = setup(); await settle(run);

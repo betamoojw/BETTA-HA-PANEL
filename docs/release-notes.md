@@ -19,7 +19,7 @@ Changes since [v0.9.2-rc1](#v092-rc1).
   without restricting use. Valid activation removes the strip and its top spacing.
   File selection and pasting remain available to administrators without an issuer
   public key; activation stays disabled with a translated explanation.
-  The LCD adds a translucent top-bar warning after 30 minutes of each boot,
+  The LCD adds a translucent top-bar warning after 5 minutes of each boot,
   including persistent setup and native settings. Seven languages, compact
   text, touch passthrough and fullscreen/saver priorities preserve normal use.
   See [License management](license-management.md).
@@ -39,6 +39,12 @@ Changes since [v0.9.2-rc1](#v092-rc1).
 - **Screenshots:** `/api/screenshot.jpg` adds hardware JPEG encoding on supported P4 boards; `/api/screenshot.png` adds lossless capture.
   Live view falls back to PNG on S3 and keeps the matching download extension. `/api/screenshot.bmp` remains available. All three formats
   share the existing full-screen clock/overlay capture and report capture failures. Live Display and remote touch remain available separately.
+  Region capture stores 32-row RGB bands and reuses a small ARGB workspace, avoiding
+  full-screen contiguous allocations while preserving popup composition. P4 hardware
+  JPEG bands form one validated image with restart markers; PNG remains lossless.
+  The 1 MiB encoded-output limits remain. Capture diagnostics record failure stages,
+  band indices, PSRAM free/largest blocks and display-lock wait/hold times.
+  See [Screenshot resources](development/screenshot-resources.md) for budgets and hardware limits.
 - **Panel10 capacity:** the lossless bitmap packer saves another 13,661 bytes for the merged feature set. All 151 bitmap payloads,
   their pixels and the existing OTA partition layout are retained.
 - **Wi-Fi setup:** the setup access point name carries the radio's address (`BETTA-Setup-XXXX`); on the ESP32-P4 boards the suffix was

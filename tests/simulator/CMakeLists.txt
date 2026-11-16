@@ -319,6 +319,7 @@ add_test(NAME screen-settings-fixed-clock-events-and-layout
         --regression screen-settings --fixture "${CMAKE_CURRENT_LIST_DIR}/screen_settings.json")
 set_tests_properties(screen-settings-fixed-clock-events-and-layout PROPERTIES ENVIRONMENT "SDL_VIDEODRIVER=dummy")
 add_executable(betta-clock-test clock_protection_regression.c screenshot_regression.c sim_clock.c
+    "${REPO_ROOT}/main/ui/ui_license_warning.c"
     "${REPO_ROOT}/main/ui/ui_flip_clock.c"
     "${REPO_ROOT}/main/ui/theme/theme_default.c"
     "${REPO_ROOT}/main/ui/theme/theme_palette.c"
@@ -339,8 +340,9 @@ target_compile_definitions(betta-clock-test PRIVATE CONFIG_APP_PANEL_VARIANT_S3_
 target_compile_options(betta-clock-test PRIVATE -Wall -Wextra -Werror -Wno-unused-parameter -UNDEBUG)
 target_link_libraries(betta-clock-test PRIVATE lvgl SDL2::SDL2 sim_cjson m)
 add_test(NAME screenshot-bmp-dark COMMAND betta-clock-test 480 480 --bmp-regression flip dark_v2 matte)
+add_test(NAME screenshot-bmp-panel10 COMMAND betta-clock-test 1280 800 --bmp-regression flip dark_v2 matte)
 add_test(NAME screenshot-bmp-light COMMAND betta-clock-test 480 480 --bmp-regression flip light matte)
-set_tests_properties(screenshot-bmp-dark screenshot-bmp-light PROPERTIES TIMEOUT 30)
+set_tests_properties(screenshot-bmp-dark screenshot-bmp-light screenshot-bmp-panel10 PROPERTIES TIMEOUT 30)
 foreach(geometry "480;480" "720;720" "1280;800" "720;1280" "800;1280" "1280;720")
     list(GET geometry 0 clock_w)
     list(GET geometry 1 clock_h)

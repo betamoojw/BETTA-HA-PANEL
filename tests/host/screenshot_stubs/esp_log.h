@@ -5,6 +5,7 @@
  */
 #pragma once
 #include <stdio.h>
-#define ESP_LOGI(tag, fmt, ...) do { (void)(tag); if (0) { printf(fmt, ##__VA_ARGS__); } } while (0)
-#define ESP_LOGW(tag, fmt, ...) do { (void)(tag); if (0) { printf(fmt, ##__VA_ARGS__); } } while (0)
-#define ESP_LOGE(tag, fmt, ...) do { (void)(tag); if (0) { printf(fmt, ##__VA_ARGS__); } } while (0)
+void test_screenshot_log(const char *fmt, ...) __attribute__((format(gnu_printf, 1, 2)));
+#define ESP_LOGI(tag, fmt, ...) do { (void)(tag); test_screenshot_log(fmt, ##__VA_ARGS__); } while (0)
+#define ESP_LOGW(tag, fmt, ...) ESP_LOGI(tag, fmt, ##__VA_ARGS__)
+#define ESP_LOGE(tag, fmt, ...) ESP_LOGI(tag, fmt, ##__VA_ARGS__)

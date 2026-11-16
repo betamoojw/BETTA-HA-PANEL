@@ -8,6 +8,7 @@
 #include <stdint.h>
 #define LV_USE_SNAPSHOT 1
 typedef enum { LV_COLOR_FORMAT_RGB888 = 1, LV_COLOR_FORMAT_ARGB8888 = 2 } lv_color_format_t;
+typedef enum { LV_RESULT_OK, LV_RESULT_INVALID } lv_result_t;
 typedef struct { uint32_t w, h, stride; lv_color_format_t cf; } lv_image_header_t;
 typedef struct { lv_image_header_t header; uint32_t data_size; uint8_t *data; } lv_draw_buf_t;
 typedef struct lv_obj lv_obj_t;
@@ -20,5 +21,7 @@ void lv_obj_update_layout(lv_obj_t *obj);
 lv_obj_t *lv_screen_active(void);
 lv_obj_t *lv_layer_top(void);
 lv_draw_buf_t *lv_snapshot_take(lv_obj_t *obj, lv_color_format_t cf);
+lv_draw_buf_t *lv_snapshot_create_draw_buf(lv_obj_t *obj, lv_color_format_t cf);
+lv_result_t lv_snapshot_take_to_draw_buf(lv_obj_t *obj, lv_color_format_t cf, lv_draw_buf_t *buf);
 void lv_draw_buf_destroy(lv_draw_buf_t *buf);
 uint32_t lv_obj_get_child_count(const lv_obj_t *obj);

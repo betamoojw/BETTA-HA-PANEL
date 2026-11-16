@@ -1,210 +1,186 @@
-/* SPDX-License-Identifier: LicenseRef-FNCL-1.1
- * Copyright (c) 2026 andre68723 -- file added in the andre68723/BETTA-HA-PANEL fork, see docs/release-notes.md
- */
-/* The shared production capture and image handlers against stubbed LVGL/display/HTTP services:
- * overlay blending, failed captures, bounded locks, PNG pixels/CRCs, JPEG availability and cleanup.
- * Real LVGL composition and BMP row/padding coverage live in tests/simulator/screenshot_regression.c. */
+/* SPDX-License-Identifier: LicenseRef-FNCL-1.1 | Copyright (c) 2026 andre68723 */
+/* Production capture/HTTP/encoders, with deterministic regions and fault injection.
+ * Real LVGL pixels and real JPEG decoding are separate regression gates. */
 #include <stdio.h>
+#include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
 #include <zlib.h>
 #include "driver/jpeg_encode.h"
-
 static int fail_deflate_at, deflate_calls;
 static int test_deflate(z_streamp stream, int flush);
 #define deflate test_deflate
-#include "api/api_screenshot.c" /* NOLINT: the production file, with the stubs of tests/host/screenshot_stubs */
+#include "api/api_screenshot.c"
+#include "api/screenshot_jpeg_join.c"
 #include "api/api_screenshot_image.c"
 #undef deflate
-
-static int failures;
-#define CHECK(cond) do { if (!(cond)) { printf("FAIL %s:%d %s\n", __FILE__, __LINE__, #cond); failures++; } } while (0)
-
+static int failures, cases;
+#define CHECK(c) do { if (!(c)) { printf("FAIL %s:%d %s\n", __FILE__, __LINE__, #c); failures++; } } while (0)
 static struct lv_obj { int x; } screen_obj, top_obj;
-static lv_draw_buf_t *page_buf, *top_buf;
-static bool lock_ok, locked;
-static int live_bufs, lock_calls, unlock_calls, take_calls;
-static int fail_chunk_at; /* 1-based chunk index that fails, 0 = never */
-static int chunks;
-static char status[64], type[32];
+static lv_display_t display;
+static int32_t display_w, display_h;
+static bool locked, opaque_cover, popup, display_missing, change_geometry, noise;
+static int lock_calls, unlock_calls, fail_lock_at, render_calls, fail_render_at;
+static int heap_calls, fail_alloc_at, allocations, engines, fail_engine, jpeg_calls, fail_jpeg_at, bad_jpeg;
+static int send_calls, fail_send_at, diag_logs, memory_samples;
+static size_t heap_bytes, peak_bytes, largest_alloc, largest_limit, total_limit, sampled_bytes;
+static char status[64], type[32], capture_log[512];
 static uint8_t body[4 << 20];
 static size_t body_len;
-static int sendstr_calls;
-static lv_display_t display;
-static int32_t display_w = 3, display_h = 2;
-static bool opaque_cover;
-static int fail_take_at, heap_calls, fail_alloc_at, cases;
-static size_t snapshot_bytes, heap_bytes, peak_bytes, peak_snapshot_bytes, peak_heap_bytes;
-static void record_peak(void)
-{
-    if (snapshot_bytes > peak_snapshot_bytes) peak_snapshot_bytes = snapshot_bytes;
-    if (heap_bytes > peak_heap_bytes) peak_heap_bytes = heap_bytes;
-    if (snapshot_bytes + heap_bytes > peak_bytes) peak_bytes = snapshot_bytes + heap_bytes;
-}
+static int64_t fake_us;
 static int test_deflate(z_streamp stream, int flush)
 {
     CHECK(!locked);
     if (++deflate_calls == fail_deflate_at) return Z_STREAM_ERROR;
     return deflate(stream, flush);
 }
-
-lv_display_t *lv_display_get_default(void) { return &display; }
-int32_t lv_display_get_horizontal_resolution(lv_display_t *d) { (void)d; return display_w; }
+lv_display_t *lv_display_get_default(void) { return display_missing ? NULL : &display; }
+int32_t lv_display_get_horizontal_resolution(lv_display_t *d) { (void)d; return display_w + (change_geometry && lock_calls == 2); }
 int32_t lv_display_get_vertical_resolution(lv_display_t *d) { (void)d; return display_h; }
 void lv_obj_update_layout(lv_obj_t *obj) { (void)obj; CHECK(locked); }
 lv_obj_t *lv_refr_get_top_obj(const lv_area_t *area, lv_obj_t *layer)
 {
-    CHECK(locked && area->x1 == 0 && area->y1 == 0);
-    return opaque_cover ? layer : NULL;
+    CHECK(locked && area->x1 == 0 && area->y1 == 0); return opaque_cover ? layer : NULL;
 }
-
 lv_obj_t *lv_screen_active(void) { return &screen_obj; }
 lv_obj_t *lv_layer_top(void) { return &top_obj; }
-static uint32_t top_children = 1;
-uint32_t lv_obj_get_child_count(const lv_obj_t *obj) { (void)obj; return top_children; }
-int64_t esp_timer_get_time(void) { static int64_t t; return t += 1000; }
-bool display_lock(uint32_t timeout_ms) { CHECK(timeout_ms == 1500 && !locked); lock_calls++; locked = lock_ok; return lock_ok; }
-void display_unlock(void) { CHECK(locked); unlock_calls++; locked = false; }
-lv_draw_buf_t *lv_snapshot_take(lv_obj_t *obj, lv_color_format_t cf)
+int64_t esp_timer_get_time(void) { return fake_us; }
+bool display_lock(uint32_t timeout_ms)
 {
-    (void)cf;
-    take_calls++;
-    CHECK(locked);
-    if (take_calls == fail_take_at) return NULL;
-    lv_draw_buf_t *src = obj == &screen_obj ? page_buf : top_buf;
-    if (src == NULL) return NULL;
-    if (obj == &screen_obj) page_buf = NULL;
-    else top_buf = NULL;
-    live_bufs++;
-    snapshot_bytes += src->data_size;
-    record_peak();
-    return src;
+    CHECK(timeout_ms == 1500 && !locked); fake_us += 2500;
+    locked = ++lock_calls != fail_lock_at; return locked;
 }
-void lv_draw_buf_destroy(lv_draw_buf_t *buf)
+void display_unlock(void) { CHECK(locked); unlock_calls++; locked = false; fake_us += 900; }
+void test_screenshot_log(const char *fmt, ...)
 {
-    live_bufs--;
-    snapshot_bytes -= buf->data_size;
-    if (buf->data != NULL) free(buf->data);
-    free(buf);
-}
-esp_err_t httpd_resp_set_hdr(httpd_req_t *r, const char *f, const char *v) { (void)r; (void)f; (void)v; return ESP_OK; }
-esp_err_t httpd_resp_set_status(httpd_req_t *r, const char *s) { (void)r; snprintf(status, sizeof(status), "%s", s); return ESP_OK; }
-esp_err_t httpd_resp_set_type(httpd_req_t *r, const char *t) { (void)r; snprintf(type, sizeof(type), "%s", t); return ESP_OK; }
-esp_err_t httpd_resp_sendstr(httpd_req_t *r, const char *s) { (void)r; (void)s; CHECK(!locked); sendstr_calls++; return fail_chunk_at == -2 ? ESP_FAIL : ESP_OK; }
-esp_err_t httpd_resp_send_chunk(httpd_req_t *r, const char *buf, ssize_t len)
-{
-    (void)r;
     CHECK(!locked);
-    chunks++;
-    if (fail_chunk_at != 0 && chunks == fail_chunk_at) return ESP_FAIL;
-    if (buf != NULL && body_len + (size_t)len <= sizeof(body)) { memcpy(body + body_len, buf, (size_t)len); body_len += (size_t)len; }
-    return ESP_OK;
+    if (strstr(fmt, "capture=%s")) {
+        va_list args; va_start(args, fmt);
+        int n = vsnprintf(capture_log, sizeof(capture_log), fmt, args); va_end(args);
+        CHECK(n > 0 && n + 48 < 256); diag_logs++;
+    }
+    fake_us += 5000;
 }
-
-/* Fake hardware JPEG engine: engines and output buffers are counted so leaks show; the "image" is a recognisable byte pattern. */
-static int fail_heap_malloc, engines, jpeg_mem, fail_engine_new, fail_jpeg_process, jpeg_calls;
-static uint32_t jpeg_size_to_write = 5000;
-static uint8_t jpeg_in_first;
-/* Track production ownership only; pre-created LVGL fixtures and the HTTP sink
- * are not device allocations. No allocator metadata or DMA scratch is modeled. */
+size_t heap_caps_get_free_size(unsigned caps)
+{
+    CHECK(caps == (MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
+    sampled_bytes = heap_bytes; memory_samples++; fake_us += 50;
+    return total_limit - heap_bytes;
+}
+size_t heap_caps_get_largest_free_block(unsigned caps)
+{
+    CHECK(caps == (MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT)); fake_us += 50; return largest_limit;
+}
 typedef union { max_align_t alignment; size_t size; } heap_header_t;
 void *heap_caps_malloc(size_t size, unsigned caps)
 {
-    (void)caps;
-    CHECK(!locked);
-    heap_calls++;
-    if (fail_heap_malloc || heap_calls == fail_alloc_at) return NULL;
-    heap_header_t *h = malloc(sizeof(*h) + size);
-    if (!h) abort();
-    h->size = size;
-    jpeg_mem++; heap_bytes += size; record_peak();
+    (void)caps; CHECK(!locked);
+    if (++heap_calls == fail_alloc_at || size > largest_limit || size > total_limit - heap_bytes) return NULL;
+    heap_header_t *h = malloc(sizeof(*h) + size); if (!h) abort(); h->size = size;
+    allocations++; heap_bytes += size;
+    if (heap_bytes > peak_bytes) peak_bytes = heap_bytes;
+    if (size > largest_alloc) largest_alloc = size;
     return h + 1;
+}
+void *heap_caps_aligned_alloc(size_t alignment, size_t size, unsigned caps)
+{
+    CHECK(alignment == 16);
+    void *p = heap_caps_malloc(size, caps);
+    CHECK(!p || (uintptr_t)p % alignment == 0);
+    return p;
 }
 void heap_caps_free(void *p)
 {
     if (!p) return;
     heap_header_t *h = (heap_header_t *)p - 1;
-    jpeg_mem--; heap_bytes -= h->size;
-    free(h);
+    CHECK(!locked && allocations > 0); allocations--; heap_bytes -= h->size; free(h);
+}
+static uint8_t base_pixel(unsigned x, unsigned y, unsigned c)
+{
+    if (!noise) return (uint8_t)((x / 16 * 13 + y / 13 * 7 + c * 63) & 255);
+    uint32_t v = (y * (unsigned)display_w + x) * 3 + c + 1;
+    v ^= v >> 16; v *= 0x7feb352dU; v ^= v >> 15; v *= 0x846ca68bU; return (uint8_t)(v ^ (v >> 16));
+}
+static unsigned alpha(unsigned x, unsigned y) { return popup ? (x + y) % 3 * 127 + ((x + y) % 3 == 2) : 0; }
+static uint8_t expected(unsigned x, unsigned y, unsigned c)
+{
+    unsigned a = alpha(x, y); return opaque_cover ? 200 + c : (uint8_t)(((200 + c) * a + base_pixel(x,y,c) * (255-a))/255);
+}
+bool screenshot_render_region(lv_obj_t *obj, lv_color_format_t cf, const lv_area_t *area, uint8_t *pixels, size_t capacity)
+{
+    CHECK(locked); fake_us += 300;
+    if (++render_calls == fail_render_at) return false;
+    unsigned bpp = cf == LV_COLOR_FORMAT_RGB888 ? 3 : 4;
+    CHECK(area->x1 == 0 && area->x2 == display_w - 1 && area->y2 - area->y1 < 32);
+    CHECK(capacity >= (size_t)display_w * (area->y2-area->y1+1) * bpp);
+    for (int y = area->y1; y <= area->y2; y++) for (int x = 0; x < display_w; x++) {
+        size_t at = ((size_t)(y-area->y1)*display_w+x)*bpp;
+        for (unsigned c = 0; c < 3; c++) pixels[at+c] = obj == &top_obj ? 200+c : base_pixel(x,y,c);
+        if (bpp == 4) pixels[at+3] = (uint8_t)alpha(x,y);
+    }
+    return true;
+}
+esp_err_t httpd_resp_set_hdr(httpd_req_t *r, const char *f, const char *v) { (void)r; CHECK(!locked && !strcmp(f,"Cache-Control") && !strcmp(v,"no-store")); return ESP_OK; }
+esp_err_t httpd_resp_set_status(httpd_req_t *r, const char *s) { (void)r; snprintf(status,sizeof(status),"%s",s); return ESP_OK; }
+esp_err_t httpd_resp_set_type(httpd_req_t *r, const char *s) { (void)r; snprintf(type,sizeof(type),"%s",s); return ESP_OK; }
+esp_err_t httpd_resp_sendstr(httpd_req_t *r, const char *s) { (void)r; (void)s; CHECK(!locked && !heap_bytes); return ++send_calls == fail_send_at ? ESP_FAIL : ESP_OK; }
+esp_err_t httpd_resp_send_chunk(httpd_req_t *r, const char *p, ssize_t n)
+{
+    (void)r; CHECK(!locked && !engines);
+    if (++send_calls == fail_send_at) return ESP_FAIL;
+    CHECK(n >= 0 && body_len + (size_t)n <= sizeof(body));
+    if (p) memcpy(body + body_len, p, (size_t)n);
+    body_len += (size_t)n; return ESP_OK;
+}
+esp_err_t httpd_resp_send(httpd_req_t *r, const char *p, ssize_t n)
+{
+    CHECK(allocations == 1); return httpd_resp_send_chunk(r,p,n);
 }
 esp_err_t jpeg_new_encoder_engine(const jpeg_encode_engine_cfg_t *cfg, jpeg_encoder_handle_t *ret)
 {
     CHECK(!locked && cfg->timeout_ms == 4000);
-    if (fail_engine_new) return ESP_FAIL;
-    engines++;
-    *ret = (jpeg_encoder_handle_t)&engines;
-    return ESP_OK;
+    if (fail_engine) return ESP_FAIL;
+    engines++; *ret = (jpeg_encoder_handle_t)&engines; return ESP_OK;
 }
 esp_err_t jpeg_del_encoder_engine(jpeg_encoder_handle_t e) { (void)e; engines--; return ESP_OK; }
 void *jpeg_alloc_encoder_mem(size_t size, const jpeg_encode_memory_alloc_cfg_t *cfg, size_t *allocated)
 {
-    CHECK(cfg->buffer_direction == JPEG_ENC_ALLOC_OUTPUT_BUFFER);
-    *allocated = size;
+    CHECK(cfg->buffer_direction == JPEG_ENC_ALLOC_OUTPUT_BUFFER); *allocated = size;
     return heap_caps_malloc(size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
 }
 esp_err_t jpeg_encoder_process(jpeg_encoder_handle_t e, const jpeg_encode_cfg_t *cfg, const uint8_t *in, uint32_t in_size,
                                uint8_t *out, uint32_t out_size, uint32_t *written)
 {
-    (void)e;
-    CHECK(!locked);
-    jpeg_calls++;
-    CHECK(cfg->src_type == JPEG_ENCODE_IN_FORMAT_RGB888 && in_size == cfg->width * cfg->height * 3U);
-    jpeg_in_first = in[0];
-    if (fail_jpeg_process) return ESP_FAIL;
-    if (jpeg_size_to_write > out_size) { *written = jpeg_size_to_write; return ESP_OK; }
-    out[0] = 0xFF; out[1] = 0xD8;
-    for (uint32_t i = 2; i < jpeg_size_to_write; i++) out[i] = (uint8_t)i;
-    *written = jpeg_size_to_write;
+    (void)e; CHECK(!locked && engines == 1 && (uintptr_t)in % 16 == 0); jpeg_calls++;
+    CHECK(cfg->src_type == JPEG_ENCODE_IN_FORMAT_RGB888 && cfg->sub_sample == JPEG_DOWN_SAMPLING_YUV444);
+    CHECK(cfg->image_quality == 90 && !cfg->pixel_reverse && in_size == cfg->width*cfg->height*3U);
+    for (unsigned y=0; y<cfg->height; y++) for (unsigned x=0; x<cfg->width; x++) for (unsigned c=0;c<3;c++)
+        CHECK(in[(y*cfg->width+x)*3+c] == expected(x,(jpeg_calls-1)*32+y,c));
+    if (jpeg_calls == fail_jpeg_at) return ESP_FAIL;
+    if (bad_jpeg == 1) { *written = out_size + 1; return ESP_OK; }
+    /* Structural fixture only: real entropy correctness is checked by Pillow. */
+    uint8_t h[] = {255,216,255,219,0,3,1,255,196,0,3,1,255,192,0,17,8,0,0,0,0,3,1,17,0,2,17,1,3,17,1,
+                   255,218,0,12,3,1,0,2,17,3,17,0,63,0,42,255,217};
+    h[17]=(uint8_t)(cfg->height>>8); h[18]=(uint8_t)cfg->height;
+    h[19]=(uint8_t)(cfg->width>>8); h[20]=(uint8_t)cfg->width;
+    memcpy(out,h,sizeof(h)); *written=sizeof(h);
+    if (bad_jpeg == 2) out[1]=0;
+    if (bad_jpeg == 3 && jpeg_calls==2) out[6]++;
     return ESP_OK;
 }
-esp_err_t httpd_resp_send(httpd_req_t *r, const char *buf, ssize_t len)
-{
-    (void)r;
-    CHECK(!locked && live_bufs == 0 && engines == 0);
-    sendstr_calls += 100;
-    if (fail_chunk_at == -1) return ESP_FAIL;
-    if ((size_t)len <= sizeof(body)) { memcpy(body, buf, (size_t)len); body_len = (size_t)len; }
-    return ESP_OK;
-}
-
-static lv_draw_buf_t *make_buf(uint32_t w, uint32_t h, lv_color_format_t cf, uint32_t bpp, uint32_t stride)
-{
-    if (page_buf == NULL && top_buf == NULL) { display_w = (int32_t)w; display_h = (int32_t)h; }
-    lv_draw_buf_t *b = calloc(1, sizeof(*b));
-    b->header.w = w; b->header.h = h; b->header.cf = cf; b->header.stride = stride;
-    b->data_size = stride * h;
-    b->data = calloc(1, b->data_size);
-    (void)bpp;
-    return b;
-}
-
 static void reset(void)
 {
-    CHECK(live_bufs == 0 && engines == 0 && jpeg_mem == 0 && snapshot_bytes == 0 && heap_bytes == 0 && !locked);
-    cases++;
-    /* Fixtures never returned by a failed capture are still owned by the test. */
-    if (page_buf) { free(page_buf->data); free(page_buf); }
-    if (top_buf) { free(top_buf->data); free(top_buf); }
-    page_buf = top_buf = NULL; top_children = 1;
-    display_w = 3; display_h = 2; opaque_cover = false;
-    lock_ok = true; locked = false;
-    live_bufs = lock_calls = unlock_calls = take_calls = 0;
-    fail_chunk_at = chunks = 0;
-    body_len = 0; status[0] = type[0] = '\0'; sendstr_calls = 0;
-    fail_heap_malloc = 0;
-    fail_take_at = heap_calls = fail_alloc_at = fail_deflate_at = deflate_calls = 0;
-    peak_bytes = peak_snapshot_bytes = peak_heap_bytes = 0;
-    fail_engine_new = fail_jpeg_process = jpeg_calls = 0; jpeg_size_to_write = 5000;
+    CHECK(!locked && !heap_bytes && !allocations && !engines); cases++;
+    display_w=3; display_h=2;
+    opaque_cover=popup=display_missing=change_geometry=noise=false;
+    lock_calls=unlock_calls=fail_lock_at=render_calls=fail_render_at=0;
+    heap_calls=fail_alloc_at=fail_engine=jpeg_calls=fail_jpeg_at=bad_jpeg=0;
+    send_calls=fail_send_at=diag_logs=memory_samples=0;
+    fail_deflate_at=deflate_calls=0;
+    peak_bytes=largest_alloc=sampled_bytes=body_len=0; largest_limit=2162688; total_limit=6850000;
+    status[0]=type[0]=capture_log[0]=0; fake_us=0;
 }
-
-/* 3x2 page, stride 12 (row padding in the source), top layer 4 bytes per pixel. */
-static void fill_page(void)
-{
-    page_buf = make_buf(3, 2, LV_COLOR_FORMAT_RGB888, 3, 12);
-    top_buf = make_buf(3, 2, LV_COLOR_FORMAT_ARGB8888, 4, 12);
-    for (uint32_t i = 0; i < 6; i++) { page_buf->data[(i / 3) * 12 + (i % 3) * 3] = (uint8_t)(10 + i); }
-}
-
+static void clean(void) { CHECK(!locked && !allocations && !engines && !heap_bytes); }
 static uint32_t be32(const uint8_t *p) { return (uint32_t)p[0] << 24 | (uint32_t)p[1] << 16 | (uint32_t)p[2] << 8 | p[3]; }
 
 /* Validates the PNG in body (signature, IHDR, IDAT and IEND with their CRCs) and returns the unfiltered RGB rows (w*3 each). */
@@ -230,119 +206,12 @@ static bool decode_png(uint32_t w, uint32_t h, uint8_t *rgb)
     return ok;
 }
 
-#include "screenshot_large_cases.h"
 
+#include "screenshot_large_cases.h"
+#include "screenshot_diagnostic_cases.h"
 int main(void)
 {
-    httpd_req_t req = {0};
-
-    /* Lock failure: 503, no capture, nothing allocated. */
-    reset(); lock_ok = false;
-    CHECK(api_screenshot_png_get_handler(&req) == ESP_OK);
-    CHECK(strcmp(status, "503 Service Unavailable") == 0 && take_calls == 0 && live_bufs == 0 && unlock_calls == 0);
-
-    /* A transparent top layer is released before taking the base page. */
-    reset(); fill_page(); top_children = 0;
-    CHECK(api_screenshot_png_get_handler(&req) == ESP_OK);
-    CHECK(take_calls == 2 && live_bufs == 0 && strcmp(type, "image/png") == 0 && jpeg_mem == 0);
-
-    /* Page capture fails. */
-    reset();
-    CHECK(api_screenshot_png_get_handler(&req) == ESP_OK);
-    CHECK(strcmp(status, "500 Internal Server Error") == 0 && unlock_calls == 1 && live_bufs == 0 && body_len == 0);
-
-    /* Top layer capture fails: no false success; the base page is not captured. */
-    reset(); page_buf = make_buf(3, 2, LV_COLOR_FORMAT_RGB888, 3, 12);
-    CHECK(api_screenshot_png_get_handler(&req) == ESP_OK);
-    CHECK(strcmp(status, "500 Internal Server Error") == 0 && body_len == 0 && live_bufs == 0 && unlock_calls == 1);
-
-    /* Size mismatch, wrong format, short stride, short buffer: all 500 and freed. */
-    for (int variant = 0; variant < 4; variant++) {
-        reset(); fill_page();
-        if (variant == 0) top_buf->header.w = 2;
-        if (variant == 1) top_buf->header.cf = LV_COLOR_FORMAT_RGB888;
-        if (variant == 2) top_buf->header.stride = 8;
-        if (variant == 3) top_buf->data_size = 3;
-        CHECK(api_screenshot_png_get_handler(&req) == ESP_OK);
-        CHECK(strcmp(status, "500 Internal Server Error") == 0 && body_len == 0 && live_bufs == 0 && jpeg_mem == 0);
-    }
-
-    /* PNG with an overlay: opaque, half-transparent and transparent pixels; RGB order (the snapshot is stored B, G, R),
-     * padded source stride, valid chunks and CRCs, nothing leaked. */
-    reset(); fill_page();
-    for (uint32_t i = 0; i < 6; i++) { page_buf->data[(i / 3) * 12 + (i % 3) * 3 + 1] = (uint8_t)(20 + i); page_buf->data[(i / 3) * 12 + (i % 3) * 3 + 2] = (uint8_t)(30 + i); }
-    top_buf->data[0 * 12 + 0 * 4 + 0] = 200; top_buf->data[0 * 12 + 0 * 4 + 3] = 255;       /* (0,0) opaque blue channel */
-    top_buf->data[0 * 12 + 1 * 4 + 0] = 100; top_buf->data[0 * 12 + 1 * 4 + 3] = 128;       /* (1,0) half over 11 */
-    CHECK(api_screenshot_png_get_handler(&req) == ESP_OK);
-    CHECK(strcmp(type, "image/png") == 0 && live_bufs == 0 && unlock_calls == 1 && status[0] == '\0' && jpeg_mem == 0 && chunks == 0);
-    {
-        uint8_t rgb[2 * 3 * 3];
-        CHECK(decode_png(3, 2, rgb));
-        CHECK(rgb[0] == 0 && rgb[1] == 0 && rgb[2] == 200);                                       /* (0,0): opaque overlay replaces the page */
-        CHECK(rgb[3 + 2] == (uint8_t)((100 * 128 + 11 * 127) / 255) && rgb[3] == (uint8_t)(31 * 127 / 255) && rgb[4] == (uint8_t)(21 * 127 / 255));
-        CHECK(rgb[6] == 32 && rgb[7] == 22 && rgb[8] == 12);                                      /* (2,0) transparent overlay */
-        CHECK(rgb[9] == 33 && rgb[10] == 23 && rgb[11] == 13);                                    /* row 1 */
-    }
-
-    /* PNG failures: allocation, then every send failure; buffers released, no BMP fallback any more. */
-    reset(); fill_page(); top_children = 0; fail_heap_malloc = 1;
-    CHECK(api_screenshot_png_get_handler(&req) == ESP_OK);
-    CHECK(strcmp(status, "500 Internal Server Error") == 0 && body_len == 0 && jpeg_mem == 0 && live_bufs == 0);
-    reset(); fill_page(); top_children = 0; fail_chunk_at = -1;
-    CHECK(api_screenshot_png_get_handler(&req) == ESP_FAIL && live_bufs == 0 && jpeg_mem == 0);
-
-    /* An opaque clock/screen protector replaces the underlying page in PNG too. */
-    reset(); opaque_cover = true;
-    top_buf = make_buf(3, 2, LV_COLOR_FORMAT_RGB888, 3, 12);
-    top_buf->data[0] = 42;
-    CHECK(api_screenshot_png_get_handler(&req) == ESP_OK);
-    uint8_t cover_rgb[18];
-    CHECK(decode_png(3, 2, cover_rgb) && cover_rgb[0] == 0 && cover_rgb[1] == 0 && cover_rgb[2] == 42);
-    CHECK(take_calls == 1 && live_bufs == 0 && jpeg_mem == 0);
-
-#if SOC_JPEG_ENCODE_SUPPORTED
-    /* JPEG route: packed 1024x40 snapshot goes through the engine; one httpd_resp_send, nothing leaked. */
-    reset();
-    page_buf = make_buf(1024, 40, LV_COLOR_FORMAT_RGB888, 3, 3072);
-    top_buf = make_buf(1024, 40, LV_COLOR_FORMAT_ARGB8888, 4, 4096);
-    page_buf->data[0] = 77;
-    CHECK(api_screenshot_jpg_get_handler(&req) == ESP_OK);
-    CHECK(strcmp(type, "image/jpeg") == 0 && body_len == 5000 && body[0] == 0xFF && body[1] == 0xD8 && jpeg_in_first == 77);
-    CHECK(sendstr_calls == 100 && chunks == 0 && live_bufs == 0 && engines == 0 && jpeg_mem == 0);
-
-    /* JPEG failures (engine creation, encoding): 500, engine and buffers released. */
-    for (int mode = 0; mode < 2; mode++) {
-        reset();
-        page_buf = make_buf(1024, 40, LV_COLOR_FORMAT_RGB888, 3, 3072);
-        top_buf = make_buf(1024, 40, LV_COLOR_FORMAT_ARGB8888, 4, 4096);
-        if (mode == 0) fail_engine_new = 1;
-        if (mode == 1) fail_jpeg_process = 1;
-        CHECK(api_screenshot_jpg_get_handler(&req) == ESP_OK);
-        CHECK(strcmp(status, "500 Internal Server Error") == 0 && body_len == 0 && live_bufs == 0 && engines == 0 && jpeg_mem == 0);
-    }
-
-    /* Padded source stride cannot be encoded as packed: 500 without touching the engine. */
-    reset();
-    page_buf = make_buf(3, 2, LV_COLOR_FORMAT_RGB888, 3, 16);
-    top_buf = make_buf(3, 2, LV_COLOR_FORMAT_ARGB8888, 4, 16);
-    CHECK(api_screenshot_jpg_get_handler(&req) == ESP_OK);
-    CHECK(strcmp(status, "500 Internal Server Error") == 0 && jpeg_calls == 0 && engines == 0 && live_bufs == 0);
-
-    /* JPEG send failure releases everything. */
-    reset(); fail_chunk_at = -1;
-    page_buf = make_buf(1024, 40, LV_COLOR_FORMAT_RGB888, 3, 3072);
-    top_buf = make_buf(1024, 40, LV_COLOR_FORMAT_ARGB8888, 4, 4096);
-    CHECK(api_screenshot_jpg_get_handler(&req) == ESP_FAIL && live_bufs == 0 && engines == 0 && jpeg_mem == 0);
-#else
-    reset();
-    CHECK(api_screenshot_jpg_get_handler(&req) == ESP_OK);
-    CHECK(!strcmp(status, "501 Not Implemented") && take_calls == 0 && live_bufs == 0 && engines == 0 && jpeg_mem == 0);
-#endif
-
-    reset();
-
-    test_large_screenshots(&req);
-    reset();
-    if (failures == 0) printf("screenshot handler tests passed (%d scenarios)\n", cases - 1);
-    return failures == 0 ? 0 : 1;
+    large_cases(); diagnostic_cases(); clean();
+    printf("Screenshot lifecycle: %d cases, %d failures (JPEG=%d)\n",cases,failures,SOC_JPEG_ENCODE_SUPPORTED);
+    return failures != 0;
 }

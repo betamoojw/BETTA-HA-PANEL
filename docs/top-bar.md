@@ -10,8 +10,8 @@ change, separate from the [widgets](widgets/README.md).
 ## Choose the items
 
 Without a valid device license, the LCD shows a translucent black/yellow
-[license warning](license-management.md#lcd-warning-after-30-minutes) after
-30 minutes of uptime. It partly covers left-side items while keeping the clock
+[license warning](license-management.md#lcd-warning-after-5-minutes) after
+5 minutes of uptime. It partly covers left-side items while keeping the clock
 and right-hand controls usable. Dashboard positions and all functions remain
 unchanged; a valid activation removes the overlay.
 

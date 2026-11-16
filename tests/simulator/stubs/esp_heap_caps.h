@@ -16,6 +16,12 @@ static inline size_t heap_caps_get_free_size(unsigned caps)
     return 32U * 1024U * 1024U;
 }
 
+static inline size_t heap_caps_get_largest_free_block(unsigned caps)
+{
+    (void)caps;
+    return 32U * 1024U * 1024U; /* Synthetic host capacity, not a device measurement. */
+}
+
 static inline void *heap_caps_calloc(size_t count, size_t size, unsigned caps)
 {
     (void)caps;

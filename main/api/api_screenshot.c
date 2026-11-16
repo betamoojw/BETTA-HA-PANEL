@@ -4,11 +4,15 @@
  */
 #include "api/api_routes.h"
 #include "api/api_screenshot_capture.h"
+#include "api/screenshot_region.h"
 
 #include <limits.h>
+#include <inttypes.h>
 #include <stdint.h>
 
+#include "esp_heap_caps.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 
 #include "drivers/display_init.h"
 #include "lvgl.h"
@@ -47,71 +51,118 @@ static void write_u32_le(uint8_t *dst, uint32_t value)
     dst[3] = (uint8_t)((value >> 24) & 0xffU);
 }
 
-#if LV_USE_SNAPSHOT
-static bool snapshot_valid(const lv_draw_buf_t *buf, uint32_t width, uint32_t height,
-                           lv_color_format_t format, uint32_t bytes_per_pixel)
+const uint8_t *screenshot_frame_row(const screenshot_frame_t *frame, uint32_t y)
 {
-    return buf && buf->data && buf->header.cf == format &&
-        buf->header.w == width && buf->header.h == height &&
-        buf->header.stride >= (uint64_t)width * bytes_per_pixel &&
-        buf->data_size >= (uint64_t)buf->header.stride * height;
+    return frame->bands[y / SCREENSHOT_BAND_ROWS] +
+        (size_t)(y % SCREENSHOT_BAND_ROWS) * frame->width * 3U;
 }
 
-/* Caller holds the display lock. Never publish a base-only image if capturing
- * an overlay fails: allocation/render failures must remain visible to clients. */
-lv_draw_buf_t *api_screenshot_capture_locked(void)
+void screenshot_frame_free(screenshot_frame_t *frame)
 {
-    lv_display_t *display = lv_display_get_default();
-    if (!display) return NULL;
-    const int32_t width = lv_display_get_horizontal_resolution(display);
-    const int32_t height = lv_display_get_vertical_resolution(display);
-    if (width <= 0 || height <= 0) return NULL;
-    lv_draw_buf_t *screen = NULL, *top = NULL;
-    lv_obj_t *top_layer = lv_layer_top();
-    lv_obj_update_layout(top_layer);
-    const lv_area_t area = {.x1 = 0, .y1 = 0, .x2 = width - 1, .y2 = height - 1};
-    /* Full-screen protection already hides the dashboard. Capture it directly
-     * with one RGB buffer. Do not infer opacity from rendered alpha: rounded
-     * alpha blends can leave values just below 255 even on an opaque surface. */
-    if (lv_refr_get_top_obj(&area, top_layer) != NULL) {
-        screen = lv_snapshot_take(top_layer, LV_COLOR_FORMAT_RGB888);
-        if (!snapshot_valid(screen, width, height, LV_COLOR_FORMAT_RGB888, 3)) goto failed;
-        return screen;
+    for (unsigned i = 0; i < frame->count; i++) {
+        heap_caps_free(frame->bands[i]); frame->bands[i] = NULL;
     }
-    top = lv_snapshot_take(top_layer, LV_COLOR_FORMAT_ARGB8888);
-    if (!snapshot_valid(top, width, height, LV_COLOR_FORMAT_ARGB8888, 4)) goto failed;
+    frame->count = 0;
+}
 
-    bool transparent = true;
-    for (int32_t y = 0; y < height && transparent; y++) {
-        const uint8_t *pixel = top->data + (size_t)y * top->header.stride;
-        for (int32_t x = 0; x < width; x++, pixel += 4) {
-            transparent = transparent && pixel[3] == 0;
-        }
+#if LV_USE_SNAPSHOT
+bool api_screenshot_capture(const char *format, screenshot_frame_t *frame, bool *busy,
+                            uint8_t *workspace, size_t workspace_capacity)
+{
+    *frame = (screenshot_frame_t){0}; *busy = false;
+    const unsigned caps = MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT;
+    const char *stage = "display.lock";
+    unsigned band = 0;
+    int64_t started = esp_timer_get_time(), acquired = 0, wait_us = 0, hold_us = 0;
+    bool locked = false, ok = false, own_workspace = false;
+    lv_display_t *display = NULL;
+    size_t free_psram, largest;
+    if (!display_lock(SCREENSHOT_LOCK_TIMEOUT_MS)) { *busy = true; goto finish; }
+    acquired = esp_timer_get_time(); wait_us = acquired - started; locked = true;
+    stage = "display.geometry";
+    display = lv_display_get_default();
+    if (!display) goto finish;
+    int32_t width = lv_display_get_horizontal_resolution(display);
+    int32_t height = lv_display_get_vertical_resolution(display);
+    if (width <= 0 || height <= 0 || (uint32_t)width > SCREENSHOT_MAX_DIMENSION || (uint32_t)height > SCREENSHOT_MAX_DIMENSION)
+        goto finish;
+    frame->width = (uint32_t)width; frame->height = (uint32_t)height;
+    /* Allocate outside the display lock. Geometry is revalidated before any
+     * rendering, and all bands are captured under one subsequent lock. */
+    hold_us += esp_timer_get_time() - acquired;
+    display_unlock(); locked = false;
+    frame->count = (frame->height + SCREENSHOT_BAND_ROWS - 1) / SCREENSHOT_BAND_ROWS;
+    stage = "frame.allocate";
+    unsigned frame_caps = caps;
+#if CONFIG_SPIRAM_ENC_EXEMPT
+    /* The JPEG DMA codec cannot read encrypted PSRAM. */
+    frame_caps = MALLOC_CAP_SPIRAM_NO_ENC | MALLOC_CAP_8BIT;
+#endif
+    for (band = 0; band < frame->count; band++) {
+        uint32_t rows = frame->height - band * SCREENSHOT_BAND_ROWS;
+        if (rows > SCREENSHOT_BAND_ROWS) rows = SCREENSHOT_BAND_ROWS;
+        /* Hardware JPEG input must be DMA-aligned, including short last bands. */
+        frame->bands[band] = heap_caps_aligned_alloc(16, (size_t)frame->width * rows * 3U, frame_caps);
+        if (!frame->bands[band]) goto finish;
     }
-    if (transparent) { /* Empty/hidden overlays need no concurrent second buffer. */
-        lv_draw_buf_destroy(top);
-        top = NULL;
+    uint32_t rows = frame->height < SCREENSHOT_BAND_ROWS ? frame->height : SCREENSHOT_BAND_ROWS;
+    size_t needed = (size_t)frame->width * rows * 4U;
+    stage = "top.allocate";
+    if (!workspace) {
+        workspace = heap_caps_malloc(needed, caps);
+        workspace_capacity = needed; own_workspace = true;
     }
-    screen = lv_snapshot_take(lv_screen_active(), LV_COLOR_FORMAT_RGB888);
-    if (!snapshot_valid(screen, width, height, LV_COLOR_FORMAT_RGB888, 3)) goto failed;
-    if (top) {
-        for (int32_t y = 0; y < height; y++) {
-            uint8_t *dst = screen->data + (size_t)y * screen->header.stride;
-            const uint8_t *src = top->data + (size_t)y * top->header.stride;
-            for (int32_t x = 0; x < width; x++, dst += 3, src += 4) {
-                const uint32_t a = src[3]; /* LVGL snapshot bytes are straight B,G,R,A. */
-                for (unsigned channel = 0; channel < 3; channel++)
-                    dst[channel] = (uint8_t)((src[channel] * a + dst[channel] * (255U - a)) / 255U);
+    if (!workspace || workspace_capacity < needed) goto finish;
+    stage = "display.lock";
+    started = esp_timer_get_time();
+    if (!display_lock(SCREENSHOT_LOCK_TIMEOUT_MS)) { *busy = true; goto finish; }
+    acquired = esp_timer_get_time(); wait_us += acquired - started; locked = true;
+    stage = "display.geometry";
+    if (display != lv_display_get_default() ||
+        frame->width != (uint32_t)lv_display_get_horizontal_resolution(display) ||
+        frame->height != (uint32_t)lv_display_get_vertical_resolution(display)) goto finish;
+    lv_obj_t *top = lv_layer_top(), *screen = lv_screen_active();
+    lv_obj_update_layout(top); lv_obj_update_layout(screen);
+    const lv_area_t full = {0, 0, (int32_t)frame->width - 1, (int32_t)frame->height - 1};
+    const bool cover = lv_refr_get_top_obj(&full, top) != NULL;
+    for (band = 0; band < frame->count; band++) {
+        uint32_t y = band * SCREENSHOT_BAND_ROWS;
+        rows = frame->height - y;
+        if (rows > SCREENSHOT_BAND_ROWS) rows = SCREENSHOT_BAND_ROWS;
+        lv_area_t area = {0, (int32_t)y, (int32_t)frame->width - 1, (int32_t)(y + rows) - 1};
+        size_t pixels = (size_t)frame->width * rows;
+        uint8_t *rgb = frame->bands[band];
+        if (cover) {
+            stage = "cover.render";
+            if (!screenshot_render_region(top, LV_COLOR_FORMAT_RGB888, &area, rgb, pixels * 3U)) goto finish;
+        } else {
+            stage = "top.render";
+            if (!screenshot_render_region(top, LV_COLOR_FORMAT_ARGB8888, &area, workspace, pixels * 4U)) goto finish;
+            stage = "screen.render";
+            if (!screenshot_render_region(screen, LV_COLOR_FORMAT_RGB888, &area, rgb, pixels * 3U)) goto finish;
+            for (size_t p = 0; p < pixels; p++) {
+                uint32_t a = workspace[p * 4U + 3U];
+                if (!a) continue;
+                for (unsigned c = 0; c < 3; c++)
+                    rgb[p * 3U + c] = (uint8_t)((workspace[p * 4U + c] * a + rgb[p * 3U + c] * (255U - a)) / 255U);
             }
         }
-        lv_draw_buf_destroy(top);
     }
-    return screen;
-
-failed:
-    if (top) lv_draw_buf_destroy(top);
-    if (screen) lv_draw_buf_destroy(screen);
-    return NULL;
+    ok = true; stage = "complete";
+finish:
+    if (*busy) wait_us += esp_timer_get_time() - started;
+    /* Keep failure evidence before releasing owned memory. These are samples,
+     * not an atomic reservation or a whole-device peak. */
+    free_psram = heap_caps_get_free_size(caps);
+    largest = heap_caps_get_largest_free_block(caps);
+    if (locked) { hold_us += esp_timer_get_time() - acquired; display_unlock(); }
+    ESP_LOGI(TAG_HTTP, "Screenshot %s capture=%s stage=%s band=%u size=%" PRIu32 "x%" PRIu32
+             " psram_free=%zu psram_largest=%zu wait_us=%" PRId64 " hold_us=%" PRId64,
+             format, ok ? "ok" : "failed", stage, band, frame->width, frame->height,
+             free_psram, largest, wait_us, hold_us);
+    if (own_workspace) heap_caps_free(workspace);
+    if (!ok) screenshot_frame_free(frame);
+    return ok;
 }
 #endif
 
@@ -120,83 +171,29 @@ esp_err_t api_screenshot_bmp_get_handler(httpd_req_t *req)
 #if !LV_USE_SNAPSHOT
     return send_text_error(req, "501 Not Implemented", "LVGL snapshot support is disabled");
 #else
-    lv_draw_buf_t *snapshot = NULL;
-    if (!display_lock(SCREENSHOT_LOCK_TIMEOUT_MS)) {
-        ESP_LOGW(TAG_HTTP, "Screenshot request failed: could not lock display");
-        return send_text_error(req, "503 Service Unavailable", "Display is busy");
+    screenshot_frame_t frame;
+    bool busy;
+    if (!api_screenshot_capture("BMP", &frame, &busy, NULL, 0))
+        return send_text_error(req, busy ? "503 Service Unavailable" : "500 Internal Server Error",
+                               busy ? "Display is busy" : "Failed to capture screenshot");
+    const uint32_t row_bytes = frame.width * 3U;
+    const uint32_t stride = (row_bytes + 3U) & ~3U;
+    uint8_t header[54] = {'B', 'M'};
+    write_u32_le(header + 2, 54U + stride * frame.height);
+    write_u32_le(header + 10, 54); write_u32_le(header + 14, 40);
+    write_u32_le(header + 18, frame.width); write_u32_le(header + 22, frame.height);
+    write_u16_le(header + 26, 1); write_u16_le(header + 28, 24);
+    write_u32_le(header + 34, stride * frame.height);
+    write_u32_le(header + 38, 2835); write_u32_le(header + 42, 2835);
+    set_common_headers(req); httpd_resp_set_type(req, "image/bmp");
+    esp_err_t err = httpd_resp_send_chunk(req, (const char *)header, sizeof(header));
+    static const char padding[3] = {0};
+    for (uint32_t y = frame.height; y && err == ESP_OK; y--) {
+        err = httpd_resp_send_chunk(req, (const char *)screenshot_frame_row(&frame, y - 1), row_bytes);
+        if (err == ESP_OK && stride != row_bytes) err = httpd_resp_send_chunk(req, padding, stride - row_bytes);
     }
-
-    snapshot = api_screenshot_capture_locked();
-    display_unlock();
-
-    if (snapshot == NULL) {
-        ESP_LOGW(TAG_HTTP, "Screenshot request failed: incomplete or invalid layer capture");
-        return send_text_error(req, "500 Internal Server Error", "Failed to capture screenshot");
-    }
-
-    const uint32_t width = snapshot->header.w;
-    const uint32_t height = snapshot->header.h;
-    const uint32_t src_row_bytes = width * 3U;
-    const uint32_t src_stride = snapshot->header.stride;
-
-    if (width == 0 || height == 0 || snapshot->data == NULL || src_stride < src_row_bytes) {
-        lv_draw_buf_destroy(snapshot);
-        return send_text_error(req, "500 Internal Server Error", "Invalid screenshot buffer");
-    }
-
-    const uint32_t bmp_row_stride = (src_row_bytes + 3U) & ~3U;
-    const uint32_t pad_len = bmp_row_stride - src_row_bytes;
-    const uint64_t pixel_data_size_64 = (uint64_t)bmp_row_stride * (uint64_t)height;
-    const uint64_t file_size_64 = 54ULL + pixel_data_size_64;
-
-    if (pixel_data_size_64 > UINT32_MAX || file_size_64 > UINT32_MAX || width > INT32_MAX || height > INT32_MAX) {
-        lv_draw_buf_destroy(snapshot);
-        return send_text_error(req, "500 Internal Server Error", "Screenshot is too large");
-    }
-
-    uint8_t bmp_header[54] = {0};
-    bmp_header[0] = 'B';
-    bmp_header[1] = 'M';
-    write_u32_le(&bmp_header[2], (uint32_t)file_size_64);
-    write_u32_le(&bmp_header[10], 54U);
-    write_u32_le(&bmp_header[14], 40U);
-    write_u32_le(&bmp_header[18], width);
-    write_u32_le(&bmp_header[22], height);
-    write_u16_le(&bmp_header[26], 1U);
-    write_u16_le(&bmp_header[28], 24U);
-    write_u32_le(&bmp_header[34], (uint32_t)pixel_data_size_64);
-    write_u32_le(&bmp_header[38], 2835U);
-    write_u32_le(&bmp_header[42], 2835U);
-
-    set_common_headers(req);
-    httpd_resp_set_type(req, "image/bmp");
-
-    esp_err_t err = httpd_resp_send_chunk(req, (const char *)bmp_header, sizeof(bmp_header));
-    if (err != ESP_OK) {
-        lv_draw_buf_destroy(snapshot);
-        return err;
-    }
-
-    static const uint8_t pad_bytes[3] = {0, 0, 0};
-    for (int32_t y = (int32_t)height - 1; y >= 0; y--) {
-        const uint8_t *row = snapshot->data + ((uint32_t)y * src_stride);
-        err = httpd_resp_send_chunk(req, (const char *)row, src_row_bytes);
-        if (err != ESP_OK) {
-            lv_draw_buf_destroy(snapshot);
-            return err;
-        }
-
-        if (pad_len > 0U) {
-            err = httpd_resp_send_chunk(req, (const char *)pad_bytes, pad_len);
-            if (err != ESP_OK) {
-                lv_draw_buf_destroy(snapshot);
-                return err;
-            }
-        }
-    }
-
-    err = httpd_resp_send_chunk(req, NULL, 0);
-    lv_draw_buf_destroy(snapshot);
+    if (err == ESP_OK) err = httpd_resp_send_chunk(req, NULL, 0);
+    screenshot_frame_free(&frame);
     return err;
 #endif
 }

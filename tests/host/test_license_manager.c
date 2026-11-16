@@ -61,7 +61,8 @@ int main(void) {
     }
     license_manager_init(); assert(snapshot().key_state == LICENSE_MISSING); assert(snapshot().trial_seconds == 3600);
     clock_us = LICENSE_LCD_DELAY_US;
-    assert(snapshot().trial_seconds == 1800 && license_warning_due(snapshot().key_state, clock_us));
+    assert(LICENSE_LCD_DELAY_US == INT64_C(300000000));
+    assert(snapshot().trial_seconds == 3300 && license_warning_due(snapshot().key_state, clock_us));
     clock_us = 3599999999LL; assert(snapshot().trial_seconds == 1);
     clock_us = 3600000000LL; assert(snapshot().trial_seconds == 0);
     clock_us = INT64_MAX; assert(snapshot().trial_seconds == 0);

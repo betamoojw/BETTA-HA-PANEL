@@ -159,7 +159,7 @@ in its existing owner; a dashboard warning alone does not make the top layer
 nonempty or require another full-frame ARGB snapshot.
 
 The simulator's `--license-warning missing|valid|invalid|error|unconfigured`
-injects a synthetic status at exactly 5 minutes. It changes neither firmware
+injects a synthetic status at exactly 30 minutes. It changes neither firmware
 settings nor real device licenses. `license-warning-lifecycle-and-layout`
 checks boundary/state pixels, unchanged content/control bounds, touch hit
 testing, timer teardown/rebuild and seven languages at three text sizes.

@@ -208,7 +208,7 @@ static void full_composition(lv_obj_t *overlay, unsigned width, unsigned height)
     ui_license_warning_set_source(warning_status);
     for (unsigned mode=0;mode<4;mode++) {
         warning_sample=(ui_license_warning_status_t){.state=LICENSE_UNCONFIGURED,
-            .uptime_us=INT64_C(300000000)-(mode<2 ? 1 : 0)};
+            .uptime_us=LICENSE_LCD_DELAY_US-(mode<2 ? 1 : 0)};
         lv_obj_t *bar=lv_obj_create(lv_screen_active()); lv_obj_remove_style_all(bar);
         lv_obj_set_size(bar,width,60); lv_obj_set_style_bg_opa(bar,LV_OPA_COVER,0);
         lv_obj_set_style_bg_color(bar,lv_color_hex(0x415169),0);
@@ -247,7 +247,7 @@ static void full_composition(lv_obj_t *overlay, unsigned width, unsigned height)
         lv_obj_delete(bar);
     }
     ui_license_warning_set_source(NULL);lv_obj_set_hidden(overlay,false);
-    puts("Full-resolution pixels match legacy composition before/at 5 minutes, with/without popup");
+    puts("Full-resolution pixels match legacy composition before/at the LCD warning deadline, with/without popup");
 }
 
 void sim_screenshot_regression(lv_obj_t *overlay, const char *capture_path)

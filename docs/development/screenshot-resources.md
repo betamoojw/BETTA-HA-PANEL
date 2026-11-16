@@ -144,10 +144,10 @@ bands and verifies the 1 MiB limit. It runs in the existing tooling-test stage.
 
 `tests/simulator/screenshot_regression.c` uses real LVGL to compare banded pixels
 with the former full-screen composition, including the production license
-warning before/at five minutes, rounded/translucent popups, shadows, opaque
+warning before/at 30 minutes, rounded/translucent popups, shadows, opaque
 clock overlays, stalled draw queues and restored display state. Its Panel10
 geometry is an automated test, not a physical-device performance result.
-The seven-language warning lifecycle test covers the five-minute boundary,
+The seven-language warning lifecycle test covers the 30-minute boundary,
 touch targets, fullscreen priority, state changes and timer cleanup.
 
 The Host JPEG/no-JPEG/sanitizer targets retain the lifecycle cases. Browser

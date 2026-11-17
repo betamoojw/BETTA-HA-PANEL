@@ -74,7 +74,8 @@ size_t heap_caps_get_largest_free_block(unsigned caps)
 typedef union { max_align_t alignment; size_t size; } heap_header_t;
 void *heap_caps_malloc(size_t size, unsigned caps)
 {
-    (void)caps; CHECK(!locked);
+    CHECK(!locked);
+    CHECK(caps == (MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
     if (++heap_calls == fail_alloc_at || size > largest_limit || size > total_limit - heap_bytes) return NULL;
     heap_header_t *h = malloc(sizeof(*h) + size); if (!h) abort(); h->size = size;
     allocations++; heap_bytes += size;
@@ -190,28 +191,44 @@ static bool decode_png(uint32_t w, uint32_t h, uint8_t *rgb)
               be32(body + 16) == w && be32(body + 20) == h && body[24] == 8 && body[25] == 2 &&
               crc32(0, body + 12, 17) == be32(body + 29);
     if (!ok) return false;
-    const uint32_t idat = be32(body + 33);
-    ok = memcmp(body + 37, "IDAT", 4) == 0 && crc32(0, body + 37, idat + 4) == be32(body + 41 + idat) &&
-         body_len == 41 + idat + 4 + 12 && memcmp(body + 45 + idat + 4, "IEND", 4) == 0;
-    if (!ok) return false;
+    uint8_t *compressed = malloc(body_len);
+    size_t compressed_len = 0, at = 33;
+    bool ended = false;
+    while (ok && at + 12 <= body_len) {
+        size_t n = be32(body + at);
+        if (n > body_len - at - 12) { ok = false; break; }
+        const uint8_t *kind = body + at + 4;
+        ok = crc32(0, kind, (uInt)n + 4) == be32(body + at + 8 + n);
+        if (!memcmp(kind, "IDAT", 4)) {
+            memcpy(compressed + compressed_len, kind + 4, n);
+            compressed_len += n;
+        } else if (!memcmp(kind, "IEND", 4)) {
+            ended = n == 0 && at + 12 == body_len;
+            break;
+        } else ok = false;
+        at += n + 12;
+    }
+    ok = ok && ended && compressed_len;
     const size_t row = 1U + (size_t)w * 3U;
     uint8_t *raw = malloc(row * h);
     uLongf raw_len = (uLongf)(row * h);
-    ok = uncompress(raw, &raw_len, body + 41, idat) == Z_OK && raw_len == row * h;
+    ok = ok && uncompress(raw, &raw_len, compressed, (uLong)compressed_len) == Z_OK && raw_len == row * h;
     for (uint32_t y = 0; ok && y < h; y++) {
         ok = raw[y * row] == 0;
         memcpy(rgb + (size_t)y * w * 3U, raw + y * row + 1U, (size_t)w * 3U);
     }
     free(raw);
+    free(compressed);
     return ok;
 }
 
 
 #include "screenshot_large_cases.h"
 #include "screenshot_diagnostic_cases.h"
+#include "screenshot_png_cases.h"
 int main(void)
 {
-    large_cases(); diagnostic_cases(); clean();
+    large_cases(); diagnostic_cases(); png_memory_cases(); clean();
     printf("Screenshot lifecycle: %d cases, %d failures (JPEG=%d)\n",cases,failures,SOC_JPEG_ENCODE_SUPPORTED);
     return failures != 0;
 }

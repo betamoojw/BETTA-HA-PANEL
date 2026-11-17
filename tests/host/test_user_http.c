@@ -74,6 +74,15 @@ static void login(const char *name, char *cookie) {
 #ifndef LICENSE_HTTP_REUSE
 int main(void) {
     fresh(); http_user_auth_register((void *)1); CHECK(route_count == 6);
+#if defined(CONFIG_APP_PANEL_VARIANT_S3_480)
+    memory_fail = true;
+    expect(request(HTTP_GET,"/api/layout",NULL,NULL,NULL,NULL),503);
+    expect(request(HTTP_GET,"/api/screenshot.png",NULL,NULL,NULL,NULL),503);
+    expect(request(HTTP_GET,"/api/ha/light_entities?search=button",NULL,NULL,NULL,NULL),503);
+    expect(request(HTTP_DELETE,"/api/ha/light_entities?search=button&generation=1",NULL,NULL,"http://panel.local","1"),503);
+    CHECK(called == 0 && !exists);
+    memory_fail = false;
+#endif
     expect(request(HTTP_GET,"/api/auth/session",NULL,NULL,NULL,NULL),200);
     expect(request(HTTP_POST,"/api/users","{\"action\":\"create\",\"username\":\"owner\",\"password\":\"password1\",\"role\":\"administrator\",\"enabled\":true}",NULL,"http://evil.example","1"),403);
     CHECK(user_auth_state() == USER_AUTH_OPEN);
@@ -83,8 +92,34 @@ int main(void) {
     CHECK(user_auth_update("installer","password1",USER_ROLE_INSTALLER,true,true)==ESP_OK);
     expect(request(HTTP_GET,"/api/layout",NULL,NULL,NULL,NULL),401);
     CHECK(called==0);
+#if defined(CONFIG_APP_PANEL_VARIANT_S3_480)
+    memory_fail = true; unsigned before_derive = derives;
+    httpd_req_t unavailable_basic = {.uri="/api/layout",.method=HTTP_GET,.authorization="Basic b3duZXI6cGFzc3dvcmQx"};
+    http_guard_handle(&unavailable_basic,protected_handler); expect(unavailable_basic,503);
+    CHECK(called == 0 && !s_attempts && derives == before_derive);
+    expect(request(HTTP_POST,"/api/auth/login","{\"username\":\"owner\",\"password\":\"password1\"}",NULL,"http://panel.local","1"),503);
+    CHECK(!s_attempts && derives == before_derive); /* No unthrottled hashing fallback. */
+    memory_fail = false;
+#endif
     char owner[96],reader[96],op[96],installer[96];
     login("owner",owner); login("reader",reader); login("operator",op); login("installer",installer);
+    const char *guarded[] = {"/api/screenshot.png", "/api/ha/light_entities?search=button"};
+#if defined(CONFIG_APP_PANEL_VARIANT_S3_480)
+    unsigned pool_calls = memory_calls;
+#endif
+    for (unsigned i = 0; i < 12; ++i) {
+        const char *uri = guarded[i % 2];
+        unsigned count = called;
+        expect(request(HTTP_GET,uri,NULL,NULL,NULL,NULL),401);
+        CHECK(called == count);
+        expect(request(HTTP_GET,uri,NULL,installer,NULL,NULL),200);
+        CHECK(called == count + 1);
+        expect(request(HTTP_DELETE,"/api/ha/light_entities?search=button&generation=41",NULL,installer,"http://panel.local","1"),200);
+        expect(request(HTTP_DELETE,"/api/ha/light_entities?search=button&generation=41",NULL,reader,"http://panel.local","1"),403);
+    }
+#if defined(CONFIG_APP_PANEL_VARIANT_S3_480)
+    CHECK(memory_calls == pool_calls && memory_live == 2); /* Sessions and polls reuse bounded pools. */
+#endif
     expect(request(HTTP_GET,"/api/layout",NULL,reader,NULL,NULL),200);
     httpd_req_t settings = request(HTTP_GET,"/api/settings",NULL,reader,NULL,NULL);
     expect(settings,200); CHECK(strstr(settings.response,"language")); CHECK(!strstr(settings.response,"private"));
@@ -126,6 +161,10 @@ int main(void) {
     auth_handler(&basic); expect(basic,200); CHECK(strstr(basic.response,"owner"));
     basic=(httpd_req_t){.uri="/api/settings",.method=HTTP_PUT,.authorization="Basic b3duZXI6cGFzc3dvcmQx",.content_type="text/plain"};
     http_guard_handle(&basic,protected_handler); expect(basic,415);
+    boot();
+#if defined(CONFIG_APP_PANEL_VARIANT_S3_480)
+    user_auth_memory_free(s_attempts); s_attempts = NULL; CHECK(memory_live == 0);
+#endif
     printf("HTTP user lifecycle: %u checks passed\n",checks); return 0;
 }
 #endif

@@ -445,12 +445,16 @@ cc -std=gnu11 -Wall -Wextra -Werror -g -I tests/host/auth_stubs -I main \
 "$out/test_admin_auth"
 
 # User account migration, bounded sessions, revocation and the real HTTP guard.
-cc -std=gnu11 -Wall -Wextra -Werror -g -I tests/host/user_auth_stubs -I tests/host/auth_stubs -I main \
-  tests/host/test_user_auth.c -o "$out/test_user_auth"
-"$out/test_user_auth"
-cc -std=gnu11 -Wall -Wextra -Werror -g -I tests/host/user_auth_stubs -I tests/host/auth_stubs -I main \
-  "${cjson_flags[@]}" tests/host/test_user_http.c "${cjson_sources[@]}" "${cjson_libs[@]}" -lm -o "$out/test_user_http"
-"$out/test_user_http"
+for auth_variant in p4 s3; do
+  auth_flags=()
+  if [[ "$auth_variant" == s3 ]]; then auth_flags=(-DCONFIG_APP_PANEL_VARIANT_S3_480=1); fi
+  cc -std=gnu11 -Wall -Wextra -Werror -g -I tests/host/user_auth_stubs -I tests/host/auth_stubs -I main \
+    "${auth_flags[@]}" tests/host/test_user_auth.c -o "$out/test_user_auth_$auth_variant"
+  "$out/test_user_auth_$auth_variant"
+  cc -std=gnu11 -Wall -Wextra -Werror -g -I tests/host/user_auth_stubs -I tests/host/auth_stubs -I main \
+    "${auth_flags[@]}" "${cjson_flags[@]}" tests/host/test_user_http.c "${cjson_sources[@]}" "${cjson_libs[@]}" -lm -o "$out/test_user_http_$auth_variant"
+  "$out/test_user_http_$auth_variant"
+done
 
 # License persistence and real HTTP authorization; crypto vectors have a separate PSA target.
 cc -std=gnu11 -Wall -Wextra -Werror -g -I tests/host/license_stubs -I tests/host/user_auth_stubs -I tests/host/auth_stubs -I main \

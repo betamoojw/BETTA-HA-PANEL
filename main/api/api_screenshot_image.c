@@ -30,6 +30,8 @@
 #define SCREENSHOT_JPEG_MAX_BYTES (1024U * 1024U)
 #define SCREENSHOT_PNG_MAX_BYTES (1024U * 1024U)
 #define SCREENSHOT_PNG_LEVEL 1
+#define SCREENSHOT_PNG_BLOCK_BYTES 8192U
+#define SCREENSHOT_PNG_DEFLATE_BYTES 4096U
 
 static void image_set_common_headers(httpd_req_t *req)
 {
@@ -75,9 +77,59 @@ static uint32_t encode_jpeg(const screenshot_frame_t *frame, uint8_t *out,
 #endif
 
 #if LV_USE_SNAPSHOT
+typedef struct png_block {
+    struct png_block *next;
+    size_t used;
+    uint8_t bytes[SCREENSHOT_PNG_BLOCK_BYTES];
+} png_block_t;
+
+typedef struct {
+    png_block_t *head;
+    png_block_t *tail;
+    size_t size;
+} png_output_t;
+
+static void png_output_free(png_output_t *out)
+{
+    while (out->head) {
+        png_block_t *next = out->head->next;
+        heap_caps_free(out->head);
+        out->head = next;
+    }
+    memset(out, 0, sizeof(*out));
+}
+
+/* Keep the encoded image bounded without requiring a contiguous 1 MiB hole.
+ * Finish encoding before sending headers so allocation failures remain errors. */
+static bool png_output_write(png_output_t *out, const void *data, size_t len)
+{
+    if (len > SCREENSHOT_PNG_MAX_BYTES - out->size) return false;
+    const uint8_t *src = data;
+    while (len) {
+        if (!out->tail || out->tail->used == SCREENSHOT_PNG_BLOCK_BYTES) {
+            png_block_t *block = heap_caps_malloc(sizeof(*block), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+            if (!block) return false;
+            block->next = NULL;
+            block->used = 0;
+            if (out->tail) out->tail->next = block;
+            else out->head = block;
+            out->tail = block;
+        }
+        size_t n = SCREENSHOT_PNG_BLOCK_BYTES - out->tail->used;
+        if (n > len) n = len;
+        memcpy(out->tail->bytes + out->tail->used, src, n);
+        out->tail->used += n;
+        out->size += n;
+        src += n;
+        len -= n;
+    }
+    return true;
+}
+
 static void *png_zalloc(void *opaque, unsigned items, unsigned size)
 {
     (void)opaque;
+    if (size && items > SIZE_MAX / size) return NULL;
     return heap_caps_malloc((size_t)items * size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
 }
 
@@ -95,26 +147,66 @@ static void png_put_u32(uint8_t *dst, uint32_t value)
     dst[3] = (uint8_t)value;
 }
 
-/* Lossless PNG of the RGB888 snapshot: filter 0 and zlib at a fast level (UI screens are flat areas and compress well).
- * Writes into the bounded caller-owned output; returns zero on any failure. */
-static uint32_t encode_png(const screenshot_frame_t *frame, uint8_t *out)
+static bool png_write_chunk(png_output_t *out, const char type[4], const uint8_t *data, size_t len)
+{
+    uint8_t header[8], checksum[4];
+    png_put_u32(header, (uint32_t)len);
+    memcpy(header + 4, type, 4);
+    uLong crc = crc32(0, header + 4, 4);
+    if (len) crc = crc32(crc, data, (uInt)len);
+    png_put_u32(checksum, (uint32_t)crc);
+    return png_output_write(out, header, sizeof(header)) &&
+           png_output_write(out, data, len) && png_output_write(out, checksum, sizeof(checksum));
+}
+
+/* IDAT chunks share one zlib stream, independent of the output block boundaries. */
+static bool png_deflate(z_stream *z, png_output_t *out, uint8_t *buffer, int flush)
+{
+    int result;
+    do {
+        const uInt before = z->avail_in;
+        z->next_out = buffer;
+        z->avail_out = SCREENSHOT_PNG_DEFLATE_BYTES;
+        result = deflate(z, flush);
+        const size_t len = SCREENSHOT_PNG_DEFLATE_BYTES - z->avail_out;
+        if (result != Z_OK && result != Z_STREAM_END) return false;
+        if (len && !png_write_chunk(out, "IDAT", buffer, len)) return false;
+        if (result == Z_STREAM_END) return flush == Z_FINISH && z->avail_in == 0;
+        if (!len && before == z->avail_in) return false;
+    } while (z->avail_in || flush == Z_FINISH);
+    return true;
+}
+
+/* Lossless RGB888, filter 0. Only small PSRAM allocations are needed in addition
+ * to the immutable capture bands; neither pixels nor resolution are reduced. */
+static bool encode_png(const screenshot_frame_t *frame, png_output_t *out)
 {
     static const uint8_t signature[8] = {0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A};
-    enum { HEAD = 8 + 25 + 8, TAIL = 4 + 12 };
     const uint32_t w = frame->width;
     const uint32_t h = frame->height;
-    uint8_t *row = heap_caps_malloc(1U + (size_t)w * 3U, MALLOC_CAP_8BIT);
-    if (row == NULL) return 0;
+    uint8_t ihdr[13] = {0};
+    png_put_u32(ihdr, w);
+    png_put_u32(ihdr + 4, h);
+    ihdr[8] = 8; /* bit depth */
+    ihdr[9] = 2; /* RGB */
+    if (!png_output_write(out, signature, sizeof(signature)) ||
+        !png_write_chunk(out, "IHDR", ihdr, sizeof(ihdr))) return false;
+    uint8_t *row = heap_caps_malloc(1U + (size_t)w * 3U, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    uint8_t *buffer = heap_caps_malloc(SCREENSHOT_PNG_DEFLATE_BYTES, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (!row || !buffer) {
+        heap_caps_free(row);
+        heap_caps_free(buffer);
+        return false;
+    }
     z_stream z;
     memset(&z, 0, sizeof(z));
     z.zalloc = png_zalloc;
     z.zfree = png_zfree;
     if (deflateInit2(&z, SCREENSHOT_PNG_LEVEL, Z_DEFLATED, 12, 5, Z_DEFAULT_STRATEGY) != Z_OK) {
         heap_caps_free(row);
-        return 0;
+        heap_caps_free(buffer);
+        return false;
     }
-    z.next_out = out + HEAD;
-    z.avail_out = SCREENSHOT_PNG_MAX_BYTES - HEAD - TAIL;
     /* LVGL's RGB888 is stored as B, G, R; PNG wants R, G, B. Each row is swapped into a small buffer behind its filter byte. */
     bool ok = true;
     for (uint32_t y = 0; y < h && ok; y++) {
@@ -127,30 +219,45 @@ static uint32_t encode_png(const screenshot_frame_t *frame, uint8_t *out)
         }
         z.next_in = row;
         z.avail_in = 1U + w * 3U;
-        ok = deflate(&z, Z_NO_FLUSH) == Z_OK && z.avail_in == 0;
+        ok = png_deflate(&z, out, buffer, Z_NO_FLUSH);
     }
     heap_caps_free(row);
-    ok = ok && deflate(&z, Z_FINISH) == Z_STREAM_END;
-    const uint32_t idat_len = (uint32_t)z.total_out;
+    ok = ok && png_deflate(&z, out, buffer, Z_FINISH);
     deflateEnd(&z);
-    if (!ok) return 0;
-    memcpy(out, signature, 8);
-    png_put_u32(out + 8, 13);
-    memcpy(out + 12, "IHDR", 4);
-    png_put_u32(out + 16, w);
-    png_put_u32(out + 20, h);
-    out[24] = 8; /* bit depth */
-    out[25] = 2; /* RGB */
-    out[26] = out[27] = out[28] = 0;
-    png_put_u32(out + 29, (uint32_t)crc32(0, out + 12, 17));
-    png_put_u32(out + 33, idat_len);
-    memcpy(out + 37, "IDAT", 4);
-    png_put_u32(out + HEAD + idat_len, (uint32_t)crc32(0, out + 37, idat_len + 4U));
-    uint8_t *end = out + HEAD + idat_len + 4;
-    png_put_u32(end, 0);
-    memcpy(end + 4, "IEND", 4);
-    png_put_u32(end + 8, (uint32_t)crc32(0, end + 4, 4));
-    return HEAD + idat_len + TAIL;
+    heap_caps_free(buffer);
+    return ok && png_write_chunk(out, "IEND", NULL, 0);
+}
+
+static esp_err_t screenshot_png_handle(httpd_req_t *req)
+{
+    const int64_t t0 = esp_timer_get_time();
+    screenshot_frame_t frame;
+    bool busy;
+    if (!api_screenshot_capture("PNG", &frame, &busy, NULL, 0)) {
+        return image_send_text_error(req, busy ? "503 Service Unavailable" : "500 Internal Server Error",
+                                     busy ? "Display is busy" : "Failed to capture screenshot");
+    }
+    const int64_t t_snap = esp_timer_get_time();
+    png_output_t out = {0};
+    const bool ok = encode_png(&frame, &out);
+    screenshot_frame_free(&frame);
+    const int64_t t_enc = esp_timer_get_time();
+    if (!ok) {
+        png_output_free(&out);
+        ESP_LOGW(TAG_HTTP, "Screenshot PNG encoding failed");
+        return image_send_text_error(req, "500 Internal Server Error", "Failed to encode screenshot");
+    }
+    image_set_common_headers(req);
+    httpd_resp_set_type(req, "image/png");
+    esp_err_t err = ESP_OK;
+    for (png_block_t *block = out.head; block && err == ESP_OK; block = block->next)
+        err = httpd_resp_send_chunk(req, (const char *)block->bytes, block->used);
+    if (err == ESP_OK) err = httpd_resp_send_chunk(req, NULL, 0);
+    const size_t len = out.size;
+    png_output_free(&out);
+    ESP_LOGI(TAG_HTTP, "Screenshot PNG %u B: capture %d ms, encode %d ms, send %d ms", (unsigned)len,
+             (int)((t_snap - t0) / 1000), (int)((t_enc - t_snap) / 1000), (int)((esp_timer_get_time() - t_enc) / 1000));
+    return err;
 }
 #endif
 
@@ -159,50 +266,47 @@ static esp_err_t screenshot_handle(httpd_req_t *req, bool png)
 #if !LV_USE_SNAPSHOT
     return image_send_text_error(req, "501 Not Implemented", "LVGL snapshot support is disabled");
 #else
+    if (png) return screenshot_png_handle(req);
 #if !SOC_JPEG_ENCODE_SUPPORTED
-    if (!png) return image_send_text_error(req, "501 Not Implemented", "JPEG screenshots are unavailable; use PNG");
-#endif
+    return image_send_text_error(req, "501 Not Implemented", "JPEG screenshots are unavailable; use PNG");
+#else
     const int64_t t0 = esp_timer_get_time();
     uint8_t *image = heap_caps_malloc(SCREENSHOT_MAX_ENCODED, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     uint8_t *scratch = NULL;
     size_t scratch_capacity = 0;
-#if SOC_JPEG_ENCODE_SUPPORTED
-    if (!png && image) {
+    if (image) {
         const jpeg_encode_memory_alloc_cfg_t mem = {.buffer_direction = JPEG_ENC_ALLOC_OUTPUT_BUFFER};
         scratch = jpeg_alloc_encoder_mem(SCREENSHOT_MAX_ENCODED, &mem, &scratch_capacity);
     }
-#endif
     /* Reserve the bounded output/scratch before fragment-sized RGB allocations. */
-    if (!image || (!png && (!scratch || scratch_capacity < SCREENSHOT_MAX_ENCODED))) {
+    if (!image || !scratch || scratch_capacity < SCREENSHOT_MAX_ENCODED) {
         heap_caps_free(scratch); heap_caps_free(image);
         return image_send_text_error(req, "500 Internal Server Error", "Failed to allocate screenshot output");
     }
     screenshot_frame_t frame;
     bool busy;
-    if (!api_screenshot_capture(png ? "PNG" : "JPEG", &frame, &busy, scratch, scratch_capacity)) {
+    if (!api_screenshot_capture("JPEG", &frame, &busy, scratch, scratch_capacity)) {
         heap_caps_free(scratch); heap_caps_free(image);
         return image_send_text_error(req, busy ? "503 Service Unavailable" : "500 Internal Server Error",
                                      busy ? "Display is busy" : "Failed to capture screenshot");
     }
     const int64_t t_snap = esp_timer_get_time();
-    uint32_t len = png ? encode_png(&frame, image) : 0;
-#if SOC_JPEG_ENCODE_SUPPORTED
-    if (!png) len = encode_jpeg(&frame, image, scratch, scratch_capacity);
-#endif
+    const uint32_t len = encode_jpeg(&frame, image, scratch, scratch_capacity);
     const int64_t t_enc = esp_timer_get_time();
     screenshot_frame_free(&frame); heap_caps_free(scratch);
     if (!len) {
         heap_caps_free(image);
-        ESP_LOGW(TAG_HTTP, "Screenshot %s encoding failed", png ? "PNG" : "JPEG");
+        ESP_LOGW(TAG_HTTP, "Screenshot JPEG encoding failed");
         return image_send_text_error(req, "500 Internal Server Error", "Failed to encode screenshot");
     }
     image_set_common_headers(req);
-    httpd_resp_set_type(req, png ? "image/png" : "image/jpeg");
+    httpd_resp_set_type(req, "image/jpeg");
     const esp_err_t err = httpd_resp_send(req, (const char *)image, (ssize_t)len);
     heap_caps_free(image);
-    ESP_LOGI(TAG_HTTP, "Screenshot %s %u B: capture %d ms, encode %d ms, send %d ms", png ? "PNG" : "JPEG", (unsigned)len,
+    ESP_LOGI(TAG_HTTP, "Screenshot JPEG %u B: capture %d ms, encode %d ms, send %d ms", (unsigned)len,
              (int)((t_snap - t0) / 1000), (int)((t_enc - t_snap) / 1000), (int)((esp_timer_get_time() - t_enc) / 1000));
     return err;
+#endif
 #endif
 }
 

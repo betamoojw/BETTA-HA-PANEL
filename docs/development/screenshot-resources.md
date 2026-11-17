@@ -32,22 +32,27 @@ ARGB scratch is **163,840 B**. Bands use 16-byte-aligned PSRAM; when the SDK
 reserves unencrypted PSRAM, input bands use that pool for JPEG DMA compatibility.
 The final RGB frame remains immutable until encoding or BMP transmission ends.
 
-PNG/JPEG reserve a **1,048,576 B** output before capturing. JPEG also reserves
-one aligned 1 MiB workspace, borrowing it as ARGB scratch during capture and
+JPEG reserves a **1,048,576 B** output and one aligned 1 MiB workspace before
+capture, borrowing the workspace as ARGB scratch during capture and
 reusing it for each hardware-encoded band after unlocking. BMP has only a
-54-byte stack header and streams rows. These are incremental application pixel
-payloads, excluding allocator alignment, metadata and other tasks:
+54-byte stack header and streams rows. PNG allocates encoded output as needed
+in 8 KiB PSRAM blocks after capture. These are incremental application pixel
+payloads, excluding allocator overhead and other tasks:
 
 | Path | Normal, popup or opaque full-screen top | Largest application allocation |
 | --- | ---: | ---: |
 | Capture / BMP | 3,235,840 B (3.086 MiB) | 163,840 B |
-| PNG capture | 4,284,416 B (4.086 MiB) | 1,048,576 B |
+| PNG capture | 3,235,840 B (3.086 MiB) | 163,840 B |
 | JPEG capture / encoding | 5,169,152 B (4.930 MiB) | 1,048,576 B |
 
-PNG frees ARGB scratch before encoding. Its encoding payload is 4,163,021 B:
-RGB bands + output + a 3,841 B row + 32,768 B of zlib work arrays + a 5,836 B
-`deflate_state` in the installed P4 ABI. The Windows ABI uses 5,920 B instead.
-Neither is a device measurement. Normal JPEG uses more total payload than the
+PNG frees ARGB scratch before encoding. Its encoding upper bound includes RGB
+bands, a 3,841 B row, a 4,096 B compressed-chunk buffer, 32,768 B of zlib work
+arrays, `deflate_state` and allocated output blocks. The installed P4 ABI uses
+5,836 B for `deflate_state` and 8,200 B per output block including metadata;
+the Windows ABI uses 5,920 B and 8,208 B respectively. At the 1 MiB output cap,
+128 blocks give a 4,168,141 B encoding bound on P4. Flat UI images use far fewer
+blocks. This is a payload model, not a device measurement.
+Normal JPEG uses more total payload than the
 former 4,120,576 B encoding path, in exchange for removing its 3 MB contiguous
 input requirement. Popup capture no longer retains two full-screen surfaces.
 
@@ -58,6 +63,16 @@ sufficient total free memory does not guarantee successful allocation. The
 1 MiB encoded-output limits remain: exceptionally complex images can still fail
 encoding, with cleanup and an HTTP error rather than a truncated image.
 
+For S3 at 480 × 480, capture needs 691,200 B of RGB bands plus 61,440 B ARGB
+scratch: 752,640 B. PNG no longer requests a contiguous 1 MiB output buffer,
+which failed in the [447fbf7 device trial](panels3-447fbf7-validation.md).
+Row conversion, compression and encoded blocks are explicitly PSRAM-only;
+they cannot fall back into the network's internal-RAM reserve. Highly detailed
+images can still exhaust total PSRAM. See [S3 authentication and PNG memory](panels3-auth-png-memory.md)
+for local fault injection and the build, and the separate
+[COM18 validation](panels3-auth-png-validation.md) for native dark/light PNGs,
+measured memory recovery and the remaining hardware gaps.
+
 ## Encoding and ownership
 
 The capture path briefly locks to read geometry, allocates bands outside the
@@ -66,7 +81,10 @@ that second lock, so a page change cannot mix two UI states in one image.
 No object coordinates or display configuration are changed.
 
 PNG converts each immutable band row from BGR to RGB and uses the existing zlib
-settings. BMP retains bottom-up rows and padding. Hardware JPEG still uses
+settings. Multiple CRC-checked IDAT chunks carry one continuous zlib stream.
+The complete bounded PNG is assembled before sending any image bytes, then
+sent from its linked blocks. BMP retains bottom-up rows and padding.
+Hardware JPEG still uses
 RGB888, YUV444 and quality 90, encoding 32-row MCU-aligned bands. The assembler
 checks baseline headers, dimensions, quantization/Huffman tables and scan
 selectors; inserts DRI/restart markers; and writes a single final EOI. It rejects
@@ -114,7 +132,7 @@ Each capture attempt logs `Screenshot ... capture=...` after unlocking:
   `top.render`, `screen.render` and `cover.render` identify the regional draw path.
   `complete` means capture succeeded, not encoding or sending.
 - `band` is the zero-based failing band, or the band count on success. `size`
-  is display geometry. Output/scratch reservation can fail before capture starts;
+  is display geometry. JPEG output/scratch reservation can fail before capture starts;
   that path returns an allocation-specific HTTP error without a capture record.
 - `psram_free`/`psram_largest` sample `SPIRAM | 8BIT` before cleanup. Consecutive
   reads are neither an atomic reservation nor whole-device peaks.
@@ -135,6 +153,10 @@ normal/popup/opaque-top pixels, PNG CRCs and BMP padding/order; a synthetic
 and zlib allocation ordinal; first/middle/last render failures; both lock
 acquisitions; geometry changes; codec creation/process/header failures; output
 exhaustion; failed HTTP sends; and recovery with zero owned allocations.
+The 480 × 480 PNG cases also impose a 900 KiB total / 64 KiB contiguous limit,
+check all decoded pixels for base/popup/opaque overlays, and inject failure at
+every allocation and HTTP chunk, including the terminating send. Incompressible
+content checks total-memory exhaustion and recovery separately from the output cap.
 
 `tests/tools/test_screenshot_jpeg_join.py` compiles the production assembler,
 creates real baseline JPEG bands and independently decodes the result with

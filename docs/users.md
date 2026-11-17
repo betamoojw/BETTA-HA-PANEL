@@ -46,6 +46,7 @@ Remote touch requires an administrator because it can reach the panel's native s
   Save layout drafts first. Sign in again to reload the editor.
 - **Change password** checks your current password. **Sign out** ends the current cookie session.
   Sessions expire eight hours after sign-in and do not survive a panel restart. Up to 16 sessions can be active.
+  Returning to sign-in closes entity searches. Reopen the picker after signing in again.
 - Accounts and password hashes are excluded from layout/settings backups. Factory reset erases them with other settings.
   If no administrator can sign in, recovery requires local USB access and erasing settings; back up data first where possible.
 

@@ -17,6 +17,23 @@ They cover atomic-write failures, migration, password retention, disable/re-enab
 role denial, sensitive settings filtering, sessions, expiry, revocation, cookie/origin checks and throttling.
 Their password double tests account behavior, not cryptographic correctness.
 
+On S3, account/session records and the login-attempt table are bounded,
+HTTP-task-owned PSRAM allocations retained for the server lifetime. Temporary
+transaction copies use PSRAM and are wiped before release. No allocation falls
+back into internal RAM. Allocation failure keeps protected routes closed with
+503 and can recover on a later request; failed rate-table allocation never
+permits unthrottled password checks. P4 retains static internal backing.
+Async stream leases still validate internal atomics only. NVS layout, user/session
+limits, expiry, throttling and route roles are unchanged.
+
+The S3/P4 host variants cover allocation failure/recovery, retained credentials,
+session reuse, candidate cleanup and protected discovery/cancel/screenshot routes.
+Showing sign-in closes entity pickers and invalidates their old polling callbacks,
+including after logout or session expiry. See the
+[S3 memory review](panels3-auth-png-memory.md) for local checks and the
+[COM18 validation](panels3-auth-png-validation.md) for authenticated queries,
+measured client release and preserved login protection on the device.
+
 For real password derivation, use the already installed ESP-IDF 6.1 crypto sources with a **host** compiler:
 
 ```sh

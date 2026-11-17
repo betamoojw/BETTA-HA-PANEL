@@ -35,6 +35,9 @@ Changes since [v0.9.2-rc1](#v092-rc1).
 - **Users:** optional accounts with viewer/operator/installer/administrator roles, seven-language sign-in and account forms,
   HttpOnly sessions, server-side route permissions, last-administrator protection and legacy admin-password migration.
   Account changes revoke existing sessions, Live Display tickets and camera streams. See [Users](users.md) for scope and recovery.
+  S3 stores bounded account/session and login-attempt records in PSRAM to preserve
+  internal memory for HA entity searches; memory shortages keep access protected.
+  Returning to sign-in stops old entity searches before the next session.
 
 - **Panel10 language storage:** losslessly pack five built-in LVGL catalogs, saving 87,493 payload bytes before
   decoder code and alignment. All seven languages and custom overrides remain available; OTA partitions stay unchanged.
@@ -50,6 +53,8 @@ Changes since [v0.9.2-rc1](#v092-rc1).
   Region capture stores 32-row RGB bands and reuses a small ARGB workspace, avoiding
   full-screen contiguous allocations while preserving popup composition. P4 hardware
   JPEG bands form one validated image with restart markers; PNG remains lossless.
+  PNG allocates encoded data in small PSRAM blocks, removing the fixed 1 MiB
+  contiguous output requirement while retaining full resolution and overlays.
   The 1 MiB encoded-output limits remain. Capture diagnostics record failure stages,
   band indices, PSRAM free/largest blocks and display-lock wait/hold times.
   See [Screenshot resources](development/screenshot-resources.md) for budgets and hardware limits.

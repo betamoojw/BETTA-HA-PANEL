@@ -149,6 +149,23 @@ int main(void)
     CHECK(!ha_discovery_matches(&guard, generation) && s.handle != NULL);
     ha_http_session_idle(&s, 28000); /* Cleanup stays with the HA task, after I/O returns. */
     CHECK(s.handle == NULL);
+
+    /* A recovered admission margin must survive repeated queries and explicit
+     * cancel/retry, without retaining another client on every iteration. */
+    for (unsigned i = 0; i < 12; ++i) {
+        free_internal = 36 * 1024; largest = 8704;
+        ha_discovery_begin(&guard, 60000 + i * 10000);
+        CHECK(ha_discovery_memory_wait(8000, free_internal, largest, 98304, 16384, "ws://ha.invalid") == HA_DISCOVERY_WAIT_NONE);
+        ensure(&s);
+        CHECK(free_internal >= APP_HA_DISCOVERY_PREPARED_INTERNAL_FREE_BYTES);
+        request_active = true;
+        generation = guard.generation;
+        ha_discovery_cancel(&guard);
+        CHECK(!ha_discovery_matches(&guard, generation) && s.handle == live);
+        request_active = false;
+        ha_http_session_idle(&s, 69000 + i * 10000);
+        CHECK(!s.handle && free_internal == 36 * 1024 && created == cleaned);
+    }
 #else
     CHECK(s.handle != NULL && free_internal == 36255);
     largest = 1; free_internal = 1;

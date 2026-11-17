@@ -3,6 +3,7 @@
  */
 #include "api/http_user_auth.h"
 #include "settings/user_password.h"
+#include "settings/user_auth_memory.h"
 #include "cJSON.h"
 #include "esp_timer.h"
 #include "lwip/sockets.h"
@@ -56,7 +57,12 @@ static bool path_is(httpd_req_t *req, const char *path)
 /* Per-address backoff plus a global derivation budget. Rotating addresses cannot
  * turn the bounded login table into an unbounded password-hashing workload. */
 typedef struct { uint32_t key; unsigned failures; int64_t until, seen; } attempt_t;
-static attempt_t s_attempts[16];
+#define ATTEMPT_COUNT 16
+#if defined(CONFIG_APP_PANEL_VARIANT_S3_480)
+static attempt_t *s_attempts;
+#else
+static attempt_t s_attempts[ATTEMPT_COUNT];
+#endif
 static int64_t s_window;
 static unsigned s_checks;
 
@@ -82,9 +88,16 @@ static uint32_t client_key(httpd_req_t *req)
 
 static attempt_t *attempt(httpd_req_t *req)
 {
+#if defined(CONFIG_APP_PANEL_VARIANT_S3_480)
+    if (!s_attempts) {
+        s_attempts = user_auth_memory_alloc(ATTEMPT_COUNT * sizeof(*s_attempts));
+        if (!s_attempts) return NULL;
+        memset(s_attempts, 0, ATTEMPT_COUNT * sizeof(*s_attempts));
+    }
+#endif
     uint32_t key = client_key(req);
     attempt_t *oldest = &s_attempts[0];
-    for (unsigned i = 0; i < 16; ++i) {
+    for (unsigned i = 0; i < ATTEMPT_COUNT; ++i) {
         if (s_attempts[i].key == key && s_attempts[i].seen) return &s_attempts[i];
         if (s_attempts[i].seen < oldest->seen) oldest = &s_attempts[i];
     }
@@ -96,6 +109,7 @@ static bool attempt_allowed(httpd_req_t *req)
 {
     int64_t now = esp_timer_get_time();
     attempt_t *a = attempt(req);
+    if (!a) return false;
     if (a->until > now) return false;
     if (a->until) a->failures = 0;
     a->until = 0;
@@ -107,6 +121,7 @@ static bool attempt_allowed(httpd_req_t *req)
 static void attempt_result(httpd_req_t *req, bool ok)
 {
     attempt_t *a = attempt(req);
+    if (!a) return;
     a->seen = esp_timer_get_time();
     if (ok) a->failures = 0;
     else if (++a->failures >= 6) a->until = a->seen + 60000000;
@@ -114,6 +129,10 @@ static void attempt_result(httpd_req_t *req, bool ok)
 
 static esp_err_t throttled(httpd_req_t *req)
 {
+#if defined(CONFIG_APP_PANEL_VARIANT_S3_480)
+    if (!s_attempts)
+        return reply(req, "503 Service Unavailable", "{\"error\":\"Authentication memory unavailable. Try again later.\"}");
+#endif
     httpd_resp_set_hdr(req, "Retry-After", "60");
     return reply(req, "429 Too Many Requests", "{\"error\":\"Too many login attempts. Wait 60 seconds.\"}");
 }

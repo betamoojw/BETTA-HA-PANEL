@@ -8,6 +8,7 @@ const drain = async () => { for (let i = 0; i < 40; ++i) await Promise.resolve()
 function setup() {
   const editor = loadEditor();
   editor.run(`
+    globalThis.productionApiGet=apiGet;
     globalThis.calls=[];globalThis.jobs=new Map();globalThis.nextId=0;globalThis.events={};
     globalThis.element=()=>({value:'',textContent:'',classList:{add(){},remove(){},toggle(){}},
       appendChild(){},addEventListener(){},focus(){},select(){}});
@@ -160,5 +161,96 @@ test("clearing or shortening add-widget search sends no empty or one-letter GET"
     e.fn("fire")(350); await drain();
   }
   assert.equal(e.run("calls.length"), 0);
+  await close(e);
+});
+
+function authenticatedTransport() {
+  const e = setup();
+  e.fn("values => Object.assign(globalThis, values)")({ URL, Request, Headers });
+  e.run(`
+    apiGet=productionApiGet;
+    window.location={href:'http://panel.local/',origin:'http://panel.local'};
+    globalThis.httpStatus=200;globalThis.nodes={};
+    userElement=id=>nodes[id]||=(Object.assign(element(),{
+      removeAttribute(){},click(){},close(){},hidden:false
+    }));
+    licenseReset=()=>{};
+    window.fetch=async(path,options={})=>{
+      calls.push({path,method:options.method||'GET',options});
+      return {status:httpStatus,ok:httpStatus===200,statusText:'test response',json:async()=>({...reply})};
+    };
+    userInstallFetch();fetch=(...args)=>window.fetch(...args);
+  `);
+  return e;
+}
+
+test("authenticated queries recover from low memory, timeout and retry without losing cookie or cancel protection", async () => {
+  const e = authenticatedTransport();
+  for (const [index, word] of ["button", "light", "button"].entries()) {
+    e.run(`el.addTileSearch.value='${word}';reply={status:'pending',pending:true,items:[],wait_reason:'internal_memory',generation:${51+index}};`);
+    const work = e.fn("runAddTileSearch")(); await drain();
+    assert.match(e.run("el.addTileSearchStatus.textContent"), /memory/i);
+    e.run("reply={...reply,status:'ready',pending:false};");
+    e.fn("fire")(700); await work;
+    assert.doesNotMatch(e.run("el.addTileSearchStatus.textContent"), /waiting|timeout/i);
+  }
+  e.run("reply={status:'timeout',pending:false,items:[],wait_reason:'internal_memory',generation:60};");
+  await e.fn("runAddTileSearch")();
+  assert.match(e.run("el.addTileSearchStatus.textContent"), /timed out.*memory.*Retry/i);
+  e.run("reply={...reply,status:'pending',pending:true,generation:61};el.addTileSearchRetry.onclick();");
+  await drain();
+  assert.match(e.run("calls.at(-1).path"), /refresh=1/);
+  await close(e);
+  assert.match(e.run("calls.at(-1).path"), /generation=61/);
+  assert.equal(e.run("calls.at(-1).method"), "DELETE");
+  assert.equal(e.run("calls.every(c=>c.options.credentials==='same-origin')"), true);
+  assert.equal(e.run("calls.filter(c=>c.method==='DELETE').every(c=>c.options.headers.get('X-Betta-Request')==='1')"), true);
+});
+
+test("expired login closes sleeping entity polls before reauthentication and reopen", async () => {
+  const e = authenticatedTransport();
+  e.run("el.addTileSearch.value='button';");
+  const old = e.fn("runAddTileSearch")(); await drain();
+  e.run("httpStatus=401;");
+  await e.run("fetch('/api/state')"); await drain();
+  assert.equal(e.run("userAccess.authenticated"), false);
+  assert.equal(e.run("nodes.userLogin.hidden"), false);
+  const count = e.run("calls.length");
+  e.fn("fire")(700); await old;
+  assert.equal(e.run("calls.length"), count);
+  e.run("httpStatus=200;userAccess.authenticated=true;reply={status:'ready',pending:false,items:[],generation:42};");
+  e.fn("openAddTileDialog")();
+  assert.equal(e.run("el.addTileSearch.value"), "");
+  e.run("el.addTileSearch.value='light';");
+  await e.fn("runAddTileSearch")();
+  assert.match(e.run("calls.at(-1).path"), /search=light/);
+  assert.equal(e.run(`calls.slice(${count}).some(c=>c.path.includes('search=button'))`), false);
+  await close(e);
+});
+
+test("authentication allocation failure shows unavailable and permits an explicit retry", async () => {
+  const e = authenticatedTransport();
+  e.run("httpStatus=503;userAccess.authenticated=false;");
+  await assert.rejects(e.fn("userRequest")("/api/auth/login", {username:"test",password:"test-only"}),
+    { message: e.run("t('users.unavailable')") });
+  assert.equal(e.run("userAccess.authenticated"), false);
+  e.run("httpStatus=200;reply={authenticated:true,role:'installer'};");
+  const response = await e.fn("userRequest")("/api/auth/login", {username:"test",password:"test-only"});
+  assert.equal(response.authenticated, true);
+  assert.equal(e.run("calls.length"), 2);
+  assert.equal(e.run("calls.every(c=>c.options.headers.get('X-Betta-Request')==='1')"), true);
+  await close(e);
+});
+
+test("sign-in closes a field picker and invalidates an already queued poll callback", async () => {
+  const e = authenticatedTransport();
+  e.fn("openLightEntityPicker")("light_tile"); await drain();
+  e.run("globalThis.beforeLogin=[...jobs.values()][0].callback;");
+  e.fn("userShowLogin")(); await drain();
+  assert.equal(e.run("editor.lightPicker.loading"), false);
+  assert.equal(e.run("jobs.size"), 0);
+  const count = e.run("calls.length");
+  e.run("userAccess.authenticated=true;beforeLogin();"); await drain();
+  assert.equal(e.run("calls.length"), count);
   await close(e);
 });

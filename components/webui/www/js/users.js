@@ -27,6 +27,7 @@ function userTranslate() {
 
 function userShowLogin(message = "") {
   userAccess.authenticated = false;
+  closeEntitySearchDialogs();
   userElement("userLogin").hidden = false;
   userElement("userAccountBar").hidden = true;
   userElement("userViewer").hidden = true;

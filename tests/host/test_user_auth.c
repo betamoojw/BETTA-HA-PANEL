@@ -13,6 +13,28 @@ static admin_auth_state_t legacy;
 static int64_t clock_us = 1000000;
 static unsigned checks, derives;
 #define CHECK(x) do { ++checks; if (!(x)) { fprintf(stderr, "FAIL line %d: %s\n", __LINE__, #x); exit(1); } } while (0)
+#if defined(CONFIG_APP_PANEL_VARIANT_S3_480)
+static bool memory_fail;
+static unsigned memory_calls, memory_live;
+typedef union { max_align_t align; size_t bytes; } auth_alloc_t;
+void *heap_caps_malloc(size_t size, unsigned caps) {
+    ++memory_calls;
+    CHECK(caps == (MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
+    if (memory_fail) return NULL;
+    auth_alloc_t *p = malloc(sizeof(*p) + size); CHECK(p);
+    p->bytes = size; ++memory_live; return p + 1;
+}
+void heap_caps_free(void *ptr) {
+    if (!ptr) return;
+    auth_alloc_t *p = (auth_alloc_t *)ptr - 1;
+    /* Every temporary account copy must be wiped, including failed writes. */
+    if (p->bytes == sizeof(accounts_t)) {
+        const uint8_t *bytes = ptr;
+        for (size_t i = 0; i < p->bytes; ++i) CHECK(bytes[i] == 0);
+    }
+    CHECK(memory_live); --memory_live; free(p);
+}
+#endif
 int64_t esp_timer_get_time(void) { return clock_us; }
 void esp_fill_random(void *out, size_t n) {
     static unsigned seed = 1234;
@@ -51,7 +73,13 @@ esp_err_t nvs_set_blob(nvs_handle_t h, const char *key, const void *in, size_t n
 esp_err_t nvs_commit(nvs_handle_t h) { (void)h; return commit_error; }
 static void boot(void) {
     s_loaded = s_migrated = false; s_state = USER_AUTH_UNAVAILABLE;
-    memset(&s_accounts, 0, sizeof(s_accounts)); user_auth_revoke_all();
+    user_auth_revoke_all();
+#if defined(CONFIG_APP_PANEL_VARIANT_S3_480)
+    user_auth_memory_free(s_storage); s_storage = NULL;
+    memory_fail = false;
+#else
+    memset(s_storage, 0, sizeof(*s_storage));
+#endif
 }
 static void fresh(void) {
     exists = false; legacy = ADMIN_AUTH_UNSET;
@@ -62,6 +90,30 @@ static user_auth_info_t verify(const char *name, const char *password) {
     user_auth_info_t info = {0}; CHECK(user_auth_verify(name, password, &info)); return info;
 }
 int main(void) {
+#if defined(CONFIG_APP_PANEL_VARIANT_S3_480)
+    fresh(); memory_fail = true;
+    CHECK(user_auth_state() == USER_AUTH_UNAVAILABLE); /* Never opens an unknown database. */
+    CHECK(user_auth_update("owner", "password1", USER_ROLE_ADMIN, true, true) != ESP_OK);
+    CHECK(!exists && memory_live == 0);
+    memory_fail = false; CHECK(user_auth_state() == USER_AUTH_OPEN);
+    CHECK(user_auth_update("owner", "password1", USER_ROLE_ADMIN, true, true) == ESP_OK);
+    accounts_t saved = disk;
+    boot(); memory_fail = true;
+    CHECK(user_auth_state() == USER_AUTH_UNAVAILABLE);
+    CHECK(!memcmp(&saved, &disk, sizeof(saved)));
+    memory_fail = false;
+    user_auth_info_t recovered = verify("owner", "password1");
+    char retained[65]; CHECK(user_auth_session_create(&recovered, retained));
+    unsigned calls = memory_calls;
+    for (int i = 0; i < 100; ++i) CHECK(user_auth_session_check(retained, &recovered));
+    CHECK(memory_calls == calls && memory_live == 1);
+    memory_fail = true;
+    CHECK(user_auth_update("owner", "password2", USER_ROLE_ADMIN, true, false) == ESP_ERR_NO_MEM);
+    CHECK(user_auth_delete("owner") == ESP_ERR_NO_MEM);
+    CHECK(!memcmp(&saved, &disk, sizeof(saved)));
+    CHECK(user_auth_session_check(retained, &recovered));
+    memory_fail = false; CHECK(memory_live == 1);
+#endif
     fresh(); CHECK(user_auth_state() == USER_AUTH_OPEN);
     CHECK(user_auth_update("owner", "password1", USER_ROLE_VIEWER, true, true) != ESP_OK);
     CHECK(user_auth_state() == USER_AUTH_OPEN);
@@ -137,6 +189,10 @@ int main(void) {
     };
     for (unsigned i = 0; i < sizeof(cases)/sizeof(*cases); ++i)
         CHECK(user_auth_required_role(cases[i].uri, cases[i].method) == cases[i].role);
+    boot();
+#if defined(CONFIG_APP_PANEL_VARIANT_S3_480)
+    CHECK(memory_live == 0);
+#endif
     printf("User authentication: %u checks passed\n", checks);
     return 0;
 }

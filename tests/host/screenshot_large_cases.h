@@ -7,7 +7,10 @@ static esp_err_t invoke(unsigned format)
 static void verify_pixels(unsigned format)
 {
     uint8_t *rgb=malloc((size_t)display_w*display_h*3); CHECK(rgb);
-    if (format==0) CHECK(decode_png(display_w,display_h,rgb));
+    if (format==0) {
+        bool decoded = decode_png(display_w,display_h,rgb); CHECK(decoded);
+        if (!decoded) { free(rgb); return; }
+    }
     if (format==2) {
         size_t stride=((size_t)display_w*3+3)&~3U;
         CHECK(body_len==54+stride*display_h && body[0]=='B' && body[1]=='M');
@@ -23,12 +26,12 @@ static void verify_pixels(unsigned format)
 }
 static void large_cases(void)
 {
-    const int sizes[][2]={{3,2},{13,67},{1280,800},{800,1280}};
+    const int sizes[][2]={{3,2},{13,67},{480,480},{1280,800},{800,1280}};
     for(unsigned f=0;f<3;f++) {
 #if !SOC_JPEG_ENCODE_SUPPORTED
         if(f==1) { reset(); CHECK(invoke(f)==ESP_OK && !strcmp(status,"501 Not Implemented") && !heap_calls); continue; }
 #endif
-        for(unsigned s=0;s<4;s++) for(unsigned layer=0;layer<3;layer++) {
+        for(unsigned s=0;s<sizeof(sizes)/sizeof(*sizes);s++) for(unsigned layer=0;layer<3;layer++) {
             reset(); display_w=sizes[s][0];display_h=sizes[s][1];popup=layer==1;opaque_cover=layer==2;
             CHECK(invoke(f)==ESP_OK && !status[0] && body_len); clean();
             CHECK(lock_calls==2 && unlock_calls==2 && largest_alloc<=1048576 && peak_bytes<=5169152);

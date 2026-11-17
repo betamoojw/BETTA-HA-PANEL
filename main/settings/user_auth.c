@@ -4,6 +4,7 @@
 #include "settings/user_auth.h"
 #include "settings/admin_auth.h"
 #include "settings/user_password.h"
+#include "settings/user_auth_memory.h"
 #include "esp_random.h"
 #include "esp_timer.h"
 #include "nvs.h"
@@ -22,7 +23,6 @@ typedef struct {
     account_t accounts[USER_AUTH_MAX_USERS];
 } accounts_t;
 _Static_assert(sizeof(account_t) == 84, "credential record layout changed");
-static accounts_t s_accounts;
 static bool s_loaded, s_migrated;
 static user_auth_state_t s_state = USER_AUTH_UNAVAILABLE;
 static atomic_uint s_generation = 1;
@@ -33,8 +33,30 @@ typedef struct {
     char username[USER_AUTH_NAME_MAX + 1];
     int64_t expires;
 } session_t;
-static session_t s_sessions[SESSION_COUNT];
+typedef struct {
+    accounts_t db;
+    session_t sessions[SESSION_COUNT];
+} user_auth_storage_t;
+#if defined(CONFIG_APP_PANEL_VARIANT_S3_480)
+static user_auth_storage_t *s_storage;
+#else
+static user_auth_storage_t s_internal_storage;
+static user_auth_storage_t *const s_storage = &s_internal_storage;
+#endif
+/* Async request leases read only these atomics, never the PSRAM records. */
 static atomic_uint s_session_epochs[SESSION_COUNT];
+
+static bool storage_ready(void)
+{
+#if defined(CONFIG_APP_PANEL_VARIANT_S3_480)
+    if (!s_storage) {
+        s_storage = user_auth_memory_alloc(sizeof(*s_storage));
+        if (!s_storage) return false;
+        memset(s_storage, 0, sizeof(*s_storage));
+    }
+#endif
+    return true;
+}
 
 const char *user_auth_role_name(user_role_t role)
 {
@@ -87,33 +109,34 @@ static bool valid_database(const accounts_t *db)
 
 user_auth_state_t user_auth_state(void)
 {
+    if (!storage_ready()) return USER_AUTH_UNAVAILABLE;
     if (s_loaded) return s_state;
     nvs_handle_t h;
     esp_err_t err = nvs_open("betta_auth", NVS_READONLY, &h);
     if (err == ESP_OK) {
-        size_t length = sizeof(s_accounts);
-        err = nvs_get_blob(h, "users", &s_accounts, &length);
+        size_t length = sizeof(s_storage->db);
+        err = nvs_get_blob(h, "users", &s_storage->db, &length);
         nvs_close(h);
         if (err == ESP_OK) {
-            s_state = length == sizeof(s_accounts) && valid_database(&s_accounts) ? USER_AUTH_READY : USER_AUTH_UNAVAILABLE;
+            s_state = length == sizeof(s_storage->db) && valid_database(&s_storage->db) ? USER_AUTH_READY : USER_AUTH_UNAVAILABLE;
             s_migrated = s_loaded = s_state == USER_AUTH_READY;
             return s_state;
         }
     }
     s_migrated = false;
     s_state = USER_AUTH_UNAVAILABLE;
-    memset(&s_accounts, 0, sizeof(s_accounts));
+    memset(&s_storage->db, 0, sizeof(s_storage->db));
     if (err != ESP_ERR_NVS_NOT_FOUND) return s_state;
-    s_accounts.version = 1;
+    s_storage->db.version = 1;
     const admin_auth_state_t legacy = admin_auth_state();
     if (legacy == ADMIN_AUTH_UNSET) s_state = USER_AUTH_OPEN;
     else if (legacy == ADMIN_AUTH_SET) {
-        account_t *a = &s_accounts.accounts[0];
+        account_t *a = &s_storage->db.accounts[0];
         strcpy(a->username, "admin");
         a->role = USER_ROLE_ADMIN;
         a->enabled = a->algorithm = 1;
         if (admin_auth_export(a->salt, a->hash)) {
-            s_accounts.count = 1;
+            s_storage->db.count = 1;
             s_state = USER_AUTH_READY;
         }
     }
@@ -122,7 +145,7 @@ user_auth_state_t user_auth_state(void)
 }
 
 bool user_auth_migrated(void) { (void)user_auth_state(); return s_migrated; }
-int user_auth_count(void) { return user_auth_state() == USER_AUTH_READY ? s_accounts.count : 0; }
+int user_auth_count(void) { return user_auth_state() == USER_AUTH_READY ? s_storage->db.count : 0; }
 uint32_t user_auth_generation(void) { return atomic_load(&s_generation); }
 
 static void copy_info(const account_t *a, user_auth_info_t *info)
@@ -136,16 +159,16 @@ static void copy_info(const account_t *a, user_auth_info_t *info)
 bool user_auth_info(int index, user_auth_info_t *info)
 {
     if (!info || index < 0 || index >= user_auth_count()) return false;
-    copy_info(&s_accounts.accounts[index], info);
+    copy_info(&s_storage->db.accounts[index], info);
     return true;
 }
 
 bool user_auth_verify(const char *name, const char *password, user_auth_info_t *info)
 {
     if (user_auth_state() != USER_AUTH_READY || !password || !info || strlen(password) > USER_AUTH_PASSWORD_MAX) return false;
-    int index = lookup(&s_accounts, name);
+    int index = lookup(&s_storage->db, name);
     /* Missing/disabled users still pay the password derivation cost. */
-    const account_t *a = &s_accounts.accounts[index >= 0 ? index : 0];
+    const account_t *a = &s_storage->db.accounts[index >= 0 ? index : 0];
     uint8_t actual[32];
     bool ok = user_password_derive(password, a->salt, actual, a->algorithm);
     ok = ok && user_password_equal(actual, a->hash, sizeof(actual)) && index >= 0 && a->enabled;
@@ -189,7 +212,7 @@ bool user_auth_basic(const char *header, user_auth_info_t *info)
 void user_auth_revoke_all(void)
 {
     atomic_fetch_add(&s_generation, 1);
-    user_password_wipe(s_sessions, sizeof(s_sessions));
+    if (s_storage) user_password_wipe(s_storage->sessions, sizeof(s_storage->sessions));
 }
 
 static esp_err_t persist(accounts_t *candidate)
@@ -204,7 +227,7 @@ static esp_err_t persist(accounts_t *candidate)
     }
     user_auth_revoke_all();
     if (err == ESP_OK) {
-        s_accounts = *candidate;
+        s_storage->db = *candidate;
         s_state = USER_AUTH_READY;
         s_loaded = s_migrated = true;
     } else {
@@ -222,11 +245,11 @@ esp_err_t user_auth_update(const char *name, const char *password, user_role_t r
     if (!user_auth_name_valid(name) || !password || role < USER_ROLE_VIEWER || role > USER_ROLE_ADMIN) return ESP_ERR_INVALID_ARG;
     size_t length = strlen(password);
     if ((length && length < USER_AUTH_PASSWORD_MIN) || length > USER_AUTH_PASSWORD_MAX || (create && !length)) return ESP_ERR_INVALID_SIZE;
-    int index = lookup(&s_accounts, name);
-    if (create ? index >= 0 || s_accounts.count == USER_AUTH_MAX_USERS : index < 0) return ESP_ERR_INVALID_ARG;
-    accounts_t *candidate = malloc(sizeof(*candidate));
+    int index = lookup(&s_storage->db, name);
+    if (create ? index >= 0 || s_storage->db.count == USER_AUTH_MAX_USERS : index < 0) return ESP_ERR_INVALID_ARG;
+    accounts_t *candidate = user_auth_memory_alloc(sizeof(*candidate));
     if (!candidate) return ESP_ERR_NO_MEM;
-    *candidate = s_accounts;
+    *candidate = s_storage->db;
     if (create) index = candidate->count++;
     account_t *a = &candidate->accounts[index];
     strcpy(a->username, name);
@@ -240,38 +263,38 @@ esp_err_t user_auth_update(const char *name, const char *password, user_role_t r
     }
     if (err == ESP_OK) err = persist(candidate);
     user_password_wipe(candidate, sizeof(*candidate));
-    free(candidate);
+    user_auth_memory_free(candidate);
     return err;
 }
 
 esp_err_t user_auth_delete(const char *name)
 {
     if (user_auth_state() != USER_AUTH_READY) return ESP_ERR_INVALID_STATE;
-    int index = lookup(&s_accounts, name);
+    int index = lookup(&s_storage->db, name);
     if (index < 0) return ESP_ERR_NOT_FOUND;
-    accounts_t *candidate = malloc(sizeof(*candidate));
+    accounts_t *candidate = user_auth_memory_alloc(sizeof(*candidate));
     if (!candidate) return ESP_ERR_NO_MEM;
-    *candidate = s_accounts;
+    *candidate = s_storage->db;
     memmove(&candidate->accounts[index], &candidate->accounts[index + 1],
         (candidate->count - index - 1) * sizeof(account_t));
     memset(&candidate->accounts[--candidate->count], 0, sizeof(account_t));
     esp_err_t err = persist(candidate);
     user_password_wipe(candidate, sizeof(*candidate));
-    free(candidate);
+    user_auth_memory_free(candidate);
     return err;
 }
 
 bool user_auth_session_create(const user_auth_info_t *info, char token[USER_AUTH_TOKEN_LEN + 1])
 {
     if (user_auth_state() != USER_AUTH_READY || !info || !token) return false;
-    int index = lookup(&s_accounts, info->username);
-    if (index < 0 || !s_accounts.accounts[index].enabled) return false;
+    int index = lookup(&s_storage->db, info->username);
+    if (index < 0 || !s_storage->db.accounts[index].enabled) return false;
     const int64_t now = esp_timer_get_time();
     session_t *slot = NULL;
     for (int i = 0; i < SESSION_COUNT; ++i)
-        if (s_sessions[i].expires <= now) { slot = &s_sessions[i]; break; }
+        if (s_storage->sessions[i].expires <= now) { slot = &s_storage->sessions[i]; break; }
     if (!slot) return false; /* Never silently evict another active session. */
-    atomic_fetch_add(&s_session_epochs[slot - s_sessions], 1);
+    atomic_fetch_add(&s_session_epochs[slot - s_storage->sessions], 1);
     uint8_t bytes[32];
     esp_fill_random(bytes, sizeof(bytes));
     static const char hex[] = "0123456789abcdef";
@@ -292,11 +315,11 @@ bool user_auth_session_check(const char *token, user_auth_info_t *info)
     if (!token || !info || strlen(token) != USER_AUTH_TOKEN_LEN || user_auth_state() != USER_AUTH_READY) return false;
     const int64_t now = esp_timer_get_time();
     for (int i = 0; i < SESSION_COUNT; ++i) {
-        session_t *s = &s_sessions[i];
+        session_t *s = &s_storage->sessions[i];
         if (s->expires > now && user_password_equal(token, s->token, USER_AUTH_TOKEN_LEN)) {
-            int index = lookup(&s_accounts, s->username);
-            if (index < 0 || !s_accounts.accounts[index].enabled) return false;
-            copy_info(&s_accounts.accounts[index], info);
+            int index = lookup(&s_storage->db, s->username);
+            if (index < 0 || !s_storage->db.accounts[index].enabled) return false;
+            copy_info(&s_storage->db.accounts[index], info);
             return true;
         }
     }
@@ -305,11 +328,11 @@ bool user_auth_session_check(const char *token, user_auth_info_t *info)
 
 void user_auth_logout(const char *token)
 {
-    if (!token || strlen(token) != USER_AUTH_TOKEN_LEN) return;
+    if (!s_storage || !token || strlen(token) != USER_AUTH_TOKEN_LEN) return;
     for (int i = 0; i < SESSION_COUNT; ++i)
-        if (user_password_equal(token, s_sessions[i].token, USER_AUTH_TOKEN_LEN)) {
+        if (user_password_equal(token, s_storage->sessions[i].token, USER_AUTH_TOKEN_LEN)) {
             atomic_fetch_add(&s_session_epochs[i], 1);
-            user_password_wipe(&s_sessions[i], sizeof(s_sessions[i]));
+            user_password_wipe(&s_storage->sessions[i], sizeof(s_storage->sessions[i]));
         }
 }
 
@@ -322,10 +345,10 @@ bool user_auth_lease_capture(const char *token, user_auth_lease_t *lease)
     user_auth_info_t info;
     if (!user_auth_session_check(token, &info)) return false;
     for (int i = 0; i < SESSION_COUNT; ++i) {
-        if (user_password_equal(token, s_sessions[i].token, USER_AUTH_TOKEN_LEN)) {
+        if (user_password_equal(token, s_storage->sessions[i].token, USER_AUTH_TOKEN_LEN)) {
             lease->session_slot = i;
             lease->session_epoch = atomic_load(&s_session_epochs[i]);
-            lease->expires = s_sessions[i].expires;
+            lease->expires = s_storage->sessions[i].expires;
             return true;
         }
     }

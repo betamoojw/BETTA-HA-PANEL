@@ -100,7 +100,7 @@ for (const canvas of CANVASES) {
       assert.ok(rect.x >= 0 && rect.y >= 0, `${tile.type} starts on the canvas`);
       assert.ok(rect.x + rect.w <= canvas.width && rect.y + rect.h <= canvas.height, `${tile.type} ends on the canvas`);
       assert.ok(rect.w >= min.minW && rect.h >= min.minH, `${tile.type} ${rect.w}x${rect.h} is at least ${min.minW}x${min.minH}`);
-      assert.equal(rect.x % 10 + rect.y % 10 + rect.w % 10 + rect.h % 10, 0, `${tile.type} sits on the 10 px grid`);
+      assert.equal(rect.x % 2 + rect.y % 2 + rect.w % 2 + rect.h % 2, 0, `${tile.type} sits on the 2 px grid`);
     }
     for (let i = 0; i < placed.length; i++) {
       for (let j = i + 1; j < placed.length; j++) {

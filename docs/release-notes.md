@@ -8,6 +8,10 @@ Changes of **this fork**, compared with upstream v0.8.2. The release notes of th
 
 Changes since [v0.9.2-rc1](#v092-rc1).
 
+- **Layout editor:** dragging, resizing and Placement inputs snap to 2 logical pixels;
+  preview grid lines are 10 logical pixels apart in every style. Arrow-key movement
+  uses 2 logical pixels, while Shift keeps 1-pixel adjustments.
+
 - **License management:** device-bound signed license import, persistent status and
   an informational 60-minute trial across all firmware profiles. All features stay
   available regardless of license state. **Settings → System → License** includes

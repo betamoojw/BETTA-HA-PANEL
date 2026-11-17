@@ -40,7 +40,7 @@ body[data-ui-style="glass"] #canvas {
     linear-gradient(to bottom, var(--grid) 1px, transparent 1px),
     linear-gradient(180deg, color-mix(in srgb, var(--pv-accent) 14%, var(--pv-page)),
       color-mix(in srgb, #000000 22%, var(--pv-page)));
-  background-size: 20px 20px, 20px 20px, 100% 100%;
+  background-size: 10px 10px, 10px 10px, 100% 100%;
 }
 body[data-ui-style="glass"] #canvas .widget-box {
   border-radius: 20px;

@@ -316,6 +316,38 @@ test('a complete pointer drag is one undo step, including cancellation', () => {
   assert.equal(run('selectedWidget().rect.x'), 100);
 });
 
+for (const mode of ['drag', 'resize']) for (const scale of [1, 0.5]) {
+  test(`${mode} snaps to 2 logical pixels at scale ${scale} and survives save/reload`, async () => {
+    const run = setup();
+    const original = JSON.parse(run('JSON.stringify(selectedWidget().rect)'));
+    run(`globalThis.box = makeNode('box'); globalThis.handle = makeNode('handle');
+      box.querySelector = () => handle; selectWidgetLive = () => {};
+      editor.canvasScale = ${scale}; attachDragAndResize(box, selectedWidget());
+      globalThis.target = ${mode === 'drag' ? 'box' : 'handle'};
+      target.dispatch('pointerdown',{button:0,pointerId:1,clientX:20,clientY:20});
+      target.dispatch('pointermove',{pointerId:1,clientX:${20 + 13 * scale},clientY:${20 + 7 * scale}});
+      target.dispatch('pointerup',{pointerId:1});`);
+    const expected = mode === 'drag'
+      ? { ...original, x: 34, y: 28 }
+      : { ...original, w: 434, h: 268 };
+    assert.deepEqual(JSON.parse(run('JSON.stringify(selectedWidget().rect)')), expected);
+    assert.equal(run('layoutHistory.cursor'), 1);
+    run('nodes.layoutUndoBtn.click()');
+    assert.deepEqual(JSON.parse(run('JSON.stringify(selectedWidget().rect)')), original);
+    run('nodes.layoutRedoBtn.click()');
+    await run('saveLayout()');
+    assert.equal(await run('loadLayout()'), true);
+    assert.deepEqual(state(run).pages[0].widgets[0].rect, expected);
+  });
+}
+
+test('canvas grid lines stay 10 pixels apart in base and Glass styles', () => {
+  const base = readFileSync(new URL('../../components/webui/www/styles.css', import.meta.url), 'utf8');
+  const glass = readFileSync(new URL('../../components/webui/www/css/style-glass.css', import.meta.url), 'utf8');
+  assert.match(base, /\.canvas\s*\{[^}]*background-size:\s*10px 10px;/);
+  assert.match(glass, /body\[data-ui-style="glass"\] #canvas\s*\{[^}]*background-size:\s*10px 10px, 10px 10px, 100% 100%;/);
+});
+
 for (const mode of ['copy','move']) test(`${mode} menu and target confirmation preserve all bindings through save/reload and undo`, async () => {
   const run = setup();
   run(`globalThis.original = JSON.stringify(selectedWidget()); globalThis.anchor = makeNode('anchor');

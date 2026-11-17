@@ -125,9 +125,9 @@ test("tile previews escape titles, entity ids and states", () => {
 test("a new widget goes to a free spot, or cascades when the page is full", () => {
   const { fn, run } = loadEditor({ width: 720, height: 600 });
   const spot = fn("findFreeSpot")({ widgets: [{ rect: { x: 10, y: 10, w: 200, h: 200 } }] }, 200, 200);
-  assert.deepEqual(plain(spot), { x: 210, y: 10 }, "right next to the existing tile");
+  assert.deepEqual(plain(spot), { x: 210, y: 2 }, "right next to the existing tile");
   const full = { widgets: [{ rect: { x: 0, y: 0, w: 720, h: 600 } }] };
-  assert.deepEqual(plain(fn("findFreeSpot")(full, 200, 200)), { x: 30, y: 30 });
+  assert.deepEqual(plain(fn("findFreeSpot")(full, 200, 200)), { x: 22, y: 22 });
   run(`CANVAS_WIDTH = 720; CANVAS_HEIGHT = 600;`);
   const layout = { pages: [{ widgets: [{ rect: { x: 600, y: 0, w: 200, h: 100 } }, { rect: { x: 0, y: 0, w: 100, h: 100 } }] },
     { type: "energy_dashboard", widgets: [{ rect: { x: 9999, y: 0, w: 1, h: 1 } }] }] };
@@ -300,7 +300,7 @@ test("a duplicated widget lands on the same page next to the original with a new
   assert.equal(copy.style_variant, "horizontal");
   assert.equal(copy.gauge_segment_count, 20);
   // Right of the original is taken by the blocker, so the copy goes below it.
-  assert.deepEqual(copy.rect, { x: 10, y: 120, w: 200, h: 100 });
+  assert.deepEqual(copy.rect, { x: 10, y: 112, w: 200, h: 100 });
   const ids = first.widgets.map((w) => w.id);
   assert.equal(new Set(ids).size, ids.length);
 });

@@ -7,7 +7,7 @@
  * Part of the web editor: classic scripts loaded in the order of index.html, sharing one global scope
  * (see docs/editor-source.md).
  */
-const GRID = 10;
+const GRID = 2;
 // The largest layout the panel stores (APP_LAYOUT_MAX_JSON_LEN in main/app_config.h): the default, replaced by
 // /api/version's layout_max_bytes in applyCanvasGeometry() (the same 32 KB on every board).
 let MAX_LAYOUT_BYTES = 32768;

@@ -38,6 +38,10 @@ On desktop, the two lists scroll independently so the preview and actions stay i
 3. Drag it into place and resize it. Select it to edit its entity, title and options.
 4. **Save** to apply the layout to the panel.
 
+Dragging and resizing snap to 2 logical pixels; preview grid lines are 10 logical pixels apart.
+Arrow keys move a selected widget by 2 logical pixels, or 1 with Shift held.
+Widget size limits and canvas edges take priority over snapping.
+
 Entity searches explain when the panel is busy, short of memory or waiting for
 Home Assistant. A stalled search stops with a reason and a **Retry** button.
 Retry keeps the search text and existing widgets; closing the picker cancels the search.

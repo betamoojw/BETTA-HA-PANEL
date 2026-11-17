@@ -69,8 +69,9 @@ The public command prints `CONFIG_APP_LICENSE_PUBLIC_KEY_HEX="..."`, a 130-chara
 uncompressed SEC1 P-256 key starting with `04`. Add this public value to private
 build defaults or configure it through menuconfig using the variant wrapper.
 Reconfigure and build the intended variants. The Kconfig default is empty. This
-fork's Panel10 defaults pin the owner's issuer public key; other stock profiles
-remain unconfigured. No private signing key or trusted test issuer is included.
+fork's stock build defaults pin the owner's issuer public key through the common
+ESP32-P4 defaults and the standalone Panel S3 defaults. No private signing key
+or trusted test issuer is included.
 Existing build directories retain saved sdkconfig values over defaults: update
 the public key through the variant's menuconfig, or regenerate sdkconfig after
 preserving any local overrides. Check the effective key before packaging.

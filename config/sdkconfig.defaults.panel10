@@ -10,9 +10,6 @@
 # CONFIG_APP_PANEL_VARIANT_4INCH_720 is not set
 CONFIG_APP_PANEL_VARIANT_10INCH_1280=y
 
-# Owner's license issuer public key; keep the private key outside the repository.
-CONFIG_APP_LICENSE_PUBLIC_KEY_HEX="043c090cdf703dc3608dc9e632b66c540b2a5b2fecfb374bf8c54f80ea167b468086adb484c058822312643a6f075567af08ff9e58dad6f4ff7c13820ac5709bc4"
-
 # LCD-X Rev3.x hardware (COM24 validation unit: ESP32-P4 v3.2).
 # CONFIG_ESP32P4_SELECTS_REV_LESS_V3 is not set
 CONFIG_ESP32P4_REV_MIN_300=y

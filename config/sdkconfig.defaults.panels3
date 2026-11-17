@@ -2,6 +2,10 @@
 # Copyright (c) 2026 Cpt_Kirk
 # Modified 2026 by andre68723 in the andre68723/BETTA-HA-PANEL fork
 # Core behavior defaults for development
+
+# Owner's license issuer public key; keep the private key outside the repository.
+CONFIG_APP_LICENSE_PUBLIC_KEY_HEX="043c090cdf703dc3608dc9e632b66c540b2a5b2fecfb374bf8c54f80ea167b468086adb484c058822312643a6f075567af08ff9e58dad6f4ff7c13820ac5709bc4"
+
 CONFIG_LOG_DEFAULT_LEVEL_INFO=y
 # Wall-clock time (HH:MM:SS.sss) instead of milliseconds-since-boot: the device has real time from
 # SNTP (main/net/time_sync.c), so this is readable right away instead of needing to add the boot

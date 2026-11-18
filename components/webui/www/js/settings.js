@@ -251,14 +251,6 @@ function rememberEditorLocation() {
   } catch (_) {}
 }
 
-function restoreEditorLocation() {
-  let saved;
-  try { saved = JSON.parse(window.sessionStorage.getItem("betta-editor-location")); } catch (_) {}
-  editor.activeSettingsSection = activeSettingsNavItem(saved?.section || "settingsDeviceSection").sectionId;
-  editor.workspaceNavigationReady = true;
-  setActivePane(saved?.pane === "settings" ? "settings" : "layout");
-}
-
 function setActiveSettingsSection(sectionId) {
   setupSettingsWorkspace();
   const item = activeSettingsNavItem(sectionId);
@@ -297,6 +289,15 @@ function setActiveSettingsSection(sectionId) {
 
 function setActivePane(pane) {
   setupSettingsWorkspace();
+  if (!editor.workspaceNavigationReady) {
+    // Restore the section once. An explicit tab click takes precedence over the
+    // remembered pane. Reloading a previously open mirror requires a fresh click.
+    let saved;
+    try { saved = JSON.parse(window.sessionStorage.getItem("betta-editor-location")); } catch (_) {}
+    editor.activeSettingsSection = activeSettingsNavItem(saved?.section || "settingsDeviceSection").sectionId;
+    pane ??= saved?.pane === "settings" ? "settings" : "layout";
+    editor.workspaceNavigationReady = true;
+  }
   editor.activePane = pane === "remote" ? "remote" : pane === "settings" ? "settings" : "layout";
   const showLayout = editor.activePane === "layout";
   const showSettings = editor.activePane === "settings";

@@ -20,13 +20,13 @@
 #include "api/http_guard.h"
 #include "api/http_user_auth.h"
 
-#define TILE 32U
+#define TILE UI_REMOTE_TILE_SIZE
 #define PACKET_BYTES 16384U
 #define MAX_TILES 1600U
 #define MAGIC 0x31524442U /* BDR1 */
 typedef struct {
-    uint8_t *baseline, *packet;
-    const uint8_t *capture;
+    uint8_t *packet;
+    const ui_remote_frame_t *capture;
     uint16_t width, height, *tiles, count, cursor;
     uint32_t epoch, sequence, base, input_sequence;
     bool baseline_valid, in_frame, ended;
@@ -62,11 +62,20 @@ static esp_err_t error(httpd_req_t *req, const char *status, const char *message
     return httpd_resp_sendstr(req, message);
 }
 
+static unsigned tile_count(uint16_t width, uint16_t height)
+{
+    return ((width + TILE - 1) / TILE) * ((height + TILE - 1) / TILE);
+}
+
 static esp_err_t token_handler(httpd_req_t *req)
 {
     if (!same_origin(req)) return error(req, "403 Forbidden", "Same-origin access required");
     if (!ui_remote_display_available()) return error(req, "503 Service Unavailable", "Live display not ready or paused for OTA");
     if (s_session) return error(req, "409 Conflict", "Live display already connected");
+    uint16_t width, height;
+    if (!ui_remote_display_geometry(&width, &height)) return error(req, "503 Service Unavailable", "Display geometry unavailable");
+    if (!ui_remote_display_memory_fits(width, height, PACKET_BYTES, tile_count(width, height) * sizeof(uint16_t)))
+        return error(req, "503 Service Unavailable", "Insufficient PSRAM for live display");
     uint8_t bytes[16];
     esp_fill_random(bytes, sizeof(bytes));
     for (unsigned i = 0; i < sizeof(bytes); ++i) snprintf(s_token + i * 2, 3, "%02x", bytes[i]);
@@ -87,7 +96,6 @@ static void session_free(void *ctx)
         ui_remote_display_close();
         s_session = NULL;
     }
-    heap_caps_free(s->baseline);
     heap_caps_free(s->packet);
     heap_caps_free(s->tiles);
     free(s);
@@ -117,21 +125,19 @@ static esp_err_t pre_handshake(httpd_req_t *req)
         error(req, "503 Service Unavailable", "Display geometry unavailable");
         return ESP_FAIL;
     }
-    size_t bytes = (size_t)s->width * s->height * 2U;
-    unsigned tiles = ((s->width + TILE - 1) / TILE) * ((s->height + TILE - 1) / TILE);
+    unsigned tiles = tile_count(s->width, s->height);
     if (tiles > MAX_TILES) { session_free(s); return ESP_FAIL; }
-    if (heap_caps_get_free_size(MALLOC_CAP_SPIRAM) > bytes * 2 + PACKET_BYTES + 512 * 1024U)
-        s->baseline = heap_caps_malloc(bytes, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (!ui_remote_display_memory_fits(s->width, s->height, PACKET_BYTES, tiles * sizeof(*s->tiles))) {
+        session_free(s);
+        error(req, "503 Service Unavailable", "Insufficient PSRAM for live display");
+        return ESP_FAIL;
+    }
     s->packet = heap_caps_malloc(PACKET_BYTES, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     s->tiles = heap_caps_malloc(tiles * sizeof(*s->tiles), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-    if (!s->baseline || !s->packet || !s->tiles || ui_remote_display_open() != ESP_OK) {
+    if (!s->packet || !s->tiles || ui_remote_display_open(s->width, s->height) != ESP_OK) {
         session_free(s);
         error(req, "503 Service Unavailable", "Live display not ready, suspended, or insufficient memory");
         return ESP_FAIL;
-    }
-    uint16_t width, height;
-    if (!ui_remote_display_geometry(&width, &height) || width != s->width || height != s->height) {
-        ui_remote_display_close(); session_free(s); return ESP_FAIL;
     }
     s->epoch = esp_random();
     s_session = s;
@@ -176,17 +182,9 @@ static esp_err_t begin_frame(httpd_req_t *req, session_t *s)
     }
     if (width != s->width || height != s->height) return ESP_FAIL;
     s->count = s->cursor = 0;
-    unsigned tiles = ((s->width + TILE - 1) / TILE) * ((s->height + TILE - 1) / TILE);
-    for (unsigned i = 0; i < tiles; ++i) {
-        unsigned x, y, w, h;
-        tile_area(s, i, &x, &y, &w, &h);
-        bool changed = !s->baseline_valid;
-        for (unsigned row = 0; !changed && row < h; ++row) {
-            size_t offset = ((y + row) * s->width + x) * 2;
-            changed = memcmp(s->baseline + offset, s->capture + offset, w * 2) != 0;
-        }
-        if (changed) s->tiles[s->count++] = i;
-    }
+    unsigned tiles = tile_count(s->width, s->height);
+    for (unsigned i = 0; i < tiles; ++i)
+        if (ui_remote_frame_tile_changed(s->capture, i)) s->tiles[s->count++] = i;
     if (!s->count) {
         ui_remote_display_ack();
         return text_frame(req, "{\"type\":\"idle\"}");
@@ -221,7 +219,7 @@ static esp_err_t next_batch(httpd_req_t *req, session_t *s)
         u32(p + 8, s->epoch); u32(p + 12, s->sequence); u16(p + 16, s->cursor);
         u16(p + 18, x); u16(p + 20, y); u16(p + 22, w); u16(p + 24, h); u32(p + 26, bytes);
         for (unsigned row = 0; row < h; ++row)
-            memcpy(p + 30 + row * w * 2, s->capture + ((y + row) * s->width + x) * 2, w * 2);
+            memcpy(p + 30 + row * w * 2, ui_remote_frame_row(s->capture, y + row) + x * 2, w * 2);
         used += 30 + bytes;
         ++s->cursor;
     }
@@ -275,15 +273,6 @@ static esp_err_t ws_handler(httpd_req_t *req)
     else if (!strcmp(type->valuestring, "ack")) {
         uint32_t seq;
         if (!s->ended || !integer(json, "seq", UINT32_MAX, &seq) || seq != s->sequence) goto done;
-        /* Only acknowledged changes advance the baseline; avoid a full copy for a tiny update. */
-        for (unsigned i = 0; i < s->count; ++i) {
-            unsigned x, y, w, h;
-            tile_area(s, s->tiles[i], &x, &y, &w, &h);
-            for (unsigned row = 0; row < h; ++row) {
-                size_t offset = ((y + row) * s->width + x) * 2;
-                memcpy(s->baseline + offset, s->capture + offset, w * 2);
-            }
-        }
         s->baseline_valid = true; s->base = seq; s->in_frame = s->ended = false;
         ui_remote_display_ack();
         result = ESP_OK;

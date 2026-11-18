@@ -332,6 +332,7 @@ void app_main(void)
     ESP_ERROR_CHECK(theme_store_init());
     esp_err_t chip_temp_err = chip_temperature_init();
     if (chip_temp_err != ESP_OK) ESP_LOGW(TAG_APP, "Chip temperature unavailable: %s", esp_err_to_name(chip_temp_err));
+    if (boot_screen_mode == BOOT_SCREEN_DASHBOARD) ui_remote_display_prepare_dashboard();
     ESP_ERROR_CHECK(http_server_start());
     if (wifi_ready) {
         esp_err_t update_err =
@@ -358,6 +359,9 @@ void app_main(void)
             ESP_LOGW(TAG_TOUCH, "Touch init failed, continuing without touch input: %s", esp_err_to_name(touch_err));
         }
 
+        esp_err_t remote_err = ui_remote_display_init();
+        if (remote_err != ESP_OK && remote_err != ESP_ERR_NOT_SUPPORTED)
+            ESP_LOGW(TAG_DISPLAY, "Live display initialization deferred: %s", esp_err_to_name(remote_err));
         ui_boot_splash_set_status(ui_i18n_get("boot.loading_dashboard", "Loading dashboard"));
         ESP_ERROR_CHECK(ui_runtime_init());
         esp_err_t reload_err = ui_runtime_reload_layout();
@@ -368,9 +372,6 @@ void app_main(void)
         }
         ESP_ERROR_CHECK(ui_runtime_start());
         ui_boot_splash_hide();
-        esp_err_t remote_err = ui_remote_display_init();
-        if (remote_err != ESP_OK && remote_err != ESP_ERR_NOT_SUPPORTED)
-            ESP_LOGW(TAG_DISPLAY, "Live display unavailable: %s", esp_err_to_name(remote_err));
         ESP_ERROR_CHECK(display_orientation_start());
 
         ha_client_config_t ha_cfg = {

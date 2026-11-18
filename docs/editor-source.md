@@ -83,18 +83,23 @@ Its Live Display pane decodes acknowledged RGB565 tile frames independently of
 the layout preview. The common `ui/ui_remote_display.c` observes LVGL flush
 events without replacing the adapter callback: partial, direct and full refresh
 are assembled in logical coordinates before driver rotation or byte swapping.
-Capture buffers and the transport baseline are allocated in PSRAM only for a
-connected viewer. A complete captured frame stays immutable until acknowledgement.
+The connected viewer owns one RGB565 mirror in eight-row PSRAM bands. As LVGL
+flushes each row, the mirror compares the pixels with their acknowledged values
+and marks changed 32 × 32 tiles before copying. A complete captured frame stays
+immutable until acknowledgement. The transport sends those tiles directly from
+the bands in batches of up to 16 KiB.
 The first capture redraws the complete screen. Later captures redraw only the
 union of regions changed while the previous frame was in flight; unchanged
-pixels remain in the capture buffer. This avoids turning small updates into
-repeated full-screen rendering on the RGB panel.
+pixels remain in the capture buffer. A frame becomes ready after the flushes
+cover every requested row. A busy capture retries on the same connection.
 
 `POST /api/display/remote/session` uses the normal HTTP guard and exact Origin
 check; it returns a single-use, 30-second token for the WebSocket at
 `/api/display/remote`. One viewer receives bounded 16 KiB batches with epoch,
 sequence and tile validation. Remote input uses its own LVGL pointer device,
 explicit control opt-in, a one-second heartbeat lease and physical-touch priority.
+Heartbeats check or renew the lease independently of the display lock. The input
+reader discards queued gestures after control expires or the browser revokes it.
 OTA suspension cancels input; a geometry change forces a fresh connection.
 Disable `CONFIG_APP_REMOTE_DISPLAY` to omit the routes and hide the pane.
 

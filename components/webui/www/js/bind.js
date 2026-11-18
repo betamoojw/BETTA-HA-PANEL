@@ -786,11 +786,11 @@ async function startEditor() {
   if (editor.editorStarted) return;
   editor.editorStarted = true;
   setProvisioningVisible(false);
-  setActivePane("layout");
+  // The tabs already accept clicks while the bootstrap settings request is pending.
+  if (!editor.workspaceNavigationReady) setActivePane();
   await Promise.all([loadLayout(), loadEntities(), refreshStates()]);
   await loadEnergyPreview();
   if (userIsAdmin()) await loadHaDiagnostics();
-  restoreEditorLocation();
   /* Poll diagnostics again shortly after startup so the banner appears automatically
    * once the ha_client watchdog has classified the missing entities (typically ~5-8 s
    * after WebSocket auth). Further refreshes are less frequent. */

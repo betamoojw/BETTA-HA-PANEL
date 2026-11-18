@@ -229,3 +229,40 @@ confirmations and flash verification are in ignored
 remains `.local/firmware/panels3-auth-png-memory-2026-11-17/`; the layout also
 has an ignored `.claude/layout-backups/` copy. Credentials and cookies were
 kept in memory and not included in the evidence or documentation.
+
+## Live Display follow-up
+
+On 2026-11-18 a read-only version request to the same Guition at uptime 700 s
+identified the 21:35:11 image, a 480 × 480 screen, normal boot mode and
+`remote_display: false`. Free PSRAM was 1,370,392 bytes. The COM18 boot log
+above records the one-second lock timeout during the only mirror initialization
+attempt. The editor used runtime readiness to decide whether to show the tab.
+
+Even with the mirror initialized, the old connection check required more than
+1,462,272 bytes of free PSRAM for two 460,800-byte frames, a 16 KiB packet and
+a 512 KiB reserve. Both the November 18 sample and the 954,552-byte November 17
+sample fell below that threshold. This memory check is a separate barrier
+identified in the source. The installed panel reported failure before a viewer
+session reached that check.
+
+The fix separates board support from readiness, retries mirror initialization
+after a busy startup and keeps one full-resolution RGB565 frame in eight-row
+bands. On Guition a band is 7,680 bytes. The handshake checks total free PSRAM
+and the largest free block, and frame allocation verifies that at least
+384 KiB remains. The other profiles retain a 512 KiB reserve.
+
+For a 480 × 480 frame the S3 preflight budget is 871,694 bytes, including
+the reserve, 844 bytes of frame metadata, a 450-byte tile list and one 16 KiB
+packet. Allocator overhead and concurrent allocations can still cause a
+refusal. The largest individual request is the packet.
+
+Local LVGL regressions passed all 12 Guition render-mode/rotation cases
+and 48 P4 simulator cases. They cover a busy startup, an incomplete first
+refresh, overlay changes across tile boundaries, input priority, partial
+allocation failure and release on disconnect. All 628 editor tests and six
+S3 configuration tests passed. The ESP-IDF v6.1 application build from
+`5340a748-dirty` is stamped `Nov 18 2026 19:21:36`, size 4,582,960 bytes,
+SHA256 `09e09f25dd2dee2f61c553cdf85180e24535ed9fa0195fee308609781221a579`.
+The panel stayed on the November 17 image during these local tests.
+The [subsequent COM18 trial](panels3-live-display-validation.md) covers the
+November 18 image.

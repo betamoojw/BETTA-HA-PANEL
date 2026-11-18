@@ -44,6 +44,12 @@ Changes since [v0.9.2-rc1](#v092-rc1).
 
 - **Live view cancellation:** closing or timing out during image decode releases the pending browser image and Blob URL immediately.
 
+- **Live Display:** the Guition 480 × 480 dashboard can recover from a busy
+  display at startup. The mirror keeps one RGB565 frame in small PSRAM bands
+  and sends changed tiles. The editor reports when memory is low or another
+  viewer is connected. Selecting **Live Display** during editor startup keeps
+  the mirror open while the dashboard loads. See the [Guition mirror record](hardware/panels3.md#browser-mirror-validation).
+
 - **Editor, Live view and Preview:** an editor opened from a panel gains **Live view** after **Panel follows**, a snapshot of the screen
   with popups (Refresh, Download as JPEG or PNG). In the local editor the same toolbar button, **Preview**, renders the selected page in the
   simulator, including unsaved changes.

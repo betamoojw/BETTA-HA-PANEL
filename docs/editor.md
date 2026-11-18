@@ -7,10 +7,14 @@ edits its saved layout and settings. First-time Wi-Fi and Home Assistant setup a
 
 ## Live Display
 
-Open **Live Display** to view the panel's current screen, including popups and
-notifications. It connects automatically; **Disconnect** stops the mirror.
+Select **Live Display** as soon as its tab appears to view the panel's screen,
+including popups and notifications. It connects while the dashboard loads.
+**Disconnect** stops the mirror. Select **Connect** to start a fresh session.
 **Actual size** shows one screen pixel per browser pixel, and **Download PNG**
 saves the last complete frame. Only one browser viewer can connect at a time.
+If the pane reports that a viewer is already connected, disconnect that viewer.
+If the panel reports low memory, finish any active capture and select **Connect**
+to try again. A temporary startup or firmware-update delay retries automatically.
 
 Viewing is read-only and does not wake the backlight. Select **Enable control**
 to tap, drag or hold controls just as on the panel; these actions can also

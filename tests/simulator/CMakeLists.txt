@@ -280,8 +280,9 @@ target_link_libraries(betta-widget-sim PRIVATE lvgl SDL2::SDL2 sim_cjson m)
 
 add_executable(betta-remote-test remote_display_regression.c sim_clock.c
     "${REPO_ROOT}/main/ui/ui_remote_display.c")
-target_include_directories(betta-remote-test PRIVATE "${REPO_ROOT}/main" "${CMAKE_CURRENT_LIST_DIR}/stubs")
-target_compile_definitions(betta-remote-test PRIVATE CONFIG_APP_REMOTE_DISPLAY=1)
+target_include_directories(betta-remote-test PRIVATE "${CMAKE_CURRENT_LIST_DIR}/remote_stubs"
+    "${REPO_ROOT}/main" "${CMAKE_CURRENT_LIST_DIR}/stubs")
+target_compile_definitions(betta-remote-test PRIVATE CONFIG_APP_REMOTE_DISPLAY=1 ${SIM_VARIANT_DEFINE})
 target_compile_options(betta-remote-test PRIVATE -Wall -Wextra -Werror -Wno-unused-parameter -UNDEBUG)
 target_link_libraries(betta-remote-test PRIVATE lvgl SDL2::SDL2 m)
 enable_testing()

@@ -77,13 +77,13 @@
 
   // Kept with the independent live-view module; all editor languages have labels.
   const labels = {
-    en: ["Live Display", "Connect", "Disconnect", "Enable control", "Download PNG", "Actual size", "Disconnected", "Connecting…", "Viewing", "Remote control", "Unavailable or busy", "Local touch has priority. Viewing does not wake the display.", "Waiting for display…"],
-    pl: ["Ekran na żywo", "Połącz", "Rozłącz", "Włącz sterowanie", "Pobierz PNG", "Rozmiar rzeczywisty", "Rozłączono", "Łączenie…", "Podgląd", "Sterowanie zdalne", "Niedostępny lub zajęty", "Dotyk lokalny ma pierwszeństwo. Podgląd nie wybudza ekranu.", "Oczekiwanie na ekran…"],
-    de: ["Live-Anzeige", "Verbinden", "Trennen", "Steuerung aktivieren", "PNG herunterladen", "Originalgröße", "Getrennt", "Verbinden…", "Ansicht", "Fernsteuerung", "Nicht verfügbar oder belegt", "Lokale Berührung hat Vorrang. Die Ansicht weckt das Display nicht.", "Warten auf Anzeige…"],
-    es: ["Pantalla en vivo", "Conectar", "Desconectar", "Activar control", "Descargar PNG", "Tamaño real", "Desconectado", "Conectando…", "Vista", "Control remoto", "No disponible u ocupado", "El toque local tiene prioridad. La vista no activa la pantalla.", "Esperando pantalla…"],
-    fr: ["Écran en direct", "Connecter", "Déconnecter", "Activer le contrôle", "Télécharger PNG", "Taille réelle", "Déconnecté", "Connexion…", "Affichage", "Contrôle à distance", "Indisponible ou occupé", "Le toucher local est prioritaire. La vue ne réveille pas l’écran.", "En attente de l’écran…"],
-    "zh-cn": ["实时屏幕", "连接", "断开", "启用控制", "下载 PNG", "实际大小", "已断开", "正在连接…", "查看中", "远程控制", "不可用或忙碌", "本地触摸优先。仅查看不会唤醒屏幕。", "等待屏幕…"],
-    "zh-tw": ["即時螢幕", "連線", "中斷連線", "啟用控制", "下載 PNG", "實際大小", "已中斷", "正在連線…", "檢視中", "遠端控制", "無法使用或忙碌", "本機觸控優先。僅檢視不會喚醒螢幕。", "等待螢幕…"],
+    en: ["Live Display", "Connect", "Disconnect", "Enable control", "Download PNG", "Actual size", "Disconnected", "Connecting…", "Viewing", "Remote control", "Unavailable or busy", "Local touch has priority. Viewing does not wake the display.", "Waiting for display…", "Panel memory is low. Free memory and reconnect.", "A viewer is already connected. Disconnect it to use Live Display here.", "The display is not ready. The connection will retry automatically."],
+    pl: ["Ekran na żywo", "Połącz", "Rozłącz", "Włącz sterowanie", "Pobierz PNG", "Rozmiar rzeczywisty", "Rozłączono", "Łączenie…", "Podgląd", "Sterowanie zdalne", "Niedostępny lub zajęty", "Dotyk lokalny ma pierwszeństwo. Podgląd nie wybudza ekranu.", "Oczekiwanie na ekran…", "Za mało pamięci panelu. Zwolnij pamięć i połącz się ponownie.", "Inny podgląd jest już połączony. Najpierw go rozłącz.", "Ekran nie jest jeszcze gotowy. Próba połączenia zostanie ponowiona."],
+    de: ["Live-Anzeige", "Verbinden", "Trennen", "Steuerung aktivieren", "PNG herunterladen", "Originalgröße", "Getrennt", "Verbinden…", "Ansicht", "Fernsteuerung", "Nicht verfügbar oder belegt", "Lokale Berührung hat Vorrang. Die Ansicht weckt das Display nicht.", "Warten auf Anzeige…", "Zu wenig Speicher im Panel. Speicher freigeben und erneut verbinden.", "Eine Ansicht ist bereits verbunden. Diese zuerst trennen.", "Die Anzeige ist noch nicht bereit. Der Verbindungsversuch wird wiederholt."],
+    es: ["Pantalla en vivo", "Conectar", "Desconectar", "Activar control", "Descargar PNG", "Tamaño real", "Desconectado", "Conectando…", "Vista", "Control remoto", "No disponible u ocupado", "El toque local tiene prioridad. La vista no activa la pantalla.", "Esperando pantalla…", "El panel tiene poca memoria. Libera memoria y vuelve a conectar.", "Ya hay una pantalla conectada. Desconéctala primero.", "La pantalla aún no está lista. Se reintentará la conexión."],
+    fr: ["Écran en direct", "Connecter", "Déconnecter", "Activer le contrôle", "Télécharger PNG", "Taille réelle", "Déconnecté", "Connexion…", "Affichage", "Contrôle à distance", "Indisponible ou occupé", "Le toucher local est prioritaire. La vue ne réveille pas l’écran.", "En attente de l’écran…", "La mémoire du panneau est insuffisante. Libérez de la mémoire et reconnectez-vous.", "Un autre affichage est déjà connecté. Déconnectez-le d’abord.", "L’écran n’est pas encore prêt. La connexion sera retentée."],
+    "zh-cn": ["实时屏幕", "连接", "断开", "启用控制", "下载 PNG", "实际大小", "已断开", "正在连接…", "查看中", "远程控制", "不可用或忙碌", "本地触摸优先。仅查看不会唤醒屏幕。", "等待屏幕…", "面板可用内存不足。请释放内存后重新连接。", "已有其他实时屏幕连接。请先断开该连接。", "屏幕尚未就绪，稍后将自动重试。"],
+    "zh-tw": ["即時螢幕", "連線", "中斷連線", "啟用控制", "下載 PNG", "實際大小", "已中斷", "正在連線…", "檢視中", "遠端控制", "無法使用或忙碌", "本機觸控優先。僅檢視不會喚醒螢幕。", "等待螢幕…", "面板可用記憶體不足。請釋放記憶體後重新連線。", "已有其他即時螢幕連線。請先中斷該連線。", "螢幕尚未就緒，稍後將自動重試。"],
   };
 
   function createController() {
@@ -92,13 +92,16 @@
     let visible = false, wanted = false, socket = null, decoder = null, generation = 0;
     let timer = 0, heartbeat = 0, reconnect = 0, retries = 0, lastReply = 0;
     let controlled = false, pointer = null, inputSequence = 0, lastMove = 0, hasFrame = false;
-    let statusIndex = 6;
-    const words = () => typeof t === "function" ? ["remote.title", "remote.connect", "remote.disconnect", "remote.control", "remote.download", "remote.actual", "remote.disconnected", "remote.connecting", "remote.viewing", "remote.controlling", "remote.unavailable", "remote.hint", "remote.waiting"].map(key => t(key)) : labels[document.documentElement.lang.toLowerCase()] || labels.en;
-    function status(index) { statusIndex = index; el("remoteStatus").textContent = words()[index]; }
+    let statusIndex = 6, statusCode = 0;
+    const words = () => typeof t === "function" ? ["remote.title", "remote.connect", "remote.disconnect", "remote.control", "remote.download", "remote.actual", "remote.disconnected", "remote.connecting", "remote.viewing", "remote.controlling", "remote.unavailable", "remote.hint", "remote.waiting", "remote.low_memory", "remote.occupied", "remote.not_ready"].map(key => t(key)) : labels[document.documentElement.lang.toLowerCase()] || labels.en;
+    function status(index, code = 0) {
+      statusIndex = index; statusCode = code;
+      el("remoteStatus").textContent = words()[index] + (code ? ` (HTTP ${code})` : "");
+    }
     function localize() {
       const w = words();
       ["remoteTabBtn", "remoteConnect", "remoteDisconnect", "remoteControlLabel", "remoteScreenshot", "remoteActualLabel"].forEach((id, i) => { el(id).textContent = w[i]; });
-      el("remoteHint").textContent = w[11]; status(statusIndex);
+      el("remoteHint").textContent = w[11]; status(statusIndex, statusCode);
       if (visible) el("canvasTitle").textContent = w[0];
     }
     function send(type, fields = {}) {
@@ -129,8 +132,8 @@
       clearTimeout(timer);
       timer = setTimeout(() => { if (!send("frame")) fail(); }, delay);
     }
-    function fail() {
-      teardown(); status(10);
+    function fail(index = 10, code = 0) {
+      teardown(); status(index, code);
       if (visible && wanted && !document.hidden)
         reconnect = setTimeout(connect, Math.min(10000, 500 * 2 ** Math.min(retries++, 5)));
     }
@@ -143,9 +146,18 @@
         const response = await fetch("/api/display/remote/session", {method: "POST", cache: "no-store", headers: {"Content-Type": "application/json"}, body: "{}"});
         if (current !== generation) return;
         if (!response.ok) {
-          // Missing build-time feature or provisioning state: let the user retry explicitly.
-          if (response.status === 404 || response.status === 501) wanted = false;
-          throw new Error("Display unavailable");
+          const code = response.status;
+          let index = 10;
+          if (code === 409) index = 14;
+          if (code === 503) {
+            const detail = (await response.text()).trim();
+            if (current !== generation) return;
+            if (detail === "Insufficient PSRAM for live display") index = 13;
+            else if (detail === "Live display not ready or paused for OTA") index = 15;
+          }
+          if (index === 13 || [401, 403, 404, 501].includes(code)) wanted = false;
+          fail(index, code);
+          return;
         }
         const session = await response.json();
         if (current !== generation) return;

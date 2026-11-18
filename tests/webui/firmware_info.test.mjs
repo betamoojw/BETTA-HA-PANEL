@@ -4,6 +4,25 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { loadEditor } from "./load_editor.mjs";
 
+test("Live Display stays reachable while the panel is busy and respects older capability reports", async () => {
+  const {run} = loadEditor();
+  run(`
+    var tabState = {}, tab = {classList: {toggle(name, value) { tabState[name] = value; }}};
+    document.getElementById = id => id === "remoteTabBtn" ? tab : null;
+    document.querySelector = selector => selector === ".mode-tabs" ? tab : null;
+    loadOtaStatus = async () => {};
+  `);
+  for (const [version, visible] of [
+    [{remote_display_supported: true, remote_display: false}, true],
+    [{remote_display_supported: false, remote_display: true}, false],
+    [{remote_display: true}, true], [{remote_display: false}, false], [{}, false],
+  ]) {
+    await run(`apiGet = async () => (${JSON.stringify(version)}); loadAppVersion();`);
+    assert.equal(run("tabState.hidden"), !visible);
+    assert.equal(run("tabState['has-remote']"), visible);
+  }
+});
+
 function rows(components) {
   const editor = loadEditor();
   editor.run(`

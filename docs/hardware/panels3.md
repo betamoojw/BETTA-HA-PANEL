@@ -117,6 +117,7 @@ original layout remained unchanged. The diagnostics remain preserved locally.
 
 ### Browser mirror validation
 
+Live Display supports this board. See the [November 18 diagnosis](../development/panels3-auth-png-validation.md#live-display-follow-up) for the startup and memory fixes.
 On 2026-10-19, the mirror implementation based on `54f70265` passed 268 editor
 checks and 48 real-LVGL capture/input cases covering four geometries, three
 render modes and four rotations. Only the S3 firmware was built and flashed.

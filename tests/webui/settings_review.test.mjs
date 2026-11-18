@@ -4,30 +4,11 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { loadEditor } from "./load_editor.mjs";
+import { boundEditor } from "./bound_editor.mjs";
 
 function setupBindings() {
-  const { run } = loadEditor();
+  const run = boundEditor();
   run(`
-    globalThis.realHardwareBinder = bindHardwareLive;
-    for (const name of ["setupSettingsWorkspace", "applySectionCollapseState", "initSimpleUiMenus",
-      "bindAddTileDialog", "bindUpdateCheck", "bindCrashBanner", "bindInspectorHints",
-      "refreshBrightnessNow", "refreshCameraBrightnessStatus", "bindHardwareLive", "bindBrightnessTests",
-      "initEditorTheme", "bindSecurityControls", "bindStatusControls", "loadHaDiagnostics"])
-      globalThis[name] = () => {};
-    globalThis.setInterval = () => 0;
-    window.setTimeout = () => 0;
-    globalThis.Event = class { constructor(type) { this.type = type; } };
-    for (const key of Object.keys(el)) {
-      if (Array.isArray(el[key])) continue;
-      const listeners = new Map();
-      el[key] = { value: "", checked: false, style: {}, dataset: {},
-        classList: { toggle() {}, add() {}, remove() {} },
-        addEventListener(name, callback) { listeners.set(name, [...(listeners.get(name) || []), callback]); },
-        dispatchEvent(event) { for (const fn of listeners.get(event.type) || []) fn({ target: this }); },
-        focus() { this.focused = true; } };
-    }
-    document.getElementById = id => el[id] || null;
-    bindUi();
     globalThis.puts = [];
     putSettings = async payload => { puts.push(payload); };
   `);
@@ -84,29 +65,31 @@ test("late crash-time response cannot attach to a different dump", async () => {
 });
 
 test("editor menu persists per tab across bootstrap and safely falls back for invalid storage", () => {
-  const run = setupBindings();
-  run(`globalThis.locationStore = new Map();
-    window.sessionStorage = { getItem: key => locationStore.get(key) || null, setItem: (key, value) => locationStore.set(key, value) };
-    el.actionsPanel.children = [];
-    el.settingsNavButtons = [];
-    el.settingsContentSections = [];
-    renderCanvas = () => {};
-    renderHaDiagnosticsBanner = () => {};
-    restoreEditorLocation();
-    setActivePane('settings');
-    setActiveSettingsSection('settingsHardwareSection');
-    editor.workspaceNavigationReady = false;
-    editor.activeSettingsSection = 'settingsDeviceSection';
-    setActivePane('layout');
-    restoreEditorLocation();`);
+  const store = new Map();
+  const sessionStorage = {getItem: key => store.get(key) || null, setItem: (key, value) => store.set(key, value)};
+  function reload() {
+    const run = boundEditor();
+    run("window").sessionStorage = sessionStorage;
+    run(`el.remoteTabBtn = {textContent: 'Live Display'};
+      el.actionsPanel.children = []; el.settingsNavButtons = []; el.settingsContentSections = [];
+      renderCanvas = () => {}; renderHaDiagnosticsBanner = () => {}; setActivePane();`);
+    return run;
+  }
+  let run = reload();
+  run("setActivePane('settings'); setActiveSettingsSection('settingsHardwareSection')");
+  run = reload();
   assert.equal(run("editor.activePane"), "settings");
   assert.equal(run("editor.activeSettingsSection"), "settingsHardwareSection");
-  run("setActivePane('layout'); restoreEditorLocation()");
+  run("setActivePane('remote')");
+  run = reload();
   assert.equal(run("editor.activePane"), "layout");
-  run("locationStore.set('betta-editor-location', '{'); restoreEditorLocation()");
+  assert.equal(run("editor.activeSettingsSection"), "settingsHardwareSection");
+  store.set('betta-editor-location', '{');
+  run = reload();
   assert.equal(run("editor.activePane"), "layout");
   assert.equal(run("editor.activeSettingsSection"), "settingsDeviceSection");
-  run("window.sessionStorage.getItem = () => { throw new Error('storage blocked'); }; restoreEditorLocation()");
+  sessionStorage.getItem = () => { throw new Error('storage blocked'); };
+  run = reload();
   assert.equal(run("editor.activePane"), "layout");
 });
 

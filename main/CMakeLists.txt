@@ -240,6 +240,7 @@ idf_component_register(
         "api/screenshot_jpeg_join.c"
         "api/api_screenshot_image.c"
         "api/api_remote_display.c"
+        "api/remote_display_send.c"
         "ui/ui_remote_display.c"
         "api/api_ota.c"
         "api/ota_transfer.c"

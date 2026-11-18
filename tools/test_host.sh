@@ -83,6 +83,9 @@ cc -std=c11 -Wall -Wextra -Werror -I main "${cjson_flags[@]}" \
 "$out/test_camera_config"
 cc -std=gnu11 -Wall -Wextra -Werror -I main tests/host/test_http_socket_budget.c -o "$out/test_http_socket_budget"
 "$out/test_http_socket_budget"
+cc -std=gnu11 -Wall -Wextra -Werror -I main -I tests/host/remote_display_stubs -I tests/host/auth_stubs -I tests/host/storage_stubs \
+  tests/host/test_remote_display_send.c main/api/remote_display_send.c -o "$out/test_remote_display_send"
+"$out/test_remote_display_send"
 cc -std=gnu11 -Wall -Wextra -Werror -DXIAOZHI_FONT_TEST -I main tests/host/test_xiaozhi_font_store.c \
   main/xiaozhi/xiaozhi_font_store.c main/util/sha256_soft.c -o "$out/test_xiaozhi_font_store"
 "$out/test_xiaozhi_font_store" "$out/font-resource.ttf"

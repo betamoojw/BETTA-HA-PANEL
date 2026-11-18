@@ -87,14 +87,17 @@ The connected viewer owns one RGB565 mirror in eight-row PSRAM bands. As LVGL
 flushes each row, the mirror compares the pixels with their acknowledged values
 and marks changed 32 × 32 tiles before copying. A complete captured frame stays
 immutable until acknowledgement. The transport sends those tiles directly from
-the bands in batches of up to 16 KiB.
+the bands in batches of up to 16 KiB. Each WebSocket header or payload has one 750 ms
+deadline across all partial writes. The tile cursor advances after the complete batch.
 The first capture redraws the complete screen. Later captures redraw only the
 union of regions changed while the previous frame was in flight; unchanged
 pixels remain in the capture buffer. A frame becomes ready after the flushes
-cover every requested row. A busy capture retries on the same connection.
+cover every requested row. A busy capture retries on the same connection. A frame request
+or transfer with no progress for five seconds reconnects even when heartbeats still arrive.
 
-`POST /api/display/remote/session` uses the normal HTTP guard and exact Origin
-check; it returns a single-use, 30-second token for the WebSocket at
+The editor cancels the pending ticket request on disconnect, navigation or a five-second
+timeout. The HTTP guard and exact Origin check protect `POST /api/display/remote/session`,
+which returns a single-use, 30-second token for the WebSocket at
 `/api/display/remote`. One viewer receives bounded 16 KiB batches with epoch,
 sequence and tile validation. Remote input uses its own LVGL pointer device,
 explicit control opt-in, a one-second heartbeat lease and physical-touch priority.

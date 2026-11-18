@@ -297,3 +297,4 @@ All 12 Guition and 48 P4 host LVGL cases, 635 editor tests and six configuration
 The unflashed ESP-IDF v6.1 `panels3` build is stamped `Nov 18 2026 21:28:25` (4,583,184 bytes).
 Its app SHA256 is `da54a707dc8ae92584729749456e5d343e2c3fdd24580bea5959bf93ee1c91ad`.
 The embedded editor, partition table and SDK configuration match the 20:43:05 image.
+The [COM18 trial of commit 65d051b](panels3-live-display-65d051b-validation.md) covers the subsequent clean-source build.

@@ -109,6 +109,7 @@ nav = [
       { "S3 authentication and PNG memory" = "development/panels3-auth-png-memory.md" },
       { "S3 authentication and PNG validation" = "development/panels3-auth-png-validation.md" },
       { "S3 Live Display validation" = "development/panels3-live-display-validation.md" },
+      { "S3 Live Display on 65d051b" = "development/panels3-live-display-65d051b-validation.md" },
       { "Native settings validation" = "development/native-settings-validation.md" },
       { "User management validation" = "development/user-management.md" },
       { "Device licensing" = "development/licensing.md" },

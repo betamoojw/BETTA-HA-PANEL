@@ -15,13 +15,13 @@ const source = fs.readFileSync(path.join(__dirname, '../../components/webui/www/
 
 function harness(fetchImpl = async () => ({ok: true, json: async () => ({token: 'example'})})) {
   const elements = new Map(), timers = new Map(), windows = {}, documents = {}, sockets = [];
-  let nextTimer = 0, downloads = 0;
+  let nextTimer = 0, downloads = 0, now = 1000, paints = 0;
   function element(id) {
     if (!elements.has(id)) {
       const classes = new Set(), listeners = {}, captured = new Set();
       elements.set(id, {id, listeners, disabled: false, checked: false, style: {setProperty() {}},
         classList: {toggle(k, value) { if (value) classes.add(k); else classes.delete(k); }, contains: k => classes.has(k)},
-        getContext: () => ({putImageData() {}}), getBoundingClientRect: () => ({left: 0, top: 0, width: 480, height: 480}),
+        getContext: () => ({putImageData() { paints++; }}), getBoundingClientRect: () => ({left: 0, top: 0, width: 480, height: 480}),
         addEventListener(k, fn) { listeners[k] = fn; },
         setPointerCapture(k) { captured.add(k); }, hasPointerCapture: k => captured.has(k),
         releasePointerCapture(k) { captured.delete(k); listeners.lostpointercapture?.(); },
@@ -43,8 +43,9 @@ function harness(fetchImpl = async () => ({ok: true, json: async () => ({token: 
   }
   const document = {hidden: false, documentElement: {lang: 'en'}, getElementById: element,
     createElement: () => element('download'), addEventListener(k, fn) { documents[k] = fn; }};
-  const context = {document, fetch: fetchImpl, WebSocket: Socket, ArrayBuffer, DataView, Uint8ClampedArray,
-    location: {protocol: 'http:', host: 'panel.local'}, performance: {now: () => 1000},
+  const context = {document, fetch: fetchImpl, WebSocket: Socket, AbortController, ArrayBuffer, DataView, Uint8ClampedArray,
+    location: {protocol: 'http:', host: 'panel.local'}, performance: {now: () => now},
+    Date: class extends Date { static now() { return now; } },
     ImageData: class {constructor(data) { this.data = data; }}, MutationObserver: class {observe() {}},
     URL: {createObjectURL: () => 'blob:test', revokeObjectURL() {}},
     setTimeout(fn, ms) { timers.set(++nextTimer, {fn, ms}); return nextTimer; }, clearTimeout(id) { timers.delete(id); },
@@ -53,7 +54,8 @@ function harness(fetchImpl = async () => ({ok: true, json: async () => ({token: 
   };
   context.window = context;
   vm.runInNewContext(source, context);
-  return {context, element, sockets, timers, windows, documents, downloads: () => downloads};
+  return {context, element, sockets, timers, windows, documents, downloads: () => downloads,
+    paints: () => paints, advance(ms) { now += ms; }};
 }
 const settle = async () => { for (let i = 0; i < 8; i++) await Promise.resolve(); };
 function hello(socket, epoch = 42) { socket.receive({type: 'hello', version: 1, epoch, width: 480, height: 480, format: 'rgb565le'}); }
@@ -161,17 +163,23 @@ test('switching back to Layout while the ticket is pending wins over saved Setti
 
 test('reconnecting while the original ticket is in flight ignores its late reply', async () => {
   const tickets = [deferred(), deferred()];
-  let requests = 0;
-  const h = harness(() => tickets[requests++].promise), boot = startWorkspace(h);
+  const signals = [];
+  const h = harness((_, {signal}) => {
+    signals.push(signal);
+    return tickets[signals.length - 1].promise;
+  }), boot = startWorkspace(h);
   await boot.readingSettings;
   boot.tab.click();
   h.element('remoteDisconnect').click();
+  assert.equal(signals[0]?.aborted, true);
+  assert.equal(h.timers.size, 0);
   const connecting = h.element('remoteConnect').click();
   tickets[1].resolve({ok: true, json: async () => ({token: 'current'})});
   await connecting;
   tickets[0].resolve({ok: true, json: async () => ({token: 'expired'})});
   boot.finishSettings(); boot.finishDiagnostics(); await boot.done; await settle();
-  assert.equal(requests, 2);
+  assert.equal(signals.length, 2);
+  assert.equal(signals[1].aborted, false);
   assert.equal(h.sockets.length, 1);
   hello(h.sockets[0], 51); paint(h.sockets[0], 51);
   assert.equal(h.element('remoteStatus').textContent, 'Viewing');
@@ -231,15 +239,47 @@ test('only temporary session failures schedule another ticket request', async ()
   }
 });
 
-test('closing the pane while a refusal body arrives leaves it disconnected', async () => {
-  let finish;
-  const h = harness(async () => ({ok: false, status: 503, text: () => new Promise(resolve => { finish = resolve; })}));
+test('closing the pane aborts a pending refusal body and ignores its late reply', async () => {
+  const body = deferred();
+  let requestSignal;
+  const h = harness(async (_, {signal}) => {
+    requestSignal = signal;
+    return {ok: false, status: 503, text: () => body.promise};
+  });
   h.context.RemoteDisplay.setVisible(true); await settle();
   h.context.RemoteDisplay.setVisible(false);
-  finish('Live display not ready or paused for OTA'); await settle();
+  assert.equal(requestSignal?.aborted, true);
+  body.resolve('Live display not ready or paused for OTA'); await settle();
   assert.equal(h.element('remoteStatus').textContent, 'Disconnected');
   assert.equal(h.timers.size, 0);
 });
+
+for (const waitingFor of ['headers', 'body']) {
+  test(`a stalled ticket's ${waitingFor} time out and retry once with a fresh request`, async () => {
+    const signals = [];
+    const h = harness(async (_, {signal}) => {
+      signals.push(signal);
+      if (signals.length === 2) return {ok: true, json: async () => ({token: 'fresh'})};
+      const wait = () => new Promise((_, reject) => signal?.addEventListener('abort', () => reject(signal.reason), {once: true}));
+      return waitingFor === 'headers' ? wait() : {ok: true, json: wait};
+    });
+    h.context.RemoteDisplay.setVisible(true); await settle();
+    const deadline = [...h.timers.values()].find(t => t.ms === 5000);
+    assert.ok(deadline, 'the ticket must have a deadline before the socket opens');
+    deadline.fn(); await settle();
+    assert.equal(signals[0].aborted, true);
+    assert.equal(h.sockets.length, 0);
+    assert.deepEqual([...h.timers.values()].map(t => t.ms), [500]);
+    [...h.timers.values()][0].fn(); await settle();
+    assert.equal(signals.length, 2);
+    assert.equal(signals[1].aborted, false);
+    assert.equal(h.sockets.length, 1);
+    hello(h.sockets[0]); paint(h.sockets[0]);
+    assert.equal(h.sockets[0].sent.at(-1).type, 'ack');
+    h.element('remoteDisconnect').click();
+    assert.equal(h.timers.size, 0);
+  });
+}
 
 test('missing server hello times out; post-handshake hello starts frame requests', async () => {
   const h = harness(); h.context.RemoteDisplay.setVisible(true); await settle();
@@ -260,19 +300,94 @@ test('missing server hello times out; post-handshake hello starts frame requests
   assert.equal(second.sent.at(-1).epoch, 42);
 });
 
-function paint(socket, epoch = 42, seq = 1) {
-  const key = seq === 1, count = key ? 225 : 1;
-  socket.receive({type: 'begin', epoch, seq, base: seq - 1, key, count});
-  for (let index = 0; index < count; ++index) {
-    const b = new ArrayBuffer(2078), v = new DataView(b);
-    v.setUint32(0, 0x31524442, true); v.setUint8(4, 1); v.setUint16(6, 30, true);
-    v.setUint32(8, epoch, true); v.setUint32(12, seq, true); v.setUint16(16, index, true);
-    v.setUint16(18, index % 15 * 32, true); v.setUint16(20, Math.floor(index / 15) * 32, true);
-    v.setUint16(22, 32, true); v.setUint16(24, 32, true); v.setUint32(26, 2048, true);
+function tiles(socket, epoch, seq, start, end) {
+  for (let first = start; first < end; first += 7) {
+    const count = Math.min(end - first, 7), b = new ArrayBuffer(2078 * count);
+    for (let i = 0; i < count; ++i) {
+      const index = first + i, v = new DataView(b, i * 2078);
+      v.setUint32(0, 0x31524442, true); v.setUint8(4, 1); v.setUint16(6, 30, true);
+      v.setUint32(8, epoch, true); v.setUint32(12, seq, true); v.setUint16(16, index, true);
+      v.setUint16(18, index % 15 * 32, true); v.setUint16(20, Math.floor(index / 15) * 32, true);
+      v.setUint16(22, 32, true); v.setUint16(24, 32, true); v.setUint32(26, 2048, true);
+    }
     socket.receive(b);
   }
+}
+
+function begin(socket, epoch, seq = 1) {
+  const key = seq === 1;
+  socket.receive({type: 'begin', epoch, seq, base: seq - 1, key, count: key ? 225 : 1});
+}
+
+function paint(socket, epoch = 42, seq = 1) {
+  begin(socket, epoch, seq);
+  tiles(socket, epoch, seq, 0, seq === 1 ? 225 : 1);
   socket.receive({type: 'end', seq});
 }
+
+for (const [stop, pongs] of [[119, false], [70, true]]) {
+  test(`a first frame stalled after ${stop}/225 tiles times out and reconnects cleanly`, async () => {
+    const h = harness();
+    h.context.RemoteDisplay.setVisible(true); await settle();
+    const ws = h.sockets[0], stale = ws.onmessage;
+    hello(ws); begin(ws, 42); tiles(ws, 42, 1, 0, stop);
+    assert.equal(ws.sent.filter(m => m.type === 'next').length, 1 + stop / 7);
+    const heartbeat = [...h.timers.values()].find(t => t.interval).fn;
+    for (let i = 1; i <= 17; i++) {
+      h.advance(300);
+      if (pongs) ws.receive({type: 'pong', control: false});
+      heartbeat();
+      if (i < 17) assert.equal(ws.readyState, 1);
+    }
+    assert.equal(ws.sent.filter(m => m.type === 'ping').length, 16);
+    assert.equal(ws.readyState, 3);
+    assert.equal(ws.sent.some(m => m.type === 'ack'), false);
+    assert.equal(h.paints(), 0);
+    assert.equal(h.element('remoteScreenshot').disabled, true);
+    assert.equal(h.element('remoteControl').disabled, true);
+    assert.deepEqual([...h.timers.values()].map(t => t.ms), [500]);
+    [...h.timers.values()][0].fn(); await settle();
+    const fresh = h.sockets[1];
+    hello(fresh, 99);
+    stale({data: JSON.stringify({type: 'end', seq: 1})});
+    paint(fresh, 99);
+    assert.equal(h.paints(), 1);
+    assert.deepEqual(fresh.sent.at(-1), {type: 'ack', seq: 1, epoch: 99});
+    assert.equal(h.element('remoteScreenshot').disabled, false);
+  });
+}
+
+test('a paused first frame resumes on the same socket when tiles keep making progress', async () => {
+  const h = harness(); h.context.RemoteDisplay.setVisible(true); await settle();
+  const ws = h.sockets[0]; hello(ws); begin(ws, 42);
+  const beat = [...h.timers.values()].find(t => t.interval).fn;
+  tiles(ws, 42, 1, 0, 70); h.advance(3800); beat();
+  tiles(ws, 42, 1, 70, 119); h.advance(3400); beat();
+  assert.equal(h.paints(), 0);
+  tiles(ws, 42, 1, 119, 225); ws.receive({type: 'end', seq: 1});
+  assert.equal(h.paints(), 1);
+  assert.deepEqual(ws.sent.at(-1), {type: 'ack', seq: 1, epoch: 42});
+  assert.equal(h.sockets.length, 1);
+});
+
+test('pongs alone cannot satisfy a frame request and failed keyframes back off until an acknowledgement', async () => {
+  const h = harness(); h.context.RemoteDisplay.setVisible(true); await settle();
+  for (const [i, wait] of [500, 1000].entries()) {
+    const ws = h.sockets[i]; hello(ws, i);
+    [...h.timers.values()].find(t => t.ms === 0).fn();
+    assert.equal(ws.sent.at(-1).type, 'frame');
+    if (i) { begin(ws, i); tiles(ws, i, 1, 0, 7); }
+    h.advance(5100); ws.receive({type: 'pong', control: false});
+    [...h.timers.values()].find(t => t.interval).fn();
+    assert.deepEqual([...h.timers.values()].map(t => t.ms), [wait]);
+    [...h.timers.values()][0].fn(); await settle();
+  }
+  const ws = h.sockets[2]; hello(ws, 2); paint(ws, 2);
+  ws.onclose();
+  assert.deepEqual([...h.timers.values()].map(t => t.ms), [500]);
+  h.element('remoteDisconnect').click();
+  assert.equal(h.timers.size, 0);
+});
 
 test('capture contention retries on the same socket before a keyframe and between deltas', async () => {
   const h = harness();

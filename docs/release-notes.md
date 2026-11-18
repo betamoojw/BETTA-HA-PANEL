@@ -48,7 +48,10 @@ Changes since [v0.9.2-rc1](#v092-rc1).
   display at startup. The mirror keeps one RGB565 frame in small PSRAM bands
   and sends changed tiles. The editor reports when memory is low or another
   viewer is connected. Selecting **Live Display** during editor startup keeps
-  the mirror open while the dashboard loads. See the [Guition mirror record](hardware/panels3.md#browser-mirror-validation).
+  the mirror open while the dashboard loads. Partial socket writes now preserve
+  tile and heartbeat boundaries. The editor retries stalled connections and frame
+  transfers, and cancelling a connection also stops its pending ticket request.
+  See the [Guition mirror record](hardware/panels3.md#browser-mirror-validation).
 
 - **Editor, Live view and Preview:** an editor opened from a panel gains **Live view** after **Panel follows**, a snapshot of the screen
   with popups (Refresh, Download as JPEG or PNG). In the local editor the same toolbar button, **Preview**, renders the selected page in the

@@ -19,6 +19,7 @@
 #include "ui/ui_remote_display.h"
 #include "api/http_guard.h"
 #include "api/http_user_auth.h"
+#include "api/remote_display_send.h"
 
 #define TILE UI_REMOTE_TILE_SIZE
 #define PACKET_BYTES 16384U
@@ -143,10 +144,10 @@ static esp_err_t pre_handshake(httpd_req_t *req)
     s_session = s;
     req->sess_ctx = s;
     req->free_ctx = session_free;
-    /* Bound this socket's sends/receives without changing existing API timeouts. */
+    /* IDF's WebSocket writer accepts any nonnegative result, even a short send. */
     struct timeval timeout = {.tv_sec = 0, .tv_usec = 250000};
     int fd = httpd_req_to_sockfd(req);
-    setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
+    if (httpd_sess_set_send_override(req->handle, fd, remote_display_send) != ESP_OK) return ESP_FAIL;
     setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
     int yes = 1, idle = 5, interval = 5, probes = 3;
     setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &yes, sizeof(yes));
@@ -209,22 +210,25 @@ static esp_err_t next_batch(httpd_req_t *req, session_t *s)
         return text_frame(req, json);
     }
     size_t used = 0;
-    while (s->cursor < s->count) {
+    uint16_t cursor = s->cursor;
+    while (cursor < s->count) {
         unsigned x, y, w, h;
-        tile_area(s, s->tiles[s->cursor], &x, &y, &w, &h);
+        tile_area(s, s->tiles[cursor], &x, &y, &w, &h);
         size_t bytes = w * h * 2;
         if (used + 30 + bytes > PACKET_BYTES) break;
         uint8_t *p = s->packet + used;
         u32(p, MAGIC); p[4] = 1; p[5] = 0; u16(p + 6, 30);
-        u32(p + 8, s->epoch); u32(p + 12, s->sequence); u16(p + 16, s->cursor);
+        u32(p + 8, s->epoch); u32(p + 12, s->sequence); u16(p + 16, cursor);
         u16(p + 18, x); u16(p + 20, y); u16(p + 22, w); u16(p + 24, h); u32(p + 26, bytes);
         for (unsigned row = 0; row < h; ++row)
             memcpy(p + 30 + row * w * 2, ui_remote_frame_row(s->capture, y + row) + x * 2, w * 2);
         used += 30 + bytes;
-        ++s->cursor;
+        ++cursor;
     }
     httpd_ws_frame_t frame = {.type = HTTPD_WS_TYPE_BINARY, .payload = s->packet, .len = used};
-    return httpd_ws_send_frame(req, &frame);
+    esp_err_t result = httpd_ws_send_frame(req, &frame);
+    if (result == ESP_OK) s->cursor = cursor;
+    return result;
 }
 
 static bool integer(const cJSON *root, const char *name, uint32_t maximum, uint32_t *out)

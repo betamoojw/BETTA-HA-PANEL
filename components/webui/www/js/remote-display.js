@@ -87,10 +87,12 @@
   };
 
   function createController() {
+    const replyTimeout = 5000;
     const el = id => document.getElementById(id);
     const canvas = el("remoteCanvas"), ctx = canvas.getContext("2d", {alpha: false});
     let visible = false, wanted = false, socket = null, decoder = null, generation = 0;
-    let timer = 0, heartbeat = 0, reconnect = 0, retries = 0, lastReply = 0;
+    let ticketController = null;
+    let timer = 0, heartbeat = 0, reconnect = 0, retries = 0, lastReply = 0, frameProgress = null;
     let controlled = false, pointer = null, inputSequence = 0, lastMove = 0, hasFrame = false;
     let statusIndex = 6, statusCode = 0;
     const words = () => typeof t === "function" ? ["remote.title", "remote.connect", "remote.disconnect", "remote.control", "remote.download", "remote.actual", "remote.disconnected", "remote.connecting", "remote.viewing", "remote.controlling", "remote.unavailable", "remote.hint", "remote.waiting", "remote.low_memory", "remote.occupied", "remote.not_ready"].map(key => t(key)) : labels[document.documentElement.lang.toLowerCase()] || labels.en;
@@ -121,16 +123,21 @@
     function teardown() {
       ++generation;
       clearTimeout(timer); clearTimeout(reconnect); clearInterval(heartbeat);
+      ticketController?.abort();
+      ticketController = null;
       controlOff();
       const old = socket; socket = null; decoder = null;
       if (old) { old.onclose = old.onmessage = old.onerror = null; old.close(); }
       el("remoteControl").disabled = true;
       el("remoteScreenshot").disabled = true;
-      hasFrame = false;
+      hasFrame = false; frameProgress = null;
     }
     function scheduleFrame(delay = decoder && decoder.width * decoder.height > 480 * 480 ? 500 : 200) {
       clearTimeout(timer);
-      timer = setTimeout(() => { if (!send("frame")) fail(); }, delay);
+      timer = setTimeout(() => {
+        if (send("frame")) frameProgress = performance.now();
+        else fail();
+      }, delay);
     }
     function fail(index = 10, code = 0) {
       teardown(); status(index, code);
@@ -143,7 +150,12 @@
       wanted = true; status(7);
       const current = generation;
       try {
-        const response = await fetch("/api/display/remote/session", {method: "POST", cache: "no-store", headers: {"Content-Type": "application/json"}, body: "{}"});
+        ticketController = new AbortController();
+        timer = setTimeout(fail, replyTimeout);
+        const response = await fetch("/api/display/remote/session", {
+          method: "POST", cache: "no-store", signal: ticketController.signal,
+          headers: {"Content-Type": "application/json"}, body: "{}"
+        });
         if (current !== generation) return;
         if (!response.ok) {
           const code = response.status;
@@ -161,17 +173,20 @@
         }
         const session = await response.json();
         if (current !== generation) return;
+        clearTimeout(timer);
+        ticketController = null;
         const ws = new WebSocket(`${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}/api/display/remote?token=${encodeURIComponent(session.token)}`);
         socket = ws; ws.binaryType = "arraybuffer";
-        timer = setTimeout(fail, 5000);
+        timer = setTimeout(fail, replyTimeout);
         ws.onclose = () => { if (socket === ws) fail(); };
         ws.onerror = () => { if (socket === ws) fail(); };
         ws.onmessage = event => {
           if (socket !== ws) return;
-          lastReply = Date.now();
+          lastReply = performance.now();
           try {
             if (event.data instanceof ArrayBuffer) {
               decoder.batch(event.data);
+              frameProgress = lastReply;
               if (!send("next")) throw new Error("Send failed");
               return;
             }
@@ -182,13 +197,20 @@
                 clearTimeout(timer); decoder = new RemoteFrameDecoder(message);
                 canvas.width = decoder.width; canvas.height = decoder.height;
                 canvas.style.setProperty("--remote-width", `${decoder.width}px`);
-                inputSequence = 0; retries = 0; status(12);
+                inputSequence = 0; status(12);
                 heartbeat = setInterval(() => {
-                  if (Date.now() - lastReply > 5000 || !send("ping")) fail();
+                  const now = performance.now();
+                  if (now - lastReply >= replyTimeout ||
+                      (frameProgress !== null && now - frameProgress >= replyTimeout) || !send("ping")) fail();
                 }, 300);
                 scheduleFrame(0); break;
-              case "idle": scheduleFrame(message.retry === 20 ? 20 : 200); break;
-              case "begin": decoder.begin(message); if (!send("next")) throw new Error("Send failed"); break;
+              case "idle":
+                if (decoder.frame) throw new Error("Idle during a frame");
+                frameProgress = null; scheduleFrame(message.retry === 20 ? 20 : 200); break;
+              case "begin":
+                decoder.begin(message); frameProgress = lastReply;
+                if (!send("next")) throw new Error("Send failed");
+                break;
               case "end": {
                 const pixels = decoder.end(message);
                 ctx.putImageData(new ImageData(pixels, decoder.width, decoder.height), 0, 0);
@@ -197,6 +219,7 @@
                 el("remoteFrameTime").textContent = new Date().toLocaleTimeString();
                 status(controlled ? 9 : 8);
                 if (!send("ack", {seq: decoder.sequence})) throw new Error("Send failed");
+                retries = 0; frameProgress = null;
                 scheduleFrame(); break;
               }
               case "control":
@@ -236,7 +259,7 @@
     canvas.addEventListener("contextmenu", e => e.preventDefault());
     window.addEventListener("blur", controlOff);
     window.addEventListener("pagehide", teardown);
-    el("remoteConnect").onclick = connect;
+    el("remoteConnect").onclick = () => { retries = 0; return connect(); };
     el("remoteDisconnect").onclick = () => { wanted = false; teardown(); status(6); };
     el("remoteControl").onchange = e => {
       release();
@@ -263,7 +286,7 @@
       visible = value;
       el("remotePane").classList.toggle("hidden", !value);
       el("remoteTabBtn").classList.toggle("active", value);
-      if (value) { wanted = true; connect(); }
+      if (value) { wanted = true; retries = 0; connect(); }
       else { wanted = false; teardown(); status(6); }
     }};
   }

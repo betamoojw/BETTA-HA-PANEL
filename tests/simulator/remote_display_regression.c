@@ -342,6 +342,16 @@ int main(int argc, char **argv)
     assert(!live_allocations && free_psram == initial_psram);
     assert(ui_remote_display_open(w, h)==ESP_OK);
     assert(!ui_remote_display_pointer(0,50,60));
+    /* Disconnect while the first capture is frozen awaiting the viewer's ACK. */
+    assert(!ui_remote_display_capture(&pixels, &cw, &ch, &retry));
+    lv_refr_now(d);
+    assert(ui_remote_display_capture(&pixels, &cw, &ch, &retry));
+    assert(cw == w && ch == h && live_allocations);
+    ui_remote_display_close();
+    assert(!live_allocations && free_psram == initial_psram);
+    assert(ui_remote_display_open(w, h) == ESP_OK);
+    assert(!ui_remote_display_pointer(0,50,60));
+    frame(w, h, 0x001f);
     lv_display_set_rotation(d,(lv_display_rotation_t)((rot+1)%4));
     assert(!ui_remote_display_available());
     ui_remote_display_close();

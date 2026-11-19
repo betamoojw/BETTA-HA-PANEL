@@ -116,7 +116,7 @@ static void sensor_timestamp_text(const w_sensor_ctx_t *ctx, char *out, size_t o
 {
     const int64_t now_s = (int64_t)time(NULL);
     if (ctx->time_style != HA_TS_RELATIVE || now_s < SENSOR_PLAUSIBLE_EPOCH) {
-        if (!ha_timestamp_format_absolute(ctx->timestamp_s, ctx->time_style, ui_i18n_get_language(), out, out_len)) {
+        if (!ha_timestamp_format_absolute(ctx->timestamp_s, ctx->time_style, out, out_len)) {
             snprintf(out, out_len, "--");
         }
         return;
@@ -165,7 +165,7 @@ static void sensor_date_text(const w_sensor_ctx_t *ctx, char *out, size_t out_le
     ha_datetime_value_t v = {
         .kind = HA_DATETIME_DATE, .has_date = true, .year = ctx->date_y, .month = ctx->date_m, .day = ctx->date_d,
     };
-    if (!ha_datetime_format(&v, ui_i18n_get_language(), out, out_len)) snprintf(out, out_len, "--");
+    if (!ha_datetime_format(&v, out, out_len)) snprintf(out, out_len, "--");
 }
 
 /* The state as the device class and the tile's sensor_format/sensor_unit choose (ha_sensor_value.h). */

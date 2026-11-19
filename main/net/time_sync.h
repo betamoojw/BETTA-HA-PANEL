@@ -6,15 +6,15 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stddef.h>
+#include <time.h>
 
 #include "esp_err.h"
 
 /* Apply a named timezone without restarting SNTP. Does not persist settings.
  * Unknown/empty names fail without changing the clock. */
 esp_err_t time_sync_set_tz(const char *name);
-/* Active name (or legacy POSIX text), valid until the next setter call.
- * Call setters/getter from serialized application contexts. Empty before init. */
-const char *time_sync_get_tz(void);
+/* Copy the active location and its wall clock together, including during a live zone change. */
+bool time_sync_local_clock(time_t now, struct tm *local, char *zone, size_t zone_size);
 const char *time_sync_tz_rules(const char *name);
 /* NULL when index is out of range; returned strings have static lifetime. */
 const char *time_sync_tz_name(size_t index);

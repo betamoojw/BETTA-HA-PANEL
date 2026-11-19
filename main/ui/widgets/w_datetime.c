@@ -14,6 +14,7 @@
 #include "esp_log.h"
 #include "ha/ha_client.h"
 #include "ha/ha_datetime_value.h"
+#include "util/panel_date.h"
 #include "ui/theme/ui_typography.h"
 #include "ui/theme/theme_default.h"
 #include "ui/theme/ui_style.h"
@@ -65,7 +66,7 @@ static void datetime_render(w_datetime_ctx_t *ctx)
 {
     char text[48] = "--";
     if (!ctx->unavailable) {
-        (void)ha_datetime_format(&ctx->value, ui_i18n_get_language(), text, sizeof(text));
+        (void)ha_datetime_format(&ctx->value, text, sizeof(text));
     }
     lv_label_set_text(ctx->value_label, ctx->unavailable ? ui_i18n_get("common.unavailable", "unavailable") : text);
     lv_obj_set_style_text_color(ctx->value_label,
@@ -236,14 +237,20 @@ static void popup_open(w_datetime_ctx_t *ctx)
         numeric_options(options, sizeof(options), 1, 31, true);
         ctx->day_roller = roller(body, 0, y, date_w, options, ctx->value.day - 1);
         numeric_options(options, sizeof(options), 1, 12, true);
-        ctx->month_roller = roller(body, date_w + DT_ROLLER_GAP, y, date_w, options, ctx->value.month - 1);
+        ctx->month_roller = roller(body, 0, y, date_w, options, ctx->value.month - 1);
         ctx->first_year = ctx->value.year - 60;
         if (ctx->first_year < 1970) ctx->first_year = 1970;
         int last_year = ctx->first_year + 120;
         if (last_year > 9999) last_year = 9999;
         numeric_options(options, sizeof(options), ctx->first_year, last_year, false);
-        ctx->year_roller = roller(body, 2 * (date_w + DT_ROLLER_GAP), y, year_w, options,
-                                  ctx->value.year - ctx->first_year);
+        ctx->year_roller = roller(body, 0, y, year_w, options, ctx->value.year - ctx->first_year);
+        const char *pattern = panel_date_pattern();
+        int x = 0;
+        for (int field = 0; field < 5; field += 2) {
+            char part = pattern[field];
+            lv_obj_set_x(part == 'Y' ? ctx->year_roller : part == 'M' ? ctx->month_roller : ctx->day_roller, x);
+            x += (part == 'Y' ? year_w : date_w) + DT_ROLLER_GAP;
+        }
         y += DT_ROLLER_H + 10;
     }
     if (ctx->value.has_time) {

@@ -148,7 +148,7 @@ WIDGETS = {
         "entities": [("Date or time", "`input_datetime.*`, `time.*`, `date.*`, `datetime.*`", True)],
         "requirements": None,
         "options": [],
-        "panel": ["Date and/or time in the panel language; seconds only when not zero.",
+        "panel": ["Dates use the selected time zone's regional format. Seconds appear only when nonzero.",
                   "A tap opens date and time rollers; **Save** sends one service call."],
     },
     "empty_tile": {

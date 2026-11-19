@@ -1,0 +1,250 @@
+# Numeric Gregorian date profiles | IANA 2026a, CLDR 48.0
+# Territory  pattern  catalog locations
+001 Y-M-D Etc/GMT Etc/GMT+0 Etc/GMT+1 Etc/GMT+10 Etc/GMT+11 Etc/GMT+12 Etc/GMT+2 Etc/GMT+3 Etc/GMT+4 Etc/GMT+5 Etc/GMT+6 Etc/GMT+7 Etc/GMT+8 Etc/GMT+9 Etc/GMT-0 Etc/GMT-1 Etc/GMT-10 Etc/GMT-11 Etc/GMT-12 Etc/GMT-13 Etc/GMT-14 Etc/GMT-2 Etc/GMT-3 Etc/GMT-4 Etc/GMT-5 Etc/GMT-6 Etc/GMT-7 Etc/GMT-8 Etc/GMT-9 Etc/GMT0 Etc/Greenwich Etc/UCT Etc/UTC Etc/Universal Etc/Zulu
+AD D/M/Y Europe/Andorra
+AE D/M/Y Asia/Dubai
+AF M/D/Y Asia/Kabul
+AG D/M/Y America/Antigua
+AI D/M/Y America/Anguilla
+AL D.M.Y Europe/Tirane
+AM D.M.Y Asia/Yerevan
+AO D/M/Y Africa/Luanda
+AQ Y-M-D Antarctica/Casey Antarctica/Davis Antarctica/DumontDUrville Antarctica/Mawson Antarctica/McMurdo Antarctica/Palmer Antarctica/Rothera Antarctica/Syowa Antarctica/Troll Antarctica/Vostok
+AR D/M/Y America/Argentina/Buenos_Aires America/Argentina/Catamarca America/Argentina/Cordoba America/Argentina/Jujuy America/Argentina/La_Rioja America/Argentina/Mendoza America/Argentina/Rio_Gallegos America/Argentina/Salta America/Argentina/San_Juan America/Argentina/San_Luis America/Argentina/Tucuman America/Argentina/Ushuaia
+AS M/D/Y Pacific/Pago_Pago
+AT D.M.Y Europe/Vienna
+AU D/M/Y Antarctica/Macquarie Australia/Adelaide Australia/Brisbane Australia/Broken_Hill Australia/Currie Australia/Darwin Australia/Eucla Australia/Hobart Australia/Lindeman Australia/Lord_Howe Australia/Melbourne Australia/Perth Australia/Sydney
+AW D-M-Y America/Aruba
+AX Y-M-D Europe/Mariehamn
+AZ D.M.Y Asia/Baku
+BA D.M.Y Europe/Sarajevo
+BB D/M/Y America/Barbados
+BD D/M/Y Asia/Dhaka
+BE D/M/Y Europe/Brussels
+BF D/M/Y Africa/Ouagadougou
+BG D.M.Y Europe/Sofia
+BH D/M/Y Asia/Bahrain
+BI D/M/Y Africa/Bujumbura
+BJ D/M/Y Africa/Porto-Novo
+BL D/M/Y America/St_Barthelemy
+BM D/M/Y Atlantic/Bermuda
+BN D/M/Y Asia/Brunei
+BO D/M/Y America/La_Paz
+BQ D-M-Y America/Kralendijk
+BR D/M/Y America/Araguaina America/Bahia America/Belem America/Boa_Vista America/Campo_Grande America/Cuiaba America/Eirunepe America/Fortaleza America/Maceio America/Manaus America/Noronha America/Porto_Velho America/Recife America/Rio_Branco America/Santarem America/Sao_Paulo
+BS D/M/Y America/Nassau
+BT Y-M-D Asia/Thimphu
+BW D/M/Y Africa/Gaborone
+BY D.M.Y Europe/Minsk
+BZ D/M/Y America/Belize
+CA Y-M-D America/Atikokan America/Blanc-Sablon America/Cambridge_Bay America/Creston America/Dawson America/Dawson_Creek America/Edmonton America/Fort_Nelson America/Glace_Bay America/Goose_Bay America/Halifax America/Inuvik America/Iqaluit America/Moncton America/Montreal America/Nipigon America/Pangnirtung America/Rainy_River America/Rankin_Inlet America/Regina America/Resolute America/St_Johns America/Swift_Current America/Thunder_Bay America/Toronto America/Vancouver America/Whitehorse America/Winnipeg America/Yellowknife
+CC D/M/Y Indian/Cocos
+CD D/M/Y Africa/Kinshasa Africa/Lubumbashi
+CF Y-M-D Africa/Bangui
+CG D/M/Y Africa/Brazzaville
+CH D.M.Y Europe/Zurich
+CI D/M/Y Africa/Abidjan
+CK D/M/Y Pacific/Rarotonga
+CL D-M-Y America/Punta_Arenas America/Santiago Pacific/Easter
+CM D/M/Y Africa/Douala
+CN Y/M/D Asia/Shanghai Asia/Urumqi
+CO D/M/Y America/Bogota
+CR D/M/Y America/Costa_Rica
+CU D/M/Y America/Havana
+CV D/M/Y Atlantic/Cape_Verde
+CW D-M-Y America/Curacao
+CX D/M/Y Indian/Christmas
+CY D/M/Y Asia/Famagusta Asia/Nicosia
+CZ D.M.Y Europe/Prague
+DE D.M.Y Europe/Berlin Europe/Busingen
+DJ D/M/Y Africa/Djibouti
+DK D.M.Y Europe/Copenhagen
+DM D/M/Y America/Dominica
+DO D/M/Y America/Santo_Domingo
+DZ D/M/Y Africa/Algiers
+EC D/M/Y America/Guayaquil Pacific/Galapagos
+EE D.M.Y Europe/Tallinn
+EG D/M/Y Africa/Cairo
+EH D/M/Y Africa/El_Aaiun
+ER M/D/Y Africa/Asmara
+ES D/M/Y Africa/Ceuta Atlantic/Canary Europe/Madrid
+ET D/M/Y Africa/Addis_Ababa
+FI D.M.Y Europe/Helsinki
+FJ D/M/Y Pacific/Fiji
+FK D/M/Y Atlantic/Stanley
+FM D/M/Y Pacific/Chuuk Pacific/Kosrae Pacific/Pohnpei
+FO D.M.Y Atlantic/Faroe
+FR D/M/Y Europe/Paris
+GA D/M/Y Africa/Libreville
+GB D/M/Y Europe/London
+GD D/M/Y America/Grenada
+GE D.M.Y Asia/Tbilisi
+GF D/M/Y America/Cayenne
+GG D/M/Y Europe/Guernsey
+GH Y/M/D Africa/Accra
+GI D/M/Y Europe/Gibraltar
+GL Y-M-D America/Danmarkshavn America/Godthab America/Nuuk America/Scoresbysund America/Thule
+GM D/M/Y Africa/Banjul
+GN D/M/Y Africa/Conakry
+GP D/M/Y America/Guadeloupe
+GQ D/M/Y Africa/Malabo
+GR D/M/Y Europe/Athens
+GS D/M/Y Atlantic/South_Georgia
+GT D/M/Y America/Guatemala
+GU M/D/Y Pacific/Guam
+GW D/M/Y Africa/Bissau
+GY D/M/Y America/Guyana
+HK D/M/Y Asia/Hong_Kong
+HN D/M/Y America/Tegucigalpa
+HR D.M.Y Europe/Zagreb
+HT D/M/Y America/Port-au-Prince
+HU Y.M.D Europe/Budapest
+ID D/M/Y Asia/Jakarta Asia/Jayapura Asia/Makassar Asia/Pontianak
+IE D/M/Y Europe/Dublin
+IL D.M.Y Asia/Jerusalem
+IM D/M/Y Europe/Isle_of_Man
+IN D/M/Y Asia/Kolkata
+IO D/M/Y Indian/Chagos
+IQ D/M/Y Asia/Baghdad
+IR Y/M/D Asia/Tehran
+IS D.M.Y Atlantic/Reykjavik
+IT D/M/Y Europe/Rome
+JE D/M/Y Europe/Jersey
+JM D/M/Y America/Jamaica
+JO D/M/Y Asia/Amman
+JP Y/M/D Asia/Tokyo
+KE D/M/Y Africa/Nairobi
+KG Y-D-M Asia/Bishkek
+KH D/M/Y Asia/Phnom_Penh
+KI D/M/Y Pacific/Enderbury Pacific/Kiritimati Pacific/Tarawa
+KM D/M/Y Indian/Comoro
+KN D/M/Y America/St_Kitts
+KP Y.M.D Asia/Pyongyang
+KR Y.M.D Asia/Seoul
+KW D/M/Y Asia/Kuwait
+KY D/M/Y America/Cayman
+KZ D.M.Y Asia/Almaty Asia/Aqtau Asia/Aqtobe Asia/Atyrau Asia/Oral Asia/Qyzylorda
+LA D/M/Y Asia/Vientiane
+LB D/M/Y Asia/Beirut
+LC D/M/Y America/St_Lucia
+LI D.M.Y Europe/Vaduz
+LK Y-M-D Asia/Colombo
+LR D/M/Y Africa/Monrovia
+LS Y-M-D Africa/Maseru
+LT Y-M-D Europe/Vilnius
+LU D/M/Y Europe/Luxembourg
+LV D.M.Y Europe/Riga
+LY D/M/Y Africa/Tripoli
+MA D/M/Y Africa/Casablanca
+MC D/M/Y Europe/Monaco
+MD D.M.Y Europe/Chisinau
+ME D.M.Y Europe/Podgorica
+MF D/M/Y America/Marigot
+MG Y-M-D Indian/Antananarivo
+MH M/D/Y Pacific/Kwajalein Pacific/Majuro
+MK D.M.Y Europe/Skopje
+ML D/M/Y Africa/Bamako
+MM D/M/Y Asia/Yangon
+MN Y.M.D Asia/Choibalsan Asia/Hovd Asia/Ulaanbaatar
+MO D/M/Y Asia/Macau
+MP M/D/Y Pacific/Saipan
+MQ D/M/Y America/Martinique
+MR D/M/Y Africa/Nouakchott
+MS D/M/Y America/Montserrat
+MT D/M/Y Europe/Malta
+MU D/M/Y Indian/Mauritius
+MV D-M-Y Indian/Maldives
+MW D/M/Y Africa/Blantyre
+MX D/M/Y America/Bahia_Banderas America/Cancun America/Chihuahua America/Hermosillo America/Matamoros America/Mazatlan America/Merida America/Mexico_City America/Monterrey America/Ojinaga America/Tijuana
+MY D/M/Y Asia/Kuala_Lumpur Asia/Kuching
+MZ D/M/Y Africa/Maputo
+NA Y-M-D Africa/Windhoek
+NC D/M/Y Pacific/Noumea
+NE Y-M-D Africa/Niamey
+NF D/M/Y Pacific/Norfolk
+NG D/M/Y Africa/Lagos
+NI D/M/Y America/Managua
+NL D-M-Y Europe/Amsterdam
+NO D.M.Y Europe/Oslo
+NP Y-M-D Asia/Kathmandu
+NR D/M/Y Pacific/Nauru
+NU D/M/Y Pacific/Niue
+NZ D/M/Y Pacific/Auckland Pacific/Chatham
+OM D/M/Y Asia/Muscat
+PA M/D/Y America/Panama
+PE D/M/Y America/Lima
+PF D/M/Y Pacific/Gambier Pacific/Marquesas Pacific/Tahiti
+PG D/M/Y Pacific/Bougainville Pacific/Port_Moresby
+PH M/D/Y Asia/Manila
+PK D/M/Y Asia/Karachi
+PL D.M.Y Europe/Warsaw
+PM D/M/Y America/Miquelon
+PN D/M/Y Pacific/Pitcairn
+PR M/D/Y America/Puerto_Rico
+PS D/M/Y Asia/Gaza Asia/Hebron
+PT D/M/Y Atlantic/Azores Atlantic/Madeira Europe/Lisbon
+PW D/M/Y Pacific/Palau
+PY D/M/Y America/Asuncion
+QA D/M/Y Asia/Qatar
+RE D/M/Y Indian/Reunion
+RO D.M.Y Europe/Bucharest
+RS D.M.Y Europe/Belgrade
+RU D.M.Y Asia/Anadyr Asia/Barnaul Asia/Chita Asia/Irkutsk Asia/Kamchatka Asia/Khandyga Asia/Krasnoyarsk Asia/Magadan Asia/Novokuznetsk Asia/Novosibirsk Asia/Omsk Asia/Sakhalin Asia/Srednekolymsk Asia/Tomsk Asia/Ust-Nera Asia/Vladivostok Asia/Yakutsk Asia/Yekaterinburg Europe/Astrakhan Europe/Kaliningrad Europe/Kirov Europe/Moscow Europe/Samara Europe/Saratov Europe/Ulyanovsk Europe/Volgograd
+RW Y-M-D Africa/Kigali
+SA D/M/Y Asia/Riyadh
+SB D/M/Y Pacific/Guadalcanal
+SC D/M/Y Indian/Mahe
+SD D/M/Y Africa/Khartoum
+SE Y-M-D Europe/Stockholm
+SG D/M/Y Asia/Singapore
+SH D/M/Y Atlantic/St_Helena
+SI D.M.Y Europe/Ljubljana
+SJ D.M.Y Arctic/Longyearbyen
+SK D.M.Y Europe/Bratislava
+SL D/M/Y Africa/Freetown
+SM D/M/Y Europe/San_Marino
+SN D-M-Y Africa/Dakar
+SO D/M/Y Africa/Mogadishu
+SR D-M-Y America/Paramaribo
+SS D/M/Y Africa/Juba
+ST D/M/Y Africa/Sao_Tome
+SV D/M/Y America/El_Salvador
+SX D/M/Y America/Lower_Princes
+SY D/M/Y Asia/Damascus
+SZ D/M/Y Africa/Mbabane
+TC D/M/Y America/Grand_Turk
+TD D/M/Y Africa/Ndjamena
+TF D/M/Y Indian/Kerguelen
+TG D/M/Y Africa/Lome
+TH D/M/Y Asia/Bangkok
+TJ D/M/Y Asia/Dushanbe
+TK D/M/Y Pacific/Fakaofo
+TL D/M/Y Asia/Dili
+TM D.M.Y Asia/Ashgabat
+TN D/M/Y Africa/Tunis
+TO D/M/Y Pacific/Tongatapu
+TR D.M.Y Europe/Istanbul
+TT D/M/Y America/Port_of_Spain
+TV D/M/Y Pacific/Funafuti
+TW Y/M/D Asia/Taipei
+TZ D/M/Y Africa/Dar_es_Salaam
+UA D.M.Y Europe/Kiev Europe/Simferopol Europe/Uzhgorod Europe/Zaporozhye
+UG D/M/Y Africa/Kampala
+UM M/D/Y Pacific/Midway Pacific/Wake
+US M/D/Y America/Adak America/Anchorage America/Boise America/Chicago America/Denver America/Detroit America/Indiana/Indianapolis America/Indiana/Knox America/Indiana/Marengo America/Indiana/Petersburg America/Indiana/Tell_City America/Indiana/Vevay America/Indiana/Vincennes America/Indiana/Winamac America/Juneau America/Kentucky/Louisville America/Kentucky/Monticello America/Los_Angeles America/Menominee America/Metlakatla America/New_York America/Nome America/North_Dakota/Beulah America/North_Dakota/Center America/North_Dakota/New_Salem America/Phoenix America/Sitka America/Yakutat Pacific/Honolulu
+UY D/M/Y America/Montevideo
+UZ D/M/Y Asia/Samarkand Asia/Tashkent
+VA D/M/Y Europe/Vatican
+VC D/M/Y America/St_Vincent
+VE D/M/Y America/Caracas
+VG D/M/Y America/Tortola
+VI M/D/Y America/St_Thomas
+VN D/M/Y Asia/Ho_Chi_Minh
+VU D/M/Y Pacific/Efate
+WF D/M/Y Pacific/Wallis
+WS D/M/Y Pacific/Apia
+YE D/M/Y Asia/Aden
+YT D/M/Y Indian/Mayotte
+ZA Y/M/D Africa/Johannesburg
+ZM D/M/Y Africa/Lusaka
+ZW Y-M-D Africa/Harare

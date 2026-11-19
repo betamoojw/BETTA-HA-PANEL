@@ -54,6 +54,8 @@ esp_err_t xiaozhi_command(const char *action, int value) { (void)action; (void)v
 #include "ui/ui_conn_popup.h"
 #include "popup_contract_regression.h"
 #include "ui/ui_pages.h"
+#include "net/timezone_catalog.h"
+#include "util/panel_date.h"
 #include "ui/ui_alert_center.h"
 #include "ui/fonts/app_symbols.h"
 #include "typography_dump.h"
@@ -1014,6 +1016,8 @@ static void sim_style_card(ui_widget_instance_t *instance)
 
 int main(int argc, char **argv)
 {
+    const char *zone = getenv("BETTA_SIM_TIMEZONE");
+    panel_date_set_pattern(timezone_catalog_date_pattern(zone ? zone : getenv("TZ")));
     extern int sim_wallbox_regression(void);
     bool transitions_regression = false, popups_regression = false;
     bool wallbox_regression = false;

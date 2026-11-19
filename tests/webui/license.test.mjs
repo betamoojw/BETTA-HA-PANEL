@@ -381,7 +381,7 @@ test("all seven license catalogs contain actual translations and matching placeh
   }
 });
 
-test("language changes translate license feedback and reading dates without losing a key draft or acknowledgment", async () => {
+test("language changes translate feedback and retain the panel date format, key draft and acknowledgment", async () => {
   const run = setup(); await settle(run);
   run("nodes.licenseKey.value='invalid';"); await run("licenseChange()");
   run("nodes.licenseAgreementRead.checked=true; nodes.licenseAgreementRead.onchange(); nodes.licenseKey.value='retained draft';");
@@ -393,7 +393,8 @@ test("language changes translate license feedback and reading dates without losi
     assert.equal(run("nodes.licenseTrial.textContent"), run("t('license.trial',{time:'01:00:00'})"));
     assert.equal(run("nodes.licenseMessage.textContent"), run("t('license.invalid_file')"));
     const readAt = JSON.parse(JSON.parse(record)[0][1]).readAt;
-    assert.equal(run("nodes.licenseAgreementMessage.textContent"), run(`t('license.read_saved',{date:new Date(${JSON.stringify(readAt)}).toLocaleString(${JSON.stringify(language)})})`));
+    const date = new Date(readAt).toISOString().slice(0, 19).replace("T", " ");
+    assert.equal(run("nodes.licenseAgreementMessage.textContent"), run(`t('license.read_saved',{date:${JSON.stringify(date)}})`));
     assert.equal(run("nodes.licenseKey.value"), "retained draft");
     assert.equal(run("nodes.licenseAgreementRead.checked"), true);
     assert.equal(run("JSON.stringify([...storage])"), record);

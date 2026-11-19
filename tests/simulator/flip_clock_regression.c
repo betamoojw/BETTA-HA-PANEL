@@ -4,6 +4,8 @@
 #include <string.h>
 #include "SDL.h"
 #include "ui/ui_flip_clock.h"
+#include "net/timezone_catalog.h"
+#include "util/panel_date.h"
 #include "ui/ui_i18n.h"
 #include "ui/theme/theme_default.h"
 #include "ui/theme/ui_style.h"
@@ -84,6 +86,8 @@ static void compact_locales(void)
         for (unsigned language = 0; language < sizeof(locales) / sizeof(locales[0]); language++) {
             CHECK(ui_i18n_init(locales[language].language) == ESP_OK);
             for (int step = 0; step <= 2; step++) {
+                const char *zones[] = {"Europe/Berlin", "America/New_York", "Asia/Tokyo"};
+                panel_date_set_pattern(timezone_catalog_date_pattern(zones[step]));
                 ui_fonts_set_user_step(step);
                 for (int format = 0; format < 2; format++) {
                     lv_obj_t *parent = lv_obj_create(lv_screen_active());
@@ -98,7 +102,8 @@ static void compact_locales(void)
                         lv_obj_t *group = lv_obj_get_child(clock, 0);
                         expect_digits(group, format ? "235849" : "115849");
                         char expected_date[96];
-                        snprintf(expected_date, sizeof(expected_date), "%s, 2026-11-%02d",
+                        const char *formats[] = {"%s, %02d.11.2026", "%s, 11/%02d/2026", "%s, 2026/11/%02d"};
+                        snprintf(expected_date, sizeof(expected_date), formats[step],
                                  locales[language].weekdays[day], day + 1);
                         CHECK(!strcmp(lv_label_get_text(lv_obj_get_child(group, 0)), expected_date));
                         CHECK(lv_obj_is_hidden(lv_obj_get_child(group, 1)) == (format != 0));
@@ -115,6 +120,8 @@ static void compact_locales(void)
 
 void sim_flip_clock_regression(void)
 {
+    const char *previous_date_pattern = panel_date_pattern();
+    panel_date_set_pattern(timezone_catalog_date_pattern("America/New_York"));
     const int sizes[][2] = {{480,360},{480,480},{720,600},{1280,680},{1280,600},{720,1160},{800,1160}};
     const char *themes[] = {"dark_v2", "light", "black", "contrast"};
     char previous_theme[64], previous_language[16];
@@ -142,7 +149,7 @@ void sim_flip_clock_regression(void)
                     struct tm time = {.tm_year=126,.tm_mon=9,.tm_mday=31,.tm_wday=6,.tm_hour=0,.tm_min=0,.tm_sec=0};
                     ui_flip_clock_update(clock, &time, false);
                     expect_digits(group, format ? "000000" : "120000");
-                    CHECK(strstr(lv_label_get_text(lv_obj_get_child(group, 0)), "2026-10-31") != NULL);
+                    CHECK(strstr(lv_label_get_text(lv_obj_get_child(group, 0)), "10/31/2026") != NULL);
                     lv_obj_t *date = lv_obj_get_child(group, 0);
                     CHECK(lv_obj_get_style_text_font(date, 0) == ui_text_fit(lv_label_get_text(date),
                         ui_font_role(UI_TEXT_LABEL), lv_obj_get_width(date), lv_obj_get_height(date)));
@@ -180,7 +187,7 @@ void sim_flip_clock_regression(void)
                         lv_obj_get_style_transform_scale_y(lower_fold, 0) < 256);
                     ticks += 140; lv_anim_refr_now();
                     expect_digits(group, format ? "120000" : "000000");
-                    CHECK(strstr(lv_label_get_text(lv_obj_get_child(group, 0)), "2026-11-01") != NULL);
+                    CHECK(strstr(lv_label_get_text(lv_obj_get_child(group, 0)), "11/01/2026") != NULL);
                     time.tm_sec = 1; ui_flip_clock_update(clock, &time, true);
                     CHECK(lv_anim_count_running() > 0);
                     ui_flip_clock_update(clock, &time, false); /* settle an unchanged target */
@@ -195,6 +202,7 @@ void sim_flip_clock_regression(void)
         }
     }
     compact_locales();
+    panel_date_set_pattern(previous_date_pattern);
     ui_fonts_set_user_step(previous_step);
     CHECK(theme_palette_activate_by_id(previous_theme) == ESP_OK);
     ui_style_set(previous_style); theme_default_rebuild_styles();

@@ -109,7 +109,7 @@ void screen_settings_process(void)
         night_mode_configure(settings->hardware_night_enabled, settings->hardware_night_start_min,
             settings->hardware_night_end_min, settings->hardware_night_brightness_percent);
         s_reload = true;
-        s_rebuild = (s_patch.dirty & (SYSTEM_DIRTY(SYSTEM_LANGUAGE) | SYSTEM_DIRTY(SYSTEM_STYLE) |
+        s_rebuild = (s_patch.dirty & (SYSTEM_DIRTY(SYSTEM_LANGUAGE) | SYSTEM_DIRTY(SYSTEM_TIMEZONE) | SYSTEM_DIRTY(SYSTEM_STYLE) |
             SYSTEM_DIRTY(SYSTEM_THEME) | SYSTEM_DIRTY(SYSTEM_ANIMATIONS))) != 0;
         (void)ha_client_notify_layout_updated();
     }

@@ -235,9 +235,19 @@ For access protection see the [Security](SECURITY.md). Developers: [Web editor s
 
 In **Language & time**, search for a city or region, then choose a location such
 as `Asia/Shanghai` or `Europe/Berlin`. Selection is saved and applies immediately,
-without restarting the panel. The clock preview reports the panel's local time,
-not the browser's time zone. It stops showing a running clock if device status
-becomes stale. An unsynchronized panel shows an unavailable message.
+without restarting the panel. While **Language & time** is open, changes from
+the panel's **System settings** update the selected location and clock preview
+on the next device check. An open search keeps its text and shows the new
+location when dismissed. The preview uses the panel's local time and shows an
+unavailable message when the clock is unsynchronized or its status becomes stale.
+
+The selected location also determines the numeric date on the dashboard and in
+the editor. For November 19, 2026, New York shows **11/19/2026**, London
+**19/11/2026**, Berlin **19.11.2026**, and Tokyo and Shanghai **2026/11/19**.
+Weekday names use the interface language. UTC, fixed offsets and legacy POSIX
+rules without a location use **2026-11-19**. A Home Assistant date without a
+time keeps its calendar day. A timestamp with an offset shows the day it falls
+on at the panel.
 
 Existing POSIX rules stay unchanged until another location is selected. They
 remain usable through settings backups and the API. Location rules use a bundled

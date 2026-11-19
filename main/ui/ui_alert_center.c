@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LicenseRef-FNCL-1.1 | Copyright (c) 2026 andre68723 */
 #include "ui/ui_transition.h"
 #include "ui/ui_alert_center.h"
+#include "util/panel_date.h"
 #include "ui/ui_pages.h"
 #include "ui/ui_popup.h"
 #include "ui/ui_i18n.h"
@@ -137,8 +138,14 @@ void ui_alert_center_crash(unsigned index, const coredump_record_t *r)
     /* Temporary formatting is PSRAM-backed rather than a large UI stack buffer. */
     char *body = lv_malloc(1536); if (!body) return;
     char date[40]; snprintf(date, sizeof(date), "%s", tr("alerts.unknown", "Unknown"));
-    if (r->crashed_at > 0) { time_t t = (time_t)r->crashed_at; struct tm tm;
-        localtime_r(&t, &tm); strftime(date, sizeof(date), "%Y-%m-%d %H:%M:%S", &tm); }
+    if (r->crashed_at > 0) {
+        time_t t = (time_t)r->crashed_at;
+        struct tm local;
+        char day[16];
+        if (localtime_r(&t, &local) && panel_date_from_tm(day, sizeof(day), &local, PANEL_DATE_FULL)) {
+            snprintf(date, sizeof(date), "%s %02d:%02d:%02d", day, local.tm_hour, local.tm_min, local.tm_sec);
+        }
+    }
     const char *cause = tr("alerts.crash", "Retained crash report");
     if (r->diagnostic.cause == COREDUMP_CAUSE_PPA_TIMEOUT) cause = tr("alerts.ppa", "Display accelerator timeout");
     else if (r->diagnostic.cause == COREDUMP_CAUSE_LVGL_STALL) cause = tr("alerts.lvgl", "Display task stalled");

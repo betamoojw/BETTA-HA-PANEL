@@ -8,6 +8,8 @@
 #include "cJSON.h"
 #include "host_adapters.h"
 #include "ui/ui_widget_factory.h"
+#include "ui/ui_i18n.h"
+#include "util/panel_date.h"
 #include "ui/theme/ui_style.h"
 #include "ui/fonts/app_symbols.h"
 #include "ui/ui_option_picker.h"
@@ -51,6 +53,19 @@ static void dump_labels(lv_obj_t *root)
 {
     if (lv_obj_check_type(root, &lv_label_class)) fprintf(stderr, "Label: [%s]\n", lv_label_get_text(root));
     for (uint32_t i = 0; i < lv_obj_get_child_count(root); i++) dump_labels(lv_obj_get_child(root, i));
+}
+static lv_obj_t *selected_roller(lv_obj_t *root, const char *value)
+{
+    if (lv_obj_check_type(root, &lv_roller_class)) {
+        char selected[12];
+        lv_roller_get_selected_str(root, selected, sizeof(selected));
+        if (strcmp(selected, value) == 0) return root;
+    }
+    for (uint32_t i = 0; i < lv_obj_get_child_count(root); i++) {
+        lv_obj_t *found = selected_roller(lv_obj_get_child(root, i), value);
+        if (found) return found;
+    }
+    return NULL;
 }
 static void click(lv_obj_t *root, const char *text)
 {
@@ -247,6 +262,31 @@ static void stale_controls_test(void)
     lv_obj_send_event(widget.obj, LV_EVENT_CLICKED, NULL);
     CHECK(lv_obj_get_child_count(lv_layer_top()) == 0);
     lv_obj_delete(widget.obj);
+
+    const char *old_pattern = panel_date_pattern();
+    snprintf(def.entity_id, sizeof(def.entity_id), "date.audit");
+    const char *patterns[] = {"M/D/Y", "D.M.Y", "Y/M/D"};
+    const char *expected[] = {"11/19/2026", "19.11.2026", "2026/11/19"};
+    for (unsigned i = 0; i < 3; i++) {
+        panel_date_set_pattern(patterns[i]);
+        CHECK(ui_widget_factory_create(&def, lv_screen_active(), &widget) == ESP_OK);
+        audit_state(&widget, def.entity_id, "2026-11-19", "{}");
+        CHECK(label(widget.obj, expected[i]));
+        lv_obj_send_event(widget.obj, LV_EVENT_CLICKED, NULL);
+        lv_obj_update_layout(lv_layer_top());
+        lv_obj_t *year = selected_roller(lv_layer_top(), "2026");
+        lv_obj_t *month = selected_roller(lv_layer_top(), "11");
+        lv_obj_t *day = selected_roller(lv_layer_top(), "19");
+        CHECK(year && month && day);
+        int y = lv_obj_get_x(year), m = lv_obj_get_x(month), d = lv_obj_get_x(day);
+        CHECK(i == 0 ? m < d && d < y : i == 1 ? d < m && m < y : y < m && m < d);
+        lv_roller_set_selected(day, 23, LV_ANIM_OFF);
+        sim_host_service_reset(ESP_OK);
+        click(lv_layer_top(), ui_i18n_get("datetime.save", "Save"));
+        sent("date", "set_value", "date.audit", "date", "2026-11-24");
+        lv_obj_delete(widget.obj);
+    }
+    panel_date_set_pattern(old_pattern);
 
     snprintf(def.type, sizeof(def.type), "heating_tile");
     snprintf(def.entity_id, sizeof(def.entity_id), "climate.heating_audit");

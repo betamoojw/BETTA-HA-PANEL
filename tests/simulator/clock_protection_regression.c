@@ -2,6 +2,7 @@
  * Production protection state machine with a controllable clock and real LVGL.
  */
 #include <assert.h>
+#include "util/panel_date.h"
 #include "esp_timer.h"
 static uint32_t test_ms = 1000;
 static int64_t test_time(void) { return (int64_t)test_ms * 1000; }
@@ -115,8 +116,13 @@ static void check_flip_layout(int width, int height)
                 assert(lv_color_eq(lv_obj_get_style_bg_color(s_overlay, 0), ui_style_page_bg(lv_color_hex(APP_UI_COLOR_CONTENT_BG))));
                 lv_obj_t *group = lv_obj_get_child(s_flip_clock, 0);
                 struct tm sample = {.tm_year=126,.tm_mon=10,.tm_mday=6,.tm_wday=5,.tm_hour=20,.tm_min=58,.tm_sec=36};
+                panel_date_set_pattern("M/D/Y");
                 ui_flip_clock_update(s_flip_clock, &sample, false);
-                assert(!strcmp(lv_label_get_text(lv_obj_get_child(group, 0)), "Friday, 2026-11-06"));
+                assert(!strcmp(lv_label_get_text(lv_obj_get_child(group, 0)), "Friday, 11/06/2026"));
+                panel_date_set_pattern("Y/M/D");
+                ui_flip_clock_update(s_flip_clock, &sample, false);
+                assert(!strcmp(lv_label_get_text(lv_obj_get_child(group, 0)), "Friday, 2026/11/06"));
+                panel_date_set_pattern(NULL);
                 assert(lv_obj_is_hidden(lv_obj_get_child(group, 1)) == (format != 0));
                 assert(!strcmp(lv_label_get_text(lv_obj_get_child(group, 1)), "PM"));
                 const char *digits = format ? "205836" : "085836";

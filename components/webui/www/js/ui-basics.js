@@ -188,7 +188,7 @@ function renderFirmwareInfo() {
   if (!hasInfo) return;
 
   if (el.settingsFirmwareInfoMeta) {
-    const built = [editor.appBuildDate, editor.appBuildTime].filter(Boolean).join(" ");
+    const built = [panelBuildDate(editor.appBuildDate), editor.appBuildTime].filter(Boolean).join(" ");
     el.settingsFirmwareInfoMeta.textContent = t("settings.firmware_info.meta", {
       built: built || "?",
       commit: editor.appGitCommit || "?",
@@ -273,7 +273,7 @@ function renderCrashReports(dump) {
     summary.textContent = t("settings.status.coredump_details");
     const info = document.createElement("div");
     info.className = "meta coredump-details";
-    info.textContent = [report.project, report.version, report.build_date, report.build_time,
+    info.textContent = [report.project, report.version, panelBuildDate(report.build_date), report.build_time,
       `${report.pc || "?"} · ${report.mcause_name || report.mcause || "?"}`, report.panic_reason,
       report.elf_sha256 ? `ELF SHA256: ${report.elf_sha256}` : "",
       report.ppa ? `PPA: ${report.ppa.width} × ${report.ppa.height} @ ${report.ppa.input_x},${report.ppa.input_y} · ${report.ppa.rotation}° · ${report.ppa.wait_ms} ms` : "",
@@ -351,7 +351,7 @@ function crashTimeFromRebootLog(entries) {
 function formatCrashTime(epochSeconds, nowMs = Date.now()) {
   if (!(epochSeconds > 0)) return "";
   const when = new Date(epochSeconds * 1000);
-  const text = when.toLocaleString([], { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  const text = panelCivilText(panelCivilTime(when.getTime()), { compact: true });
   const minutes = Math.max(0, Math.round((nowMs - when.getTime()) / 60000));
   const ago = minutes < 90 ? t("crash.ago_minutes", { n: minutes }) : t("crash.ago_hours", { n: Math.round(minutes / 60) });
   return t("crash.when", { when: text, ago });

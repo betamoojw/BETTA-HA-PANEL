@@ -8,7 +8,9 @@
 #include <time.h>
 
 #include "ha/ha_sensor_value.h"
+#include "ha/ha_datetime_value.h"
 #include "ha/ha_timestamp_format.h"
+#include "util/panel_date.h"
 
 static int s_failures = 0;
 
@@ -118,14 +120,27 @@ bool test_timestamp_format(void)
     setenv("TZ", "CET-1CEST,M3.5.0,M10.5.0/3", 1);
     tzset();
     char text[40];
-    SV_CHECK(ha_timestamp_format_absolute(epoch, HA_TS_DATETIME, "de", text, sizeof(text)) && strcmp(text, "21.10.2026 07:56") == 0);
-    SV_CHECK(ha_timestamp_format_absolute(epoch, HA_TS_DATETIME, "en", text, sizeof(text)) && strcmp(text, "10/21/2026 07:56") == 0);
-    SV_CHECK(ha_timestamp_format_absolute(epoch, HA_TS_DATE, "de", text, sizeof(text)) && strcmp(text, "21.10.2026") == 0);
-    SV_CHECK(ha_timestamp_format_absolute(epoch, HA_TS_TIME, "en", text, sizeof(text)) && strcmp(text, "07:56") == 0);
-    SV_CHECK(ha_timestamp_format_absolute(epoch, HA_TS_RELATIVE, "de", text, sizeof(text)) && strcmp(text, "21.10.2026 07:56") == 0);
+    panel_date_set_pattern("D.M.Y");
+    SV_CHECK(ha_timestamp_format_absolute(epoch, HA_TS_DATETIME, text, sizeof(text)) && strcmp(text, "21.10.2026 07:56") == 0);
+    panel_date_set_pattern("M/D/Y");
+    SV_CHECK(ha_timestamp_format_absolute(epoch, HA_TS_DATETIME, text, sizeof(text)) && strcmp(text, "10/21/2026 07:56") == 0);
+    panel_date_set_pattern("D.M.Y");
+    SV_CHECK(ha_timestamp_format_absolute(epoch, HA_TS_DATE, text, sizeof(text)) && strcmp(text, "21.10.2026") == 0);
+    SV_CHECK(ha_timestamp_format_absolute(epoch, HA_TS_TIME, text, sizeof(text)) && strcmp(text, "07:56") == 0);
+    SV_CHECK(ha_timestamp_format_absolute(epoch, HA_TS_RELATIVE, text, sizeof(text)) && strcmp(text, "21.10.2026 07:56") == 0);
     /* 23:30 UTC is already the next day in Berlin. */
     SV_CHECK(ha_timestamp_parse("2026-10-20T23:30:00+00:00", &other));
-    SV_CHECK(ha_timestamp_format_absolute(other, HA_TS_DATE, "de", text, sizeof(text)) && strcmp(text, "21.10.2026") == 0);
+    SV_CHECK(ha_timestamp_format_absolute(other, HA_TS_DATE, text, sizeof(text)) && strcmp(text, "21.10.2026") == 0);
+    SV_CHECK(ha_timestamp_parse("2026-01-01T00:30:05Z", &other));
+    setenv("TZ", "EST5EDT,M3.2.0,M11.1.0", 1);
+    tzset();
+    panel_date_set_pattern("M/D/Y");
+    SV_CHECK(ha_timestamp_format_absolute(other, HA_TS_DATETIME, text, sizeof(text)) && !strcmp(text, "12/31/2025 19:30"));
+    setenv("TZ", "JST-9", 1);
+    tzset();
+    panel_date_set_pattern("Y/M/D");
+    SV_CHECK(ha_timestamp_format_absolute(other, HA_TS_DATETIME, text, sizeof(text)) && !strcmp(text, "2026/01/01 09:30"));
+    panel_date_set_pattern(NULL);
     if (saved_tz) { setenv("TZ", saved_tz, 1); free(saved_tz); }
     else unsetenv("TZ");
     tzset();
@@ -145,5 +160,60 @@ bool test_timestamp_format(void)
     SV_CHECK(unit == HA_TS_REL_HOURS && amount == 47 && !future);
     ha_timestamp_relative(epoch, epoch + 2 * 86400 + 5, &unit, &amount, &future);
     SV_CHECK(unit == HA_TS_REL_DAYS && amount == 2 && !future);
+    return s_failures == failures;
+}
+
+bool test_datetime_value(void)
+{
+    const int failures = s_failures;
+    ha_datetime_value_t value;
+    char formatted[48], payload[160];
+    const char *domain = NULL, *service = NULL;
+    SV_CHECK(ha_datetime_parse("input_datetime.morning", "06:00:00", "{\"has_date\":false,\"has_time\":true}", &value));
+    SV_CHECK(!value.has_date && value.has_time);
+    SV_CHECK(ha_datetime_format(&value, formatted, sizeof(formatted)) && strcmp(formatted, "06:00") == 0);
+    SV_CHECK(ha_datetime_service_payload("input_datetime.morning", &value, &domain, &service, payload, sizeof(payload)));
+    SV_CHECK(strcmp(domain, "input_datetime") == 0 && strcmp(service, "set_datetime") == 0);
+    SV_CHECK(strcmp(payload, "{\"entity_id\":\"input_datetime.morning\",\"time\":\"06:00:00\"}") == 0);
+    SV_CHECK(ha_datetime_parse("time.robot", "22:15:07", NULL, &value));
+    SV_CHECK(ha_datetime_format(&value, formatted, sizeof(formatted)) && strcmp(formatted, "22:15:07") == 0);
+    SV_CHECK(ha_datetime_service_payload("time.robot", &value, &domain, &service, payload, sizeof(payload)));
+    SV_CHECK(strcmp(domain, "time") == 0 && strcmp(service, "set_value") == 0);
+    SV_CHECK(ha_datetime_parse("date.reminder", "2026-09-27", NULL, &value));
+    panel_date_set_pattern("D.M.Y");
+    SV_CHECK(ha_datetime_format(&value, formatted, sizeof(formatted)) && strcmp(formatted, "27.09.2026") == 0);
+    panel_date_set_pattern("M/D/Y");
+    SV_CHECK(ha_datetime_format(&value, formatted, sizeof(formatted)) && strcmp(formatted, "09/27/2026") == 0);
+    SV_CHECK(ha_datetime_service_payload("date.reminder", &value, &domain, &service, payload, sizeof(payload)));
+    SV_CHECK(strcmp(domain, "date") == 0 && strstr(payload, "\"date\":\"2026-09-27\"") != NULL);
+    SV_CHECK(ha_datetime_parse("input_datetime.meeting", "2026-09-27 07:30:00", "{\"has_date\":true,\"has_time\":true}", &value));
+    panel_date_set_pattern("D.M.Y");
+    SV_CHECK(ha_datetime_format(&value, formatted, sizeof(formatted)) && strcmp(formatted, "27.09.2026 07:30") == 0);
+    SV_CHECK(ha_datetime_service_payload("input_datetime.meeting", &value, &domain, &service, payload, sizeof(payload)));
+    SV_CHECK(strstr(payload, "\"datetime\":\"2026-09-27 07:30:00\"") != NULL);
+    SV_CHECK(!ha_datetime_parse("input_datetime.bad", "2026-02-29", NULL, &value));
+    SV_CHECK(!ha_datetime_parse("input_datetime.bad", "06:00:00", "{\"has_date\":true}", &value));
+    SV_CHECK(!ha_datetime_parse("time.bad", "24:00:00", NULL, &value));
+    SV_CHECK(!ha_datetime_parse("datetime.bad", "2026-09-27T07:30:00", NULL, &value));
+
+    const char *previous_tz = getenv("TZ");
+    char *saved_tz = previous_tz ? strdup(previous_tz) : NULL;
+    setenv("TZ", "CET-1CEST,M3.5.0,M10.5.0/3", 1);
+    tzset();
+    SV_CHECK(ha_datetime_parse("datetime.meeting", "2026-09-27T05:00:00+00:00", NULL, &value));
+    SV_CHECK(!ha_datetime_parse("datetime.meeting", "2026-09-27T05:00:00.Z", NULL, &value));
+    SV_CHECK(ha_datetime_parse("datetime.meeting", "2026-09-27T05:00:00.123Z", NULL, &value));
+    SV_CHECK(ha_datetime_format(&value, formatted, sizeof(formatted)) && strcmp(formatted, "27.09.2026 07:00") == 0);
+    SV_CHECK(ha_datetime_service_payload("datetime.meeting", &value, &domain, &service, payload, sizeof(payload)));
+    SV_CHECK(strstr(payload, "\"datetime\":\"2026-09-27T05:00:00+00:00\"") != NULL);
+    value.year = 2026; value.month = 3; value.day = 29; value.hour = 2; value.minute = 30;
+    SV_CHECK(!ha_datetime_service_payload("datetime.meeting", &value, &domain, &service, payload, sizeof(payload)));
+    value.month = 10; value.day = 25; value.hour = 2;
+    SV_CHECK(ha_datetime_service_payload("datetime.meeting", &value, &domain, &service, payload, sizeof(payload)));
+    SV_CHECK(strstr(payload, "\"datetime\":\"2026-10-25T00:30:00+00:00\"") != NULL);
+    panel_date_set_pattern(NULL);
+    if (saved_tz) { setenv("TZ", saved_tz, 1); free(saved_tz); }
+    else unsetenv("TZ");
+    tzset();
     return s_failures == failures;
 }

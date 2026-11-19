@@ -53,7 +53,7 @@ The first choice is the default. Without an option:
 | Enum | Readable text | `no_risk` → `No risk` |
 | Binary sensor | State text of its class, as on the Binary tile | `on` → `Open` (door) |
 
-**Automatic** switches to kW, kWh or MWh from 1000 of the smaller unit. A duration as text drops the seconds from an hour and the minutes from a day (`2 d 3 h`). Timestamps are shown in the panel's local time; the date follows the panel language like the Date/Time tile. Relative needs the synchronised clock and otherwise shows the date (and time).
+**Automatic** switches to kW, kWh or MWh from 1000 of the smaller unit. A duration as text drops the seconds from an hour and the minutes from a day (`2 d 3 h`). Timestamps use the panel's local time and the selected location's date format. Date-only entities keep their calendar day. Relative needs the synchronised clock and otherwise shows the date (and time).
 
 Units Home Assistant can convert (power, energy, duration, temperature, distance, pressure, speed) are set per entity in Home Assistant: *Settings → Entities → Unit of measurement*.
 

@@ -5,6 +5,7 @@
  */
 #include "ui/ui_transition.h"
 #include "ui/ui_history_popup.h"
+#include "util/panel_date.h"
 
 #include "ha/ha_alarm_state.h"
 
@@ -337,8 +338,8 @@ static void render_range(history_popup_t *popup, const ha_range_series_t *series
         time_t at = (time_t)series->point[index].start;
         struct tm local;
         if (localtime_r(&at, &local) == NULL) continue;
-        if (months) snprintf(labels[count].text, sizeof(labels[count].text), "%02d/%02d", local.tm_mon + 1, local.tm_year % 100);
-        else snprintf(labels[count].text, sizeof(labels[count].text), "%02d.%02d.", local.tm_mday, local.tm_mon + 1);
+        if (months) panel_date_from_tm(labels[count].text, sizeof(labels[count].text), &local, PANEL_DATE_MONTH_YEAR);
+        else panel_date_from_tm(labels[count].text, sizeof(labels[count].text), &local, PANEL_DATE_MONTH_DAY);
         labels[count].frac = (float)(at - series->point[0].start) /
                              (float)(series->point[series->count - 1].start - series->point[0].start);
         count++;
@@ -1033,8 +1034,11 @@ static void quote_time_text(int64_t epoch, bool with_date, char *out, size_t cap
         return;
     }
     if (!with_date) snprintf(out, cap, "%02d:%02d", local.tm_hour, local.tm_min);
-    else if (quote_german()) snprintf(out, cap, "%d.%d. %02d:%02d", local.tm_mday, local.tm_mon + 1, local.tm_hour, local.tm_min);
-    else snprintf(out, cap, "%d/%d %02d:%02d", local.tm_mon + 1, local.tm_mday, local.tm_hour, local.tm_min);
+    else {
+        char date[12];
+        panel_date_from_tm(date, sizeof(date), &local, PANEL_DATE_MONTH_DAY);
+        snprintf(out, cap, "%s %02d:%02d", date, local.tm_hour, local.tm_min);
+    }
 }
 
 static const char *quote_market_text(ha_quote_market_t market)
@@ -1157,8 +1161,8 @@ static void quote_received(void *user, quote_feed_status_t status, const ha_quot
             struct tm local;
             if (localtime_r(&when, &local) == NULL) continue;
             if (series->period == HA_QUOTE_PERIOD_1D) snprintf(labels[count].text, sizeof(labels[count].text), "%02d:%02d", local.tm_hour, local.tm_min);
-            else if (series->period >= HA_QUOTE_PERIOD_YTD) snprintf(labels[count].text, sizeof(labels[count].text), "%02d/%02d", local.tm_mon + 1, local.tm_year % 100);
-            else snprintf(labels[count].text, sizeof(labels[count].text), "%02d.%02d.", local.tm_mday, local.tm_mon + 1);
+            else if (series->period >= HA_QUOTE_PERIOD_YTD) panel_date_from_tm(labels[count].text, sizeof(labels[count].text), &local, PANEL_DATE_MONTH_YEAR);
+            else panel_date_from_tm(labels[count].text, sizeof(labels[count].text), &local, PANEL_DATE_MONTH_DAY);
             labels[count].frac = (float)k / 4.0f;
             count++;
         }

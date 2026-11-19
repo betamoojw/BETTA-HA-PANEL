@@ -45,6 +45,8 @@ Missing days or weeks leave gaps in the line. Dates keep their elapsed-time posi
 
 The clock shows hours and minutes, with a 12/24-hour choice in the panel's screen settings. Set the **time zone** and the **time server** under
 **Settings → Language & time → Time**. The time zone applies at once; save a changed time server.
+The top bar, clocks and dated widgets use the selected location's numeric date order
+and separator. See [Time zones](editor.md#time-zones) for examples.
 
 ## Status chips
 

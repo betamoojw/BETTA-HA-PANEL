@@ -4,3 +4,4 @@
 #include <stddef.h>
 const char *timezone_catalog_name(size_t index);
 const char *timezone_catalog_rules(const char *name);
+const char *timezone_catalog_date_pattern(const char *name);

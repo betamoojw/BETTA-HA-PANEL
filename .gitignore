@@ -88,6 +88,7 @@ main/idf_component.yml
 !/tools/generate_i18n.py
 
 !/tools/generate_timezones.py
+!/tools/update_timezone_dates.mjs
 
 !tools/pack_xiaozhi_model.py
 !tools/prepare_custom_wake_model.py

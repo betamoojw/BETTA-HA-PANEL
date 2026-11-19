@@ -2,6 +2,7 @@
  * Copyright (c) 2026 andre68723
  */
 #include "settings/display_clock.h"
+#include "util/panel_date.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -99,7 +100,7 @@ void display_clock_format(const display_clock_t *clock, const struct tm *time,
         (clock->show_seconds ? "%I:%M:%S %p" : "%I:%M %p");
     if (time != NULL && time->tm_year >= 120) {
         strftime(text, text_size, format, time);
-        if (clock->show_date) strftime(date, date_size, "%Y-%m-%d", time);
+        if (clock->show_date) panel_date_from_tm(date, date_size, time, PANEL_DATE_FULL);
         else if (date_size) date[0] = '\0';
     } else {
         snprintf(text, text_size, "--:--");

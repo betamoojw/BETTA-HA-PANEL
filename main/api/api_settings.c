@@ -634,6 +634,7 @@ esp_err_t api_settings_put_handler(httpd_req_t *req)
     cJSON *ha = cJSON_GetObjectItemCaseSensitive(root, "ha");
     cJSON *mqtt = cJSON_GetObjectItemCaseSensitive(root, "mqtt");
     cJSON *time_cfg = cJSON_GetObjectItemCaseSensitive(root, "time");
+    bool timezone_requested = cJSON_IsString(cJSON_GetObjectItemCaseSensitive(time_cfg, "timezone"));
     cJSON *ui = cJSON_GetObjectItemCaseSensitive(root, "ui");
     cJSON *topbar = cJSON_GetObjectItemCaseSensitive(root, "topbar");
     cJSON *hardware = cJSON_GetObjectItemCaseSensitive(root, "hardware");
@@ -1047,8 +1048,8 @@ esp_err_t api_settings_put_handler(httpd_req_t *req)
             (void)ha_client_notify_layout_updated();
         char ui_sig_after[512];
         ui_settings_signature(settings, ui_sig_after, sizeof(ui_sig_after));
-        if (strcmp(ui_sig_before, ui_sig_after) != 0) {
-            /* Language, appearance or top bar changed: the UI task re-reads them and rebuilds the pages. */
+        if (strcmp(ui_sig_before, ui_sig_after) != 0 || strcmp(settings->time_tz, settings[1].time_tz) != 0) {
+            /* Recreate widgets from their original HA states with the active UI and timezone settings. */
             app_event_t event = {.type = EV_LAYOUT_UPDATED};
             (void)app_events_publish(&event, pdMS_TO_TICKS(20));
         }
@@ -1064,6 +1065,7 @@ esp_err_t api_settings_put_handler(httpd_req_t *req)
     }
     cJSON_AddBoolToObject(resp, "ok", true);
     cJSON_AddBoolToObject(resp, "rebooting", reboot);
+    if (timezone_requested && !reboot) api_time_status_add(resp);
     char *payload = cJSON_PrintUnformatted(resp);
     cJSON_Delete(resp);
     if (payload == NULL) {

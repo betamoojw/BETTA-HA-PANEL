@@ -57,8 +57,7 @@ function licenseAgreementRender() {
     const record = key ? JSON.parse(window.localStorage.getItem(key) || "null") : null;
     checkbox.checked = !!record?.readAt;
     licenseNode("licenseAgreementMessage").textContent = record?.readAt
-      ? t("license.read_saved", { date: new Date(record.readAt).toLocaleString(
-        WEB_I18N_BUILTIN[editor.i18nLanguage] ? editor.i18nLanguage : "en") }) : "";
+      ? t("license.read_saved", { date: panelCivilText(panelCivilTime(Date.parse(record.readAt)), { seconds: true }) }) : "";
   } catch (_) {
     checkbox.checked = false;
     licenseNode("licenseAgreementMessage").textContent = t("license.read_failed");

@@ -18,12 +18,16 @@ import math
 import sys
 import webbrowser
 from urllib.parse import parse_qs, urlsplit
+from zoneinfo import ZoneInfo
 
 from generate_docs_examples import DemoHTTPServer, WWW, demo_api, fixtures
+from generate_timezones import DB, load_date_patterns
 from generate_simulator_gallery import DATA, FIXED_NOW, GEOMETRY, build_simulator, demo_page, prepare_fixture
 
 ROOT = Path(__file__).resolve().parent.parent
 SIMULATOR_LOCK = threading.Lock()  # one build/render at a time: the simulator build directory is shared
+ZONE_RULES = json.loads((DB / 'zones.json').read_text(encoding='utf8'))
+DATE_PATTERNS = load_date_patterns()
 SIMULATOR_STYLES = ('flat', 'glow', 'glass', 'matte')
 SUPPORT = Path(__file__).resolve().parent / 'editor_local'
 CSP = "default-src 'self'; connect-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self' data:; object-src 'none'; base-uri 'self'"
@@ -186,7 +190,17 @@ def current_simulator(variant):
         return build_simulator(variant)
 
 
-def render_lvgl(variant, layout, base, page_id, style, text_step, language):
+def local_clock_status(zone):
+    clock = {'active_timezone': zone, 'date_pattern': DATE_PATTERNS.get(zone, 'Y-M-D'),
+             'timezone_rules': ZONE_RULES.get(zone, zone), 'clock_valid': False, 'local_time': ''}
+    try:
+        clock.update(clock_valid=True, local_time=datetime.datetime.now(ZoneInfo(zone)).strftime('%Y-%m-%dT%H:%M:%S'))
+    except (KeyError, ValueError):
+        pass
+    return clock
+
+
+def render_lvgl(variant, layout, base, page_id, style, text_step, language, timezone):
     """The page as the LVGL simulator draws it (a BMP), for the layout as edited. Raises ValueError for bad input."""
     pages = copy.deepcopy(layout.get('pages') or [])
     page = next((item for item in pages if item.get('id') == page_id), pages[0] if pages else None)
@@ -195,7 +209,8 @@ def render_lvgl(variant, layout, base, page_id, style, text_step, language):
     text_step = text_step if type(text_step) is int and 0 <= text_step <= 2 else 0
     language = language if language in ('de', 'en') else 'de'
     fixture = dict(base, version=1, alerts=layout.get('alerts', []), pages=pages)
-    now = str(int(datetime.datetime.fromisoformat(FIXED_NOW).timestamp()))  # the gallery's fixed clock: dated demo data fits
+    # The fixture clock is noon in Berlin, independent of the web editor or host location.
+    now = str(int(datetime.datetime.fromisoformat(FIXED_NOW + '+02:00').timestamp()))
     with SIMULATOR_LOCK, tempfile.TemporaryDirectory(prefix='betta_editor_sim_') as temp:
         binary = current_simulator(variant)
         source, image = Path(temp) / 'layout.json', Path(temp) / 'page.bmp'
@@ -203,7 +218,8 @@ def render_lvgl(variant, layout, base, page_id, style, text_step, language):
         subprocess.run([str(binary), '--fixture', str(source), '--page', page['id'], '--theme', 'dark_v2', '--style', style,
                         '--text-step', str(text_step), '--language', language, '--screenshot', str(image),
                         '--exit-after-ms', '300'],
-                       env=dict(os.environ, SDL_VIDEODRIVER='dummy', BETTA_SIM_NOW=now), check=True,
+                       env=dict(os.environ, SDL_VIDEODRIVER='dummy', BETTA_SIM_NOW=now,
+                                BETTA_SIM_TIMEZONE=timezone, TZ=ZONE_RULES.get(timezone, timezone)), check=True,
                        capture_output=True, timeout=60)
         return image.read_bytes()
 
@@ -296,18 +312,10 @@ def build_server(port=8766, variant='paneljc', fixture_path=None, state_path=Non
                                        'total': len(items), 'loaded': len(items)})
                 if url.path == '/api/settings':
                     value = copy.deepcopy(responses[url.path])
-                    clock = {'active_timezone': value.get('time', {}).get('timezone', ''),
-                             'clock_valid': False, 'local_time': ''}
-                    try:
-                        from datetime import datetime
-                        from zoneinfo import ZoneInfo
-                        clock.update(clock_valid=True, local_time=datetime.now(
-                            ZoneInfo(clock['active_timezone'])).strftime('%Y-%m-%dT%H:%M:%S'))
-                    except (KeyError, ValueError, ImportError): pass
+                    clock = local_clock_status(value.get('time', {}).get('timezone', ''))
                     if query.get('time_only') == ['1']: return self.reply(clock)
                     value.setdefault('time', {}).update(clock)
-                    value['time']['timezones'] = sorted(json.loads(
-                        (ROOT / 'main/net/tzdb/zones.json').read_text(encoding='utf8')))
+                    value['time']['timezones'] = sorted(ZONE_RULES)
                     return self.reply(value)
                 if url.path == '/api/knx/objects':
                     objects = responses['/api/knx/config']['comObjects']
@@ -339,9 +347,10 @@ def build_server(port=8766, variant='paneljc', fixture_path=None, state_path=Non
                 with store.lock:
                     layout = body.get('layout') if isinstance(body.get('layout'), dict) else responses['/api/layout']
                     base = copy.deepcopy(responses['__simulator__'])
+                    timezone = responses['/api/settings'].get('time', {}).get('timezone', '')
                 try:
                     image = render_lvgl(variant, layout, base, body.get('page_id'), body.get('style'),
-                                        body.get('text_step'), body.get('language'))
+                                        body.get('text_step'), body.get('language'), timezone)
                 except ValueError as error: return self.reply({'error': str(error)}, 400)
                 except (OSError, subprocess.SubprocessError) as error:
                     return self.reply({'error': 'The simulator could not render the page: ' + str(error)[:300]}, 500)
@@ -405,6 +414,8 @@ def build_server(port=8766, variant='paneljc', fixture_path=None, state_path=Non
                     for group in ('ui', 'hardware', 'topbar', 'time'):
                         if isinstance(body.get(group), dict): responses[path].setdefault(group, {}).update(body[group])
                     store.persist()
+                    if isinstance(body.get('time'), dict) and 'timezone' in body['time'] and not body.get('reboot'):
+                        return self.reply(dict(ok=True, local_only=True, **local_clock_status(body['time']['timezone'])))
                     return self.reply({'ok': True, 'local_only': True})
                 if path in ('/api/local/reset', '/api/spike/reset') and self.command == 'POST':
                     responses.clear()

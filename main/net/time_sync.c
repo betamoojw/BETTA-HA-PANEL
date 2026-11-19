@@ -4,6 +4,7 @@
 #include "net/time_sync.h"
 
 #include <stdlib.h>
+#include <pthread.h>
 #include <string.h>
 #include <time.h>
 
@@ -16,26 +17,38 @@
 #include "util/log_tags.h"
 
 #include "net/timezone_catalog.h"
+#include "util/panel_date.h"
 static char s_timezone[APP_TIME_TZ_MAX_LEN];
+static pthread_mutex_t s_timezone_lock = PTHREAD_MUTEX_INITIALIZER;
 
 const char *time_sync_tz_name(size_t index) { return timezone_catalog_name(index); }
 const char *time_sync_tz_rules(const char *name) { return timezone_catalog_rules(name); }
 
-const char *time_sync_get_tz(void)
+bool time_sync_local_clock(time_t now, struct tm *local, char *zone, size_t zone_size)
 {
-    return s_timezone;
+    if (!zone || !zone_size || !local) return false;
+    zone[0] = '\0';
+    if (pthread_mutex_lock(&s_timezone_lock) != 0) return false;
+    strlcpy(zone, s_timezone, zone_size);
+    bool ok = localtime_r(&now, local) != NULL;
+    pthread_mutex_unlock(&s_timezone_lock);
+    return ok;
 }
 
 static esp_err_t apply_timezone(const char *name, const char *rules)
 {
     if (strlen(name) >= sizeof(s_timezone)) return ESP_ERR_INVALID_ARG;
+    if (pthread_mutex_lock(&s_timezone_lock) != 0) return ESP_FAIL;
     if (setenv("TZ", rules, 1) != 0) {
+        pthread_mutex_unlock(&s_timezone_lock);
         ESP_LOGW(TAG_TIME, "Failed to set timezone '%s'", name);
         return ESP_FAIL;
     }
     tzset();
+    panel_date_set_pattern(timezone_catalog_date_pattern(name));
     memmove(s_timezone, name, strlen(name) + 1);
-    ESP_LOGI(TAG_TIME, "Timezone set: %s", s_timezone);
+    pthread_mutex_unlock(&s_timezone_lock);
+    ESP_LOGI(TAG_TIME, "Timezone set: %s", name);
     return ESP_OK;
 }
 

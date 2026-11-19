@@ -28,9 +28,9 @@ typedef enum {
 bool ha_ts_style_from_string(const char *name, ha_ts_style_t *out);
 /* ISO 8601 with an offset or Z, "T" or a space between date and time, optional fractional seconds. */
 bool ha_timestamp_parse(const char *state, int64_t *epoch_s);
-/* Date, time or both in the process's local time zone, without seconds; the date follows the language
- * like the Date/Time tile. HA_TS_RELATIVE is formatted as date and time here. */
-bool ha_timestamp_format_absolute(int64_t epoch_s, ha_ts_style_t style, const char *language, char *out, size_t out_len);
+/* Local date/time without seconds, using the active timezone's date pattern.
+ * HA_TS_RELATIVE is formatted as date and time here. */
+bool ha_timestamp_format_absolute(int64_t epoch_s, ha_ts_style_t style, char *out, size_t out_len);
 /* The distance from now, rounded down like the sensor's update age: under a minute is "now", then minutes,
  * hours below 48 and days. */
 void ha_timestamp_relative(int64_t epoch_s, int64_t now_s, ha_ts_rel_unit_t *unit, int *amount, bool *future);

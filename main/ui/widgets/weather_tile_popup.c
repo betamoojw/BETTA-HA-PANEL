@@ -4,6 +4,7 @@
  */
 #include "ui/ui_transition.h"
 #include "ui/widgets/weather_tile_internal.h"
+#include "util/panel_date.h"
 #include "drivers/display_init.h"
 
 /* ---- Day detail popup ------------------------------------------------- */
@@ -284,8 +285,10 @@ static void weather_detail_response_cb(bool success, cJSON *result, void *user)
                 continue;
             }
             /* Empty date (today without a forecast entry): take the first item. */
-            if (d->date[0] != '\0' && strncmp(dt->valuestring, d->date, 10) != 0) {
-                continue;
+            if (d->date[0] != '\0') {
+                char local_date[11];
+                ui_day_grid_local_date(dt->valuestring, local_date);
+                if (strcmp(local_date, d->date) != 0) continue;
             }
             float v = 0.0f;
             if (weather_detail_num(item, "humidity", &v)) d->humidity = v;
@@ -505,31 +508,32 @@ void weather_report_clicked_cb(lv_event_t *event)
     weather_show_report_popup((w_weather_tile_ctx_t *)lv_event_get_user_data(event));
 }
 
-/* "Sonntag, 20.09." (today: "Heute, Samstag, 19.09."). */
+/* Forecast dates are civil dates in the panel timezone. */
 static void weather_day_full_title(const w_weather_tile_ctx_t *ctx, int index, char *out, size_t out_size)
 {
     const weather_day_row_t *row = &ctx->render_rows[index];
     time_t now = time(NULL);
-    struct tm lt;
+    struct tm lt = {0};
     localtime_r(&now, &lt);
     int wd = lt.tm_wday;
-    int day = lt.tm_mday;
-    int month = lt.tm_mon + 1;
     if (index > 0) {
         int y = 0, m = 0, d = 0;
         if (sscanf(row->date, "%d-%d-%d", &y, &m, &d) == 3) {
             wd = weather_weekday_from_date(row->date);
-            day = d;
-            month = m;
+            lt.tm_mday = d;
+            lt.tm_mon = m - 1;
+            lt.tm_year = y - 1900;
         }
     }
     char key[24];
     snprintf(key, sizeof(key), "weather.day_full_%d", (wd >= 0 && wd <= 6) ? wd : 0);
     const char *name = ui_i18n_get(key, row->day);
+    char date[12];
+    panel_date_from_tm(date, sizeof(date), &lt, PANEL_DATE_MONTH_DAY);
     if (index == 0) {
-        snprintf(out, out_size, "%s, %s, %02d.%02d.", ui_i18n_get("weather.today", "Today"), name, day, month);
+        snprintf(out, out_size, "%s, %s, %s", ui_i18n_get("weather.today", "Today"), name, date);
     } else {
-        snprintf(out, out_size, "%s, %02d.%02d.", name, day, month);
+        snprintf(out, out_size, "%s, %s", name, date);
     }
 }
 

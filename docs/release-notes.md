@@ -8,6 +8,11 @@ Changes of **this fork**, compared with upstream v0.8.2. The release notes of th
 
 Changes since [v0.9.2-rc1](#v092-rc1).
 
+- The top bar, default flip clock, clock screensavers, dated widgets and web editor
+  use the [panel location's date format](editor.md#time-zones). Weekday names
+  follow the interface language. Changes from the panel also update the editor's
+  time-zone picker and clock preview while **Language & time** stays open.
+
 - **Layout editor:** dragging, resizing and Placement inputs snap to 2 logical pixels;
   preview grid lines are 10 logical pixels apart in every style. Arrow-key movement
   uses 2 logical pixels, while Shift keeps 1-pixel adjustments.
@@ -18,7 +23,7 @@ Changes since [v0.9.2-rc1](#v092-rc1).
   License/Agreement tabs, paste or file activation and an optional browser-local
   reading record for the complete repository license and third-party notices.
   Labels, file-selection controls, status and feedback support all seven editor languages;
-  language changes refresh messages and reading dates while preserving reading records.
+  language changes refresh messages and preserve reading records.
   A shared black/yellow warning strip covers login, setup, editor and viewer pages
   without restricting use. Valid activation removes the strip and its top spacing.
   File selection and pasting remain available to administrators without an issuer

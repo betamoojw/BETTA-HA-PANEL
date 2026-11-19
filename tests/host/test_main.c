@@ -25,7 +25,6 @@ time_t host_test_time(time_t *out)
 #include "ha/ha_layout_entities.h"
 #include "ha/ha_display_precision.h"
 #include "ha/ha_discovery_domains.h"
-#include "ha/ha_datetime_value.h"
 #include "ha/ha_history_reduce.h"
 #include "util/distance_units.h"
 #include "util/iso_time.h"
@@ -47,6 +46,7 @@ time_t host_test_time(time_t *out)
 #include "layout/layout_validate.h"
 bool test_energy_timeline_colors(void);
 bool test_sensor_value(void);
+bool test_datetime_value(void);
 bool test_quote(void);
 bool test_timestamp_format(void);
 #include "layout/widget_types.h"
@@ -2614,53 +2614,6 @@ static void test_room_extra(void)
     CHECK(room_action_domain(ROOM_ACTION_NONE) == NULL && room_action_service(ROOM_ACTION_NONE) == NULL);
 }
 
-static void test_datetime_value(void)
-{
-    ha_datetime_value_t value;
-    char formatted[48], payload[160];
-    const char *domain = NULL, *service = NULL;
-    CHECK(ha_datetime_parse("input_datetime.morning", "06:00:00", "{\"has_date\":false,\"has_time\":true}", &value));
-    CHECK(!value.has_date && value.has_time);
-    CHECK(ha_datetime_format(&value, "de", formatted, sizeof(formatted)) && strcmp(formatted, "06:00") == 0);
-    CHECK(ha_datetime_service_payload("input_datetime.morning", &value, &domain, &service, payload, sizeof(payload)));
-    CHECK(strcmp(domain, "input_datetime") == 0 && strcmp(service, "set_datetime") == 0);
-    CHECK(strcmp(payload, "{\"entity_id\":\"input_datetime.morning\",\"time\":\"06:00:00\"}") == 0);
-    CHECK(ha_datetime_parse("time.robot", "22:15:07", NULL, &value));
-    CHECK(ha_datetime_format(&value, "en", formatted, sizeof(formatted)) && strcmp(formatted, "22:15:07") == 0);
-    CHECK(ha_datetime_service_payload("time.robot", &value, &domain, &service, payload, sizeof(payload)));
-    CHECK(strcmp(domain, "time") == 0 && strcmp(service, "set_value") == 0);
-    CHECK(ha_datetime_parse("date.reminder", "2026-09-27", NULL, &value));
-    CHECK(ha_datetime_format(&value, "de", formatted, sizeof(formatted)) && strcmp(formatted, "27.09.2026") == 0);
-    CHECK(ha_datetime_format(&value, "en", formatted, sizeof(formatted)) && strcmp(formatted, "09/27/2026") == 0);
-    CHECK(ha_datetime_service_payload("date.reminder", &value, &domain, &service, payload, sizeof(payload)));
-    CHECK(strcmp(domain, "date") == 0 && strstr(payload, "\"date\":\"2026-09-27\"") != NULL);
-    CHECK(ha_datetime_parse("input_datetime.meeting", "2026-09-27 07:30:00", "{\"has_date\":true,\"has_time\":true}", &value));
-    CHECK(ha_datetime_format(&value, "de", formatted, sizeof(formatted)) && strcmp(formatted, "27.09.2026 07:30") == 0);
-    CHECK(ha_datetime_service_payload("input_datetime.meeting", &value, &domain, &service, payload, sizeof(payload)));
-    CHECK(strstr(payload, "\"datetime\":\"2026-09-27 07:30:00\"") != NULL);
-    CHECK(!ha_datetime_parse("input_datetime.bad", "2026-02-29", NULL, &value));
-    CHECK(!ha_datetime_parse("input_datetime.bad", "06:00:00", "{\"has_date\":true}", &value));
-    CHECK(!ha_datetime_parse("time.bad", "24:00:00", NULL, &value));
-    CHECK(!ha_datetime_parse("datetime.bad", "2026-09-27T07:30:00", NULL, &value));
-
-    const char *previous_tz = getenv("TZ");
-    char *saved_tz = previous_tz ? strdup(previous_tz) : NULL;
-    setenv("TZ", "CET-1CEST,M3.5.0,M10.5.0/3", 1);
-    tzset();
-    CHECK(ha_datetime_parse("datetime.meeting", "2026-09-27T05:00:00+00:00", NULL, &value));
-    CHECK(ha_datetime_format(&value, "de", formatted, sizeof(formatted)) && strcmp(formatted, "27.09.2026 07:00") == 0);
-    CHECK(ha_datetime_service_payload("datetime.meeting", &value, &domain, &service, payload, sizeof(payload)));
-    CHECK(strstr(payload, "\"datetime\":\"2026-09-27T05:00:00+00:00\"") != NULL);
-    value.year = 2026; value.month = 3; value.day = 29; value.hour = 2; value.minute = 30;
-    CHECK(!ha_datetime_service_payload("datetime.meeting", &value, &domain, &service, payload, sizeof(payload)));
-    value.month = 10; value.day = 25; value.hour = 2;
-    CHECK(ha_datetime_service_payload("datetime.meeting", &value, &domain, &service, payload, sizeof(payload)));
-    CHECK(strstr(payload, "\"datetime\":\"2026-10-25T00:30:00+00:00\"") != NULL);
-    if (saved_tz) { setenv("TZ", saved_tz, 1); free(saved_tz); }
-    else unsetenv("TZ");
-    tzset();
-}
-
 static bool read_whole_file(const char *path, char *out, size_t out_len)
 {
     FILE *f = fopen(path, "rb");
@@ -2955,7 +2908,7 @@ int main(void)
     test_distance_units();
     test_energy_timeline_model();
     test_room_extra();
-    test_datetime_value();
+    CHECK(test_datetime_value());
     CHECK(test_timestamp_format());
     CHECK(test_sensor_value());
     CHECK(test_quote());

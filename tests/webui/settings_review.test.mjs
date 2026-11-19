@@ -93,16 +93,53 @@ test("editor menu persists per tab across bootstrap and safely falls back for in
   assert.equal(run("editor.activePane"), "layout");
 });
 
-test("time zone changes use the live settings path without saving the time server", () => {
+test("time zone changes use the live settings path without saving the time server", async () => {
   const run = setupBindings();
   run(`globalThis.setTimeout = callback => { callback(); return 0; };
     el.settingsTimezone.value = 'CET-1CEST,M3.5.0/2,M10.5.0/3';
     el.settingsNtpServer.value = 'pool.ntp.org';
     realHardwareBinder();
     el.settingsTimezone.dispatchEvent(new Event('change'));`);
+  await new Promise(resolve => setImmediate(resolve));
   assert.equal(run("puts[0].time.timezone"), 'CET-1CEST,M3.5.0/2,M10.5.0/3');
   assert.equal(run("puts[0].reboot"), false);
   assert.equal(run("puts[0].time.ntp_server"), undefined);
+});
+
+test("an older full settings response cannot restore a superseded timezone", async () => {
+  const run = setupBindings();
+  run(`
+    apiGet = () => new Promise(resolve => { globalThis.finishSettingsRead = resolve; });
+    loadI18nLanguage = async () => {};
+    renderSettings = () => renderTimezoneSettings(editor.settings.time);
+    renderRestoreNotice = resetSettingsDirty = () => {};
+  `);
+  const loading = run("loadSettings(true)");
+  run(`
+    receiveTimezoneClock({active_timezone: 'Asia/Tokyo', date_pattern: 'Y/M/D'}, ++timezonePicker.requestId);
+    finishSettingsRead({time: {timezone: 'Europe/Berlin', active_timezone: 'Europe/Berlin', date_pattern: 'D.M.Y', ntp_server: 'pool.ntp.org'}});
+  `);
+  assert.ok(await loading, run("editor.settingsLoadError"));
+  assert.equal(run("editor.settings.time.timezone"), "Asia/Tokyo");
+  assert.equal(run("editor.settings.time.date_pattern"), "Y/M/D");
+  assert.equal(run("el.settingsTimezone.value"), "Asia/Tokyo");
+  assert.equal(run("editor.settings.time.ntp_server"), "pool.ntp.org");
+});
+
+test("other settings saves leave the last timezone chosen at the device alone", async () => {
+  const run = setupBindings();
+  run(`
+    globalThis.setTimeout = callback => { callback(); return 0; };
+    el.settingsTimezone.value = 'America/New_York';
+    el.settingsNtpServer.value = 'pool.ntp.org';
+    el.settingsWifiCountryCode.value = 'US';
+    pushUiLive();
+  `);
+  await run("saveSettings()");
+  assert.equal(run("puts.length"), 2);
+  assert.equal(run("puts[0].time"), undefined);
+  assert.equal(run("puts[1].time.timezone"), undefined);
+  assert.equal(run("puts[1].time.ntp_server"), "pool.ntp.org");
 });
 
 test("custom translation upload uses the adjacent language code and JSON file", async () => {

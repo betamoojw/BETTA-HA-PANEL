@@ -37,6 +37,7 @@ def use_fixed_clock(now=FIXED_NOW):
         os.environ["BETTA_SIM_NOW"] = "real"  # preserve explicit opt-out in child layout checks
         return None
     os.environ["TZ"] = FIXED_TZ
+    os.environ["BETTA_SIM_TIMEZONE"] = "Europe/Berlin"
     if hasattr(time, "tzset"):
         time.tzset()
     seconds = int(now) if str(now).isdigit() else int(

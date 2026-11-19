@@ -915,7 +915,14 @@ async function loadSettings(silent = false) {
     setStatus(t("status.loading_settings"));
   }
   try {
-    editor.settings = await apiGet("/api/settings");
+    const clockRequest = ++timezonePicker.requestId;
+    const settings = await apiGet("/api/settings");
+    if (!settings.time && !userIsAdmin()) {
+      // Limited accounts receive clock status through the existing read-only endpoint.
+      settings.time = await apiGet("/api/settings?time_only=1").catch(() => ({}));
+    }
+    editor.settings = settings;
+    receiveTimezoneClock(settings.time, clockRequest);
     await loadI18nLanguage(editor.settings?.ui?.language || DEFAULT_UI_LANGUAGE, true);
     renderSettings();
     resetSettingsDirty();
@@ -1405,7 +1412,7 @@ async function loadRebootHistory() {
       const label = key && t(key) !== key ? t(key) : entry.label;
       // the wall time of the previous run's last refresh is when it ended; without a clock, name the boot instead
       const when = entry.previous_wall_epoch > 0
-        ? new Date(entry.previous_wall_epoch * 1000).toLocaleString()
+        ? panelCivilText(panelCivilTime(entry.previous_wall_epoch * 1000), { seconds: true })
         : t("settings.reboot.boot", { n: entry.seq });
       const line = document.createElement("div");
       line.textContent = entry.previous_run_known
@@ -1986,7 +1993,7 @@ function deviceSlug(room) {
 // Device id at the top left: from the room typed in Settings, else what the panel reports.
 function renderBuildTime() {
   if (!el.buildTimeLabel) return;
-  const built = [editor.appBuildDate, editor.appBuildTime].filter(Boolean).join(" ");
+  const built = [panelBuildDate(editor.appBuildDate), editor.appBuildTime].filter(Boolean).join(" ");
   const commit = editor.appGitCommit || "";
   const text = commit ? `${built} (${commit})` : built;
   if (el.buildTimeValue) el.buildTimeValue.textContent = text;
@@ -2119,8 +2126,7 @@ function pushHardwareLive() {
   }, 300);
 }
 
-// Language, appearance, time zone and the top bar also apply without a reboot: the panel
-// rebuilds its pages when they change.
+// Language, appearance and the top bar apply without a reboot.
 let uiLiveTimer = null;
 function pushUiLive() {
   clearTimeout(uiLiveTimer);
@@ -2135,11 +2141,9 @@ function pushUiLive() {
         text_step: el.settingsUiTextStep ? normalizeTextStep(el.settingsUiTextStep.value) : 0,
         page_animations: el.settingsPageAnimations?.checked !== false,
       },
-      time: { timezone: el.settingsTimezone?.value.trim() || "" },
       topbar: { left_slots: leftSlots, weather_entity_id: weatherEntity || null, stock_entity_id: stockEntity || null },
       reboot: false,
     };
-    if (!payload.time.timezone) delete payload.time;
     try {
       await putSettings(payload);
     } catch (error) {
@@ -2371,7 +2375,6 @@ async function saveSettings() {
   const hardwareNightBrightness = clamp(Number(el.settingsHardwareNightBrightness?.value ?? 1), 0, 100);
   const hardwareDimTimeout = clamp(Number(el.settingsHardwareDimTimeout?.value || 300), 5, 3600);
   const ntpServer = el.settingsNtpServer.value.trim();
-  const timezone = el.settingsTimezone.value.trim();
   const language = normalizeUiLanguage(el.settingsLanguage?.value);
 
   if (!wifiCountryCode) {
@@ -2443,7 +2446,6 @@ async function saveSettings() {
     },
     time: {
       ntp_server: ntpServer,
-      timezone,
     },
     ui: {
       language,

@@ -71,10 +71,7 @@ function renderAutoUpdate() {
 function formatUpdateCheckedAt(seconds) {
   const n = Number(seconds);
   if (!Number.isFinite(n) || n <= 0) return "";
-  return new Date(n * 1000).toLocaleString(editor.i18nLanguage || undefined, {
-    dateStyle: "short",
-    timeStyle: "short",
-  });
+  return panelCivilText(panelCivilTime(n * 1000));
 }
 
 function renderUpdateBanner() {

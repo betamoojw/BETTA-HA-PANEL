@@ -321,9 +321,9 @@ function previewSensorTimestamp(raw, style) {
     const key = !unit ? (future ? "now" : "just_now") : `${future ? "in" : "ago"}_${unit}${n === 1 ? "_one" : ""}`;
     return t(`preview.sensor.${key}`, { n });
   }
-  const pad = (v) => String(v).padStart(2, "0");
-  const date = previewDateTimeValue(`${instant.getFullYear()}-${pad(instant.getMonth() + 1)}-${pad(instant.getDate())}`);
-  const time = `${pad(instant.getHours())}:${pad(instant.getMinutes())}`;
+  const civil = panelCivilTime(instant.getTime());
+  const date = panelDateText(civil.getUTCFullYear(), civil.getUTCMonth() + 1, civil.getUTCDate());
+  const time = civil.toISOString().slice(11, 16);
   return style === "date" ? date : style === "time" ? time : `${date} ${time}`;
 }
 
@@ -331,9 +331,9 @@ function previewSensorDate(raw, style) {
   const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (!match) return null;
   if (style !== "relative") return previewDateTimeValue(raw);
-  const today = new Date();
+  const today = panelCivilTime(Date.now());
   const days = Math.round((Date.UTC(+match[1], +match[2] - 1, +match[3]) -
-    Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())) / 86400000);
+    Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate())) / 86400000);
   if (days === 0) return t("preview.sensor.today");
   if (days === 1) return t("preview.sensor.tomorrow");
   if (days === -1) return t("preview.sensor.yesterday");
@@ -365,19 +365,15 @@ function previewSensorValue(widget) {
 }
 
 function previewDateTimeValue(raw) {
-  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:Z|[+-]\d{2}:\d{2})$/.test(raw)) {
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(raw)) {
     const instant = new Date(raw);
     if (!Number.isNaN(instant.getTime())) {
-      const pad = (n) => String(n).padStart(2, "0");
-      raw = `${instant.getFullYear()}-${pad(instant.getMonth() + 1)}-${pad(instant.getDate())} ${pad(instant.getHours())}:${pad(instant.getMinutes())}:${pad(instant.getSeconds())}`;
+      raw = panelCivilTime(instant.getTime()).toISOString().slice(0, 19);
     }
   }
   const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?/);
   if (match) {
-    const language = editor.i18nLanguage || "en";
-    const date = language.startsWith("en") ? `${match[2]}/${match[3]}/${match[1]}`
-      : language.startsWith("de") ? `${match[3]}.${match[2]}.${match[1]}`
-        : `${match[3]}/${match[2]}/${match[1]}`;
+    const date = panelDateText(match[1], match[2], match[3]);
     const time = match[4] ? `${match[4]}:${match[5]}${match[6] && match[6] !== "00" ? `:${match[6]}` : ""}` : "";
     return `${date}${time ? ` ${time}` : ""}`;
   }
@@ -714,12 +710,12 @@ function previewGraphMarkup(mode) {
 
 // Short weekday names in the editor language, `offset` days from today.
 function previewWeekday(offset) {
-  const date = new Date();
-  date.setDate(date.getDate() + offset);
+  const date = panelCivilTime(Date.now());
+  date.setUTCDate(date.getUTCDate() + offset);
   try {
-    return date.toLocaleDateString(editor.i18nLanguage || "en", { weekday: "short" }).replace(/\.$/, "");
+    return date.toLocaleDateString(editor.i18nLanguage || "en", { weekday: "short", timeZone: "UTC" }).replace(/\.$/, "");
   } catch (_) {
-    return ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"][date.getDay()];
+    return ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"][date.getUTCDay()];
   }
 }
 
@@ -920,8 +916,8 @@ function tilePreviewMarkup(widget) {
       const profile = [21, 21, 20, 19, 20, 19, 18, 17, 17, 17, 16, 16, 15, 15, 15, 15, 15, 15, 15, 15, 16, 16, 15, 15, 15, 15, 15, 15, 16, 16, 17, 17, 19, 19, 19, 18, 18, 17, 17, 16, 17, 16, 16, 15, 15, 15, 14, 14, 13, 13, 13, 12, 12, 12, 12, 12, 12, 12, 13, 13, 14, 14, 15, 15, 15, 16, 16, 20, 17, 20, 21, 22, 21, 21, 22, 24, 25, 24, 24, 22, 21, 20, 20, 20, 21, 20, 18, 17, 18, 17, 18, 16, 16, 16, 16, 16];
       const avg = profile.reduce((a, b) => a + b, 0) / profile.length;
       const peak = Math.max(...profile);
-      const now = new Date();
-      const slotNow = now.getHours() * 4 + Math.floor(now.getMinutes() / 15);
+      const now = panelCivilTime(Date.now());
+      const slotNow = now.getUTCHours() * 4 + Math.floor(now.getUTCMinutes() / 15);
       const clock = (slot) => `${String(Math.floor(slot / 4) % 24).padStart(2, "0")}:${String((slot % 4) * 15).padStart(2, "0")}`;
       const interval = `${clock(slotNow)}-${clock(slotNow + 1)}`;
       const daySwitch = widget.price_selector === true;

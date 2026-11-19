@@ -68,7 +68,7 @@ bool ha_timestamp_parse(const char *state, int64_t *epoch_s)
     return iso_time_parse(text, epoch_s);
 }
 
-bool ha_timestamp_format_absolute(int64_t epoch_s, ha_ts_style_t style, const char *language, char *out, size_t out_len)
+bool ha_timestamp_format_absolute(int64_t epoch_s, ha_ts_style_t style, char *out, size_t out_len)
 {
     if (out == NULL || out_len == 0) return false;
     const time_t epoch = (time_t)epoch_s;
@@ -86,7 +86,7 @@ bool ha_timestamp_format_absolute(int64_t epoch_s, ha_ts_style_t style, const ch
         .minute = local.tm_min,
         .second = 0,
     };
-    return ha_datetime_format(&v, language, out, out_len);
+    return ha_datetime_format(&v, out, out_len);
 }
 
 void ha_timestamp_relative(int64_t epoch_s, int64_t now_s, ha_ts_rel_unit_t *unit, int *amount, bool *future)

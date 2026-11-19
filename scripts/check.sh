@@ -112,7 +112,7 @@ checks() {
     step 'tooling tests' 'tools scripts tests/tools components/webui tests/simulator tests/host/test_screenshot_jpeg_join.c main/api/screenshot_jpeg_join.c main/api/screenshot_jpeg_join.h main/layout main/i18n main/app_config.h config/sdkconfig.defaults.panels3' python3 -m unittest discover -s tests/tools -p 'test_*.py'
     SKIP_RC=2 SKIP_WHY='fontTools not installed' step 'font subsets' 'tools/generate_widget_fonts.py main/ui/fonts components/webui/www/styles.css' python3 tools/generate_widget_fonts.py --check
     step 'translation catalog assets' 'tools/generate_i18n.py main/i18n components/webui/i18n components/webui/www/js' python3 tools/generate_i18n.py --check
-    step 'time zone catalog' 'tools/generate_timezones.py main/settings components/webui/www/js/timezones.js' python3 tools/generate_timezones.py --check
+    step 'time zone catalog' 'tools/generate_timezones.py tools/update_timezone_dates.mjs main/net/tzdb main/settings components/webui/www/js/timezones.js' python3 tools/generate_timezones.py --check
     step 'source file sizes' 'main components/webui tools scripts tests/host tests/webui tests/tools' python3 tools/check_source_sizes.py
     step 'simulator layout fields' 'main tests/simulator tools/check_simulator_fields.py' python3 tools/check_simulator_fields.py
     step 'test page cases' 'main/layout tools tests/simulator' python3 tools/test_layouts.py check

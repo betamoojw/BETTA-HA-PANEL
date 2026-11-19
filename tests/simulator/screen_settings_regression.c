@@ -7,6 +7,7 @@
 #include <string.h>
 #include "lvgl.h"
 #include "settings/screen_settings_service.h"
+#include "util/panel_date.h"
 #include "ui/ui_screen_settings.h"
 #include "ui/ui_display_protection.h"
 #include "ui/ui_pages.h"
@@ -324,8 +325,9 @@ int sim_screen_settings_regression(void)
     CHECK(display_clock_equal(&clock, &roundtrip)); cJSON_Delete(patch);
     patch = cJSON_Parse("{}"); CHECK(display_clock_parse(patch, &clock) && clock.style == DISPLAY_CLOCK_FLIP); cJSON_Delete(patch);
     struct tm time = {.tm_year=126, .tm_mon=9, .tm_mday=24, .tm_hour=0, .tm_min=5, .tm_sec=7};
+    panel_date_set_pattern("Y/M/D");
     char text[32], date[32]; display_clock_format(&clock, &time, text, sizeof(text), date, sizeof(date));
-    CHECK(strcmp(text, "00:05:07") == 0 && strcmp(date, "2026-10-24") == 0);
+    CHECK(strcmp(text, "00:05:07") == 0 && strcmp(date, "2026/10/24") == 0);
     clock.format_24h = false; clock.show_date = false;
     display_clock_format(&clock, &time, text, sizeof(text), date, sizeof(date));
     CHECK(strcmp(text, "12:05:07 AM") == 0 && date[0] == '\0');

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LicenseRef-FNCL-1.1 | Copyright (c) 2026 andre68723 */
 #include "ui/ui_flip_clock.h"
+#include "util/panel_date.h"
 #include "ui/ui_memory.h"
 #include "ui/ui_i18n.h"
 #include "ui/theme/theme_default.h"
@@ -156,8 +157,9 @@ void ui_flip_clock_update(lv_obj_t *object, const struct tm *time, bool animate)
         static const char *const weekdays[] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
         char key[32];
         snprintf(key, sizeof(key), "weather.day_full_%d", time->tm_wday);
-        snprintf(date, sizeof(date), "%s, %04d-%02d-%02d", ui_i18n_get(key, weekdays[time->tm_wday]),
-            time->tm_year + 1900, time->tm_mon + 1, time->tm_mday);
+        char numeric[16];
+        panel_date_from_tm(numeric, sizeof(numeric), time, PANEL_DATE_FULL);
+        snprintf(date, sizeof(date), "%s, %s", ui_i18n_get(key, weekdays[time->tm_wday]), numeric);
     }
     for (unsigned i = 0; i < 6; i++) set_digit(&clock->digit[i], digits[i], animate);
     if (strcmp(lv_label_get_text(clock->date), date)) {

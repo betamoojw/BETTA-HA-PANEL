@@ -290,6 +290,8 @@ def demo_api(fixture):
                                   "sizes": [[20, 24, 28, 36, 42], [24, 28, 32, 42, 48], [28, 32, 36, 48, 56]]}},
         "/api/settings": {"wifi": {"configured": True, "ssid": "Demo home"},
                           "ha": {"configured": True, "ws_url": "ws://homeassistant.local:8123/api/websocket"},
+                          "time": {"timezone": "Europe/Berlin", "active_timezone": "Europe/Berlin",
+                                   "date_pattern": "D.M.Y", "timezone_rules": "CET-1CEST,M3.5.0,M10.5.0/3"},
                           "ui": {"language": "en", "style": "glow", "brightness": 80,
                                  "dim_brightness": 20, "dim_timeout_sec": 120}},
         "/api/layout": layout,

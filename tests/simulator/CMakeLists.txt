@@ -177,6 +177,7 @@ add_executable(betta-widget-sim
     "${REPO_ROOT}/main/ui/ui_transition.c"
     "${REPO_ROOT}/main/ui/ui_screen_settings.c"
     "${REPO_ROOT}/main/settings/display_clock.c"
+    "${REPO_ROOT}/main/util/panel_date.c"
     "${REPO_ROOT}/main/settings/screen_settings_model.c"
     "${REPO_ROOT}/main/net/timezone_catalog.c"
     "${REPO_ROOT}/main/ui/ui_conn_popup.c"
@@ -333,6 +334,7 @@ add_executable(betta-clock-test clock_protection_regression.c screenshot_regress
     "${REPO_ROOT}/main/ui/fonts/ttf_cjk_data.c"
     "${REPO_ROOT}/main/ui/ui_analog_clock.c"
     "${REPO_ROOT}/main/settings/display_clock.c"
+    "${REPO_ROOT}/main/util/panel_date.c"
     "${REPO_ROOT}/main/settings/brightness_model.c"
     "${REPO_ROOT}/main/drivers/display_policy.c")
 target_include_directories(betta-clock-test PRIVATE "${REPO_ROOT}/main" "${CMAKE_CURRENT_LIST_DIR}/stubs")

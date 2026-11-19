@@ -6,6 +6,7 @@ No panel or Home Assistant is contacted. Optional captures use public demo data.
 """
 import argparse
 import copy
+import datetime
 import json
 import tempfile
 import threading
@@ -28,7 +29,7 @@ def check(browser_path, out):
     try:
         with sync_playwright() as pw:
             browser = pw.chromium.launch(executable_path=browser_path)
-            page = browser.new_page(viewport={'width': 1440, 'height': 1000})
+            page = browser.new_page(viewport={'width': 1440, 'height': 1000}, timezone_id='Pacific/Honolulu')
             errors = []
             page.on('pageerror', lambda error: errors.append(str(error)))
             def open_display():
@@ -41,8 +42,72 @@ def check(browser_path, out):
                     page.locator(selector).select_option(value)
                 assert response.value.ok
                 return response.value.request.post_data_json
+            picker = page.locator('#settingsTimezoneSearch')
+            zone_cases = [
+                ('America/New_York', '12/31/2025 19:30', '%m/%d/%Y'),
+                ('Europe/Berlin', '01.01.2026 01:30', '%d.%m.%Y'),
+                ('Asia/Tokyo', '2026/01/01 09:30', '%Y/%m/%d'),
+            ]
+
+            def wait_for_zone(zone, expected, date_format):
+                page.wait_for_function('zone => timezonePicker.active === zone', arg=zone, timeout=10000)
+                actual = page.evaluate('''() => previewSensorTimestamp("2026-01-01T00:30:00Z", "datetime")''')
+                assert actual == expected, (zone, actual)
+                local = datetime.datetime.fromisoformat(page.evaluate('editor.settings.time.local_time'))
+                assert page.locator('#settingsLocalTime').inner_text().startswith(local.strftime(date_format))
+                assert page.locator('#settingsActiveTimezone').inner_text() == zone
+                assert page.locator('#settingsTimezone').input_value() == zone
+
+            def change_location_on_device(zone):
+                with server.local_store.lock:
+                    settings.setdefault('time', {})['timezone'] = zone
+
             open_display()
             assert page.locator('#settingsClockStyle').input_value() == 'analog'
+            page.evaluate('setActiveSettingsSection("settingsUiSection")')
+            for zone, expected, date_format in zone_cases:
+                picker.fill(zone)
+                with page.expect_response(lambda r: r.url.endswith('/api/settings') and r.request.method == 'PUT') as response:
+                    page.get_by_role('option', name=zone, exact=True).click()
+                assert response.value.ok
+                clock = response.value.json()
+                assert clock['active_timezone'] == zone
+                wait_for_zone(zone, expected, date_format)
+                assert picker.input_value() == zone
+            open_display()
+            assert page.evaluate('editor.settings.time.active_timezone') == 'Asia/Tokyo'
+            checks.append('Timezone picker: saved and reloaded, panel-local midnight and date on a Honolulu browser')
+            page.evaluate('setActiveSettingsSection("settingsUiSection"); window.timezoneTestPage = true')
+            saves = []
+
+            def track_save(req):
+                if req.method == 'PUT' and req.url.endswith('/api/settings'):
+                    saves.append(req.url)
+
+            page.on('request', track_save)
+            for case in zone_cases:
+                change_location_on_device(case[0])
+                wait_for_zone(*case)
+                assert picker.input_value() == case[0]
+
+            picker.fill('berl')
+            picker.press('ArrowDown')
+            picker.evaluate('input => input.setSelectionRange(1, 3)')
+            option = page.get_by_role('option', name='Europe/Berlin', exact=True)
+            active_option = picker.get_attribute('aria-activedescendant')
+            assert option.get_attribute('aria-selected') == 'false'
+            change_location_on_device('America/New_York')
+            change_location_on_device('Europe/Berlin')
+            wait_for_zone(*zone_cases[1])
+            assert picker.input_value() == 'berl' and picker.get_attribute('aria-activedescendant') == active_option
+            assert picker.evaluate('input => [input === document.activeElement, input.selectionStart, input.selectionEnd]') == [True, 1, 3]
+            assert option.get_attribute('aria-selected') == 'true'
+            picker.press('Escape')
+            assert picker.input_value() == 'Europe/Berlin'
+            assert page.evaluate('window.timezoneTestPage') and not saves
+            page.remove_listener('request', track_save)
+            checks.append('Native zone changes: New York, Berlin and Tokyo in the same editor page; rapid changes and open search')
+            open_display()
             for style in ['flip', 'digital', 'analog', 'flip']:
                 payload = select('#settingsClockStyle', style)
                 assert payload['hardware']['clock']['style'] == style and payload['reboot'] is False
@@ -95,7 +160,7 @@ def check(browser_path, out):
         server.shutdown()
         server.server_close()
     (out / 'editor-result.json').write_text(json.dumps({'passed': checks, 'layout_unchanged': True}, indent=2), encoding='utf-8')
-    print('Clock editor: PASS (events, persistence, reload, retained options, 7 languages, wide/narrow bounds)')
+    print('Clock editor: PASS (live timezone sync, search, persistence, clock options, 7 languages, wide/narrow bounds)')
 
 
 def main():

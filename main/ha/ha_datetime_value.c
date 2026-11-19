@@ -4,6 +4,7 @@
  * Date/time state parsing and service-data generation, independent of LVGL and transport.
  */
 #include "ha/ha_datetime_value.h"
+#include "util/panel_date.h"
 
 #include <stdint.h>
 #include <stdio.h>
@@ -156,6 +157,11 @@ bool ha_datetime_parse(const char *entity_id, const char *state, const char *att
         /* ISO 8601 with an explicit offset; HA datetime.* states represent UTC instants. */
         if (n < 20 || !parse_date(state, &v) || state[10] != 'T' || !parse_time(state + 11, 8, &v)) return false;
         const char *tz = state + 19;
+        if (*tz == '.') {
+            const char *fraction = ++tz;
+            while (*tz >= '0' && *tz <= '9') tz++;
+            if (tz == fraction) return false;
+        }
         int offset_minutes = 0;
         if (strcmp(tz, "Z") != 0) {
             if (strlen(tz) != 6 || (tz[0] != '+' && tz[0] != '-') || !digits(tz + 1, 2) || tz[3] != ':' ||
@@ -184,21 +190,14 @@ bool ha_datetime_parse(const char *entity_id, const char *state, const char *att
     return true;
 }
 
-bool ha_datetime_format(const ha_datetime_value_t *v, const char *language, char *out, size_t out_len)
+bool ha_datetime_format(const ha_datetime_value_t *v, char *out, size_t out_len)
 {
     if (v == NULL || out == NULL || out_len == 0 || (!v->has_date && !v->has_time)) return false;
     if ((v->has_date && !valid_date(v->year, v->month, v->day)) ||
         (v->has_time && !valid_time(v->hour, v->minute, v->second))) return false;
     char date[16] = "";
     char time[12] = "";
-    if (v->has_date) {
-        if (language != NULL && strncmp(language, "en", 2) == 0)
-            snprintf(date, sizeof(date), "%02d/%02d/%04d", v->month, v->day, v->year);
-        else if (language != NULL && strncmp(language, "de", 2) == 0)
-            snprintf(date, sizeof(date), "%02d.%02d.%04d", v->day, v->month, v->year);
-        else
-            snprintf(date, sizeof(date), "%02d/%02d/%04d", v->day, v->month, v->year);
-    }
+    if (v->has_date && !panel_date_format(date, sizeof(date), v->year, v->month, v->day, PANEL_DATE_FULL)) return false;
     if (v->has_time) {
         if (v->second != 0) snprintf(time, sizeof(time), "%02d:%02d:%02d", v->hour, v->minute, v->second);
         else snprintf(time, sizeof(time), "%02d:%02d", v->hour, v->minute);

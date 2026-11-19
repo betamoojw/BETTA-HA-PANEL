@@ -6,6 +6,7 @@
  * ESP-IDF's application descriptor only changes when the project configuration does.
  */
 #include "build_stamp.h"
+#include "util/panel_date.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -28,5 +29,7 @@ void app_build_stamp_format(char *out, size_t out_len)
         snprintf(out, out_len, "%s", app_build_stamp);
         return;
     }
-    snprintf(out, out_len, "%04d-%02d-%02d %02d:%02d", year, (int)((found - months) / 3) + 1, day, hour, minute);
+    char date[16];
+    panel_date_format(date, sizeof(date), year, (int)((found - months) / 3) + 1, day, PANEL_DATE_FULL);
+    snprintf(out, out_len, "%s %02d:%02d", date, hour, minute);
 }

@@ -15,6 +15,7 @@
  * Histories come from ui/quote_history_feed.c, only for charts on screen.
  */
 #include "ui/ui_widget_factory.h"
+#include "util/panel_date.h"
 
 #include <math.h>
 #include <stdbool.h>
@@ -350,8 +351,7 @@ static void qs_date_text(int64_t epoch, char *out, size_t cap)
         snprintf(out, cap, "?");
         return;
     }
-    if (qs_german()) snprintf(out, cap, "%d.%d.%02d", local.tm_mday, local.tm_mon + 1, local.tm_year % 100);
-    else snprintf(out, cap, "%d/%d/%02d", local.tm_mon + 1, local.tm_mday, local.tm_year % 100);
+    panel_date_from_tm(out, cap, &local, PANEL_DATE_SHORT_YEAR);
 }
 
 static int qs_layout_row_chart(w_qs_ctx_t *ctx, qs_item_t *it, int y, int w, int chart_h)

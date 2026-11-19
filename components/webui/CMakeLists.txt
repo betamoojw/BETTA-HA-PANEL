@@ -23,6 +23,7 @@ set(WEBUI_JS_SOURCES
     js/i18n-license.js
     js/state.js
     js/util.js
+    js/panel-dates.js
     js/ui-basics.js
     js/layout-capacity.js
     js/inspector-hints.js

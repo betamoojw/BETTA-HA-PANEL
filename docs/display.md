@@ -56,7 +56,7 @@ The flip clock stays centred, follows the system colour theme and appearance,
 and always shows hours, minutes, seconds, weekday and date. Its seconds/date
 switches are hidden; their saved values return when choosing digital or analog.
 
-All three styles use the configured local time zone and share the idle delay,
+All three styles use the local time and [date format of the selected location](editor.md#time-zones). They share the idle delay,
 brightness, automatic screen-off and wake gesture. Digital and analog clocks
 move periodically to reduce static pixels and offer optional seconds and date.
 For the analog dial, **Show seconds** controls the coral second hand. The

@@ -11,6 +11,7 @@
 #include "ui/display_geometry.h"
 #include "layout/layout_limits.h"
 #include "ui/ui_pages.h"
+#include "util/panel_date.h"
 #include "ui/ui_flip_clock.h"
 #include "ui/ui_alert_center.h"
 
@@ -1452,8 +1453,7 @@ void ui_pages_set_topbar_datetime(const struct tm *timeinfo)
 
     char date_buf[32] = {0};
     char time_buf[16] = {0};
-    snprintf(
-        date_buf, sizeof(date_buf), "%02d.%02d.%04d", timeinfo->tm_mday, timeinfo->tm_mon + 1, timeinfo->tm_year + 1900);
+    panel_date_from_tm(date_buf, sizeof(date_buf), timeinfo, PANEL_DATE_FULL);
     strftime(time_buf, sizeof(time_buf), s_clock_24h ? "%H:%M" : "%I:%M %p", timeinfo);
 
     if (s_date_label != NULL) {

@@ -325,6 +325,7 @@ idf_component_register(
         "net/c6_memory_state.c"
         "net/time_sync.c"
         "net/timezone_catalog.c"
+        "util/panel_date.c"
         "api/api_time_status.c"
         "net/mqtt_mgr.c"
         "net/wifi_signal_level.c"

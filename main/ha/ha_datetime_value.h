@@ -28,7 +28,7 @@ typedef struct {
 /* datetime.* is converted from its ISO offset into the process's configured local TZ. */
 bool ha_datetime_parse(const char *entity_id, const char *state, const char *attributes_json,
                        ha_datetime_value_t *out);
-bool ha_datetime_format(const ha_datetime_value_t *value, const char *language, char *out, size_t out_len);
+bool ha_datetime_format(const ha_datetime_value_t *value, char *out, size_t out_len);
 /* Returns the HA service domain/name and a JSON service_data body. For datetime.* the local
  * fields are converted back to UTC; invalid DST spring-forward times are rejected. */
 bool ha_datetime_service_payload(const char *entity_id, const ha_datetime_value_t *value,

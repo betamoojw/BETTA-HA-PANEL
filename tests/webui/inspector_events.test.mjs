@@ -828,7 +828,8 @@ test("sensor preview: formats the state like the panel by device class", () => {
   assert.equal(value("sensor.cost", { sensor_unit: "code" }), "12,34 EUR");
   run('editor.states.set("sensor.cost", "0.968200683593693")');
   assert.equal(value("sensor.cost"), "0,97 €");
-  assert.equal(value("sensor.pickup"), "21.10.2026");
+  run('editor.settings = { time: { active_timezone: "America/New_York", date_pattern: "M/D/Y" } }');
+  assert.equal(value("sensor.pickup"), "10/21/2026");
   assert.equal(value("sensor.risk"), "No risk");
   assert.equal(value("binary_sensor.door"), "Open");
 });

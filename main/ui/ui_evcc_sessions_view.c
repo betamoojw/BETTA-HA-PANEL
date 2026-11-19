@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LicenseRef-FNCL-1.1 | Copyright (c) 2026 andre68723 */
 #include "ui/ui_evcc_sessions_view.h"
+#include "util/panel_date.h"
 #include "ui/ui_i18n.h"
 #include "ui/theme/ui_typography.h"
 #include "ui/theme/theme_default.h"
@@ -16,7 +17,9 @@ void ui_evcc_session_date(int64_t timestamp, char *out, size_t capacity)
 {
     time_t t=(time_t)timestamp; struct tm date;
     if(!localtime_r(&t,&date)) { snprintf(out,capacity,"--"); return; }
-    strftime(out,capacity,"%d.%m. · %H:%M",&date);
+    char day[12];
+    panel_date_from_tm(day, sizeof(day), &date, PANEL_DATE_MONTH_DAY);
+    snprintf(out, capacity, "%s · %02d:%02d", day, date.tm_hour, date.tm_min);
 }
 static lv_obj_t *cell(lv_obj_t *parent, const char *text, int x, int y, int w, int h, ui_text_role_t role, bool right)
 {
@@ -42,7 +45,11 @@ void ui_evcc_sessions_view(lv_obj_t *body, lv_obj_t *status, const evcc_sessions
     for(unsigned i=0;i<sessions->count;i++) {
         const evcc_session_t *row=&sessions->rows[i];
         char date[40],energy[40]; time_t t=(time_t)row->start; struct tm local;
-        if(localtime_r(&t,&local)) strftime(date,sizeof(date),"%d.%m.%Y\n%H:%M",&local); else snprintf(date,sizeof(date),"--");
+        if (localtime_r(&t, &local)) {
+            char day[16];
+            panel_date_from_tm(day, sizeof(day), &local, PANEL_DATE_FULL);
+            snprintf(date, sizeof(date), "%s\n%02d:%02d", day, local.tm_hour, local.tm_min);
+        } else snprintf(date, sizeof(date), "--");
         snprintf(energy,sizeof(energy),"%.1f kWh",row->energy);
         cell(body,date,0,y,a-8,line*2,UI_TEXT_LABEL,false);
         cell(body,row->vehicle[0]?row->vehicle:"--",a,y,b-8,line*2,UI_TEXT_LABEL,false);

@@ -129,11 +129,109 @@ has SHA-256
 `d13a5db705d130fab4c41e0d830ecf4905818f5b99721bca8f277782bda1c925`.
 Its SDK configuration and partition table matched the COM25 build.
 The embedded `js/app.cf2fda844f46af0d.js` passed the isolated browser
-flow using the local build. The device evidence above applies to
-the 22:21:47 image which remained running on COM25.
+flow using the local build. At the end of that review, COM25 still
+ran the 22:21:47 image used in the earlier device trial.
 
 Private backups, serial and HTTP captures, comparison reports and
 isolated screenshots are saved in
 `.local/validation/panels3-ha-optional-setup-com25-2026-11-19/`.
 Read-only clock checks and the local build evidence are in its
 `review/` subdirectory.
+
+## COM25 retest from commit `1e8b1e3` on November 20, 2026
+
+A clean checkout of `1e8b1e34a5bb9322986cb6a7e9c917ac0d40b7f9`
+built `panels3` with ESP-IDF v6.1. The 4,593,360-byte
+`v0.9.2-rc2` application has SHA-256
+`ffc245461419ebf450e7a88aef23736d490ade52f0a4a34b0af7ca947b8f29a4`.
+The generated SDK configuration and partition table matched the
+previous build. The image leaves 33% of its application slot free.
+
+Two authenticated reads and the editor export agreed on five pages and
+13 widgets at `192.168.71.77`. The flash backup included the first
+128 KiB, the full coredump and LittleFS partitions and the previous
+application. Each backup matched the device digest. The mounted
+LittleFS copy also matched the exported layout. The layout SHA-256
+was `aa13870324a9cb46ecabd7fba863e6675cff40afb4797508ee2c0eee304044d7`.
+The LittleFS volume contained zero local graph history payloads.
+
+COM25 matched the ESP32-S3 revision 0.2, 16 MiB Guition. The saved
+OTA metadata selected the same valid `ota_1` slot as the running
+firmware reported. The recorded erase range, `0x6A0000` through
+`0xB01FFF`, stayed within that slot. The readback digest matched the
+archived 4,593,360-byte application. Before reboot, the bootloader,
+partition table, NVS, OTA metadata, inactive slot, coredump and
+LittleFS digests matched their pre-write values.
+
+### Boot, first clock synchronization and retained data
+
+The UART capture showed the bootloader loading `0x6A0000` and app
+ELF hash prefix `14bc90960`. The device reported source `1e8b1e34`
+and valid `ota_1` on boot 143. The UART application descriptor stamp
+was 06:57:51. The API stamp was 07:02:22, which matched the compiled
+`app_build_stamp` inside the same image. Both timestamps are China
+Standard Time on November 20.
+
+The panel obtained its original address and started SNTP about
+eight seconds into application startup. UART recorded `Time synchronized`
+within the startup wait before HTTP started, at 07:15:58.793 China
+Standard Time. Authenticated checks reported `clock_valid: true`
+at 180 and 280 seconds of uptime on the same boot.
+
+The real editor's **+ Widget** check returned `ready` and the panel
+authenticated to Home Assistant. Anonymous layout access returned
+HTTP 401 and administrator sign-in and logout succeeded. The layout
+and theme matched the baseline. Only the live time and Wi-Fi signal
+fields changed in the settings response, and only the creation time
+changed in the editor export. The saved settings retained English,
+`Asia/Shanghai`, 12-hour time, a 60-second flip-clock saver, the
+22:00 night start, Matte appearance and the `dark_v2` theme.
+Closing COM25 left boot 143 running.
+
+### Effect of the startup LVGL lock timeouts
+
+All 53 adapter lock timeouts occurred from 07:16:03.390 to
+07:16:05.430, a 2.040-second window immediately after the dashboard
+layout loaded. At 07:16:05.370 the log recorded a deferred splash
+hide when the display lock could not be acquired. LVGL removed the
+splash at 07:16:06.326, 0.956 seconds after the deferral. The rest of
+the 236.6-second UART capture contained zero further lock timeouts,
+panics, failed assertions or watchdog faults.
+
+Boot 143 reported both UI heartbeats younger than one second at 180,
+189 and 280 seconds. A read-only follow-up at 737 seconds returned a
+valid 480 × 480 LVGL PNG and a `ready` widget availability response
+on the same boot. The clock remained valid, there were zero retained
+crashes, and the layout, saved settings and login protection still
+matched. The evidence shows a temporary splash delay followed by
+normal operation in the tested UI and editor paths. Physical screen
+timing and touch response during the timeout window remain unverified.
+
+### Isolated setup and recovery checks
+
+The HTML, CSS and `js/app.ae56aa8a53b097bc.js` served by COM25 matched
+the flashed image. Chromium replayed them on loopback with a fresh,
+file-backed test configuration and synthetic Home Assistant replies.
+**Skip for now** discarded draft credentials and entered the editor
+without a reload. A fresh browser context and a restarted test
+service reopened the editor using the saved choice. The settings
+page saved the synthetic WebSocket URL and long-lived access token.
+**+ Widget** showed distinct messages for missing credentials,
+disconnection and token rejection. Once the fixture connection
+recovered, **Retry** preserved the search and returned the expected
+entity. The chooser sent zero entity searches while unavailable.
+
+The pre-commit review replayed the same panel-served assets with a
+fresh isolated configuration and passed the flow again. All 661 web
+tests and the S3 host discovery, runtime storage and login tests passed
+in the original run. A physical first boot with blank settings and a
+physical reboot after choosing **Skip for now** remain untested.
+COM25 was the only available Guition, and the credential changes were
+limited to the isolated service. The raw LittleFS comparison covers
+storage retention. The backup contained no populated graph history.
+
+The image manifest, partition digests, private backups, startup log
+and isolated results are in
+`.local/validation/panels3-optional-ha-1e8b1e3-com25-2026-11-20/`.
+The `review/` subdirectory contains the evidence audit, follow-up
+snapshot and isolated replay results.

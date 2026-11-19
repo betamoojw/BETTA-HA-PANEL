@@ -312,6 +312,7 @@ esp_err_t api_settings_get_handler(httpd_req_t *req)
     cJSON_AddBoolToObject(ha, "access_token_set", settings->ha_access_token[0] != '\0');
     cJSON_AddBoolToObject(ha, "rest_enabled", settings->ha_rest_enabled);
     cJSON_AddBoolToObject(ha, "configured", runtime_settings_has_ha(settings));
+    cJSON_AddBoolToObject(ha, "setup_complete", settings->ha_setup_complete);
     cJSON_AddBoolToObject(ha, "connected", ha_client_is_connected());
     /* "ok", or why the panel stopped talking to Home Assistant (ha_auth_state.h). */
     cJSON_AddStringToObject(ha, "auth", ha_auth_state_name());
@@ -581,6 +582,18 @@ esp_err_t api_settings_put_handler(httpd_req_t *req)
     if (!cJSON_IsObject(root)) {
         cJSON_Delete(root);
         return send_json_error(req, "400 Bad Request", "Invalid JSON");
+    }
+    const cJSON *skip = cJSON_GetObjectItemCaseSensitive(root, "skip_ha_setup");
+    if (skip != NULL) {
+        /* This action only changes the setup choice and never applies or restarts device settings. */
+        bool valid = cJSON_IsTrue(skip) && cJSON_GetArraySize(root) == 1;
+        cJSON_Delete(root);
+        if (!valid) return send_json_error(req, "400 Bad Request", "Send skip_ha_setup: true by itself");
+        if (runtime_settings_skip_ha_setup() != ESP_OK) {
+            return send_json_error(req, "500 Internal Server Error", "Could not save the setup choice");
+        }
+        set_json_headers(req);
+        return httpd_resp_sendstr(req, "{\"ok\":true,\"rebooting\":false}");
     }
 
     if (cJSON_HasObjectItem(root, "security") && user_auth_migrated()) {

@@ -21,8 +21,8 @@ function provisioningStageForSettings(settings) {
   const wifiSetupApActive = Boolean(settings?.wifi?.setup_ap_active);
   const haConfigured = Boolean(settings?.ha?.configured);
   if (wifiSetupApActive) return "wifi";
-  if (!wifiConfigured) return "wifi";
-  if (!haConfigured) return "ha";
+  if (!wifiConfigured && !settings?.network?.connected) return "wifi";
+  if (!haConfigured && !settings?.ha?.setup_complete) return "ha";
   return null;
 }
 
@@ -118,8 +118,8 @@ function showProvisioningStage(stage, settings) {
   setProvisioningInfo(
     stage,
     stage === "wifi"
-      ? t("provision.wifi.hint", {}, "Save reboots the panel. After reboot, HA provisioning is shown.")
-      : t("provision.ha.hint", {}, "Save reboots the panel. After reboot, the editor is unlocked.")
+      ? t("provision.wifi.hint")
+      : t("provision.ha.hint")
   );
   return true;
 }
@@ -2348,6 +2348,20 @@ async function saveHaProvisioning() {
   setProvisioningInfo("ha", t("provision.saving_reboot"));
   await putSettings(payload);
   setProvisioningInfo("ha", t("provision.saved_reboot"));
+  return true;
+}
+
+async function skipHaProvisioning() {
+  const result = await putSettings({ skip_ha_setup: true });
+  if (result?.ok !== true || result.rebooting !== false) throw new Error(t("common.request_failed"));
+  if (!userAccess.authenticated || !userIsAdmin()) return true;
+  editor.settings.ha = { ...editor.settings.ha, setup_complete: true };
+  el.provHaUrl.value = "";
+  el.provHaToken.value = "";
+  el.provHaToken.type = "password";
+  el.provHaShowToken.checked = false;
+  await startEditor();
+  return true;
 }
 
 async function saveSettings() {

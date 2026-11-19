@@ -18,6 +18,7 @@ function setup(responses = [pending]) {
     el.addTileSearchRetry=makeElement(); el.addTileOverlay=makeElement();
     el.addTileSearchRetry.classList={add(){el.addTileSearchRetry.hidden=true;},remove(){el.addTileSearchRetry.hidden=false;}};
     window.setTimeout=(callback,delay)=>{polls.push(delay);callback();return 1;}; window.clearTimeout=()=>{};
+    checkAddTileHa=async()=>'ready';
     fetch=async(path,options)=>{cancels.push({path,method:options.method});return {};};
     apiGet=async(path)=>{paths.push(path);return responses.length>1 ? responses.shift() : responses[0];};
   `);
@@ -126,6 +127,16 @@ test("transport failure and disconnected HA offer retry instead of empty results
   await run("entityDiscoveryCancellation");
   assert.match(run("el.addTileSearchStatus.textContent"), /stopped.*Retry/);
   assert.equal(run("el.addTileSearchRetry.hidden"), false);
+});
+
+test("disconnect during discovery cancels the owned query without another poll", async () => {
+  const { fn, run } = setup([{ ...pending, connected: false, generation: 43 }]);
+  await fn("runAddTileSearch")();
+  await run("entityDiscoveryCancellation");
+  assert.match(run("el.addTileSearchStatus.textContent"), /not connected/);
+  assert.equal(run("paths.length"), 1);
+  assert.equal(run("polls.length"), 0);
+  assert.match(run("cancels[0].path"), /generation=43/);
 });
 
 test("the field picker stops polling on timeout and keeps previous items", async () => {

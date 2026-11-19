@@ -226,6 +226,8 @@ static esp_err_t serialize_public_settings(const runtime_settings_t *settings, u
 
     if (cJSON_AddStringToObject(ha, "ws_url", settings->ha_ws_url) == NULL) goto oom;
     if (cJSON_AddBoolToObject(ha, "rest_enabled", settings->ha_rest_enabled) == NULL) goto oom;
+    if (cJSON_AddBoolToObject(ha, "setup_complete",
+        settings->ha_setup_complete || runtime_settings_has_ha(settings)) == NULL) goto oom;
 
     if (cJSON_AddBoolToObject(mqtt, "enabled", settings->mqtt_enabled) == NULL) goto oom;
     if (cJSON_AddStringToObject(mqtt, "broker_host", settings->mqtt_broker_host) == NULL) goto oom;
@@ -348,6 +350,7 @@ static esp_err_t parse_settings_json(const char *json, runtime_settings_t *out, 
     if (cJSON_IsObject(ha)) {
         json_copy_string(ha, "ws_url", out->ha_ws_url, sizeof(out->ha_ws_url));
         json_copy_bool(ha, "rest_enabled", &out->ha_rest_enabled);
+        json_copy_bool(ha, "setup_complete", &out->ha_setup_complete);
     }
 
     cJSON *device_obj = cJSON_GetObjectItemCaseSensitive(root, "device");
@@ -621,7 +624,9 @@ static esp_err_t runtime_settings_load_unlocked(runtime_settings_t *out)
     }
     normalize_ui_language(out->ui_language, sizeof(out->ui_language));
 
-    return runtime_secrets_load(generation, out);
+    esp_err_t secret_err = runtime_secrets_load(generation, out);
+    if (secret_err == ESP_OK && runtime_settings_has_ha(out)) out->ha_setup_complete = true;
+    return secret_err;
 }
 
 esp_err_t runtime_settings_load(runtime_settings_t *out)
@@ -725,6 +730,21 @@ esp_err_t runtime_settings_update(void (*edit)(runtime_settings_t *, void *), vo
         err = runtime_settings_save_unlocked(result);
     }
     xSemaphoreGive(s_settings_lock);
+    return err;
+}
+
+static void mark_ha_setup_complete(runtime_settings_t *settings, void *context)
+{
+    (void)context;
+    settings->ha_setup_complete = true;
+}
+
+esp_err_t runtime_settings_skip_ha_setup(void)
+{
+    runtime_settings_t *settings = calloc(1, sizeof(*settings));
+    if (settings == NULL) return ESP_ERR_NO_MEM;
+    esp_err_t err = runtime_settings_update(mark_ha_setup_complete, NULL, settings);
+    free(settings);
     return err;
 }
 

@@ -603,7 +603,10 @@ async function fetchLightEntityPicker(options = {}) {
     const stalled = loaded > Number(options.loaded ?? -1) ? 0 : Number(options.stalled || 0) + 1;
     const now = performance.now();
     const progress = stalled === 0 ? now : (options.progress ?? started);
-    if (data.pending && (stalled >= LIGHT_ENTITY_PICKER_MAX_POLLS || pollCount >= LIGHT_ENTITY_PICKER_MAX_TOTAL_POLLS ||
+    if (data.pending && data.connected === false) {
+      data = { ...data, status: "disconnected", pending: false };
+      void cancelEntityDiscovery(domain, search, query);
+    } else if (data.pending && (stalled >= LIGHT_ENTITY_PICKER_MAX_POLLS || pollCount >= LIGHT_ENTITY_PICKER_MAX_TOTAL_POLLS ||
         now - started >= LIGHT_ENTITY_PICKER_TIMEOUT_MS || now - progress >= LIGHT_ENTITY_PICKER_STALL_MS)) {
       data = { ...data, status: "timeout", pending: false };
       void cancelEntityDiscovery(domain, search, query);
@@ -737,11 +740,10 @@ function entityFirstRow(item) {
     chip.type = "button";
     chip.className = "entity-first-chip";
     chip.textContent = t(`wizard.entity.t.${choice.key}`);
-    chip.onclick = () => {
+    chip.onclick = () => addTileWithHa(() => {
       closeLightEntityPicker();
-      closeAddTileDialog();
       entityFirstAddTile(item, choice);
-    };
+    });
     chips.appendChild(chip);
   }
   if (!choices.length) {
@@ -845,9 +847,72 @@ function closeLightEntityPicker() {
 // (entityFirstRow()); a tile type button opens that type's own entity picker, as the menu used to.
 // More Home Assistant matches than this only make the list long; the status asks for a narrower search.
 const ADD_TILE_MAX_RESULTS = 40;
+const ADD_TILE_HA_CHECK_MS = 5000;
 let addTileSearchTimer = null;
 let addTileSearchSeq = 0;
 let addTileActiveQuery = null;
+let addTileHaCheck = null;
+
+function renderAddTileHaStatus(status) {
+  const keys = {
+    checking: "add_tile.ha_checking",
+    not_configured: "add_tile.ha_not_configured",
+    disconnected: "entity_picker.disconnected",
+    token_rejected: "add_tile.ha_token_rejected",
+    forbidden: "add_tile.ha_forbidden",
+    unreachable: "add_tile.ha_unreachable",
+  };
+  const needsRetry = status !== "checking" && status !== "ready";
+  const showSettingsHelp = needsRetry && status !== "unreachable";
+  if (el.addTileHaStatus) {
+    const hint = showSettingsHelp && !userIsAdmin() ? t("add_tile.ha_ask_admin") : "";
+    el.addTileHaStatus.textContent = [keys[status] && t(keys[status]), hint].filter(Boolean).join(" ");
+  }
+  el.addTileHaActions?.classList.toggle("hidden", !needsRetry);
+  if (el.addTileHaSettings) el.addTileHaSettings.hidden = !showSettingsHelp || !userIsAdmin();
+}
+
+function checkAddTileHa() {
+  if (addTileHaCheck) return addTileHaCheck.promise;
+  const check = { controller: new AbortController() };
+  addTileHaCheck = check;
+  renderAddTileHaStatus("checking");
+  check.promise = (async () => {
+    const timer = setTimeout(() => check.controller.abort(), ADD_TILE_HA_CHECK_MS);
+    let status = "unreachable";
+    try {
+      const data = await apiGet("/api/ha/light_entities?status_only=1", check.controller.signal);
+      if (["ready", "not_configured", "disconnected", "token_rejected", "forbidden"].includes(data?.status)) {
+        status = data.status;
+      }
+    } catch (_) {
+      // The panel's connection status could not be read.
+    } finally {
+      clearTimeout(timer);
+    }
+    if (addTileHaCheck !== check) return null;
+    addTileHaCheck = null;
+    if (status !== "ready") {
+      cancelAddTileSearch();
+      if (el.addTileResults) el.addTileResults.textContent = "";
+      if (el.addTileSearchStatus) el.addTileSearchStatus.textContent = "";
+      el.addTileSearchRetry?.classList.add("hidden");
+    }
+    renderAddTileHaStatus(status);
+    return status;
+  })();
+  return check.promise;
+}
+
+async function addTileWithHa(add) {
+  const page = selectedPage();
+  cancelAddTileSearch();
+  const seq = addTileSearchSeq;
+  if (await checkAddTileHa() !== "ready" || seq !== addTileSearchSeq ||
+      el.addTileOverlay?.classList.contains("hidden") || page !== selectedPage()) return;
+  closeAddTileDialog();
+  add();
+}
 
 function cancelAddTileSearch() {
   addTileSearchSeq += 1;
@@ -863,7 +928,7 @@ function openAddTileDialog() {
     setStatus(t("layout.status.energy_page_only"), true);
     return;
   }
-  cancelAddTileSearch();
+  closeAddTileDialog();
   closeLightEntityPicker();
   if (el.addTileSearch) el.addTileSearch.value = "";
   if (el.addTileResults) el.addTileResults.textContent = "";
@@ -876,10 +941,14 @@ function openAddTileDialog() {
   if (types) sortItemsAlphabetically(types, "add-tile-type", "add-tile-group");
   el.addTileOverlay.classList.remove("hidden");
   el.addTileSearch?.focus();
+  void checkAddTileHa();
 }
 
 function closeAddTileDialog() {
   cancelAddTileSearch();
+  const check = addTileHaCheck;
+  addTileHaCheck = null;
+  check?.controller.abort();
   el.addTileOverlay?.classList.add("hidden");
 }
 
@@ -909,8 +978,11 @@ async function runAddTileSearch(options = {}) {
   results.textContent = "";
   if (search.length < 2) {
     status.textContent = "";
+    if (options.refresh) await checkAddTileHa();
     return;
   }
+  status.textContent = "";
+  if (await checkAddTileHa() !== "ready" || seq !== addTileSearchSeq) return;
   status.textContent = t("entity_picker.pending");
   await entityDiscoveryCancellation;
   if (seq !== addTileSearchSeq) return;
@@ -937,7 +1009,10 @@ async function runAddTileSearch(options = {}) {
     previousLoaded = loaded;
     const now = performance.now();
     if (stalled === 0) progress = now;
-    if (data.pending && (stalled >= LIGHT_ENTITY_PICKER_MAX_POLLS || poll >= LIGHT_ENTITY_PICKER_MAX_TOTAL_POLLS ||
+    if (data.connected === false) {
+      if (data.pending) void cancelEntityDiscovery("any", search, query);
+      data = { ...data, status: "disconnected", pending: false };
+    } else if (data.pending && (stalled >= LIGHT_ENTITY_PICKER_MAX_POLLS || poll >= LIGHT_ENTITY_PICKER_MAX_TOTAL_POLLS ||
         now - started >= LIGHT_ENTITY_PICKER_TIMEOUT_MS || now - progress >= LIGHT_ENTITY_PICKER_STALL_MS)) {
       data = { ...data, status: "timeout", pending: false };
       void cancelEntityDiscovery("any", search, query);
@@ -975,6 +1050,16 @@ function bindAddTileDialog() {
   // Also invalidate suspended timers when the browser restores a cached page.
   window.addEventListener("pagehide", closeEntitySearchDialogs);
   if (el.addTileSearchRetry) el.addTileSearchRetry.onclick = () => void runAddTileSearch({ refresh: true });
+  if (el.addTileHaRetry) el.addTileHaRetry.onclick = () => void runAddTileSearch({ refresh: true });
+  if (el.addTileHaSettings) {
+    el.addTileHaSettings.onclick = () => {
+      if (!userIsAdmin()) return;
+      closeAddTileDialog();
+      setActivePane("settings");
+      setActiveSettingsSection("settingsHaSection");
+      el.settingsHaUrl?.focus();
+    };
+  }
   if (el.addTileBtn) el.addTileBtn.onclick = () => openAddTileDialog();
   if (el.addTileCloseBtn) el.addTileCloseBtn.onclick = () => closeAddTileDialog();
   el.addTileOverlay?.addEventListener("click", (event) => {
@@ -990,8 +1075,10 @@ function bindAddTileDialog() {
   }
   for (const btn of document.querySelectorAll("#addTileTypes .add-tile-type[data-add-target]")) {
     btn.onclick = () => {
+      const add = () => document.getElementById(btn.dataset.addTarget)?.click();
+      if (btn.dataset.addTarget !== "addEmptyTileBtn") return addTileWithHa(add);
       closeAddTileDialog();
-      document.getElementById(btn.dataset.addTarget)?.click();
+      add();
     };
   }
 }

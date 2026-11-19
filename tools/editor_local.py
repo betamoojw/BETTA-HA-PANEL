@@ -302,6 +302,15 @@ def build_server(port=8766, variant='paneljc', fixture_path=None, state_path=Non
                 return self.reply({'error': 'Local simulation has no camera image'}, 503)
             with store.lock:
                 if url.path == '/api/ha/light_entities':
+                    if query.get('status_only') == ['1']:
+                        ha = responses['/api/settings'].get('ha', {})
+                        status = ha.get('auth', 'ok')
+                        if status not in ('token_rejected', 'forbidden'):
+                            if not ha.get('configured'):
+                                status = 'not_configured'
+                            else:
+                                status = 'ready' if ha.get('connected', True) else 'disconnected'
+                        return self.reply({'status': status})
                     domains = query.get('domain', ['sensor'])[0].split(',')
                     search = query.get('search', [''])[0].lower()
                     items = [dict(item, entity_id=item['id'], room=item.get('area_name', 'Demo'))
@@ -411,6 +420,12 @@ def build_server(port=8766, variant='paneljc', fixture_path=None, state_path=Non
                     store.persist()
                     return self.reply({'ok': True, 'local_only': True})
                 if path == '/api/settings' and self.command == 'PUT':
+                    if 'skip_ha_setup' in body:
+                        if body.get('skip_ha_setup') is not True or len(body) != 1:
+                            return self.reply({'error': 'Send skip_ha_setup: true by itself'}, 400)
+                        responses[path].setdefault('ha', {})['setup_complete'] = True
+                        store.persist()
+                        return self.reply({'ok': True, 'rebooting': False, 'local_only': True})
                     for group in ('ui', 'hardware', 'topbar', 'time'):
                         if isinstance(body.get(group), dict): responses[path].setdefault(group, {}).update(body[group])
                     store.persist()

@@ -20,6 +20,7 @@ typedef struct {
     char ha_ws_url[APP_HA_WS_URL_MAX_LEN];
     char ha_access_token[APP_HA_ACCESS_TOKEN_MAX_LEN];
     bool ha_rest_enabled;
+    bool ha_setup_complete;
     bool mqtt_enabled;
     char mqtt_broker_host[APP_MQTT_BROKER_HOST_MAX_LEN];
     int mqtt_broker_port;
@@ -82,6 +83,7 @@ void runtime_settings_format_hhmm(int minutes, char *out, size_t out_size);
 esp_err_t runtime_settings_init(void);
 esp_err_t runtime_settings_load(runtime_settings_t *out);
 esp_err_t runtime_settings_save(const runtime_settings_t *settings);
+esp_err_t runtime_settings_skip_ha_setup(void);
 /* Merge into the latest settings under one storage lock. Never call under the display lock. */
 esp_err_t runtime_settings_update(void (*edit)(runtime_settings_t *, void *), void *context,
     runtime_settings_t *result);

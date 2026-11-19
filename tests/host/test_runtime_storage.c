@@ -145,9 +145,44 @@ static void check_clock_persistence(void)
     puts("clock storage: legacy migration and 12 style/disable/re-enable persistence round trips passed");
 }
 
+static void check_ha_setup(void)
+{
+    runtime_settings_t settings;
+    baseline();
+    legacy_present[1] = false; /* A saved URL with no token is still unconfigured. */
+    assert(runtime_settings_load(&settings) == ESP_OK);
+    assert(!settings.ha_setup_complete && !runtime_settings_has_ha(&settings));
+
+    fail_public_write = true;
+    assert(runtime_settings_skip_ha_setup() != ESP_OK);
+    fail_public_write = false;
+    assert(runtime_settings_load(&settings) == ESP_OK && !settings.ha_setup_complete);
+
+    assert(runtime_settings_skip_ha_setup() == ESP_OK);
+    assert(runtime_settings_load(&settings) == ESP_OK);
+    assert(settings.ha_setup_complete && !runtime_settings_has_ha(&settings));
+    assert(strcmp(settings.ha_ws_url, "ws://old/api") == 0);
+    assert(strcmp(settings.wifi_ssid, "old") == 0 && strcmp(settings.wifi_password, "old-wifi") == 0);
+    assert(strcmp(settings.mqtt_password, "old-mqtt") == 0);
+    assert(strcmp(layout_file, "{\"version\":1,\"pages\":[]}") == 0);
+
+    strcpy(settings.ha_access_token, "new-token");
+    assert(runtime_settings_save(&settings) == ESP_OK);
+    assert(runtime_settings_load(&settings) == ESP_OK && settings.ha_setup_complete && runtime_settings_has_ha(&settings));
+    assert(strstr(public_file, "new-token") == NULL);
+
+    baseline(); /* Previously configured installations do not re-enter setup. */
+    assert(runtime_settings_load(&settings) == ESP_OK && settings.ha_setup_complete);
+    settings.ha_access_token[0] = '\0';
+    assert(runtime_settings_save(&settings) == ESP_OK);
+    assert(runtime_settings_load(&settings) == ESP_OK && settings.ha_setup_complete && !runtime_settings_has_ha(&settings));
+    baseline();
+}
+
 int main(void)
 {
     check_clock_persistence();
+    check_ha_setup();
     runtime_settings_t next = changed(), loaded;
     unsigned cases = 0;
     assert(next.ui_page_animations); /* new installations and legacy settings */

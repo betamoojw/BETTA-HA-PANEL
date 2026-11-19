@@ -113,8 +113,8 @@
       </div>
 
       <div id="provisioningHaPage" class="provisioning-page hidden">
-        <h1 id="provHaTitle">HA Provisioning</h1>
-        <p id="provHaSubtitle" class="provisioning-subtitle">Connect the panel to Home Assistant.</p>
+        <h1 id="provHaTitle">Home Assistant setup</h1>
+        <p id="provHaSubtitle" class="provisioning-subtitle">Connecting Home Assistant is optional.</p>
         <div class="row provisioning-url-row">
           <label><span id="provHaUrlLabel">WebSocket URL (ws:// or wss://)</span>
             <input id="provHaUrl" type="text" placeholder="ws://homeassistant.local:8123/api/websocket" maxlength="255" />
@@ -128,8 +128,11 @@
           <input id="provHaShowToken" type="checkbox" />
           <span id="provHaShowTokenLabel">Show token</span>
         </label>
-        <div id="provHaInfo" class="meta"></div>
-        <button id="provHaSaveBtn" class="btn primary" type="button">Save + Reboot</button>
+        <div id="provHaInfo" class="meta" role="status"></div>
+        <div class="row">
+          <button id="provHaSaveBtn" class="btn primary" type="button">Save + Reboot</button>
+          <button id="provHaSkipBtn" class="btn" type="button">Skip for now</button>
+        </div>
       </div>
       <div id="bootErrorPage" class="provisioning-page hidden">
         <h1 id="bootErrorTitle">Panel not reachable</h1>
@@ -2258,6 +2261,11 @@
       </div>
       <div id="addTileFilter" class="meta no-shorten"></div>
       <input id="addTileSearch" class="light-picker-search" type="search" placeholder="Search a tile type or a Home Assistant entity" maxlength="63" />
+      <div id="addTileHaStatus" class="meta no-shorten add-tile-ha-heading" role="status"></div>
+      <div id="addTileHaActions" class="row hidden">
+        <button id="addTileHaRetry" class="btn small" type="button">Retry</button>
+        <button id="addTileHaSettings" class="btn small" type="button">Home Assistant &amp; MQTT</button>
+      </div>
       <div id="addTileTypes" class="add-tile-types">
         <div class="add-tile-group">
           <div class="add-tile-group-label">Control</div>

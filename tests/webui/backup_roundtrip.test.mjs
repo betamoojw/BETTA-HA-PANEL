@@ -30,11 +30,11 @@ function reportedKeys() {
   return keys;
 }
 
-// Reported but deliberately not part of a backup: secrets, live status and values derived from other fields.
+// Reported but deliberately local to a panel: secrets, setup state, live status and derived values.
 const NOT_BACKED_UP = new Set([
   "wifi.password_set", "wifi.configured", "wifi.connected", "wifi.setup_ap_active", "wifi.setup_ap_ssid", "wifi.rssi_dbm",
   "wifi.connected_bssid", "wifi.connected_channel", "wifi.scan_supported",
-  "ha.access_token_set", "ha.configured", "ha.connected", "ha.auth",
+  "ha.access_token_set", "ha.configured", "ha.setup_complete", "ha.connected", "ha.auth",
   "mqtt.password_set", "mqtt.configured", "mqtt.connected", "mqtt.command_topic",
   "device.id", "device.name", // the id and name derive from the room
   "security.password_set", "security.user",

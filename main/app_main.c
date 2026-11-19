@@ -74,12 +74,6 @@
 
 static runtime_settings_t s_runtime_settings = {0};
 
-typedef enum {
-    BOOT_SCREEN_DASHBOARD = 0,
-    BOOT_SCREEN_WIFI_SETUP = 1,
-    BOOT_SCREEN_HA_SETUP = 2,
-} boot_screen_mode_t;
-
 static void app_show_wifi_setup_screen(const char *saved_ssid)
 {
     ui_boot_splash_set_setup();
@@ -123,28 +117,6 @@ static void app_show_wifi_setup_screen(const char *saved_ssid)
     ui_boot_splash_set_status(password_line);
     ui_boot_splash_set_status(ui_i18n_get("boot.open_editor", "Open BETTA Editor:"));
     ui_boot_splash_set_status(url_line);
-}
-
-static void app_show_ha_setup_screen(void)
-{
-    ui_boot_splash_set_setup();
-    char sta_ip[16] = {0};
-    char url_line[64] = {0};
-    if (net_mgr_get_ip(sta_ip, sizeof(sta_ip)) == ESP_OK && sta_ip[0] != '\0') {
-        snprintf(url_line, sizeof(url_line), "http://%s", sta_ip);
-    } else {
-        snprintf(url_line, sizeof(url_line), "http://<panel-ip>");
-    }
-
-    ui_boot_splash_set_title(ui_i18n_get("boot.ha_setup_title", "Home Assistant Setup"));
-    ui_boot_splash_set_status_layout(true, 520, 0);
-    ui_boot_splash_clear_status();
-    ui_boot_splash_set_progress(100);
-    ui_boot_splash_set_status(ui_i18n_get("boot.wifi_connected", "Wi-Fi connected"));
-    ui_boot_splash_set_status(ui_i18n_get("boot.ha_credentials_missing", "HA credentials missing"));
-    ui_boot_splash_set_status(ui_i18n_get("boot.open_editor", "Open BETTA Editor:"));
-    ui_boot_splash_set_status(url_line);
-    ui_boot_splash_set_status(ui_i18n_get("boot.set_ha_url_token", "Set HA URL and token"));
 }
 
 static esp_err_t init_nvs(void)
@@ -251,7 +223,6 @@ void app_main(void)
     ui_boot_splash_set_status(ui_i18n_get("boot.initializing_wifi", "Initializing Wi-Fi"));
 
     bool has_wifi_credentials = false;
-    bool wifi_ready = false;
     /* Start the wired path before the radio so both can acquire a lease. */
     (void)eth_mgr_init();
     (void)eth_mgr_wait_for_ip(2500);
@@ -273,22 +244,26 @@ void app_main(void)
             ESP_LOGW(TAG_WIFI, "Wi-Fi init failed: %s", esp_err_to_name(wifi_err));
             ui_boot_splash_set_status(ui_i18n_get("boot.wifi_connect_failed", "Wi-Fi connect failed"));
         } else {
-            wifi_ready = net_mgr_is_connected();
-
             ui_boot_splash_set_status(ui_i18n_get("boot.wifi_connected", "Wi-Fi connected"));
         }
     } else {
         ESP_LOGW(TAG_WIFI, "No Wi-Fi credentials configured, starting setup AP");
     }
 
-    wifi_ready = net_mgr_is_connected();
+#else
+    ESP_LOGW(TAG_WIFI, "No Wi-Fi backend enabled for target %s", CONFIG_IDF_TARGET);
+#endif
+
+    const bool network_ready = net_mgr_is_connected();
+    const bool ha_configured = runtime_settings_has_ha(&s_runtime_settings);
     /* Also retry SNTP when a late wired lease arrives after boot's bounded wait. */
     time_sync_start(s_runtime_settings.ntp_server);
-    if (wifi_ready) {
+    if (network_ready) {
         time_sync_wait_for_sync(8000);
         ui_boot_splash_set_status(eth_mgr_has_ip() ? ui_i18n_get("network.ethernet", "Ethernet") : ui_i18n_get("boot.wifi_connected", "Wi-Fi connected"));
     }
-    if (!wifi_ready) {
+#if SOC_WIFI_SUPPORTED || CONFIG_ESP_HOSTED
+    if (!network_ready) {
         wifi_mgr_ap_config_t ap_cfg = {
             .ssid = NULL,
             .password = NULL, /* a random password, shown on the setup screen */
@@ -315,26 +290,16 @@ void app_main(void)
             ui_boot_splash_set_status(ui_i18n_get("boot.offline_mode", "Offline mode"));
         }
     }
-#else
-    ESP_LOGW(TAG_WIFI, "No Wi-Fi backend enabled for target %s", CONFIG_IDF_TARGET);
-    ui_boot_splash_set_status("No Wi-Fi backend");
 #endif
-
-    boot_screen_mode_t boot_screen_mode = BOOT_SCREEN_DASHBOARD;
-    if (!wifi_ready) {
-        boot_screen_mode = BOOT_SCREEN_WIFI_SETUP;
-    } else if (!runtime_settings_has_ha(&s_runtime_settings)) {
-        boot_screen_mode = BOOT_SCREEN_HA_SETUP;
-    }
 
     esp_err_t layout_init_err = layout_store_init();
     if (layout_init_err != ESP_OK) ESP_LOGW(TAG_APP, "Layout initialization deferred: %s", esp_err_to_name(layout_init_err));
     ESP_ERROR_CHECK(theme_store_init());
     esp_err_t chip_temp_err = chip_temperature_init();
     if (chip_temp_err != ESP_OK) ESP_LOGW(TAG_APP, "Chip temperature unavailable: %s", esp_err_to_name(chip_temp_err));
-    if (boot_screen_mode == BOOT_SCREEN_DASHBOARD) ui_remote_display_prepare_dashboard();
+    if (network_ready) ui_remote_display_prepare_dashboard();
     ESP_ERROR_CHECK(http_server_start());
-    if (wifi_ready) {
+    if (network_ready) {
         esp_err_t update_err =
             update_check_start(s_runtime_settings.ota_update_check, s_runtime_settings.ota_include_prereleases);
         if (update_err != ESP_OK) {
@@ -344,15 +309,14 @@ void app_main(void)
     }
 
 #if CONFIG_APP_PANEL_VARIANT_S3_480
-    /* Provisioning can last longer than the dim timeout. Keep GT911 active so
-     * a touch can wake the S3 setup screen before HA has been configured. */
+    /* Keep GT911 active so a touch can wake the S3 Wi-Fi setup screen. */
     esp_err_t setup_touch_err = touch_init();
     if (setup_touch_err != ESP_OK) {
         ESP_LOGW(TAG_TOUCH, "Setup touch init failed: %s", esp_err_to_name(setup_touch_err));
     }
 #endif
 
-    if (boot_screen_mode == BOOT_SCREEN_DASHBOARD) {
+    if (network_ready) {
         ui_boot_splash_set_status(ui_i18n_get("boot.initializing_touch", "Initializing touch"));
         esp_err_t touch_err = touch_init();
         if (touch_err != ESP_OK) {
@@ -374,14 +338,16 @@ void app_main(void)
         ui_boot_splash_hide();
         ESP_ERROR_CHECK(display_orientation_start());
 
-        ha_client_config_t ha_cfg = {
-            .ws_url = s_runtime_settings.ha_ws_url,
-            .access_token = s_runtime_settings.ha_access_token,
-            .rest_enabled = s_runtime_settings.ha_rest_enabled,
-        };
-        esp_err_t ha_err = ha_client_start(&ha_cfg);
-        if (ha_err != ESP_OK) {
-            ESP_LOGW(TAG_HA_CLIENT, "HA client start failed: %s", esp_err_to_name(ha_err));
+        if (ha_configured) {
+            ha_client_config_t ha_cfg = {
+                .ws_url = s_runtime_settings.ha_ws_url,
+                .access_token = s_runtime_settings.ha_access_token,
+                .rest_enabled = s_runtime_settings.ha_rest_enabled,
+            };
+            esp_err_t ha_err = ha_client_start(&ha_cfg);
+            if (ha_err != ESP_OK) {
+                ESP_LOGW(TAG_HA_CLIENT, "HA client start failed: %s", esp_err_to_name(ha_err));
+            }
         }
         esp_err_t cover_err = ha_cover_fetcher_init();
         if (cover_err != ESP_OK) {
@@ -403,18 +369,15 @@ void app_main(void)
                 ESP_LOGW(TAG_MQTT, "MQTT client start failed: %s", esp_err_to_name(mqtt_err));
             }
         }
-    } else if (boot_screen_mode == BOOT_SCREEN_WIFI_SETUP) {
+    } else {
         app_show_wifi_setup_screen(has_wifi_credentials ? s_runtime_settings.wifi_ssid : NULL);
         ESP_LOGW(TAG_APP, "Provisioning screen active: Wi-Fi setup required");
-    } else {
-        app_show_ha_setup_screen();
-        ESP_LOGW(TAG_HA_CLIENT, "HA settings missing, showing setup screen with web editor URL");
     }
 
     /* Everything is up: a freshly installed image may now cancel the rollback once it proves healthy. */
     knx_init();
     xiaozhi_init();
     ota_validate_start();
-    net_watchdog_start(has_wifi_credentials || eth_mgr_is_active(), runtime_settings_has_ha(&s_runtime_settings));
+    net_watchdog_start(has_wifi_credentials || eth_mgr_is_active(), ha_configured);
     ui_watchdog_start();
 }

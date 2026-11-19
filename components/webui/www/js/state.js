@@ -260,6 +260,10 @@ const el = {
   addTileOverlay: document.getElementById("addTileOverlay"),
   addTileCloseBtn: document.getElementById("addTileCloseBtn"),
   addTileSearch: document.getElementById("addTileSearch"),
+  addTileHaStatus: document.getElementById("addTileHaStatus"),
+  addTileHaActions: document.getElementById("addTileHaActions"),
+  addTileHaRetry: document.getElementById("addTileHaRetry"),
+  addTileHaSettings: document.getElementById("addTileHaSettings"),
   addTileSearchStatus: document.getElementById("addTileSearchStatus"),
   addTileSearchRetry: document.getElementById("addTileSearchRetry"),
   addTileResults: document.getElementById("addTileResults"),
@@ -783,6 +787,7 @@ bambuFields: document.getElementById("bambuFields"),
   provHaShowToken: document.getElementById("provHaShowToken"),
   provHaInfo: document.getElementById("provHaInfo"),
   provHaSaveBtn: document.getElementById("provHaSaveBtn"),
+  provHaSkipBtn: document.getElementById("provHaSkipBtn"),
 };
 
 const entityAutocomplete = {

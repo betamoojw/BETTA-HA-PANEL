@@ -725,13 +725,20 @@ if (el.addBambuPrinterBtn) {
       }
     };
   }
-  if (el.provHaSaveBtn) {
-    el.provHaSaveBtn.onclick = async () => {
+  const haSetupActions = [
+    [el.provHaSaveBtn, saveHaProvisioning],
+    [el.provHaSkipBtn, skipHaProvisioning],
+  ].filter(([button]) => button);
+  for (const [button, action] of haSetupActions) {
+    button.onclick = async () => {
+      if (button.disabled) return;
+      for (const [control] of haSetupActions) control.disabled = true;
       try {
-        await saveHaProvisioning();
+        if (await action()) return;
       } catch (err) {
         setProvisioningInfo("ha", t("provision.save_failed", { error: localizedRequestError(err) }), true);
       }
+      for (const [control] of haSetupActions) control.disabled = false;
     };
   }
   el.saveSettingsBtn.onclick = async () => {
@@ -785,6 +792,7 @@ if (el.addBambuPrinterBtn) {
 async function startEditor() {
   if (editor.editorStarted) return;
   editor.editorStarted = true;
+  editor.provisioningStage = null;
   setProvisioningVisible(false);
   // The tabs already accept clicks while the bootstrap settings request is pending.
   if (!editor.workspaceNavigationReady) setActivePane();

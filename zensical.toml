@@ -111,6 +111,7 @@ nav = [
       { "S3 Live Display validation" = "development/panels3-live-display-validation.md" },
       { "S3 Live Display on 65d051b" = "development/panels3-live-display-65d051b-validation.md" },
       { "S3 regional date validation" = "development/panels3-timezone-date-validation.md" },
+      { "S3 optional Home Assistant setup validation" = "development/panels3-optional-ha-setup-validation.md" },
       { "Native settings validation" = "development/native-settings-validation.md" },
       { "User management validation" = "development/user-management.md" },
       { "Device licensing" = "development/licensing.md" },

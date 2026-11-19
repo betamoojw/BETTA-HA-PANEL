@@ -5,15 +5,18 @@
 #include "api/api_routes.h"
 
 #include <stdbool.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "cJSON.h"
 
 #include "app_config.h"
+#include "ha/ha_auth_state.h"
 #include "ha/ha_client.h"
 #include "ha/ha_discovery_policy.h"
 #include "ha/ha_model.h"
+#include "settings/runtime_settings.h"
 #include "util/url_decode.h"
 
 #define API_ENTITIES_MAX_ITEMS_DEFAULT 128U
@@ -24,6 +27,35 @@ static void set_json_headers(httpd_req_t *req)
 {
     httpd_resp_set_type(req, "application/json");
     httpd_resp_set_hdr(req, "Cache-Control", "no-store");
+}
+
+static esp_err_t send_ha_availability(httpd_req_t *req)
+{
+    const char *status;
+    switch (ha_auth_state_reason()) {
+    case HA_AUTH_TOKEN_REJECTED:
+        status = "token_rejected";
+        break;
+    case HA_AUTH_FORBIDDEN:
+        status = "forbidden";
+        break;
+    default:
+        if (ha_client_is_connected()) {
+            status = "ready";
+        } else {
+            runtime_settings_t *settings = calloc(1, sizeof(*settings));
+            if (settings == NULL) return httpd_resp_send_500(req);
+            esp_err_t err = runtime_settings_load(settings);
+            status = runtime_settings_has_ha(settings) ? "disconnected" : "not_configured";
+            free(settings);
+            if (err != ESP_OK) return httpd_resp_send_500(req);
+        }
+        break;
+    }
+    char payload[48];
+    snprintf(payload, sizeof(payload), "{\"status\":\"%s\"}", status);
+    set_json_headers(req);
+    return httpd_resp_sendstr(req, payload);
 }
 
 /* The first item of a page; 0 for a missing or invalid value. */
@@ -143,6 +175,7 @@ esp_err_t api_light_entities_get_handler(httpd_req_t *req)
     char domain[APP_HA_DISCOVERY_DOMAIN_MAX_LEN] = "light";
     char search[APP_HA_DISCOVERY_SEARCH_MAX_LEN] = {0};
     char areas_only_raw[8] = {0};
+    char status_only_raw[2] = {0};
 
     int query_len = httpd_req_get_url_query_len(req);
     if (query_len > 0) {
@@ -157,6 +190,9 @@ esp_err_t api_light_entities_get_handler(httpd_req_t *req)
                 ha_discovery_parse_generation(generation_raw, &generation));
             httpd_query_key_value(query, "refresh", refresh_raw, sizeof(refresh_raw));
             httpd_query_key_value(query, "areas_only", areas_only_raw, sizeof(areas_only_raw));
+            esp_err_t status_err = httpd_query_key_value(query, "status_only", status_only_raw, sizeof(status_only_raw));
+            valid = valid && (status_err == ESP_ERR_NOT_FOUND ||
+                (status_err == ESP_OK && strcmp(status_only_raw, "1") == 0));
             httpd_query_key_value(query, "domain", domain, sizeof(domain));
             httpd_query_key_value(query, "search", search, sizeof(search));
             url_decode_in_place(search);
@@ -165,6 +201,7 @@ esp_err_t api_light_entities_get_handler(httpd_req_t *req)
         if (!valid) return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid discovery query");
     }
 
+    if (strcmp(status_only_raw, "1") == 0) return send_ha_availability(req);
     bool refresh = strcmp(refresh_raw, "1") == 0 || strcmp(refresh_raw, "true") == 0;
     /* domain=room&areas_only=1: just the area/floor registry, no entity discovery. */
     bool areas_only = strcmp(domain, "room") == 0 &&

@@ -23,6 +23,7 @@ function setup() {
       jobs.delete(entry[0]);return entry[1].callback();
     };
     globalThis.reply={status:'pending',pending:true,loaded:0,items:[],wait_reason:'internal_memory',generation:41};
+    checkAddTileHa=async()=>'ready';
     apiGet=async path=>{calls.push({method:'GET',path});return {...reply};};
     fetch=async(path,options)=>{calls.push({method:options.method,path});return {};};
     renderLightEntityPicker=data=>{globalThis.rendered=data;};

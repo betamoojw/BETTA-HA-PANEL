@@ -29,6 +29,47 @@ test("setup URL suggestion inserts an editable value which reaches saved setting
   assert.equal(run("puts[0].reboot"), true);
 });
 
+test("skipping HA saves only the device choice, opens the editor, and survives a fresh bootstrap", async () => {
+  const run = setupBindings();
+  run(`
+    globalThis.started = 0;
+    startEditor = async () => { started++; editor.provisioningStage = null; };
+    editor.settings = { wifi: { configured: true }, ha: { configured: false } };
+    editor.provisioningStage = provisioningStageForSettings(editor.settings);
+    el.provHaUrl.value = 'ws://unsaved.example/api/websocket';
+    el.provHaToken.value = 'unsaved-token';
+    putSettings = payload => {
+      puts.push(payload);
+      return new Promise(resolve => { globalThis.finishSkip = resolve; });
+    };
+  `);
+  const skip = run("el.provHaSkipBtn.onclick()");
+  await run("el.provHaSaveBtn.onclick()");
+  assert.deepEqual(JSON.parse(run("JSON.stringify(puts)")), [{ skip_ha_setup: true }]);
+  assert.equal(run("started"), 0);
+  run("finishSkip({ok:true,rebooting:false})");
+  await skip;
+  assert.equal(run("started"), 1);
+  assert.equal(run("el.provHaToken.value"), "");
+  assert.equal(run("el.provHaToken.type"), "password");
+  assert.equal(run("provisioningStageForSettings(JSON.parse(JSON.stringify(editor.settings)))"), null);
+});
+
+test("failed setup skip keeps the form visible and permits retry", async () => {
+  const run = setupBindings();
+  run(`
+    editor.settings = { wifi: { configured: true }, ha: { configured: false } };
+    editor.provisioningStage = 'ha';
+    el.provHaToken.value = 'still-typed';
+    putSettings = async () => { throw new Error('Panel unavailable'); };
+  `);
+  await run("el.provHaSkipBtn.onclick()");
+  assert.equal(run("editor.provisioningStage"), "ha");
+  assert.equal(run("editor.settings.ha.setup_complete"), undefined);
+  assert.equal(run("el.provHaToken.value"), "still-typed");
+  assert.equal(run("el.provHaSaveBtn.disabled || el.provHaSkipBtn.disabled"), false);
+});
+
 test("crash time survives periodic status rendering and banner dismissal without duplication", async () => {
   const { run } = loadEditor({ now: Date.UTC(2026, 9, 15, 12) });
   run(`globalThis.nodes = Object.fromEntries(['crashBanner', 'crashBannerTitle', 'crashBannerHint', 'coredumpRow', 'coredumpText'].map(id => [id, { textContent: '', hidden: false }]));

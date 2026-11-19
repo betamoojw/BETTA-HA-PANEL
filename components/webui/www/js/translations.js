@@ -418,6 +418,8 @@ setTextById("addBambuPrinterBtn", "layout.widgets.add_bambu_printer");
   setTextById("addPageMenuGroupSpecial", "layout.pages.menu_group_special");
   setTextById("addTileTitle", "add_tile.title");
   setTextById("addTileSearchRetry", "entity_picker.retry");
+  setTextById("addTileHaRetry", "entity_picker.retry");
+  setTextById("addTileHaSettings", "settings.nav.ha");
   setPlaceholderById("addTileSearch", "add_tile.search_placeholder");
   setTextById("roomImportTitle", "room_import.title");
   setTextById("roomImportHint", "room_import.hint");
@@ -469,6 +471,7 @@ setTextById("addBambuPrinterBtn", "layout.widgets.add_bambu_printer");
   setTextById("provHaShowTokenLabel", "provision.ha.show_token");
   setTextById("provWifiSaveBtn", "common.save_reboot");
   setTextById("provHaSaveBtn", "common.save_reboot");
+  setTextById("provHaSkipBtn", "provision.ha.skip");
 
   setTextById("settingsWifiHeading", "settings.wifi.heading");
   setTextById("settingsWifiSsidLabel", "settings.wifi.ssid");

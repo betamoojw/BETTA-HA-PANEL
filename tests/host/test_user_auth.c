@@ -184,6 +184,7 @@ int main(void) {
         {"GET", "/api/users", USER_ROLE_ADMIN}, {"POST", "/api/factory-reset", USER_ROLE_ADMIN},
         {"GET", "/api/coredump?id=123", USER_ROLE_ADMIN}, {"POST", "/api/ota/upload", USER_ROLE_ADMIN},
         {"PUT", "/api/settings", USER_ROLE_ADMIN}, {"POST", "/api/knx/programming", USER_ROLE_ADMIN},
+        {"GET", "/api/ha/light_entities?status_only=1", USER_ROLE_INSTALLER},
         {"GET", "/api/layout/extra", USER_ROLE_ADMIN}, {"DELETE", "/api/themes/custom", USER_ROLE_INSTALLER},
         {"POST", "/api/display/remote/session", USER_ROLE_VIEWER}, {"GET", "/api/new-extension", USER_ROLE_ADMIN},
     };

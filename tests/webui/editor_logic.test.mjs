@@ -151,6 +151,8 @@ test("settings helpers", () => {
   const stage = fn("provisioningStageForSettings");
   assert.equal(stage({ wifi: { configured: true }, ha: { configured: true } }), null);
   assert.equal(stage({ wifi: { configured: true }, ha: { configured: false } }), "ha");
+  assert.equal(stage({ wifi: { configured: true }, ha: { configured: false, setup_complete: true } }), null);
+  assert.equal(stage({ wifi: { configured: false }, network: { connected: true }, ha: { configured: false } }), "ha");
   assert.equal(stage({ wifi: { configured: true, setup_ap_active: true }, ha: { configured: true } }), "wifi");
   assert.equal(stage({ wifi: { configured: false }, ha: { configured: true } }), "wifi");
 

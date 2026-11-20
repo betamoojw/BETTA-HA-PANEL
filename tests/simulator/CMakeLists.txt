@@ -399,6 +399,24 @@ target_compile_definitions(betta-splash-test PRIVATE CONFIG_APP_PANEL_VARIANT_S3
 target_compile_options(betta-splash-test PRIVATE -Wall -Wextra -Werror -Wno-unused-parameter)
 target_link_libraries(betta-splash-test PRIVATE lvgl SDL2::SDL2 m)
 add_test(NAME boot-splash-deferred-hide COMMAND betta-splash-test)
+
+set(PANEL10_LOCK_FIXTURE "${CMAKE_CURRENT_BINARY_DIR}/panel10_lock_fixture.h")
+add_custom_command(OUTPUT "${PANEL10_LOCK_FIXTURE}"
+    COMMAND ${Python3_EXECUTABLE} -B "${CMAKE_CURRENT_LIST_DIR}/generate_panel10_lock_fixture.py" "${PANEL10_LOCK_FIXTURE}"
+    DEPENDS generate_panel10_lock_fixture.py
+        "${REPO_ROOT}/main/ha/ha_client.c" "${REPO_ROOT}/main/ui/ui_runtime.c"
+        "${REPO_ROOT}/tools/apply_component_patches.py" "${REPO_ROOT}/tools/patch_websocket_transport.py"
+    VERBATIM)
+add_executable(betta-panel10-lock-test panel10_lock_regression.c "${PANEL10_LOCK_FIXTURE}"
+    "${REPO_ROOT}/main/ui/alert_policy.c")
+target_include_directories(betta-panel10-lock-test PRIVATE "${REPO_ROOT}/main"
+    "${CMAKE_CURRENT_LIST_DIR}/stubs" "${CMAKE_CURRENT_BINARY_DIR}")
+target_compile_definitions(betta-panel10-lock-test PRIVATE CONFIG_APP_PANEL_VARIANT_10INCH_1280=1)
+target_compile_options(betta-panel10-lock-test PRIVATE -Wall -Wextra -Werror -UNDEBUG)
+target_link_libraries(betta-panel10-lock-test PRIVATE lvgl SDL2::SDL2 sim_cjson m)
+add_test(NAME panel10-lock-recovery COMMAND betta-panel10-lock-test)
+set_tests_properties(panel10-lock-recovery PROPERTIES TIMEOUT 10)
+
 foreach(geometry "480;480" "720;720" "1280;800" "1280;720")
     list(GET geometry 0 remote_w)
     list(GET geometry 1 remote_h)

@@ -64,3 +64,22 @@ click, portrait and physical-output checks are recorded in
 [AI Assistant](../xiaozhi-ai.md#validation-limits). These measurements describe
 the pre-commit images identified above; committing the sources does not change
 the build identity of the firmware already running on the panel.
+
+## Panel10 lock recovery
+
+The `panel10-lock-recovery` CTest compiles the production HA status read,
+top-bar refresh and Panel10 adapter lock patch. Build the simulator target
+`betta-panel10-lock-test`, then run
+`ctest --test-dir build/simulator/panel10 -R '^panel10-lock-recovery$' -V`.
+
+The 2026-11-20 Windows x64 run with GCC 16.2.0, SDL 2.32.10 and LVGL 9.6.0 passed.
+With simulated Wi-Fi up, a busy HA mutex retained the cached status and existing
+alert. A fresh disconnect raised the alert, and reconnection cleared it and
+updated sync status. Two SDL timed waits requested 20 ms each. The captured
+diagnostics matched the waiter and fixture PC values with a known holder and
+with an unavailable owner snapshot. After release, LVGL ran the pending timer
+and completed a frame flush. The existing model-change host check and the
+alert-center, boot-splash and 1280 × 800 clock CTests also passed.
+
+HA contention alerts, actual FreeRTOS wait timing and on-device caller and holder
+addresses still require device evidence. See the [COM24 retest record](../hardware/panel10.md#clean-022efa0-com24-retest-2026-11-20).

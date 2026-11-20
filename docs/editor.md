@@ -1,8 +1,8 @@
 <!-- SPDX-License-Identifier: LicenseRef-FNCL-1.1 | Copyright (c) 2026 andre68723 -- file added in the andre68723/BETTA-HA-PANEL fork, see docs/release-notes.md -->
 # Web editor
 
-Open `http://<panel-ip>` in a browser once the panel has joined your Wi-Fi. The editor runs on the panel and
-edits its saved layout and settings. First-time Wi-Fi and Home Assistant setup are in
+Open `http://<panel-ip>` in a browser once the panel has joined your network. The editor runs on the panel and
+edits its saved layout and settings. Network setup and the optional Home Assistant connection are in
 [Install and set up](getting-started.md).
 
 ## Live Display
@@ -48,6 +48,12 @@ On desktop, the two lists scroll independently so the preview and actions stay i
 Dragging and resizing snap to 2 logical pixels; preview grid lines are 10 logical pixels apart.
 Arrow keys move a selected widget by 2 logical pixels, or 1 with Shift held.
 Widget size limits and canvas edges take priority over snapping.
+
+**+ Widget** checks the panel's Home Assistant connection before looking up entities
+or adding a widget that uses Home Assistant. It reports missing settings,
+rejected credentials or an unavailable connection. Panel administrators can open
+**Home Assistant & MQTT** from the message. Select **Retry** after checking the
+address, token or connection. **Empty Tile** is available without Home Assistant.
 
 Entity searches explain when the panel is busy, short of memory or waiting for
 Home Assistant. A stalled search stops with a reason and a **Retry** button.

@@ -5,7 +5,7 @@ Install a ready-made image, connect the panel and operate your first light. You 
 
 - A [supported display and revision](choose-display.md), with its power supply and a USB **data** cable.
 - A computer with desktop **Chrome or Edge** for USB installation. Safari and Firefox do not offer this Web Serial route.
-- Your home Wi-Fi name and password, and access to Home Assistant **2026.10 or newer**.
+- Your home Wi-Fi name and password. For widgets that use Home Assistant, you also need access to Home Assistant **2026.10 or newer**.
 - An HA administrator account with at least one light already working in HA.
   If you have no light, use a Sensor widget instead and check that its value appears.
 
@@ -83,7 +83,7 @@ backup. Opening a serial port can restart the panel.
    *The name and `maple-river-42` in the picture are examples; use the credentials on your own panel.*
 2. Join that Wi-Fi network and open `http://192.168.4.1`.
 3. Choose your country, scan for your home Wi-Fi, enter its password and save.
-4. After the reboot, read the panel's address from the display or your router's DHCP list and open
+4. After the reboot, tap the network indicator in the top bar or check your router's DHCP list for the panel's address. Open
    `http://<panel-ip>` from the same network.
 
 If a saved network is not reachable at boot (for example after a power cut, while the router is still starting), the display
@@ -91,6 +91,10 @@ names that network and the access point stays available for a new setup. The pan
 restarts into the dashboard by itself once it answers; a retry pauses while a device is connected to the access point.
 
 ## 4. Connect Home Assistant
+
+Select **Skip for now** to finish setup immediately and use the editor without entering
+Home Assistant credentials. The panel remembers your choice across browsers and restarts.
+You can connect later in **Settings → Home Assistant & MQTT**.
 
 ### Create an access token
 
@@ -119,9 +123,10 @@ The **WebSocket URL** field needs the complete address, including `/api/websocke
 Replace the host and port with yours. Use an address reachable from the panel's network;
 `localhost` refers to the panel itself. A normal `http://` or `https://` address is currently rejected by this field.
 
-![Home Assistant setup in the editor, with WebSocket URL and access-token fields](img/examples/setup-webui-ha.png){ width="600" }
+![Example setup page with Home Assistant address, token, Save + Reboot and Skip for now](img/examples/setup-webui-ha.png){ width="600" }
 
-Save the Home Assistant connection, wait for the panel to restart, then reload the editor.
+Use **Save + Reboot** in setup or **Save** in the editor. Wait for the panel to restart,
+then reload the editor.
 The Home Assistant status chip on the panel opens connection details; confirm that it is connected.
 For missing entities or a refused token, see [Home Assistant setup](home-assistant.md).
 

@@ -8,6 +8,11 @@ Changes of **this fork**, compared with upstream v0.8.2. The release notes of th
 
 Changes since [v0.9.2-rc1](#v092-rc1).
 
+- **First setup:** after joining the network, the panel opens its dashboard.
+  Home Assistant can be skipped and connected later in **Settings → Home Assistant
+  & MQTT**. The widget chooser checks the connection and explains how to resolve
+  missing credentials or connectivity problems.
+
 - The top bar, default flip clock, clock screensavers, dated widgets and web editor
   use the [panel location's date format](editor.md#time-zones). Weekday names
   follow the interface language. Changes from the panel also update the editor's

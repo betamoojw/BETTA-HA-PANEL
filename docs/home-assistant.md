@@ -2,10 +2,10 @@
 
 # Home Assistant setup
 
-For the first connection, follow [Install and set up](getting-started.md#4-connect-home-assistant):
-it covers the token, required administrator account and complete WebSocket address.
-To change them later, open **Settings → Home Assistant & MQTT**, update the address/token and save;
-the panel restarts.
+Connect during setup or select **Skip for now** and continue to the editor.
+To connect later, open **Settings → Home Assistant & MQTT**, enter the WebSocket URL and
+long-lived access token, then save. Changed credentials take effect after the panel restarts.
+See the token, administrator permissions and address examples in [Install and set up](getting-started.md#4-connect-home-assistant).
 
 Most widgets use entities you already have. Choose them by name in the editor; the
 [widget library](widgets/README.md) lists compatible entity types and any extra integrations.

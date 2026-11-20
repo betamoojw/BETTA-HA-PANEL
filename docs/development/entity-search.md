@@ -8,6 +8,12 @@ Room creation uses area discovery instead of selecting one anchor.
 The entity-first search under **+ Widget** also filters its proposed widget types through these contracts;
 text sensors do not offer Graph and on/off-only lights do not offer Slider.
 
+The optional setup step submits `PUT /api/settings` with `{"skip_ha_setup":true}`.
+The administrator-only action stores `ha.setup_complete` without a restart.
+Widget creation uses `GET /api/ha/light_entities?status_only=1` to read the panel's
+connection status under the existing installer permission. This status request
+leaves the entity discovery queue untouched.
+
 The following covers every current widget and its entity fields. A domain-only rule is deliberate: for example,
 any cover class is valid for the Cover widget. Its supported features determine the available controls.
 

@@ -239,39 +239,43 @@ timeouts. Optical first-frame timing remains unmeasured. The evidence is archive
 
 ### Post-handoff lock follow-up, 2026-11-20
 
-The first timeout came 4.058 seconds after the splash closed and 362 ms after Home
-Assistant logged its initial state import. The 180-second clock idle deadline had yet to elapse.
-The 11 later warnings were spaced at roughly whole-second intervals. They began near the
-configured flip-clock entry time. The matching ELF contains a 20 ms lock request in the
-one-second `ui_runtime` refresh. An earlier COM24 diagnostic run sampled `lvgl_worker` as
-the holder on comparable `ui_runtime` waits. The 10:49:49 UART log lacks per-event task and
-caller addresses, so the exact first request and individual owners remain unverified.
-The Wi-Fi status-line fix finishes before Wi-Fi initialization, and splash dismissal deletes its timer.
+The first timeout followed splash dismissal by 4.058 seconds and Home Assistant state import by
+362 ms, before the 180-second clock deadline. Eleven later warnings came at roughly whole-second
+intervals near flip-clock entry. The matching ELF contains a 20 ms request in the one-second
+`ui_runtime` refresh. Earlier diagnostics sampled `lvgl_worker` on comparable waits. The 10:49:49
+log lacks per-event task and caller addresses to establish individual waiters and holders.
 
-The adapter's LVGL timer now runs the periodic top-bar and screen-protection refresh.
-Home Assistant status, alert scans and weather snapshots skip a busy mutex and retry on a later tick.
-Panel10 lock errors include the waiter, caller PC and sampled holder context when available.
-The snapshot is taken after the wait expires. Use the matching ELF to resolve the PCs.
+The Wi-Fi line is drawn before Wi-Fi initialization, and splash dismissal deletes its timer.
+The adapter's LVGL timer runs the top-bar and screen-protection refresh. Home Assistant status,
+alert and weather reads skip a busy mutex and retry on a later tick. A Panel10 timeout records the
+waiter, caller PC and available holder context after the wait expires. Use the matching ELF for the PCs.
 
-The COM24 retest used the ESP-IDF v6.1 image stamped `Nov 20 2026 12:05:11` China Standard Time
-(`5b25a9eb-dirty`, ELF `420a6eefc`). Only `ota_1` at `0x6A0000` was written. The whole slot was read
-back and the application matched the image byte for byte. The pre-boot checks matched metadata/NVS,
-coredump, all LittleFS, the inactive slot and the unwritten tail. Boot 235 remained valid at 304 seconds.
-The 300.083-second UART capture contained zero LVGL lock timeouts. The count fell from 1 to 0 in the
-first eight seconds after handoff and from 11 to 0 around reset +206–225 seconds.
-The active clock overlay was sampled at reset +210 and +223 seconds. Two later snapshots showed
-advancing seconds. The owner saw the Wi-Fi prompt and confirmed the flip clock, touch wake and page
-switching. All nine pages, 36 widgets, saved settings and login protection matched. The LittleFS backup
-contained zero `.grph` files. Optical first-frame timing and on-device timeout attribution remain unverified.
-UART, readback and on-device evidence are archived in
-`.local/validation/panel10-post-splash-com24-2026-11-20/`.
+COM24 boot 235 used the ESP-IDF v6.1 image stamped `Nov 20 2026 12:05:11` China Standard Time
+(`5b25a9eb-dirty`, ELF `420a6eefc`). Only `ota_1` at `0x6A0000` was written and the application
+readback matched byte for byte. Metadata/NVS, coredump, LittleFS, the inactive app and the unwritten tail
+matched before boot. Boot 235 stayed valid at 304 seconds. The 300.083-second UART capture showed zero
+LVGL lock timeouts. The count fell from 1 to 0 in the first eight seconds after handoff and from 11 to 0
+around reset +206–225 seconds. The clock overlay was active at +210 and +223 seconds, and two snapshots
+showed advancing seconds. The owner confirmed the Wi-Fi prompt, saver, wake and page switching. Nine
+pages, 36 widgets, settings and login protection matched. LittleFS held zero `.grph` files. Optical
+first-frame timing and on-device attribution remain unverified. See `.local/validation/panel10-post-splash-com24-2026-11-20/`.
 
-The review fixed an HA alert edge case. A busy status snapshot leaves the existing alert in place
-until a fresh sample arrives. Wi-Fi loss or disabling HA clears the HA alert. The ESP-IDF v6.1
-rebuild stamped `Nov 20 2026 15:37:58` China Standard Time (ELF `794a658a3`) was verified locally.
-All 17 selected simulator checks, HA and adapter host checks, and eight storage checks passed.
-The image fits the application slot with 32,240 bytes free. The image and build record are in
-`.local/validation/panel10-precommit-2026-11-20/`.
+The review keeps the existing HA alert while the status lock is busy. Wi-Fi loss or disabling HA clears it.
+The local ESP-IDF v6.1 rebuild stamped `Nov 20 2026 15:37:58` China Standard Time (ELF `794a658a3`)
+had 32,240 slot bytes free. The 17 selected simulator checks, HA and adapter host checks, and eight storage checks
+passed. The local build record is in `.local/validation/panel10-precommit-2026-11-20/`.
+
+### Clean `022efa0` COM24 retest, 2026-11-20
+
+ESP-IDF v6.1 built `022efa0` in a clean worktree at `Nov 20 2026 16:06:35` China Standard Time (ELF `4d38d7ff0`).
+The full `ota_1` readback at `0x6A0000` verified every application byte and the unchanged unwritten tail.
+Metadata/NVS, coredump, all LittleFS and the inactive slot matched before boot. Boot 237 ran `022efa09` with OTA `valid` at 328 and 391 s.
+The 330.098-second UART capture logged zero LVGL lock timeouts, including handoff +0–8 s and reset +206–225 s.
+The owner confirmed the Wi-Fi prompt, dashboard handoff, flip saver, touch wake and page switching.
+Nine pages and 36 widgets matched. Administrator login and anonymous HTTP 401 passed. Only live local time differed in settings.
+The LittleFS backup contained zero `.grph` files, leaving no local graph samples for individual comparison.
+HA authenticated and exchanged heartbeats. Busy-lock alerts and timeout caller and holder attribution remain unverified on-device.
+UART, readback and screenshots are in `.local/validation/panel10-022efa0-com24-2026-11-20/`.
 
 ## Technical notes
 

@@ -81,7 +81,8 @@ function renderEntityOptions() {
     el.fTertiaryEntityLabel.textContent = t(tertiaryConfig.labelKey, {}, tertiaryConfig.labelFallback);
   }
 
-  const secondaryEnabled = secondaryConfig.enabled;
+  const knxBound = selectedWidget()?.binding?.source === "knx";
+  const secondaryEnabled = secondaryConfig.enabled && !knxBound;
   if (el.fSecondaryEntityWrap) {
     el.fSecondaryEntityWrap.classList.toggle("hidden", !secondaryEnabled);
   }
@@ -90,7 +91,7 @@ function renderEntityOptions() {
     el.fSecondaryEntity.value = "";
   }
 
-  const tertiaryEnabled = tertiaryConfig.enabled;
+  const tertiaryEnabled = tertiaryConfig.enabled && !knxBound;
   if (el.fTertiaryEntityWrap) {
     el.fTertiaryEntityWrap.classList.toggle("hidden", !tertiaryEnabled);
   }
@@ -103,7 +104,7 @@ function renderEntityOptions() {
 
   const primaryEnabled = inspectorType !== "empty_tile";
   if (el.fEntityWrap) {
-    el.fEntityWrap.classList.toggle("hidden", !primaryEnabled || inspectorType === "wallbox_evcc");
+    el.fEntityWrap.classList.toggle("hidden", !primaryEnabled || knxBound || inspectorType === "wallbox_evcc");
   }
   if (el.fEntity) {
     el.fEntity.disabled = !primaryEnabled;
@@ -844,7 +845,8 @@ function renderCanvas() {
     box.dataset.widgetId = widget.id;
     box.classList.toggle("overlapping", overlapping.has(widget.id));
     box.style.zIndex = isEmptyTile ? "1" : "10";
-    const previewState = isEmptyTile ? "design" : (editor.states.get(widget.entity_id) || "unavailable");
+    const previewId = widget.binding?.source === "knx" ? knxPreviewKey(widget.type, widget.binding.object_id) : widget.entity_id;
+    const previewState = isEmptyTile ? "design" : (previewSourceState(previewId) || "unavailable");
     box.classList.toggle("matte-on", ["on", "open", "playing", "home"].includes(String(previewState).toLowerCase()));
     let extraHint = "";
     if (widget.type === "solar_forecast") {
@@ -883,6 +885,7 @@ function alarmLoadInspector(widget) {
 }
 
 function renderInspector() {
+  renderKnxInspector(selectedWidget());
   alarmPanelLoadInspector(selectedWidget());
   refreshEntitySourceWarning();
   renderEnergyTimelineColors(selectedWidget());
@@ -1921,6 +1924,7 @@ function addWidget(type, options = {}) {
     secondary_entity_id: secondaryEntityId,
     rect,
   };
+  if (options.binding) widget.binding = { ...options.binding };
   if (typeof options.displayMode === "string" && options.displayMode) {
     widget.display_mode = options.displayMode;
   }
@@ -2056,11 +2060,12 @@ function applyInspector(options = {}) {
     : DEFAULT_BUTTON_MODE;
   const secondaryConfig = secondaryEntityConfigForWidgetType(widgetType);
   const tertiaryConfig = tertiaryEntityConfigForWidgetType(widgetType);
-  const nextEntityId = el.fEntity.value.trim() || pickDefaultEntityForWidgetType(widgetType, sliderDomain, buttonMode);
+  const keepKnx = widget.binding?.source === "knx" && !el.fEntity.value.trim();
+  const nextEntityId = keepKnx ? "" : el.fEntity.value.trim() || pickDefaultEntityForWidgetType(widgetType, sliderDomain, buttonMode);
 
   const cameraSource=widgetType==="camera_tile"?(el.fCameraSource?.value.trim()||""):"";
   if(cameraSource&&!/^[a-z0-9_-]{1,23}$/.test(cameraSource))return false;
-  const primaryEntityValid = !!cameraSource || entityMatchesWidgetType({ id: nextEntityId }, widgetType, sliderDomain, buttonMode);
+  const primaryEntityValid = keepKnx || !!cameraSource || entityMatchesWidgetType({ id: nextEntityId }, widgetType, sliderDomain, buttonMode);
   if (!primaryEntityValid && !softEntityValidation) {
     const allowedDomains = allowedEntityDomainsForWidgetType(widgetType, sliderDomain, buttonMode);
     const allowedHint = allowedDomains.length ? allowedDomains.join(", ") : t("layout.status.expected_domain");
@@ -2072,6 +2077,7 @@ function applyInspector(options = {}) {
   const previousEntityId = String(widget.entity_id || "");
   if (primaryEntityValid) {
     widget.entity_id = cameraSource ? "" : nextEntityId;
+    if (!keepKnx) delete widget.binding;
   }
   if(cameraSource)widget.camera_source=cameraSource;else delete widget.camera_source;
   if (widgetType === "solar_forecast") {
@@ -2237,7 +2243,7 @@ function applyInspector(options = {}) {
   } else if (widgetType !== "alarm_panel") {
     delete widget.alarm_actions;
   }
-  if (["sensor", "binary_tile", "contact_tile", "lock_tile", "alarm_tile", "vacuum_tile"].includes(widgetType) && el.fHistoryPopup?.checked) {
+  if (!keepKnx && ["sensor", "binary_tile", "contact_tile", "lock_tile", "alarm_tile", "vacuum_tile"].includes(widgetType) && el.fHistoryPopup?.checked) {
     widget.history_popup = true;
   } else {
     delete widget.history_popup;
@@ -2266,7 +2272,7 @@ function applyInspector(options = {}) {
       else widget.sensor_unit = unitValue;
     }
   }
-  if (secondaryConfig.enabled) {
+  if (secondaryConfig.enabled && !keepKnx) {
     const typedSecondaryEntityId = el.fSecondaryEntity.value.trim();
     const defaultSecondaryEntityId = widgetType === "sonos_favorites"
       ? DEFAULT_SONOS_FAVORITES_SENSOR
@@ -2290,7 +2296,7 @@ function applyInspector(options = {}) {
   } else {
     widget.secondary_entity_id = "";
   }
-  if (tertiaryConfig.enabled) {
+  if (tertiaryConfig.enabled && !keepKnx) {
     const typedTertiaryEntityId = el.fTertiaryEntity?.value.trim() || "";
     const tertiaryEntityId = tertiaryConfig.optional
       ? typedTertiaryEntityId
@@ -2333,7 +2339,7 @@ function applyInspector(options = {}) {
     widget.graph_time_window_min = normalizeGraphTimeWindowMin(el.fGraphTimeWindowMin?.value);
     widget.graph_display_mode = normalizeGraphDisplayMode(el.fGraphDisplayMode?.value);
     widget.graph_bar_bucket_min = normalizeGraphBarBucketMin(el.fGraphBarBucketMin?.value);
-    if (el.fGraphHaHistory?.checked) {
+    if (!keepKnx && el.fGraphHaHistory?.checked) {
       widget.graph_ha_history = true;
     } else {
       delete widget.graph_ha_history; // default: the panel collects its own history
@@ -2446,6 +2452,7 @@ function autoApplyInspector(options = {}) {
 // sensor (device_class timestamp, or a format saved before the entity list was loaded).
 function entityDisplayInfo(entityId) {
   if (!entityId) return {};
+  if (entityId.startsWith("knx:")) return knxPreview.get(entityId) || {};
   const listed = editor.entities.find((entity) => entity?.id === entityId) || {};
   const live = editor.stateMeta?.get(entityId) || {};
   return { ...listed, ...live, device_class: live.device_class || listed.device_class || "", unit: live.unit || listed.unit || "" };

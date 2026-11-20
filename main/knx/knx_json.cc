@@ -1,5 +1,6 @@
 // Adapted from betamoojw/xiaozhi-esp32 at 61fc9d0b. See README.md and LICENSE.xiaozhi.
 #include "knx_object.h"
+#include "knx_widget_model.h"
 #include "cJSON.h"
 #include <type_traits>
 void AddValue(cJSON* json, const KnxValue& value) {
@@ -111,7 +112,13 @@ cJSON* KnxObjectJson(const KnxCommunicationObject& object) {
     cJSON_AddStringToObject(json, "value_format", format);
     cJSON_AddBoolToObject(json, "readable", object.readable);
     cJSON_AddBoolToObject(json, "writable", object.writable);
+    cJSON* types = cJSON_AddArrayToObject(json, "widget_types");
+    for (const char* type : {"sensor", "gauge", "graph", "binary_tile", "contact_tile",
+                             "button", "slider", "light_tile", "scene_tile"})
+        if (KnxWidgetSupports(object, knx_tile_kind(type)))
+            cJSON_AddItemToArray(types, cJSON_CreateString(type));
     cJSON_AddBoolToObject(json, "valid", object.valid);
+    cJSON_AddBoolToObject(json, "live_feedback", object.live_feedback);
     if (object.valid) {
         AddValue(json, object.current_value);
         cJSON_AddNumberToObject(json, "last_update_ms", static_cast<double>(object.last_update_ms));

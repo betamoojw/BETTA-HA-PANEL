@@ -2,6 +2,7 @@
 // Copyright (c) 2026 andre68723
 #include "knx.h"
 #include "knx_config.h"
+#include "knx_widget_model.h"
 #include "esp_knx_ip/esp_knx_ip.h"
 #include "esp_timer.h"
 #include "esp_log.h"
@@ -15,6 +16,7 @@ extern "C" {
 #include "net/net_mgr.h"
 }
 #include <algorithm>
+#include <atomic>
 #include <cstring>
 #include <mutex>
 
@@ -25,6 +27,8 @@ std::vector<KnxCommunicationObject> objects;
 std::string configuration, error;
 const char* state = "disabled";
 bool enabled, valid_config, initialized;
+std::atomic<uint32_t> view_revision{1};
+uint32_t registry_revision = 1;
 uint32_t generation = 1, active_generation, received_count, sent_count, rejected_count;
 knx_address_t physical;
 int64_t last_received;
@@ -32,13 +36,38 @@ QueueHandle_t commands;
 TaskHandle_t worker;
 struct Command { uint32_t generation; bool write; char id[49], value[256]; };
 
+// Writers hold state_mutex. A zero cursor denotes a widget's first observation.
+uint32_t next_view_revision() {
+    uint32_t next = view_revision.load() + 1;
+    if (next == 0) next = 1;
+    view_revision.store(next);
+    return next;
+}
+// Called under state_mutex. Cached commissioning values keep their timestamps.
+// Widgets require fresh feedback after the routing connection changes.
+void invalidate_views() {
+    registry_revision = next_view_revision();
+    for (auto& o : objects) {
+        o.widget_revision = registry_revision;
+        o.live_feedback = false;
+    }
+}
+void set_state(const char* next) {
+    if (strcmp(state, next) && (!strcmp(state, "running") || !strcmp(next, "running"))) {
+        if (!strcmp(next, "running")) {
+            // A callback can run inside start(), before it returns.
+            registry_revision = next_view_revision();
+            for (auto& o : objects) o.widget_revision = registry_revision;
+        } else invalidate_views();
+    }
+    state = next;
+}
 bool fail(char* out, size_t size, const char* reason) {
     if (out && size) snprintf(out, size, "%s", reason);
     return false;
 }
-KnxCommunicationObject* find(const char* id, const char* address = nullptr) {
-    for (auto& o : objects)
-        if ((id && o.id == id) || (!id && address && o.group_address == address)) return &o;
+KnxCommunicationObject* find(const char* id) {
+    if (id) for (auto& o : objects) if (o.id == id) return &o;
     return nullptr;
 }
 void receive(const knx_telegram_t* t, void*) {
@@ -46,13 +75,28 @@ void receive(const knx_telegram_t* t, void*) {
     // Ignore our own multicast loopback: successful send is not bus feedback.
     if (!enabled || generation != active_generation || t->source == physical ||
         (t->command != KNX_COMMAND_RESPONSE && t->command != KNX_COMMAND_WRITE)) return;
+    KnxValue value;
+    uint32_t revision = 0;
+    int64_t received_ms = 0;
     for (auto& o : objects) {
         if (!o.readable || o.parsed_group_address != t->destination) continue;
-        KnxValue v;
-        if (!KnxDecodeValue(o.datapoint_type, t->data, t->data_length, v)) { rejected_count++; continue; }
-        o.current_value = std::move(v); o.valid = true;
-        o.last_update_ms = esp_timer_get_time()/1000;
-        last_received = o.last_update_ms; received_count++;
+        // Configuration enforces a single DPT per address. Decode once and
+        // publish the same observation to all readable aliases under the lock.
+        if (!revision) {
+            if (!KnxDecodeValue(o.datapoint_type, t->data, t->data_length, value)) {
+                ++rejected_count;
+                return;
+            }
+            revision = next_view_revision();
+            received_ms = esp_timer_get_time() / 1000;
+            last_received = received_ms;
+            ++received_count;
+        }
+        o.current_value = value;
+        o.valid = true;
+        o.live_feedback = true;
+        o.widget_revision = revision;
+        o.last_update_ms = received_ms;
     }
 }
 void run(void*) {
@@ -70,8 +114,9 @@ void run(void*) {
             std::lock_guard<std::mutex> guard(state_mutex);
             want = enabled && valid_config;
             restart = !want || !online || bound_ip != ip.ip.addr || bound_netif != netif || active_generation != generation;
-            if (restart) state = !enabled ? "disabled" : !valid_config ? "error" :
-                                 !online ? "waiting_for_network" : "starting";
+            if (restart) set_state(!enabled ? "disabled" : !valid_config ? "error" :
+                                 !online ? "waiting_for_network" : "starting");
+            if (handle && restart) active_generation = 0;
         }
         // stop waits for the receive callback, so never hold state_mutex here.
         if (handle && restart) {
@@ -96,8 +141,11 @@ void run(void*) {
                 cfg.physical_address = physical; cfg.load_physical_address_from_nvs = false;
                 result = esp_knx_ip_create(&cfg, &handle);
                 cJSON_Delete(root);
-                if (result == ESP_OK) for (const auto& o : objects) {
-                    result = esp_knx_ip_register_callback(handle, o.parsed_group_address, receive, nullptr);
+                if (result == ESP_OK) for (auto it = objects.begin(); it != objects.end(); ++it) {
+                    if (std::any_of(objects.begin(), it, [&](const auto& other) {
+                        return other.parsed_group_address == it->parsed_group_address;
+                    })) continue;
+                    result = esp_knx_ip_register_callback(handle, it->parsed_group_address, receive, nullptr);
                     if (result != ESP_OK) break;
                 }
                 active_generation = generation;
@@ -105,8 +153,10 @@ void run(void*) {
             if (result == ESP_OK) result = esp_knx_ip_start(handle);
             {
                 std::lock_guard<std::mutex> guard(state_mutex);
-                if (result == ESP_OK) { bound_ip = ip.ip.addr; bound_netif = netif; state = "running"; error.clear(); }
-                else { state = "error"; error = esp_err_to_name(result); }
+                if (result == ESP_OK) {
+                    bound_ip = ip.ip.addr; bound_netif = netif;
+                    if (enabled && generation == active_generation) { set_state("running"); error.clear(); }
+                } else { active_generation = 0; invalidate_views(); set_state("error"); error = esp_err_to_name(result); }
             }
             if (result != ESP_OK) {
                 if (handle) esp_knx_ip_destroy(handle);
@@ -144,6 +194,7 @@ extern "C" void knx_init(void) {
     std::lock_guard<std::mutex> guard(state_mutex);
     configuration = ok ? std::move(canonical) : std::move(json);
     objects = std::move(parsed); valid_config = ok; enabled = saved != 0 && CONFIG_LWIP_MAX_SOCKETS >= 24;
+    invalidate_views();
     error = why;
     commands = xQueueCreate(8, sizeof(Command));
     if (!commands || xTaskCreate(run, "knx", 6144, nullptr, 3, &worker) != pdPASS) {
@@ -173,7 +224,7 @@ extern "C" bool knx_enable(bool value, char* out, size_t size) {
     if (result != ESP_OK) return fail(out, size, esp_err_to_name(result));
     std::lock_guard<std::mutex> guard(state_mutex);
     enabled = value; generation++;
-    state = value ? "starting" : "disabled";
+    set_state(value ? "starting" : "disabled");
     return true;
 }
 
@@ -186,7 +237,8 @@ extern "C" bool knx_configure(const char* json, char* out, size_t size) {
         return fail(out, size, why.c_str());
     std::lock_guard<std::mutex> guard(state_mutex);
     objects = std::move(parsed); configuration = std::move(canonical);
-    valid_config = true; generation++; error.clear(); state = enabled ? "starting" : "disabled";
+    valid_config = true; generation++; error.clear(); set_state(enabled ? "starting" : "disabled");
+    invalidate_views();
     return true;
 }
 
@@ -216,6 +268,7 @@ extern "C" cJSON* knx_objects(int offset, int limit) {
     int end = std::min(static_cast<int>(objects.size()), offset + limit);
     for (int i = offset; i < end; i++) cJSON_AddItemToArray(list, KnxObjectJson(objects[i]));
     cJSON_AddBoolToObject(j, "has_more", end < static_cast<int>(objects.size()));
+    cJSON_AddNumberToObject(j, "generation", generation);
     cJSON_AddNumberToObject(j, "next_offset", end); cJSON_AddStringToObject(j, "state", state);
     return j;
 }
@@ -226,12 +279,9 @@ extern "C" cJSON* knx_object(const char* id) {
     if (j) cJSON_AddStringToObject(j, "state", state);
     return j;
 }
-extern "C" bool knx_command(const char* id, const char* address, const char* value,
-                            bool write, char* out, size_t size) {
-    std::lock_guard<std::mutex> guard(state_mutex);
+static bool queue_command(KnxCommunicationObject* o, const char* value, bool write, char* out, size_t size) {
     if (!enabled || !initialized || strcmp(state, "running") || generation != active_generation)
         return fail(out, size, "KNX routing is not running");
-    auto* o = find(id, address);
     if (!o || !(write ? o->writable : o->readable)) return fail(out, size, "Unknown object or operation not permitted");
     Command c{}; c.generation = generation; c.write = write;
     snprintf(c.id, sizeof(c.id), "%s", o->id.c_str());
@@ -242,4 +292,47 @@ extern "C" bool knx_command(const char* id, const char* address, const char* val
         snprintf(c.value, sizeof(c.value), "%s", value);
     }
     return xQueueSend(commands, &c, 0) == pdTRUE || fail(out, size, "KNX command queue is busy");
+}
+
+extern "C" bool knx_command(const char* id, const char* address, const char* value,
+                            bool write, char* out, size_t size) {
+    std::lock_guard<std::mutex> guard(state_mutex);
+    auto* object = find(id);
+    if (!id && address) for (auto& o : objects) {
+        if (o.group_address != address || !(write ? o.writable : o.readable)) continue;
+        if (object) return fail(out, size, "Multiple objects match this address; select an object ID");
+        object = &o;
+    }
+    return queue_command(object, value, write, out, size);
+}
+
+extern "C" uint32_t knx_widget_revision(void) { return view_revision.load(); }
+
+extern "C" knx_view_result_t knx_widget_read(const char* key, knx_tile_kind_t kind,
+                                              const char* preset, uint32_t* cursor, ha_state_t* out) {
+    std::unique_lock<std::mutex> guard(state_mutex, std::try_to_lock);
+    if (!guard.owns_lock()) return KNX_VIEW_BUSY;
+    auto* o = find(knx_binding_id(key));
+    const uint32_t revision = o ? o->widget_revision : registry_revision;
+    if (*cursor == revision) return KNX_VIEW_UNCHANGED;
+    memset(out, 0, sizeof(*out));
+    snprintf(out->entity_id, sizeof(out->entity_id), "%s", key);
+    KnxValue parsed;
+    if (!o || !enabled || generation != active_generation || strcmp(state, "running") ||
+        (kind == KNX_TILE_ACTION && (!preset || !KnxParseValue(o->datapoint_type, preset, parsed))) ||
+        !KnxWidgetProject(*o, kind, *out)) {
+        out->attributes_json[0] = '\0';
+        strcpy(out->state, "unavailable");
+    }
+    *cursor = revision;
+    return KNX_VIEW_UPDATED;
+}
+
+extern "C" esp_err_t knx_widget_control(const char* key, knx_widget_action_t action, int value, const char* preset) {
+    std::unique_lock<std::mutex> guard(state_mutex, std::try_to_lock);
+    if (!guard.owns_lock()) return ESP_ERR_TIMEOUT;
+    auto* o = find(knx_binding_id(key));
+    std::string text;
+    if (!o || !KnxWidgetCommandValue(*o, action, value, preset, text)) return ESP_ERR_INVALID_ARG;
+    return queue_command(o, text.c_str(), true, nullptr, 0) ? ESP_OK : ESP_FAIL;
 }

@@ -29,6 +29,15 @@ bool test_sensor_value(void)
     SV_CHECK(!ha_sv_language_decimal_comma("dex") && !ha_sv_language_decimal_comma(NULL));
 
     char text[48];
+    const double measured = 61.960784912109375;
+    SV_CHECK(ha_sv_percent_text(0, NULL, "%", HA_SV_UNIT_DEFAULT, "en", text, sizeof(text)) && !strcmp(text, "0%"));
+    SV_CHECK(ha_sv_percent_text(measured, NULL, "%", HA_SV_UNIT_DEFAULT, "en", text, sizeof(text)) && !strcmp(text, "62%"));
+    SV_CHECK(ha_sv_percent_text(100, NULL, "%", HA_SV_UNIT_DEFAULT, "en", text, sizeof(text)) && !strcmp(text, "100%"));
+    SV_CHECK(ha_sv_percent_text(measured, "61.96", "%", HA_SV_UNIT_DEFAULT, "de", text, sizeof(text)) && !strcmp(text, "61,96%"));
+    SV_CHECK(ha_sv_percent_text(measured, NULL, "%", HA_SV_UNIT_HIDE, "en", text, sizeof(text)) && !strcmp(text, "62"));
+    SV_CHECK(ha_sv_percent_text(measured, NULL, "pct", HA_SV_UNIT_DEFAULT, "en", text, sizeof(text)) && !strcmp(text, "62 pct"));
+    SV_CHECK(ha_sv_number_text("61.75", "61.75", "%", "humidity", HA_SV_UNIT_DEFAULT, "en", text, sizeof(text)) &&
+             !strcmp(text, "61.75 %"));
     SV_CHECK(ha_sv_number_text("21.5", "21.46", "\u00B0C", "temperature", HA_SV_UNIT_DEFAULT, "de", text, sizeof(text)) &&
           strcmp(text, "21.5\u00B0C") == 0);
     SV_CHECK(ha_sv_number_text("21.5", "21.46", "\u00B0C", "temperature", HA_SV_UNIT_DEFAULT, "en", text, sizeof(text)) &&

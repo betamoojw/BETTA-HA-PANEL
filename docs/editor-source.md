@@ -48,6 +48,7 @@ www/js/entity-search-rules.js search eligibility by field and the rules shown in
 www/js/room-air.js     Air quality bindings, evaluation fields and measured-value preview
 www/js/layout-model.js layout model, entity domains and suggestions, loading layout and entities
 www/js/pickers.js     entity pickers, the "+ Widget" dialog (widget types and entity search)
+www/js/knx-widget-picker.js  registry-backed object selection, rebinding and KNX previews
 www/js/readability.js panel4 role sizes, day-count and gauge-width hints for the previews (after pickers, before canvas)
 www/js/bambu-printer.js Bambu printer widget: Inspector fields for its entity bindings and the canvas preview (before canvas)
 www/js/evcc-wallbox.js wallbox bindings, loadpoint discovery, optional power/flow header and its preview

@@ -22,6 +22,7 @@
 #include "ui/theme/ui_typography.h"
 #include "ui/ui_popup.h"
 #include "ui/ui_bindings.h"
+#include "layout/knx_binding.h"
 #include "ui/fonts/mdi_font_registry.h"
 #include "ui/ui_i18n.h"
 #include "ui/ui_memory.h"
@@ -1106,7 +1107,7 @@ static void light_popup_apply_rgb(light_popup_ctx_t *popup)
     uint8_t g = light_rgb_component(popup->rgb, 8);
     uint8_t b = light_rgb_component(popup->rgb, 0);
     esp_err_t err = ui_bindings_set_light_rgb_color(popup->tile->entity_id, r, g, b);
-    if (err == ESP_OK) {
+    if (err == ESP_OK && !knx_binding_id(popup->tile->entity_id)) {
         popup->tile->is_on = true;
         popup->tile->unavailable = false;
         if (popup->tile->brightness <= 0) {
@@ -1665,7 +1666,7 @@ static void w_light_tile_card_event_cb(lv_event_t *event)
         next_brightness = clamp_percent(next_brightness);
 
         esp_err_t err = ui_bindings_set_entity_power(ctx->entity_id, next_is_on);
-        if (err == ESP_OK) {
+        if (err == ESP_OK && !knx_binding_id(ctx->entity_id)) {
             ctx->is_on = next_is_on;
             ctx->brightness = next_brightness;
             ctx->unavailable = false;
@@ -1709,7 +1710,7 @@ static void w_light_tile_slider_event_cb(lv_event_t *event)
     }
 
     if (code == LV_EVENT_VALUE_CHANGED) {
-        if (ctx != NULL) {
+        if (ctx != NULL && !knx_binding_id(ctx->entity_id)) {
             ctx->brightness = clamp_percent(value);
         }
         light_set_value_label(value_label, value);
@@ -1725,7 +1726,7 @@ static void w_light_tile_slider_event_cb(lv_event_t *event)
         bool next_is_on = (next_brightness > 0);
 
         esp_err_t err = ui_bindings_set_slider_value(ctx->entity_id, next_brightness);
-        if (err == ESP_OK) {
+        if (err == ESP_OK && !knx_binding_id(ctx->entity_id)) {
             ctx->brightness = next_brightness;
             ctx->is_on = next_is_on;
             ctx->unavailable = false;
@@ -1905,7 +1906,8 @@ void w_light_tile_apply_state(ui_widget_instance_t *instance, const ha_state_t *
     }
     bool is_on = light_state_is_on(state->state);
     ha_light_capabilities_t caps = {0};
-    ha_light_capabilities_from_state(state, &caps);
+    if (knx_binding_id(state->entity_id)) light_capabilities_decode(state, &caps);
+    else ha_light_capabilities_from_state(state, &caps);
     int brightness = caps.brightness_percent;
     w_light_tile_ctx_t *ctx = (w_light_tile_ctx_t *)instance->ctx;
     if (ctx != NULL) {

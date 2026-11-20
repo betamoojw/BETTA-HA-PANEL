@@ -181,6 +181,9 @@ void ha_layout_entities_collect(cJSON *root, ha_layout_entity_set_t *set)
                 if (!cJSON_IsObject(widget)) {
                     continue;
                 }
+                const cJSON *binding = cJSON_GetObjectItemCaseSensitive(widget, "binding");
+                const char *source = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(binding, "source"));
+                if (source && !strcmp(source, "knx")) continue;
                 cJSON *type = cJSON_GetObjectItemCaseSensitive(widget, "type");
                 if (cJSON_IsString(type) && type->valuestring != NULL &&
                     strcmp(type->valuestring, "weather_tile") == 0) {

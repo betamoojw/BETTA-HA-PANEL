@@ -4,6 +4,7 @@
  */
 #include "ui/ui_widget_factory.h"
 #include "ui/widgets/w_sensor_list.h"
+#include "layout/knx_binding.h"
 #include "ui/text_font.h"
 
 #include <stdbool.h>
@@ -170,7 +171,7 @@ static void sensor_date_text(const w_sensor_ctx_t *ctx, char *out, size_t out_le
 
 /* The state as the device class and the tile's sensor_format/sensor_unit choose (ha_sensor_value.h). */
 static void sensor_value_text(w_sensor_ctx_t *ctx, const ha_state_t *state, const char *device_class,
-                              const char *unit, char *out, size_t out_len)
+                              const char *unit, bool knx_scaling, double numeric_value, char *out, size_t out_len)
 {
     if (ctx->timestamp) {
         sensor_timestamp_text(ctx, out, out_len);
@@ -199,7 +200,10 @@ static void sensor_value_text(w_sensor_ctx_t *ctx, const ha_state_t *state, cons
         return;
     }
     char rounded[APP_MAX_STATE_LEN];
-    const char *value = ha_display_precision_format(state->entity_id, state->state, rounded, sizeof(rounded)) ||
+    const bool has_precision = ha_display_precision_format(state->entity_id, state->state, rounded, sizeof(rounded));
+    if (knx_scaling && ha_sv_percent_text(numeric_value, has_precision ? rounded : NULL, unit, ctx->unit_mode,
+                                         ui_i18n_get_language(), out, out_len)) return;
+    const char *value = has_precision ||
         (strcmp(device_class, "monetary") == 0 && ha_sv_currency_round(state->state, unit, rounded, sizeof(rounded)))
         ? rounded : state->state;
     if (!ha_sv_number_text(value, state->state, unit, device_class, ctx->unit_mode, ui_i18n_get_language(), out, out_len)) {
@@ -590,7 +594,14 @@ void w_sensor_apply_state(ui_widget_instance_t *instance, const ha_state_t *stat
             lv_label_set_text(ctx->title_label, name);
         }
     }
-    if (sensor_state_is_unavailable(state->state)) {
+    bool reserved_state = sensor_state_is_unavailable(state->state);
+    bool read_attributes = !reserved_state || knx_binding_id(ctx->entity_id);
+    cJSON *attrs = read_attributes && state->attributes_json[0] ? cJSON_Parse(state->attributes_json) : NULL;
+    cJSON *unit_item = cJSON_GetObjectItemCaseSensitive(attrs, "unit_of_measurement");
+    /* A confirmed KNX sensor carries a unit field even when the unit is empty.
+     * Text DPTs can legitimately contain the HA strings "unknown" and "unavailable". */
+    if (reserved_state && !cJSON_IsString(unit_item)) {
+        cJSON_Delete(attrs);
         sensor_apply_unavailable(ctx);
         return;
     }
@@ -601,9 +612,7 @@ void w_sensor_apply_state(ui_widget_instance_t *instance, const ha_state_t *stat
     char value_text[96] = {0};
     const char *unit = "";
     const char *device_class = "";
-    cJSON *attrs = cJSON_Parse(state->attributes_json);
     if (attrs != NULL) {
-        cJSON *unit_item = cJSON_GetObjectItemCaseSensitive(attrs, "unit_of_measurement");
         if (cJSON_IsString(unit_item) && unit_item->valuestring != NULL) {
             unit = unit_item->valuestring;
         }
@@ -619,7 +628,9 @@ void w_sensor_apply_state(ui_widget_instance_t *instance, const ha_state_t *stat
                      ha_timestamp_parse(state->state, &ctx->timestamp_s);
     ctx->date = !ctx->timestamp && strcmp(device_class, "date") == 0 &&
                 ha_sv_date_parse(state->state, &ctx->date_y, &ctx->date_m, &ctx->date_d);
-    sensor_value_text(ctx, state, device_class, unit, value_text, sizeof(value_text));
+    const bool knx_scaling = ctx->numeric && knx_binding_id(ctx->entity_id) &&
+                             cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(attrs, "knx_scaling"));
+    sensor_value_text(ctx, state, device_class, unit, knx_scaling, numeric_value, value_text, sizeof(value_text));
 
     if (attrs != NULL) {
         cJSON_Delete(attrs);

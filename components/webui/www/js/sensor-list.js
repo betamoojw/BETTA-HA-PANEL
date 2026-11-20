@@ -23,7 +23,11 @@ function sensorListLoadInspector(widget) {
 }
 
 function sensorListSaveInspector(widget, type) {
-  if (type !== "sensor") { delete widget.sensor_view; delete widget.sensor_entities; return; }
+  if (type !== "sensor" || widget.binding?.source === "knx") {
+    delete widget.sensor_view;
+    delete widget.sensor_entities;
+    return;
+  }
   if (el.fSensorView?.value === "list") widget.sensor_view = "list";
   else delete widget.sensor_view;
   const ids = [...new Set(sensorListInputs().map(input => input.value.trim()).filter(Boolean))].slice(0, 8);

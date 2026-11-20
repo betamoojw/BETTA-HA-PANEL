@@ -23,6 +23,7 @@
 #include "app_config.h"
 #include "layout/alarm_panel_config.h"
 #include "layout/widget_types.h"
+#include "layout/knx_layout_binding.h"
 #include "layout/layout_orientation.h"
 #include "util/entity_id.h"
 #include "util/room_extra.h"
@@ -405,7 +406,25 @@ static bool validate_widget(cJSON *widget, const char *known_widget_ids, size_t 
     }
     if(camera_custom)requires_entity=false;
 
-    if (requires_entity) {
+    const cJSON *binding = cJSON_GetObjectItemCaseSensitive(widget, "binding");
+    if (binding) {
+        const char *object_id, *write_value;
+        if (!knx_layout_binding(binding, cJSON_GetStringValue(type), &object_id, &write_value))
+            layout_validation_add(result, "Invalid KNX object binding or fixed write value");
+        const cJSON *ha_fields[] = {entity_id, secondary_entity_id, tertiary_entity_id};
+        for (size_t i = 0; i < sizeof(ha_fields) / sizeof(*ha_fields); ++i) {
+            if (ha_fields[i] && (!cJSON_IsString(ha_fields[i]) || ha_fields[i]->valuestring[0])) {
+                layout_validation_add(result, "KNX widgets bind to one configured object");
+                break;
+            }
+        }
+        const char *view = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(widget, "sensor_view"));
+        if ((view && !strcmp(view, "list")) || cJSON_GetArraySize(cJSON_GetObjectItemCaseSensitive(widget, "sensor_entities")) ||
+            (cJSON_IsString(button_mode) && button_mode_requires_media_player(button_mode->valuestring)))
+            layout_validation_add(result, "KNX widgets require a single-object display or control");
+        if (cJSON_IsTrue(history_popup) || cJSON_IsTrue(graph_ha_history))
+            layout_validation_add(result, "KNX widgets use local history");
+    } else if (requires_entity) {
         if (!cJSON_IsString(entity_id) || !is_valid_entity_id(entity_id->valuestring)) {
             snprintf(msg, sizeof(msg), "widget %s: invalid entity_id", cJSON_IsString(id) ? id->valuestring : "?");
             layout_validation_add(result, msg);

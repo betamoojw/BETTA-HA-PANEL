@@ -1201,6 +1201,7 @@ async function loadEntities() {
 }
 
 async function refreshStates() {
+  void refreshKnxWidgetPreview();
   try {
     const items = await apiGetAllItems("/api/state");
     editor.states = new Map();

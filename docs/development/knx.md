@@ -26,6 +26,21 @@ cannot write after a registry replacement or disable.
 Incoming self-address telegrams are ignored; no optimistic state confirmation.
 Caches live only in RAM with monotonic last_update_ms timestamps.
 
+## Widget bindings
+
+HA layouts retain their existing `entity_id`. A KNX layout entry stores
+`"binding": {"source": "knx", "object_id": "living_temperature"}`. A fixed-value action also
+stores a string `value` inside the binding. The editor gets compatible widget types from
+the registry. Restoring the layout can precede restoring the KNX configuration.
+
+The routing callback decodes an external write or response once per group address. Under the
+registry lock it publishes the value, receive timestamp and revision to every readable alias.
+The UI task checks the revision on its normal loop (20 ms delay between turns), takes the display
+lock and applies up to four changed widget views per turn. A busy registry or display lock defers
+the work. Each widget has its own cursor, including widgets on other pages. A telegram arriving
+during a scan triggers another pass. These timings describe scheduling. Actual bus-to-LCD latency
+also includes router transit, scheduling, rendering and scanout.
+
 ## API
 
 Every route uses the existing authentication, origin/content-type and rate guard.

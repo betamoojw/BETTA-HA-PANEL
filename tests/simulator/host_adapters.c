@@ -8,6 +8,7 @@
 #include "ha/ha_cover_fetcher.h"
 #include "ha/ha_energy_model.h"
 #include "ui/ui_bindings.h"
+#include "knx/knx_widget.h"
 #include "util/flash_gate.h"
 #include "host_adapters.h"
 #include "src/libs/lodepng/lodepng.h"
@@ -57,6 +58,13 @@ bool ha_model_get_entity_name(const char *entity_id, char *out, size_t out_len)
         return found;
     }
     return false;
+}
+
+/* Fixed-value actions use the same simulator transport boundary as HA services. */
+esp_err_t knx_widget_control(const char *key, knx_widget_action_t action, int value, const char *preset)
+{
+    (void)key; (void)action; (void)value; (void)preset;
+    return ESP_OK;
 }
 
 esp_err_t ui_bindings_toggle_entity(const char *entity_id) { (void)entity_id; return ESP_OK; }

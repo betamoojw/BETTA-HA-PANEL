@@ -103,9 +103,10 @@ bool ValidateObject(const KnxCommunicationObject& object,
         return false;
     }
     if (std::any_of(objects.begin(), objects.end(), [&object](const auto& existing) {
-            return existing.parsed_group_address == object.parsed_group_address;
+            return existing.parsed_group_address == object.parsed_group_address &&
+                   !(existing.datapoint_type == object.datapoint_type);
         })) {
-        error = ObjectFieldError(index, "group_address") + ": duplicate address '" +
+        error = ObjectFieldError(index, "group_address") + ": conflicting DPT at address '" +
             object.group_address + "'";
         return false;
     }
@@ -279,7 +280,12 @@ bool KnxParseConfiguration(const std::string& json_text, size_t maximum_objects,
         ++index;
     }
 
-    if (valid && objects.size() > maximum_group_addresses) {
+    size_t addresses = 0;
+    for (auto it = objects.begin(); it != objects.end(); ++it)
+        if (std::none_of(objects.begin(), it, [&](const auto& other) {
+                return other.parsed_group_address == it->parsed_group_address;
+            })) ++addresses;
+    if (valid && addresses > maximum_group_addresses) {
         error = "KNX configuration exceeds component callback capacity";
         valid = false;
     }

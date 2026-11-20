@@ -1,4 +1,9 @@
 {
+  "knx.widget_source": "Source de données",
+  "knx.widget_type": "Type de tuile",
+  "knx.widget_use": "Utiliser cet objet",
+  "knx.widget_choose": "Choisir un objet KNX",
+  "knx.widget_empty": "Aucun objet compatible. Vérifiez les objets de communication enregistrés dans les réglages KNX.",
   "layout.preview.song_title": "Titre du morceau",
   "layout.preview.artist": "Artiste",
   "settings.theme.color.matte_page_bg": "Mat Page Fond",

@@ -15,6 +15,7 @@
 #include <string.h>
 
 #include "ha/ha_client.h"
+#include "knx/knx_widget.h"
 #include "ui/fonts/app_symbols.h"
 #include "ui/theme/ui_typography.h"
 #include "ui/theme/theme_default.h"
@@ -30,6 +31,7 @@ typedef struct {
     lv_obj_t *title;
     lv_obj_t *kind;
     bool unavailable;
+    char preset[];
 } w_scene_ctx_t;
 
 static void scene_flash_exec(void *var, int32_t v)
@@ -44,17 +46,21 @@ static void scene_clicked_cb(lv_event_t *event)
     if (ctx == NULL || ctx->entity_id[0] == '\0' || ctx->unavailable) {
         return;
     }
-    const char *dot = strchr(ctx->entity_id, '.');
-    if (dot == NULL) {
-        return;
+    if (knx_binding_id(ctx->entity_id)) {
+        if (knx_widget_control(ctx->entity_id, KNX_SEND_VALUE, 0, ctx->preset) != ESP_OK) return;
+    } else {
+        const char *dot = strchr(ctx->entity_id, '.');
+        if (dot == NULL) {
+            return;
+        }
+        char domain[16];
+        snprintf(domain, sizeof(domain), "%.*s", (int)(dot - ctx->entity_id) < 15 ? (int)(dot - ctx->entity_id) : 15, ctx->entity_id);
+        const char *service = strcmp(domain, "button") == 0 || strcmp(domain, "input_button") == 0 ? "press"
+                              : (strcmp(domain, "lock") == 0 ? "unlock" : "turn_on");
+        char payload[APP_MAX_ENTITY_ID_LEN + 24];
+        snprintf(payload, sizeof(payload), "{\"entity_id\":\"%s\"}", ctx->entity_id);
+        (void)ha_client_call_service(domain, service, payload);
     }
-    char domain[16];
-    snprintf(domain, sizeof(domain), "%.*s", (int)(dot - ctx->entity_id) < 15 ? (int)(dot - ctx->entity_id) : 15, ctx->entity_id);
-    const char *service = strcmp(domain, "button") == 0 || strcmp(domain, "input_button") == 0 ? "press"
-                          : (strcmp(domain, "lock") == 0 ? "unlock" : "turn_on");
-    char payload[APP_MAX_ENTITY_ID_LEN + 24];
-    snprintf(payload, sizeof(payload), "{\"entity_id\":\"%s\"}", ctx->entity_id);
-    (void)ha_client_call_service(domain, service, payload);
 
     lv_anim_t a;
     lv_anim_init(&a);
@@ -102,6 +108,7 @@ static void scene_event_cb(lv_event_t *event)
 
 static const char *scene_kind_text(const char *entity_id)
 {
+    if (knx_binding_id(entity_id)) return "KNX";
     if (strncmp(entity_id, "script.", 7) == 0) return ui_i18n_get("scene.script", "Script");
     if (strncmp(entity_id, "button.", 7) == 0 || strncmp(entity_id, "input_button.", 12) == 0) {
         return ui_i18n_get("scene.button", "Button");
@@ -115,11 +122,16 @@ esp_err_t w_scene_create(const ui_widget_def_t *def, lv_obj_t *parent, ui_widget
     if (def == NULL || parent == NULL || out_instance == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
-    w_scene_ctx_t *ctx = ui_calloc_prefer_psram(1, sizeof(*ctx));
+    size_t preset_size = def->knx_write_value ? strlen(def->knx_write_value) + 1 : 0;
+    w_scene_ctx_t *ctx = ui_calloc_prefer_psram(1, sizeof(*ctx) + preset_size);
     if (ctx == NULL) {
         return ESP_ERR_NO_MEM;
     }
     strlcpy(ctx->entity_id, def->entity_id, sizeof(ctx->entity_id));
+    if (preset_size) {
+        memcpy(ctx->preset, def->knx_write_value, preset_size);
+        out_instance->knx_write_value = ctx->preset;
+    }
 
     lv_obj_t *card = lv_obj_create(parent);
     ctx->card = card;
@@ -181,7 +193,10 @@ void w_scene_apply_state(ui_widget_instance_t *instance, const ha_state_t *state
     if (strncmp(state->entity_id, ctx->entity_id, APP_MAX_ENTITY_ID_LEN) != 0) {
         return;
     }
-    ctx->unavailable = state->state[0] == '\0' || strcmp(state->state, "unavailable") == 0;
+    bool knx = knx_binding_id(ctx->entity_id) != NULL;
+    bool has_feedback = knx && state->attributes_json[0] != '\0';
+    ctx->unavailable = !has_feedback && (state->state[0] == '\0' || strcmp(state->state, "unavailable") == 0);
+    if (knx) lv_label_set_text(ctx->kind, has_feedback ? state->state : "KNX");
     ui_style_action_button(ctx->circle, ctx->glyph, UI_CONTROL_ACTION, !ctx->unavailable);
 }
 

@@ -258,7 +258,13 @@ void ha_light_capabilities_from_state(const ha_state_t *state, ha_light_capabili
     if (state == NULL || !light_entity_id_is_light(state->entity_id)) {
         return;
     }
+    light_capabilities_decode(state, out_caps);
+}
 
+void light_capabilities_decode(const ha_state_t *state, ha_light_capabilities_t *out_caps)
+{
+    memset(out_caps, 0, sizeof(*out_caps));
+    out_caps->brightness_percent = state_is_on(state->state) ? 100 : 0;
     out_caps->is_light = true;
     out_caps->can_turn_on_off = true;
 

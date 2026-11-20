@@ -8,6 +8,11 @@ Changes of **this fork**, compared with upstream v0.8.2. The release notes of th
 
 Changes since [v0.9.2-rc1](#v092-rc1).
 
+- The layout editor can bind widgets directly to [KNX communication objects](knx.md#dashboard-widgets).
+  External group writes and responses update the LCD, including multiple widgets and readable
+  objects sharing an address. DPT 5.001 Sensor tiles show whole percentages on the panel and in
+  the editor preview. Home Assistant and KNX widgets can share a dashboard.
+
 - **First setup:** after joining the network, the panel opens its dashboard.
   Home Assistant can be skipped and connected later in **Settings → Home Assistant
   & MQTT**. The widget chooser checks the connection and explains how to resolve

@@ -22,7 +22,7 @@ function previewControlAccentStyle(widget) {
 }
 
 function previewControlAvailable(entityId, allowUnknown = false) {
-  const raw = editor.states.get(entityId);
+  const raw = previewSourceState(entityId);
   return Boolean(entityId) && raw !== undefined && raw !== null && raw !== "" &&
     raw !== "unavailable" && (allowUnknown || raw !== "unknown");
 }
@@ -150,7 +150,7 @@ function solarPreviewMarkup(widget) {
 }
 
 function carPreviewNumber(entityId, fallback = null) {
-  const raw = entityId ? String(editor.states.get(entityId) ?? "").trim() : "";
+  const raw = entityId ? String(previewSourceState(entityId) ?? "").trim() : "";
   const parsed = raw === "" ? NaN : Number(raw.replace(",", "."));
   return Number.isFinite(parsed) ? parsed : fallback;
 }
@@ -232,7 +232,7 @@ function sonosFavoritesPreviewMarkup(widget) {
 function previewEntityValue(entityId, sample, format = (value) => value) {
   if (!entityId) return sample;
   const unit = entityDisplayInfo(entityId).unit || "";
-  const raw = editor.states.get(entityId);
+  const raw = previewSourceState(entityId);
   const known = raw !== undefined && raw !== null && raw !== "" && !["unavailable", "unknown"].includes(String(raw));
   return escapeHtml(`${known ? format(String(raw)) : "--"}${unit ? ` ${unit}` : ""}`);
 }
@@ -251,9 +251,9 @@ function previewLocalizeNumber(text) {
     ? text.replace(".", ",") : text;
 }
 
-function previewSensorNumber(raw, unit, dc, mode) {
-  let number = raw;
+function previewSensorNumber(raw, unit, dc, mode, scaling = false) {
   const numeric = /^[+-]?\d*\.?\d*$/.test(raw) && /\d/.test(raw);
+  let number = scaling && numeric ? Number(raw).toFixed(0) : raw;
   if (numeric && mode === "auto") {
     const ladder = PREVIEW_UNIT_LADDERS.find((units) => units.includes(unit));
     let value = Number(raw);
@@ -272,7 +272,7 @@ function previewSensorNumber(raw, unit, dc, mode) {
   const temperature = (mode === "default" || !mode) && (unit === "°C" || unit === "°F");
   if (numeric && !temperature) number = previewLocalizeNumber(number);
   if (mode === "hide" || !unit) return number;
-  if (temperature) return `${number}${unit}`;
+  if (temperature || (scaling && unit === "%")) return `${number}${unit}`;
   if (mode === "degree" && unit.startsWith("°")) return `${number}°`;
   if (mode !== "code" && dc === "monetary") return `${number} ${PREVIEW_CURRENCY_SYMBOLS[unit] || unit}`;
   return `${number} ${unit}`;
@@ -344,8 +344,8 @@ function previewSensorValue(widget) {
   const id = widget.entity_id;
   if (!id) return null;
   const info = entityDisplayInfo(id);
-  const raw = String(editor.states.get(id) ?? "");
-  if (!raw || ["unavailable", "unknown"].includes(raw)) return null;
+  const raw = String(previewSourceState(id) ?? "");
+  if (!knxPreview.get(id)?.live && (!raw || ["unavailable", "unknown"].includes(raw))) return null;
   const dc = info.device_class || "";
   const unit = info.unit || "";
   const format = widget.sensor_format || "";
@@ -360,7 +360,7 @@ function previewSensorValue(widget) {
   if (text === null && dc === "enum" && /^[a-z0-9_]*[a-z][a-z0-9_]*$/.test(raw)) {
     text = raw.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
   }
-  if (text === null) text = previewSensorNumber(raw, unit, dc, widget.sensor_unit || "");
+  if (text === null) text = previewSensorNumber(raw, unit, dc, widget.sensor_unit || "", knxPreview.get(id)?.scalingSensor);
   return escapeHtml(text);
 }
 
@@ -398,7 +398,7 @@ function pvText(key, vars = {}) {
 
 // The state of an entity the preview may show instead of a fixed sample ("" until the panel reported one).
 function previewEntityState(entityId) {
-  const raw = entityId ? editor.states.get(entityId) : "";
+  const raw = entityId ? previewSourceState(entityId) : "";
   return raw === undefined || raw === null || ["unavailable", "unknown"].includes(String(raw)) ? "" : String(raw);
 }
 
@@ -720,6 +720,13 @@ function previewWeekday(offset) {
 }
 
 function tilePreviewMarkup(widget) {
+  if (widget.binding?.source === "knx") {
+    const key = knxPreviewKey(widget.type, widget.binding.object_id);
+    if (!knxPreview.get(key)?.live && previewSourceState(key) === "unavailable") {
+      return `<div class="tp tp-sensor">${widgetNamePreview(widget, "small")}<b>--</b></div><div class="resize-handle"></div>`;
+    }
+    widget = { ...widget, entity_id: key };
+  }
   if (widget.type === "wallbox_evcc") return evccPreviewMarkup(widget);
   const name = (tag, attributes = "") => widgetNamePreview(widget, tag, attributes);
   const w = Number(widget.rect && widget.rect.w) || 0;
@@ -1051,7 +1058,7 @@ function tilePreviewMarkup(widget) {
       return `<div class="tp tp-datetime">${name('small', '')}<b>${previewEntityValue(widget.entity_id, "06:30", previewDateTimeValue)}</b></div>${handle}`;
     }
     case "scene_tile":
-      return `<div class="tp tp-contact"><div class="tp-icon-circle ${previewControlClass(false, previewControlAvailable(widget.entity_id, true))}" style="${previewCircleSize(w, h)}">\u25B6</div><div class="tp-blind-text">${name('b', '')}<small>${pvText(previewSceneKind(widget.entity_id))}</small></div></div>${handle}`;
+      return `<div class="tp tp-contact"><div class="tp-icon-circle ${previewControlClass(false, previewControlAvailable(widget.entity_id, true))}" style="${previewCircleSize(w, h)}">\u25B6</div><div class="tp-blind-text">${name('b', '')}<small>${widget.binding?.source === "knx" ? escapeHtml(knxPreview.get(widget.entity_id)?.live ? previewSourceState(widget.entity_id) : "KNX") : pvText(previewSceneKind(widget.entity_id))}</small></div></div>${handle}`;
     case "binary_tile":
       if (widget.display_mode === "door") {
         const open = previewEntityState(widget.entity_id) !== "off";
@@ -1111,7 +1118,7 @@ function tilePreviewMarkup(widget) {
       // is off reads OFF and 0 % with a grey lamp (the brightness itself is not known to the editor).
       {
         const off = previewEntityState(widget.entity_id) === "off";
-        const pct = off ? 0 : 70;
+        const pct = knxPreview.get(widget.entity_id)?.percent ?? (off ? 0 : 70);
         return `<div class="tp tp-light${off ? " tp-light-off" : ""}"><div class="tp-light-top"><span>${escapeHtml(off ? t("layout.preview.off", {}, "OFF") : t("layout.preview.on", {}, "ON"))}</span><span class="tp-light-pct">${pct} %<i class="tp-wheel"></i></span></div><svg class="tp-bulb-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21h6M10 18.5h4M12 2.8a6.2 6.2 0 0 0-3.6 11.2c.3.3.6.7.6 1.2v1.3h6v-1.3c0-.5.3-.9.6-1.2A6.2 6.2 0 0 0 12 2.8z" fill="none" stroke="${off ? "#8a9aa8" : "#ff9d3d"}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>${name('b', '')}<div class="tp-bar tp-bar-knob"><i style="width:${pct}%"></i><u style="left:${pct}%"></u></div><div class="tp-switch tp-matte-switch"><i></i></div></div>${handle}`;
       }
     case "heating_tile": {
@@ -1141,7 +1148,7 @@ function tilePreviewMarkup(widget) {
       const state = escapeHtml(isCover ? t("layout.preview.open", {}, "OPEN") : t("layout.preview.on", {}, "ON"));
       const fromTop = dir === "top_to_bottom";
       // An entity that is off (light, media player) stands at 0 %, as on the panel; otherwise the 60 % sample.
-      const sliderPct = ["off", "unavailable"].includes(previewEntityState(widget.entity_id)) ? 0 : 60;
+      const sliderPct = knxPreview.get(widget.entity_id)?.percent ?? (["off", "unavailable"].includes(previewEntityState(widget.entity_id)) ? 0 : 60);
       if (vertical) {
         return `<div class="tp tp-slider tp-slider-vertical2"><div class="tp-vbar2"><i style="height:${sliderPct}%;${fromTop ? "top:0" : "bottom:0"}"></i><span>${sliderPct} %</span></div>${name('b', '')}</div>${handle}`;
       }

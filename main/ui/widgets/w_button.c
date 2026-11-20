@@ -15,6 +15,7 @@
 #include "ui/theme/ui_style.h"
 #include "ui/ui_i18n.h"
 #include "ui/ui_bindings.h"
+#include "layout/knx_binding.h"
 #include "ui/ui_memory.h"
 
 typedef enum {
@@ -542,7 +543,7 @@ static void button_run_primary_action(w_button_ctx_t *ctx)
 
     if (button_mode_uses_switch(ctx->mode)) {
         bool next = !ctx->is_on;
-        if (ui_bindings_toggle_entity(ctx->entity_id) == ESP_OK) {
+        if (ui_bindings_toggle_entity(ctx->entity_id) == ESP_OK && !knx_binding_id(ctx->entity_id)) {
             button_apply_visual(ctx->card, ctx, next, false, next ? "ON" : "OFF");
         }
         return;
@@ -595,7 +596,10 @@ static void w_button_switch_event_cb(lv_event_t *event)
     }
 
     bool checked = lv_obj_has_state(sw, LV_STATE_CHECKED);
-    if (ui_bindings_toggle_entity(ctx->entity_id) == ESP_OK) {
+    if (knx_binding_id(ctx->entity_id)) {
+        (void)ui_bindings_set_entity_power(ctx->entity_id, checked);
+        button_apply_visual(ctx->card, ctx, ctx->is_on, false, ctx->is_on ? "ON" : "OFF");
+    } else if (ui_bindings_toggle_entity(ctx->entity_id) == ESP_OK) {
         button_apply_visual(ctx->card, ctx, checked, false, checked ? "ON" : "OFF");
     }
 }

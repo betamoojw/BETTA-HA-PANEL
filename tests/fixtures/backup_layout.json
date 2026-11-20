@@ -39,6 +39,13 @@
             "h": 180
           },
           "camera_source": "local"
+        },
+        {
+          "id": "w_knx_scene",
+          "type": "scene_tile",
+          "title": "Evening",
+          "binding": {"source": "knx", "object_id": "floor.scene", "value": "false,3"},
+          "rect": {"x": 20, "y": 400, "w": 240, "h": 90}
         }
       ]
     },

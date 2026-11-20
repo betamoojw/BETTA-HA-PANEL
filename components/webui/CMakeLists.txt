@@ -37,6 +37,7 @@ set(WEBUI_JS_SOURCES
     js/room-air.js
     js/layout-model.js
     js/pickers.js
+    js/knx-widget-picker.js
     js/readability.js
     js/bambu-printer.js
     js/evcc-wallbox.js

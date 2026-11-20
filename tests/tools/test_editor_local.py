@@ -76,6 +76,19 @@ class LocalCapacityHandlerTest(unittest.TestCase):
             self.assertEqual(self.request(handler, '/api/knx/config')[1], config)
             self.assertEqual(self.request(handler, '/api/layout')[1], original)
 
+    def test_knx_widget_picker_uses_saved_objects_offline(self):
+        with tempfile.TemporaryDirectory() as directory:
+            handler = self.handler('panel10', directory)
+            config = {'media_type': 'knx_ip', 'comObjects': [
+                {'id': 'level', 'name': 'Desk', 'datapoint_type': 'DPT-5.001', 'group_address': '1/0/1',
+                 'readable': True, 'writable': True}]}
+            self.assertEqual(self.request(handler, '/api/knx/config', 'PUT', config)[0], 200)
+            page = self.request(handler, '/api/knx/objects?offset=0')[1]
+            self.assertEqual(page['objects'][0]['widget_types'],
+                             ['sensor', 'gauge', 'graph', 'slider', 'light_tile', 'scene_tile'])
+            self.assertFalse(page['objects'][0]['live_feedback'])
+            self.assertEqual(page['state'], 'disabled')
+
 
 class LocalEditorTest(unittest.TestCase):
     def setUp(self):

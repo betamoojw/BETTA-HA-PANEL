@@ -17,6 +17,7 @@
 #include "ui/theme/ui_style.h"
 #include "ui/ui_i18n.h"
 #include "ui/ui_bindings.h"
+#include "layout/knx_binding.h"
 #include "ui/ui_memory.h"
 
 typedef enum {
@@ -38,6 +39,7 @@ typedef struct {
     w_slider_direction_t direction_effective;
     lv_color_t accent_color;
     int value;
+    int feedback_value;
     bool is_on;
     bool unavailable;
     bool dragging;
@@ -660,6 +662,14 @@ static void w_slider_event_cb(lv_event_t *event)
         ctx->is_on = ctx->value > 0;
         slider_apply_visual(ctx);
     } else if (code == LV_EVENT_RELEASED) {
+        if (knx_binding_id(ctx->entity_id)) {
+            (void)ui_bindings_set_slider_value(ctx->entity_id, clamp_percent(lv_slider_get_value(slider)));
+            ctx->dragging = false;
+            ctx->value = ctx->feedback_value;
+            ctx->is_on = ctx->value > 0;
+            slider_apply_visual(ctx);
+            return;
+        }
         int prev_value = ctx->value;
         bool prev_is_on = ctx->is_on;
         bool prev_unavailable = ctx->unavailable;
@@ -683,6 +693,10 @@ static void w_slider_event_cb(lv_event_t *event)
         slider_apply_visual(ctx);
     } else if (code == LV_EVENT_PRESS_LOST) {
         ctx->dragging = false;
+        if (knx_binding_id(ctx->entity_id)) {
+            ctx->value = ctx->feedback_value;
+            ctx->is_on = ctx->value > 0;
+        }
         slider_apply_visual(ctx);
     }
 }
@@ -802,6 +816,7 @@ void w_slider_apply_state(ui_widget_instance_t *instance, const ha_state_t *stat
     bool is_on = has_numeric ? (value > 0 || on_from_text) : on_from_text;
 
     ctx->value = clamp_percent(value);
+    ctx->feedback_value = ctx->value;
     ctx->is_on = is_on;
     ctx->unavailable = false;
     ctx->dragging = false;

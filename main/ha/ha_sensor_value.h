@@ -43,6 +43,10 @@ void ha_sv_localize_number(char *text, const char *language);
 bool ha_sv_number_text(const char *value, const char *raw_state, const char *unit, const char *device_class,
                        ha_sv_unit_t mode, const char *language, char *out, size_t out_len);
 
+/* A scaling percentage uses whole points unless the caller supplies text at an explicit precision. */
+bool ha_sv_percent_text(double percent, const char *precision_text, const char *unit, ha_sv_unit_t mode,
+                        const char *language, char *out, size_t out_len);
+
 /* A money state without a display precision of its own, rounded like Home Assistant's frontend: two decimals
  * for a currency code ("EUR"), none for "JPY"; false for another unit ("ct/kWh") or a state that is not a number. */
 bool ha_sv_currency_round(const char *state, const char *unit, char *out, size_t out_len);

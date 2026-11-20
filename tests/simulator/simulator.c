@@ -36,6 +36,7 @@
 #include "ui/ui_house_page.h"
 #include "ui/ui_notification_popup.h"
 #include "ui/ui_widget_factory.h"
+#include "layout/knx_layout_binding.h"
 #include "ui/widgets/w_alarm_panel.h"
 #include "layout/evcc_slots.h"
 #include "ha/ha_evcc_sessions.h"
@@ -257,6 +258,12 @@ static void parse_widget_def(const cJSON *json, ui_widget_def_t *def)
     copy_field(def->type, sizeof(def->type), json, "type");
     copy_field(def->title, sizeof(def->title), json, "title");
     copy_field(def->entity_id, sizeof(def->entity_id), json, "entity_id");
+    const cJSON *binding = cJSON_GetObjectItemCaseSensitive(json, "binding");
+    if (binding) {
+        const char *object_id;
+        if (knx_layout_binding(binding, def->type, &object_id, &def->knx_write_value))
+            snprintf(def->entity_id, sizeof(def->entity_id), KNX_BINDING_PREFIX "%s", object_id);
+    }
     copy_field(def->secondary_entity_id, sizeof(def->secondary_entity_id), json, "secondary_entity_id");
     copy_field(def->tertiary_entity_id, sizeof(def->tertiary_entity_id), json, "tertiary_entity_id");
     copy_field(def->forecast_today_entity_id, sizeof(def->forecast_today_entity_id), json, "forecast_today_entity_id");

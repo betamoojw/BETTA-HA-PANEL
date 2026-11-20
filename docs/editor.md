@@ -41,7 +41,8 @@ On desktop, the two lists scroll independently so the preview and actions stay i
 
 1. Under **Pages**, choose **+ Page → Blank page**. Use the pencil beside its name to rename it; choose a navigation icon in the page inspector
    ([Pages and layouts](pages.md)). For a complete first exercise, follow [your first light](getting-started.md#5-control-your-first-light).
-2. Add a widget with **+ Widget**, or search for an entity first and pick a compatible widget.
+2. Open **+ Widget**. Choose **Home Assistant** to search entities, or **KNX** to select a
+   [configured communication object](knx.md#dashboard-widgets). Choose a compatible widget.
 3. Drag it into place and resize it. Select it to edit its entity, title and options.
 4. **Save** to apply the layout to the panel.
 

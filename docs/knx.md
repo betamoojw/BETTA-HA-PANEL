@@ -64,7 +64,7 @@ are never rewritten by this feature.
 ~~~
 
 Use your installation's addresses and datapoints; this example is synthetic.
-Each ID and group address must be unique. Use separate command and feedback objects
+Each object needs a unique ID. Objects sharing a group address must use the same DPT. Use separate command and feedback objects
 when actuators have separate group addresses. Sensor/status objects should be
 readable only. The nat field must be false for Routing.
 The interface_identifier is a descriptive label; the panel uses its existing Wi-Fi interface.
@@ -74,6 +74,34 @@ descriptions 192 and units 32. Group addresses use main/middle/sub with ranges
 0–31, 0–7 and 0–255. Individual addresses use area.line.member with ranges
 0–15, 0–15 and 0–255. At least one permission must be true.
 Unknown/duplicate fields and unsupported DPTs reject the entire import.
+
+## Dashboard widgets
+
+In **Layout → + Widget**, select **KNX** under **Data source**. Choose an object from the saved
+configuration, choose a widget, then select **Use object** and **Save**. Each layout keeps the
+object ID, so the widget follows address changes made to that same object. Use the widget's
+Inspector to choose a different KNX object or switch back to a Home Assistant entity.
+
+| Widget | Required permissions and datapoint |
+| --- | --- |
+| Sensor | Any readable object. Scalar readings include their configured unit. DPT 5.001 (Scaling) displays whole percentages on the panel and in the editor preview, for example `62%`. The objects API keeps the measured value. |
+| Gauge, Graph | Readable numeric DPT, including temperature and percentage. Graph keeps local samples. |
+| Binary, Contact | Readable DPT 1. |
+| Button | Readable and writable DPT 1. |
+| Slider | Readable and writable DPT 5.001 scaling. |
+| Light | Readable and writable DPT 1 for switching, DPT 5.001 for brightness, or DPT 232 for RGB. |
+| Scene / action | Any writable object. Enter the fixed value in the format shown for its DPT. |
+
+When another device sends a group write or response, the panel updates each readable object
+on the destination group address and refreshes all its bound widgets automatically. Home
+Assistant and the browser can both be offline. A switch or dimmer continues to show the
+last bus value while a command is in flight. After a routing reconnect, feedback widgets
+show unavailable until a fresh telegram arrives. **Request read** in KNX settings can solicit
+that feedback from a responding actuator.
+
+For installations with separate command and status addresses, use a fixed-value action for the
+command and bind a status widget to the readable feedback object. A widget whose object was
+removed keeps its binding so that restoring the same ID reconnects it.
 
 ## Values and voice control
 

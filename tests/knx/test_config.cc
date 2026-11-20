@@ -37,6 +37,13 @@ int main() {
     std::string twice=base; twice.insert(twice.rfind(']'), std::string(",")+o); assert(!parse(twice));
     std::vector<KnxCommunicationObject> objects; std::string canonical,error;
     assert(KnxParseConfiguration(base,128,128,objects,canonical,error));
+    std::string aliases=twice;
+    auto second=aliases.rfind("\"switch\"");
+    aliases.replace(second, 8, "\"alias\"");
+    assert(KnxParseConfiguration(aliases,2,1,objects,canonical,error) && objects.size()==2);
+    aliases.replace(aliases.rfind("DPT-1.001"),9,"DPT-9.001");
+    assert(!KnxParseConfiguration(aliases,2,1,objects,canonical,error));
+    assert(KnxParseConfiguration(base,128,128,objects,canonical,error));
     assert(objects.size()==1 && objects[0].name=="客厅灯" && !objects[0].valid);
     assert(!KnxParseConfiguration(base,0,128,objects,canonical,error));
     assert(!KnxParseConfiguration(base,128,0,objects,canonical,error));

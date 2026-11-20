@@ -24,7 +24,7 @@ user_role_t user_auth_required_role(const char *uri, const char *method)
         for (unsigned i = 0; i < sizeof(viewer) / sizeof(*viewer); ++i)
             if (path_is(uri, viewer[i])) return USER_ROLE_VIEWER;
         const char *installer[] = {"/api/wifi/scan", "/api/ha/light_entities", "/api/ha/energy",
-            "/api/ha/evcc", "/api/ha/printers", "/api/display/test", "/api/knx", "/api/camera"};
+            "/api/ha/evcc", "/api/ha/printers", "/api/display/test", "/api/knx", "/api/knx/objects", "/api/camera"};
         for (unsigned i = 0; i < sizeof(installer) / sizeof(*installer); ++i)
             if (path_is(uri, installer[i])) return USER_ROLE_INSTALLER;
     }

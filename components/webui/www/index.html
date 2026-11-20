@@ -1373,6 +1373,11 @@
                   </select>
                   <div id="entitySourceHint" class="meta hidden"></div>
                   <div id="entitySourceWarning" class="meta warn no-shorten hidden"></div>
+                  <div id="knxInspectorBinding" class="row hidden">
+                    <button id="knxInspectorChoose" class="btn small" type="button">Choose KNX object</button>
+                    <button id="knxInspectorHa" class="btn small hidden" type="button">Home Assistant</button>
+                    <span id="knxInspectorCurrent" class="meta"></span>
+                  </div>
                   <label id="fEntityWrap"><span id="fEntityLabel">Entity</span>
                     <div class="entity-input-row">
                       <input id="fEntity" type="text" list="entityOptions" />
@@ -2259,6 +2264,21 @@
         <h2 id="addTileTitle">Add a tile</h2>
         <button id="addTileCloseBtn" class="btn small" type="button">X</button>
       </div>
+      <label><span id="knxSourceLabel">Data source</span>
+        <select id="addTileSource"><option value="ha">Home Assistant</option><option value="knx">KNX</option></select>
+      </label>
+      <div id="addTileKnxPane" class="knx-widget-fields hidden">
+        <label><span id="knxTileObjectLabel">Communication object</span><select id="knxTileObject"></select></label>
+        <label><span id="knxTileTypeLabel">Widget</span><select id="knxTileType"></select></label>
+        <label id="knxTileValueWrap" class="hidden"><span id="knxTileValueLabel">Value to send</span>
+          <input id="knxTileValue" type="text" maxlength="255" aria-describedby="knxTileFormat" />
+          <span id="knxTileFormat" class="meta"></span>
+        </label>
+        <div id="knxTileStatus" class="meta no-shorten" role="status"></div>
+        <div class="row"><button id="knxTileApply" class="btn" type="button">Use object</button>
+          <button id="knxTileReload" class="btn small" type="button">Refresh</button></div>
+      </div>
+      <div id="addTileHaPane" class="add-tile-ha-pane">
       <div id="addTileFilter" class="meta no-shorten"></div>
       <input id="addTileSearch" class="light-picker-search" type="search" placeholder="Search a tile type or a Home Assistant entity" maxlength="63" />
       <div id="addTileHaStatus" class="meta no-shorten add-tile-ha-heading" role="status"></div>
@@ -2315,6 +2335,7 @@
       <div id="addTileSearchStatus" class="meta no-shorten add-tile-ha-heading"></div>
       <button id="addTileSearchRetry" class="btn small hidden" type="button">Retry</button>
       <div id="addTileResults" class="add-tile-results"></div>
+      </div>
     </div>
   </div>
   <div id="undoToast" class="undo-toast hidden" role="status">
@@ -2385,6 +2406,7 @@
   <script src="/js/room-air.js"></script>
   <script src="/js/layout-model.js"></script>
   <script src="/js/pickers.js"></script>
+  <script src="/js/knx-widget-picker.js"></script>
   <script src="/js/readability.js"></script>
   <script src="/js/bambu-printer.js"></script>
   <script src="/js/evcc-wallbox.js"></script>

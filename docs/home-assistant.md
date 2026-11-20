@@ -7,6 +7,9 @@ To connect later, open **Settings → Home Assistant & MQTT**, enter the WebSock
 long-lived access token, then save. Changed credentials take effect after the panel restarts.
 See the token, administrator permissions and address examples in [Install and set up](getting-started.md#4-connect-home-assistant).
 
+For a dashboard using both systems, choose the data source separately for each widget.
+[KNX widgets](knx.md#dashboard-widgets) use the panel's KNX routing connection directly.
+
 Most widgets use entities you already have. Choose them by name in the editor; the
 [widget library](widgets/README.md) lists compatible entity types and any extra integrations.
 The panel reads states and sends control actions to Home Assistant. It has its own dashboard layout;

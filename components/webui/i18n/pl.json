@@ -1,4 +1,9 @@
 {
+  "knx.widget_source": "Źródło danych",
+  "knx.widget_type": "Typ kafelka",
+  "knx.widget_use": "Użyj obiektu",
+  "knx.widget_choose": "Wybierz obiekt KNX",
+  "knx.widget_empty": "Brak zgodnych obiektów. Sprawdź obiekty komunikacyjne zapisane w ustawieniach KNX.",
   "layout.preview.song_title": "Tytuł utworu",
   "layout.preview.artist": "Wykonawca",
   "settings.theme.color.matte_page_bg": "Matowy Strona Tło",

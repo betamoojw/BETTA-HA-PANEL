@@ -64,6 +64,33 @@ static void validation(void)
     cJSON_free(text); cJSON_Delete(root); free(result);
 }
 
+static void knx_bindings(void)
+{
+    static const struct { const char *type, *fields; bool valid; } cases[] = {
+        {"sensor", "\"entity_id\":\"sensor.room\"", true},
+        {"sensor", "\"binding\":{\"source\":\"knx\",\"object_id\":\"sensor.room\"}", true},
+        {"scene_tile", "\"binding\":{\"source\":\"knx\",\"object_id\":\"scene\",\"value\":\"false,3\"}", true},
+        {"scene_tile", "\"binding\":{\"source\":\"knx\",\"object_id\":\"missing-preset\"}", false},
+        {"sensor", "\"binding\":{\"source\":\"knx\",\"object_id\":\"room\",\"value\":\"1\"}", false},
+        {"sensor", "\"binding\":{\"source\":\"other\",\"object_id\":\"room\"}", false},
+        {"sensor", "\"binding\":{\"source\":\"knx\",\"object_id\":\"\"}", false},
+        {"sensor", "\"binding\":{\"source\":\"knx\",\"object_id\":\"room\"},\"entity_id\":\"sensor.other\"", false},
+        {"sensor", "\"binding\":{\"source\":\"knx\",\"object_id\":\"room\"},\"sensor_entities\":[\"sensor.other\"]", false},
+        {"graph", "\"binding\":{\"source\":\"knx\",\"object_id\":\"room\"},\"graph_ha_history\":true", false},
+        {"camera_tile", "\"binding\":{\"source\":\"knx\",\"object_id\":\"room\"}", false},
+    };
+    layout_validation_result_t *result = calloc(1, sizeof(*result));
+    assert(result);
+    for (size_t i = 0; i < sizeof(cases)/sizeof(*cases); ++i) {
+        char json[640];
+        snprintf(json, sizeof(json), "{\"version\":1,\"pages\":[{\"id\":\"p\",\"widgets\":[{"
+            "\"id\":\"w\",\"type\":\"%s\",%s,\"rect\":{\"x\":0,\"y\":0,\"w\":260,\"h\":100}}]}]}",
+            cases[i].type, cases[i].fields);
+        assert(layout_validate_json(json, result) == cases[i].valid);
+    }
+    free(result);
+}
+
 static int budget = -1, outstanding;
 static void *tracked_malloc(size_t size)
 {
@@ -105,7 +132,7 @@ static void allocation_failures(void)
 
 int main(void)
 {
-    normalization(); validation(); allocation_failures();
+    normalization(); validation(); knx_bindings(); allocation_failures();
     puts("PASS: legacy weather reads, idempotence, retained fields, validation and allocation cleanup");
     return 0;
 }

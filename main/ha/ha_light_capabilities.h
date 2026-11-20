@@ -25,6 +25,8 @@ typedef struct {
 } ha_light_capabilities_t;
 
 void ha_light_capabilities_from_state(const ha_state_t *state, ha_light_capabilities_t *out_caps);
+/* Decode an already identified light's state and capability attributes. */
+void light_capabilities_decode(const ha_state_t *state, ha_light_capabilities_t *out_caps);
 bool ha_light_state_supports_dimming(const ha_state_t *state);
 bool ha_light_state_supports_color(const ha_state_t *state);
 bool ha_light_state_supports_color_temp(const ha_state_t *state);

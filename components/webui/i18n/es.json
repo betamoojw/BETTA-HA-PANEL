@@ -1,4 +1,9 @@
 {
+  "knx.widget_source": "Fuente de datos",
+  "knx.widget_type": "Tipo de tarjeta",
+  "knx.widget_use": "Usar objeto",
+  "knx.widget_choose": "Elegir objeto KNX",
+  "knx.widget_empty": "No hay objetos compatibles. Revisa los objetos de comunicación guardados en los ajustes de KNX.",
   "layout.preview.song_title": "Título de la canción",
   "layout.preview.artist": "Artista",
   "settings.theme.color.matte_page_bg": "Mate Página Fondo",

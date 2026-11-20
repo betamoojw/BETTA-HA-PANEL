@@ -168,6 +168,20 @@ bool ha_sv_number_text(const char *value, const char *raw_state, const char *uni
     return n >= 0 && (size_t)n < out_len;
 }
 
+bool ha_sv_percent_text(double percent, const char *precision_text, const char *unit, ha_sv_unit_t mode,
+                        const char *language, char *out, size_t out_len)
+{
+    char number[48];
+    if (precision_text) snprintf(number, sizeof(number), "%s", precision_text);
+    else snprintf(number, sizeof(number), "%.0f", percent);
+    if (mode == HA_SV_UNIT_HIDE || !unit || strcmp(unit, "%") != 0) {
+        return ha_sv_number_text(number, number, unit, "", mode, language, out, out_len);
+    }
+    ha_sv_localize_number(number, language);
+    int n = snprintf(out, out_len, "%s%%", number);
+    return n >= 0 && (size_t)n < out_len;
+}
+
 bool ha_sv_currency_round(const char *state, const char *unit, char *out, size_t out_len)
 {
     if (state == NULL || unit == NULL || out == NULL || out_len == 0 || !sv_plain_number(state)) return false;

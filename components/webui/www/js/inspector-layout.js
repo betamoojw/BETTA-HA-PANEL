@@ -136,7 +136,7 @@ function initInspectorLayout() {
   const houseOptions = byId("housePageOptions");
   follow(houseOptions, [byId("houseInfo"), byId("houseImportBtn"), byId("houseStatus"), byId("houseRoomList")], "page_rooms");
   // Entities: what the tile reads or controls, including where its data comes from.
-  move("entities", byId("entitySourceHint"), byId("entitySourceWarning"), label(el.fEntity), label(el.fSecondaryEntity), label(el.fTertiaryEntity), byId("parqetEntities"));
+  move("entities", byId("knxInspectorBinding"), byId("entitySourceHint"), byId("entitySourceWarning"), label(el.fEntity), label(el.fSecondaryEntity), label(el.fTertiaryEntity), byId("parqetEntities"));
   follow(byId("vacuumOptions"), [label(el.fVacuumBattery)], "entities");
   follow(byId("roomEntitiesFields"), [label(el.fRoomEntities), byId("roomEntityList"), byId("roomEntityAdd"), byId("fRoomEntitiesHint")], "entities");
   move("entities", byId("airSources"), byId("carExtraFields"), byId("evccFields"), byId("bambuFields"), byId("energyTimelineFields"), byId("stockEntities"), byId("sensorListEntities"));

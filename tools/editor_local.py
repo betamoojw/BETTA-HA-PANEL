@@ -148,10 +148,31 @@ def demo_responses(variant, fixture_path=None, all_widgets=False):
     return responses, templates
 
 
+def local_knx_object(obj):
+    """Project configured objects for the offline picker. Only hardware receives bus feedback."""
+    dpt = str(obj.get('datapoint_type', '')).removeprefix('DPT-')
+    family = dpt.split('.')[0]
+    numeric = family in {'5', '6', '7', '8', '9', '12', '13', '14', '29'} and dpt != '6.020'
+    scaling = dpt == '5.001'
+    read, write = obj.get('readable') is True, obj.get('writable') is True
+    types = []
+    if read:
+        types.append('sensor')
+        if numeric: types.extend(('gauge', 'graph'))
+        if family == '1': types.extend(('binary_tile', 'contact_tile'))
+    if read and write:
+        if family == '1': types.append('button')
+        if scaling: types.append('slider')
+        if family in ('1', '232') or scaling: types.append('light_tile')
+    if write: types.append('scene_tile')
+    return dict(obj, valid=False, live_feedback=False, widget_types=types)
+
+
 class Store:
     def __init__(self, responses, path, reset=False):
         self.responses, self.seed = responses, copy.deepcopy(responses)
         self.path, self.lock = Path(path), threading.RLock()
+        self.knx_generation = 1
         self.display_test = {"kind": "active", "percent": 0, "until": 0.0}
         if self.path.exists() and not reset:
             saved = json.loads(self.path.read_text(encoding='utf-8'))
@@ -329,7 +350,8 @@ def build_server(port=8766, variant='paneljc', fixture_path=None, state_path=Non
                 if url.path == '/api/knx/objects':
                     objects = responses['/api/knx/config']['comObjects']
                     offset = max(0, int(query.get('offset', ['0'])[0]))
-                    return self.reply({'objects': [dict(o, valid=False) for o in objects[offset:offset+20]],
+                    return self.reply({'objects': [local_knx_object(o) for o in objects[offset:offset+20]],
+                                       'state': responses['/api/knx']['state'], 'generation': store.knx_generation,
                                        'has_more': offset+20 < len(objects), 'next_offset': min(len(objects), offset+20),
                                        'local_only': True})
                 if url.path == '/api/layout' and query.get('limits') == ['1']:
@@ -387,6 +409,7 @@ def build_server(port=8766, variant='paneljc', fixture_path=None, state_path=Non
                     if body.get('media_type') != 'knx_ip' or not isinstance(body.get('comObjects'), list):
                         return self.reply({'error': 'Invalid local KNX configuration'}, 400)
                     responses[path] = body
+                    store.knx_generation += 1
                     responses['/api/knx']['object_count'] = len(body['comObjects'])
                     store.persist()
                     return self.reply(responses['/api/knx'])

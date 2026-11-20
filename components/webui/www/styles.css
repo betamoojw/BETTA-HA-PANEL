@@ -1624,6 +1624,9 @@ aside.actions-panel section {
   overflow: auto;
 }
 
+.add-tile-ha-pane, .knx-widget-fields { display: grid; gap: 10px; min-width: 0; }
+.knx-widget-fields select, .knx-widget-fields input { width: 100%; min-width: 0; }
+
 .add-tile-results:empty,
 .add-tile-ha-heading:empty {
   display: none;

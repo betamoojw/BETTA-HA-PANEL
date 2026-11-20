@@ -11,6 +11,8 @@
 #include "ui/ui_screen_settings.h"
 #include "ui/ui_runtime.h"
 #include "ui/model_reconcile.h"
+#include "ui/ui_knx_sync.h"
+#include "layout/knx_layout_binding.h"
 #include "ui/periodic_refresh.h"
 
 #include <stdio.h>
@@ -804,7 +806,9 @@ static void ui_runtime_apply_widget_current_state(ui_widget_instance_t *widget, 
         return;
     }
 
-    if (widget->entity_id[0] != '\0') {
+    if (knx_binding_id(widget->entity_id)) {
+        ui_knx_apply(widget, &s_state_scratch);
+    } else if (widget->entity_id[0] != '\0') {
         memset(&s_state_scratch, 0, sizeof(s_state_scratch));
         bool found = ha_model_get_state(widget->entity_id, &s_state_scratch);
         if (found) {
@@ -1030,6 +1034,12 @@ static bool ui_runtime_widget_from_json(cJSON *widget_json, ui_widget_def_t *out
     snprintf(out->title, sizeof(out->title), "%s", cJSON_IsString(title) ? title->valuestring : id->valuestring);
     if (cJSON_IsString(entity_id) && entity_id->valuestring != NULL) {
         snprintf(out->entity_id, sizeof(out->entity_id), "%s", entity_id->valuestring);
+    }
+    const cJSON *binding = cJSON_GetObjectItemCaseSensitive(widget_json, "binding");
+    if (binding) {
+        const char *object_id;
+        if (!knx_layout_binding(binding, out->type, &object_id, &out->knx_write_value)) return false;
+        snprintf(out->entity_id, sizeof(out->entity_id), KNX_BINDING_PREFIX "%s", object_id);
     }
     if (cJSON_IsString(secondary_entity_id) && secondary_entity_id->valuestring != NULL) {
         snprintf(out->secondary_entity_id, sizeof(out->secondary_entity_id), "%s", secondary_entity_id->valuestring);
@@ -1348,6 +1358,7 @@ static esp_err_t ui_runtime_apply_layout(const char *layout_json, const runtime_
     const int64_t build_start_us = esp_timer_get_time();
     memset(s_widgets, 0, APP_MAX_WIDGETS_TOTAL * sizeof(*s_widgets));
     s_widget_count = 0;
+    ui_knx_layout_changed();
     memset(s_energy_pages, 0, APP_MAX_PAGES * sizeof(*s_energy_pages));
     s_energy_page_count = 0;
 
@@ -1827,6 +1838,10 @@ static void ui_runtime_task(void *arg)
         }
 
         ui_runtime_reconcile_step(now_ms);
+        if (ui_knx_refresh_pending() && display_lock(20)) {
+            ui_knx_drain(s_widgets, s_widget_count, &s_state_scratch);
+            display_unlock();
+        }
 
         vTaskDelay(pdMS_TO_TICKS(20));
     }

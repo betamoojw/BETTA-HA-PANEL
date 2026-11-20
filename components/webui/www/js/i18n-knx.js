@@ -3,6 +3,11 @@
  * KNX editor English/German additions; other languages use the JSON catalogs.
  */
 Object.assign(WEB_I18N_BUILTIN.en, {
+  "knx.widget_source": "Data source",
+  "knx.widget_type": "Widget type",
+  "knx.widget_use": "Use object",
+  "knx.widget_choose": "Choose KNX object",
+  "knx.widget_empty": "No compatible objects. Check the saved communication objects in KNX settings.",
   "knx.title": "KNXnet/IP",
   "knx.about": "Routing over the existing Wi-Fi network. Requires a multicast-capable KNX/IP router; tunneling and KNX Secure are not supported.",
   "knx.enable": "Enable KNXnet/IP",
@@ -34,6 +39,11 @@ Object.assign(WEB_I18N_BUILTIN.en, {
   "knx.state.error": "Error"
 });
 Object.assign(WEB_I18N_BUILTIN.de, {
+  "knx.widget_source": "Datenquelle",
+  "knx.widget_type": "Kacheltyp",
+  "knx.widget_use": "Objekt verwenden",
+  "knx.widget_choose": "KNX-Objekt auswählen",
+  "knx.widget_empty": "Keine passenden Objekte. Prüfe die gespeicherten Kommunikationsobjekte in den KNX-Einstellungen.",
   "knx.title": "KNXnet/IP",
   "knx.about": "Routing über das vorhandene WLAN. Erfordert einen multicastfähigen KNX/IP-Router; Tunneling und KNX Secure werden nicht unterstützt.",
   "knx.enable": "KNXnet/IP aktivieren",

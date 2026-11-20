@@ -6,6 +6,9 @@
 #include "esp_knx_ip/esp_knx_ip.h"
 #include "freertos/queue.h"
 #include "esp_netif.h"
+extern "C" {
+#include "ui/ui_knx_sync.h"
+}
 #include <cassert>
 #include <cstdio>
 #include <cstring>
@@ -22,7 +25,28 @@ static size_t command_size;
 static std::deque<std::vector<unsigned char>> queue;
 static std::function<void()> iteration;
 static std::string persisted;
-static unsigned starts,stops,sends;
+static unsigned starts, stops, sends, registrations;
+static ui_widget_instance_t tiles[8];
+static ha_state_t scratch;
+extern "C" void ui_widget_factory_apply_state(ui_widget_instance_t *widget, const ha_state_t *state) {
+    assert(!strcmp(widget->entity_id, state->entity_id));
+    strcpy(widget->rendered, state->state);
+    ++widget->applications;
+}
+extern "C" void ui_widget_factory_mark_unavailable(ui_widget_instance_t *widget) {
+    strcpy(widget->rendered, "unavailable");
+}
+static void drain() {
+    for (unsigned turn = 0; ui_knx_refresh_pending(); ++turn) {
+        assert(turn < 5);
+        ui_knx_drain(tiles, 8, &scratch);
+    }
+}
+static void check_readable_tiles(const char *expected) {
+    for (unsigned i = 0; i < 6; ++i) assert(!strcmp(tiles[i].rendered, expected));
+    assert(tiles[6].applications == 0); // HA entity with the same spelling as a KNX ID
+    assert(!strcmp(tiles[7].rendered, "ready")); // write-only action
+}
 static esp_knx_ip_telegram_callback_t callback;
 static knx_address_t source;
 static bool fail_start;
@@ -52,7 +76,7 @@ extern "C" esp_err_t esp_knx_ip_create(const esp_knx_ip_config_t* cfg,esp_knx_ip
     assert(!cfg->load_physical_address_from_nvs);
     source=cfg->physical_address;*h=reinterpret_cast<esp_knx_ip_handle_t>(1);return ESP_OK;
 }
-extern "C" esp_err_t esp_knx_ip_register_callback(esp_knx_ip_handle_t,knx_address_t,esp_knx_ip_telegram_callback_t c,void*) {callback=c;return ESP_OK;}
+extern "C" esp_err_t esp_knx_ip_register_callback(esp_knx_ip_handle_t,knx_address_t,esp_knx_ip_telegram_callback_t c,void*) {++registrations;callback=c;return ESP_OK;}
 extern "C" esp_err_t esp_knx_ip_start(esp_knx_ip_handle_t) {starts++;return fail_start?ESP_FAIL:ESP_OK;}
 extern "C" esp_err_t esp_knx_ip_stop(esp_knx_ip_handle_t) {stops++;return ESP_OK;}
 extern "C" esp_err_t esp_knx_ip_destroy(esp_knx_ip_handle_t) {return ESP_OK;}
@@ -71,9 +95,28 @@ int main() {
     persisted.replace(persisted.find("3671"),4,"3672");
     persisted.replace(persisted.find("224.0.23.12"),11,"224.0.23.13");
     persisted.replace(persisted.find("[]"),2,R"([{"id":"lamp","name":"Light","group_address":"1/0/1","datapoint_type":"DPT-1.001","readable":true,"writable":true}])");
+    persisted.insert(persisted.rfind(']'), R"(,{"id":"switch.lamp","name":"Feedback","group_address":"1/0/1","datapoint_type":"DPT-1.001","readable":true,"writable":false},{"id":"pulse","name":"Pulse","group_address":"1/0/1","datapoint_type":"DPT-1.001","readable":false,"writable":true})");
+    for (unsigned i = 0; i < 8; ++i) {
+        strcpy(tiles[i].entity_id, i == 7 ? "knx:pulse" : i == 6 ? "switch.lamp" :
+               i % 2 ? "knx:switch.lamp" : "knx:lamp");
+        strcpy(tiles[i].type, i == 7 ? "scene_tile" : i % 2 ? "sensor" : "button");
+    }
+    tiles[7].knx_write_value = "on";
+    ui_knx_layout_changed();
     knx_init();assert(test_worker);char error[200];
     assert(!knx_command("lamp",nullptr,"on",true,error,sizeof(error)));assert(starts==0);
     assert(knx_enable(true,error,sizeof(error)));
+    const std::string site_config = persisted;
+    auto publish = [](knx_address_t address, bool on) {
+        knx_telegram_t telegram{};
+        telegram.source = 0x1102;
+        telegram.destination = address;
+        telegram.command = KNX_COMMAND_WRITE;
+        telegram.data_length = 1;
+        telegram.data[0] = on;
+        callback(&telegram, nullptr);
+        drain();
+    };
     int step=0;
     iteration=[&] {
         switch(step++) {
@@ -81,11 +124,33 @@ int main() {
             status_is("running");assert(!cached());
             assert(!knx_command("missing",nullptr,"on",true,error,sizeof(error)));
             assert(!knx_command("lamp",nullptr,"invalid",true,error,sizeof(error)));
-            assert(knx_command("lamp",nullptr,"on",true,error,sizeof(error)));
+            assert(registrations == 1); // three aliases share one component callback
+            drain(); check_readable_tiles("unavailable");
+            assert(knx_widget_control("knx:lamp", KNX_TOGGLE, 0, nullptr) != ESP_OK);
+            assert(!knx_command(nullptr,"1/0/1","on",true,error,sizeof(error)));
             knx_telegram_t t{};t.source=source;t.destination=knx_group_address(1,0,1);
             t.command=KNX_COMMAND_RESPONSE;t.data_length=1;t.data[0]=1;
             callback(&t,nullptr);assert(!cached()); // ignore multicast loopback
-            t.source=0x1102;callback(&t,nullptr);assert(cached());
+            t.source=0x1102;
+            t.command=KNX_COMMAND_READ; callback(&t,nullptr); assert(!cached());
+            t.command=KNX_COMMAND_WRITE; t.destination++; callback(&t,nullptr); assert(!cached());
+            t.destination--; t.data_length=2; callback(&t,nullptr); assert(!cached());
+            t.data_length=1; callback(&t,nullptr); assert(cached());
+            assert(ui_knx_refresh_pending());
+            ui_knx_drain(tiles,8,&scratch);
+            assert(!strcmp(tiles[0].rendered,"on") && !strcmp(tiles[4].rendered,"unavailable"));
+            drain(); check_readable_tiles("on");
+            t.command=KNX_COMMAND_RESPONSE; t.data[0]=0; callback(&t,nullptr);
+            ui_knx_drain(tiles,8,&scratch);
+            t.data[0]=1; callback(&t,nullptr); // new feedback while the first scan is incomplete
+            drain(); check_readable_tiles("on");
+            t.data[0]=0; callback(&t,nullptr); drain(); check_readable_tiles("off");
+            assert(knx_widget_control("knx:switch.lamp",KNX_SET_POWER,1,nullptr) != ESP_OK);
+            assert(knx_widget_control("knx:pulse",KNX_SEND_VALUE,0,"bad") != ESP_OK);
+            assert(knx_widget_control("knx:lamp",KNX_TOGGLE,0,nullptr) == ESP_OK);
+            assert(!ui_knx_refresh_pending()); check_readable_tiles("off");
+            cJSON *pulse = knx_object("pulse");
+            assert(cJSON_IsFalse(cJSON_GetObjectItemCaseSensitive(pulse,"valid"))); cJSON_Delete(pulse);
             std::string before=persisted;
             assert(!knx_configure("[]",error,sizeof(error)));assert(persisted==before);
             test_storage_failure=true;
@@ -95,6 +160,7 @@ int main() {
         }
         case 1:
             assert(sends==1 && cached());
+            drain(); check_readable_tiles("off"); // transport success alone never moves the switch
             assert(knx_command("lamp",nullptr,"on",true,error,sizeof(error)));
             assert(knx_enable(false,error,sizeof(error)));break;
         case 2:
@@ -102,7 +168,10 @@ int main() {
             assert(!knx_command("lamp",nullptr,"on",true,error,sizeof(error)));
             assert(knx_enable(true,error,sizeof(error)));break;
         case 3:
-            status_is("running");assert(starts==2);test_online=false;break;
+            status_is("running");assert(starts==2);
+            drain(); check_readable_tiles("unavailable");
+            assert(knx_widget_control("knx:pulse", KNX_SEND_VALUE, 0, "on") == ESP_OK);
+            test_online=false;break;
         case 4:
             status_is("waiting_for_network");assert(stops==2);
             test_online=true;test_ip=2;break;
@@ -113,16 +182,37 @@ int main() {
             assert(knx_configure(updated.c_str(),error,sizeof(error)));break;
         }
         case 6:
-            status_is("running");assert(starts==4 && stops==3 && sends==1 && !cached());
+            status_is("running");assert(starts==4 && stops==3 && sends==2 && !cached());
             assert(!knx_command("lamp",nullptr,"on",true,error,sizeof(error)));
             test_ip=3;fail_start=true;break;
         case 7:
             status_is("error");fail_start=false;break;
-        case 8:
+        case 8: {
             status_is("running");
+            std::string renamed = site_config;
+            renamed.replace(renamed.find("switch.lamp"), strlen("switch.lamp"), "other");
+            assert(knx_configure(renamed.c_str(), error, sizeof(error)));
+            break;
+        }
+        case 9: {
+            publish(knx_group_address(1,0,1), true);
+            for (unsigned i = 0; i < 6; ++i)
+                assert(!strcmp(tiles[i].rendered, i % 2 ? "unavailable" : "on"));
+            std::string restored = site_config;
+            const size_t alias = restored.find("switch.lamp");
+            restored.replace(restored.find("1/0/1", alias), strlen("1/0/1"), "1/0/8");
+            assert(knx_configure(restored.c_str(), error, sizeof(error)));
+            break;
+        }
+        case 10:
+            publish(knx_group_address(1,0,1), false);
+            publish(knx_group_address(1,0,8), true);
+            for (unsigned i = 0; i < 6; ++i)
+                assert(!strcmp(tiles[i].rendered, i % 2 ? "on" : "off"));
+            assert(tiles[6].applications == 0);
             assert(knx_enable(false,error,sizeof(error)));break;
         default:
-            status_is("disabled");assert(sends==1);throw Done{};
+            status_is("disabled");assert(sends==2);throw Done{};
         }
     };
     try {test_worker(nullptr);} catch(const Done&) {}

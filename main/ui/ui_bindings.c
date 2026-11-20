@@ -3,6 +3,7 @@
  * Modified 2026 by andre68723 in the andre68723/BETTA-HA-PANEL fork, see docs/release-notes.md
  */
 #include "ui/ui_bindings.h"
+#include "knx/knx_widget.h"
 
 #include <stdbool.h>
 #include <stdio.h>
@@ -162,6 +163,7 @@ static bool split_entity_id(const char *entity_id, char *domain_out, size_t doma
 
 esp_err_t ui_bindings_toggle_entity(const char *entity_id)
 {
+    if (knx_binding_id(entity_id)) return knx_widget_control(entity_id, KNX_TOGGLE, 0, NULL);
     if (entity_id == NULL || entity_id[0] == '\0') {
         return ESP_ERR_INVALID_ARG;
     }
@@ -215,6 +217,7 @@ esp_err_t ui_bindings_toggle_entity(const char *entity_id)
 
 esp_err_t ui_bindings_set_entity_power(const char *entity_id, bool on)
 {
+    if (knx_binding_id(entity_id)) return knx_widget_control(entity_id, KNX_SET_POWER, on, NULL);
     if (entity_id == NULL || entity_id[0] == '\0') {
         return ESP_ERR_INVALID_ARG;
     }
@@ -277,6 +280,7 @@ esp_err_t ui_bindings_set_entity_power(const char *entity_id, bool on)
 
 esp_err_t ui_bindings_set_slider_value(const char *entity_id, int value)
 {
+    if (knx_binding_id(entity_id)) return knx_widget_control(entity_id, KNX_SET_PERCENT, value, NULL);
     if (entity_id == NULL || entity_id[0] == '\0') {
         return ESP_ERR_INVALID_ARG;
     }
@@ -388,6 +392,7 @@ esp_err_t ui_bindings_set_light_color_temp_kelvin(const char *entity_id, int kel
 
 esp_err_t ui_bindings_set_light_rgb_color(const char *entity_id, uint8_t r, uint8_t g, uint8_t b)
 {
+    if (knx_binding_id(entity_id)) return knx_widget_control(entity_id, KNX_SET_RGB, (r << 16) | (g << 8) | b, NULL);
     if (entity_id == NULL || entity_id[0] == '\0') {
         return ESP_ERR_INVALID_ARG;
     }

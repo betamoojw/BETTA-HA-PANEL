@@ -930,6 +930,7 @@ function openAddTileDialog() {
   }
   closeAddTileDialog();
   closeLightEntityPicker();
+  showWidgetSource("ha");
   if (el.addTileSearch) el.addTileSearch.value = "";
   if (el.addTileResults) el.addTileResults.textContent = "";
   if (el.addTileSearchStatus) el.addTileSearchStatus.textContent = "";
@@ -945,6 +946,7 @@ function openAddTileDialog() {
 }
 
 function closeAddTileDialog() {
+  cancelKnxWidgetPicker();
   cancelAddTileSearch();
   const check = addTileHaCheck;
   addTileHaCheck = null;
@@ -1047,6 +1049,7 @@ function closeEntitySearchDialogs() {
 }
 
 function bindAddTileDialog() {
+  bindKnxWidgetPicker();
   // Also invalidate suspended timers when the browser restores a cached page.
   window.addEventListener("pagehide", closeEntitySearchDialogs);
   if (el.addTileSearchRetry) el.addTileSearchRetry.onclick = () => void runAddTileSearch({ refresh: true });

@@ -335,7 +335,7 @@ void app_main(void)
             (void)app_events_publish(&reload, 0);
         }
         ESP_ERROR_CHECK(ui_runtime_start());
-        ui_boot_splash_hide();
+        ui_boot_splash_request_hide();
         ESP_ERROR_CHECK(display_orientation_start());
 
         if (ha_configured) {

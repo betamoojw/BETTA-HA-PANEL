@@ -11,6 +11,7 @@
 #include "ui/ui_screen_settings.h"
 #include "ui/ui_runtime.h"
 #include "ui/model_reconcile.h"
+#include "ui/periodic_refresh.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -160,7 +161,6 @@ static void ui_runtime_on_page_shown(const char *page_id, uint16_t index)
 static TaskHandle_t s_ui_task = NULL;
 static ha_state_t s_state_scratch;
 static bool s_initialized = false;
-static int64_t s_last_topbar_refresh_ms = 0;
 static int64_t s_last_model_reconcile_ms = 0;
 static uint32_t s_last_model_revision = 0;
 static ui_applied_state_t *s_applied_states;
@@ -1769,6 +1769,7 @@ static void ui_runtime_task(void *arg)
 {
     (void)arg;
     int64_t last_reload_ms = -1000;
+    int64_t next_periodic_refresh_ms = esp_timer_get_time() / 1000 + UI_PERIODIC_REFRESH_MS;
     while (true) {
         ui_watchdog_beat_runtime();
         screen_settings_process(); /* Flash writes must run outside the LVGL lock. */
@@ -1817,13 +1818,11 @@ static void ui_runtime_task(void *arg)
 
         ui_runtime_reconcile_step(now_ms);
 
-        if ((now_ms - s_last_topbar_refresh_ms) >= 1000) {
-            if (display_lock(20)) {
-                ui_runtime_refresh_topbar();
-                ui_display_protection_poll();
-                display_unlock();
-                s_last_topbar_refresh_ms = now_ms;
-            }
+        int64_t refresh_now_ms = esp_timer_get_time() / 1000;
+        if (ui_periodic_refresh_begin(refresh_now_ms, &next_periodic_refresh_ms) && display_lock(20)) {
+            ui_runtime_refresh_topbar();
+            ui_display_protection_poll();
+            display_unlock();
         }
 
         vTaskDelay(pdMS_TO_TICKS(20));
@@ -1850,8 +1849,7 @@ esp_err_t ui_runtime_init(void)
     ui_runtime_show_weather_icon_overlay();
     ui_runtime_refresh_topbar();
     display_unlock();
-    s_last_topbar_refresh_ms = esp_timer_get_time() / 1000;
-    s_last_model_reconcile_ms = s_last_topbar_refresh_ms;
+    s_last_model_reconcile_ms = esp_timer_get_time() / 1000;
     s_last_model_revision = ha_model_state_revision();
     s_model_change_count = s_model_change_index = 0;
     s_pending_state_reconcile = false;

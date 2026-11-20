@@ -161,6 +161,23 @@ static int64_t splash_now_ms(void)
     return esp_timer_get_time() / 1000;
 }
 
+static int64_t splash_remaining_ms_locked(void)
+{
+    return BOOT_SPLASH_MIN_SHOW_MS - (splash_now_ms() - s_splash.shown_at_ms);
+}
+
+static bool splash_hide_pending_locked(void)
+{
+    return s_splash.root != NULL && atomic_load(&s_hide_requested);
+}
+
+static bool splash_hide_if_due_locked(void)
+{
+    if (!splash_hide_pending_locked() || splash_remaining_ms_locked() > 0) return false;
+    splash_hide_locked();
+    return true;
+}
+
 static void splash_render_status_lines(void)
 {
     if (s_splash.status == NULL) {
@@ -251,8 +268,8 @@ static void splash_step_progress(void)
 static void splash_timer_cb(lv_timer_t *timer)
 {
     (void)timer;
-    if (atomic_load(&s_hide_requested)) {
-        splash_hide_locked();
+    if (splash_hide_if_due_locked()) {
+        display_note_activity();
         return;
     }
     if (!s_manual_progress) splash_step_progress();
@@ -307,13 +324,28 @@ esp_err_t ui_boot_splash_show(void)
         return ESP_ERR_TIMEOUT;
     }
 
+    /* An explicit show supersedes a pending dismissal, including when reusing the overlay. */
+    atomic_store(&s_hide_requested, false);
     if (s_splash.root != NULL) {
         display_unlock();
         return ESP_OK;
     }
 
+    /* Install the timer before showing an overlay that only this timer can dismiss. */
+    s_splash.timer = lv_timer_create(splash_timer_cb, 280, NULL);
+    if (s_splash.timer == NULL) {
+        display_unlock();
+        return ESP_ERR_NO_MEM;
+    }
+
     lv_obj_t *top_layer = lv_layer_top();
     s_splash.root = lv_obj_create(top_layer);
+    if (s_splash.root == NULL) {
+        lv_timer_delete(s_splash.timer);
+        s_splash.timer = NULL;
+        display_unlock();
+        return ESP_ERR_NO_MEM;
+    }
     atomic_store(&s_setup_mode, false);
     lv_obj_set_size(s_splash.root, APP_VIEW_WIDTH, APP_VIEW_HEIGHT);
     lv_obj_set_pos(s_splash.root, 0, 0);
@@ -367,8 +399,6 @@ esp_err_t ui_boot_splash_show(void)
     splash_add_status_line(ui_i18n_get("boot.initializing_system", "Initializing system"));
     s_splash.progress_value = 0;
     s_manual_progress = false;
-    atomic_store(&s_hide_requested, false);
-    s_splash.timer = lv_timer_create(splash_timer_cb, 280, NULL);
     s_splash.shown_at_ms = splash_now_ms();
 
     lv_refr_now(NULL);
@@ -378,32 +408,24 @@ esp_err_t ui_boot_splash_show(void)
     return ESP_OK;
 }
 
+static bool splash_lock_visible(void)
+{
+    if (!display_is_ready() || !display_lock(50)) return false;
+    if (s_splash.root != NULL) return true;
+    display_unlock();
+    return false;
+}
+
 void ui_boot_splash_set_status(const char *status_text)
 {
-    if (status_text == NULL || status_text[0] == '\0') {
-        return;
-    }
-    if (s_splash.root == NULL || s_splash.status == NULL) {
-        return;
-    }
-    if (!display_lock(50)) {
-        return;
-    }
+    if (status_text == NULL || status_text[0] == '\0' || !splash_lock_visible()) return;
     splash_add_status_line(status_text);
     display_unlock();
 }
 
 void ui_boot_splash_set_title(const char *title_text)
 {
-    if (title_text == NULL || title_text[0] == '\0') {
-        return;
-    }
-    if (s_splash.root == NULL || s_splash.title == NULL) {
-        return;
-    }
-    if (!display_lock(50)) {
-        return;
-    }
+    if (title_text == NULL || title_text[0] == '\0' || !splash_lock_visible()) return;
     lv_label_set_text(s_splash.title, title_text);
     if (s_splash.progress != NULL) {
         lv_obj_align_to(s_splash.title, s_splash.progress, LV_ALIGN_OUT_BOTTOM_MID, 0, SPLASH_TITLE_GAP);
@@ -416,12 +438,7 @@ void ui_boot_splash_set_title(const char *title_text)
 
 void ui_boot_splash_clear_status(void)
 {
-    if (s_splash.root == NULL || s_splash.status == NULL) {
-        return;
-    }
-    if (!display_lock(50)) {
-        return;
-    }
+    if (!splash_lock_visible()) return;
     s_splash.status_line_count = 0;
     memset(s_splash.status_lines, 0, sizeof(s_splash.status_lines));
     splash_render_status_lines();
@@ -430,12 +447,7 @@ void ui_boot_splash_clear_status(void)
 
 void ui_boot_splash_set_progress(uint8_t progress_percent)
 {
-    if (s_splash.root == NULL || s_splash.progress == NULL) {
-        return;
-    }
-    if (!display_lock(50)) {
-        return;
-    }
+    if (!splash_lock_visible()) return;
 
     /* Keep the timer alive to service a deferred hide even in manual mode. */
     s_manual_progress = true;
@@ -448,12 +460,7 @@ void ui_boot_splash_set_progress(uint8_t progress_percent)
 
 void ui_boot_splash_set_status_x_offset(int16_t x_offset)
 {
-    if (s_splash.root == NULL || s_splash.status == NULL) {
-        return;
-    }
-    if (!display_lock(50)) {
-        return;
-    }
+    if (!splash_lock_visible()) return;
     s_status_x_offset = x_offset;
     splash_render_status_lines();
     display_unlock();
@@ -461,12 +468,7 @@ void ui_boot_splash_set_status_x_offset(int16_t x_offset)
 
 void ui_boot_splash_set_status_layout(bool centered, uint16_t width, int16_t x_offset)
 {
-    if (s_splash.root == NULL || s_splash.status == NULL) {
-        return;
-    }
-    if (!display_lock(50)) {
-        return;
-    }
+    if (!splash_lock_visible()) return;
 
     if (width >= 120U && width <= (uint16_t)APP_VIEW_WIDTH) {
         s_status_width = (lv_coord_t)width;
@@ -477,27 +479,35 @@ void ui_boot_splash_set_status_layout(bool centered, uint16_t width, int16_t x_o
     display_unlock();
 }
 
+void ui_boot_splash_request_hide(void)
+{
+    atomic_store(&s_hide_requested, true);
+}
+
+static bool splash_lock_for_hide(void)
+{
+    if (display_lock(2000)) return true;
+    ESP_LOGW(TAG_UI, "Boot splash hide deferred until LVGL rendering completes");
+    return false;
+}
+
 void ui_boot_splash_hide(void)
 {
-    if (s_splash.root == NULL) {
-        return;
+    if (!display_is_ready()) return;
+
+    ui_boot_splash_request_hide();
+    if (!splash_lock_for_hide()) return;
+
+    const int64_t remaining = splash_hide_pending_locked() ? splash_remaining_ms_locked() : 0;
+    if (remaining > 0) {
+        /* LVGL owns the timer and must keep rendering during the minimum show time. */
+        display_unlock();
+        vTaskDelay(pdMS_TO_TICKS((uint32_t)remaining) + 1);
+        if (!splash_lock_for_hide()) return;
     }
 
-    int64_t now_ms = splash_now_ms();
-    int64_t elapsed = now_ms - s_splash.shown_at_ms;
-    if (elapsed < BOOT_SPLASH_MIN_SHOW_MS) {
-        int64_t remaining = BOOT_SPLASH_MIN_SHOW_MS - elapsed;
-        vTaskDelay(pdMS_TO_TICKS((uint32_t)remaining));
-    }
-
-    /* The UI may be rendering the dashboard for longer than this bounded wait.
-     * Retain the request so the LVGL timer removes the overlay when it resumes. */
-    atomic_store(&s_hide_requested, true);
-    if (!display_lock(2000)) {
-        ESP_LOGW(TAG_UI, "Boot splash hide deferred until LVGL rendering completes");
-        return;
-    }
-    splash_hide_locked();
+    /* The timer may have closed it, or an explicit show may have cancelled the request. */
+    const bool hidden = splash_hide_if_due_locked();
     display_unlock();
-    display_note_activity();
+    if (hidden) display_note_activity();
 }

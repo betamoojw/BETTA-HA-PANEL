@@ -171,6 +171,50 @@ normal touch. English was saved and read back afterward. Layout and settings
 were retained; only live clock/RSSI fields changed during final comparison.
 This trial kept Xiaozhi disabled and did not test cloud pairing or audio.
 
+### COM24 application update, 2026-11-20
+
+The LCD-X Rev3.2 unit ran `panel10` built with ESP-IDF v6.1 from `dev`
+at `e3b91b80`. The `v0.9.2-rc2` image reported `e3b91b80-dirty` because
+the checkout contained staged documentation edits. Its API build stamp
+was `Nov 20 2026 09:48:02` China Standard Time and its ESP-IDF descriptor
+stamp was `09:42:34`. The 6,782,736-byte application left 33,008 bytes
+in the slot. Its SHA-256 is
+`64f53e8d8127381bdf95b8aa6f1e5a1320a1c88367d7ff9d3a7f1052aa7d37e8`.
+
+The P4 stub verified the original app-slot backup and wrote `ota_1` at
+`0x6A0000` once. Windows reported `Access is denied` on two verification
+attempts after the write. Reconnecting COM24 and saving each check
+separately completed verification before the new application booted.
+The full application readback and the build image shared MD5
+`6a98aff3c5dcd2202c250e75609cae61`. The metadata region, including the
+bootloader, partition table, NVS and OTA data, retained its pre-write
+digest. The coredump partition, all 18.625 MiB of LittleFS, the inactive
+app and the unused tail of `ota_1` also matched. [App-only preservation procedure](../development/build.md#32-mib-p4-preservation-checks)
+
+The 225-second UART capture recorded a single LVGL lock timeout after
+the splash appeared and before time synchronization, HTTP startup and
+dashboard loading. The layout-loaded and splash-hidden messages were
+855 ms apart. UART matched ELF prefix `3496adf70`, reported ESP-Hosted
+3.1.0 on both chips and recorded GT9271 touch initialization. HTTP
+reported boot 230 and a valid `ota_1` at 231 seconds of uptime, after
+COM24 closed. There were no new retained crash reports.
+
+The administrator signed in through the web form. Anonymous layout
+requests returned HTTP 401 and the served editor assets matched the image.
+Add Widget reported Home Assistant `ready`, and Live Display delivered a
+complete 1280 × 800 frame in view-only mode. The owner confirmed physical
+display, touch, page switching and a short voice exchange. The saved
+screensaver PNG at 588 seconds showed the centered 12-hour flip clock with
+seconds, weekday, date and AM. The version API reports this overlay as
+`weather`, its shared state for active non-page screensavers.
+
+The nine pages, 36 saved widgets, themes, camera and KNX settings, and
+permanent license matched the backups. The editor export differed only
+in its creation timestamp. The settings response changed only in the
+live clock and the newly reported Home Assistant setup and timezone fields.
+Build, readback, UART, browser and PNG evidence is archived locally in
+`.local/validation/panel10-dev-com24-2026-11-20/`.
+
 ## Technical notes
 
 The default profile rotates partial RGB565 buffers on the CPU. Retained COM24

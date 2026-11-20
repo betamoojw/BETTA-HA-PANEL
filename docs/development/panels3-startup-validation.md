@@ -143,61 +143,36 @@ comparisons are in `.local/validation/panels3-startup-review-2026-11-08/`.
 ## COM25 startup display lock follow-up
 
 The [November 20 COM25 trial](panels3-optional-ha-setup-validation.md#effect-of-the-startup-lvgl-lock-timeouts)
-ran commit `1e8b1e3` on boot 143. UART recorded the dashboard load
-at 07:16:03.359 and 52 adapter lock timeouts spaced 40 ms apart from
-07:16:03.390 through 07:16:05.430 China Standard Time. One additional
-timeout at 07:16:05.370 matched the splash-close deferral. The splash
-was removed 956 ms after that deferral.
+ran `1e8b1e3` on boot 143. UART logged the dashboard load at 07:16:03.359
+and 52 adapter timeouts every 40 ms from 07:16:03.390 to 07:16:05.430
+China Standard Time. That cadence matches the periodic check's 20 ms lock
+wait plus 20 ms task delay after a failed attempt. One additional timeout at
+07:16:05.370 matched the splash-close deferral. The old boot task waited up to
+two seconds on the display lock. The splash was removed 956 ms after the deferral.
 
-The previous dashboard handoff set the hide flag and then waited up
-to two seconds for the same lock held while LVGL renders. The UI
-runtime also left its once-per-second status-bar and screen-protection
-check due on a failed lock attempt. Its 20 ms lock wait and 20 ms
-task delay match the 40 ms cadence. Attribution of those 52 messages
-to the periodic check follows from the timing and the code path.
-The splash deferral has its own diagnostic in the trace.
+The boot task now posts a dismissal request. An LVGL timer enforces the
+1.2-second minimum, removes the splash and records activity. Wi-Fi provisioning
+remains visible until dismissal, and timer allocation failure exits before
+creating the overlay. The C6 updater retains its synchronous entry point.
+The UI runtime starts its periodic deadline at task startup and advances it
+before each lock attempt, eliminating the 40 ms retry loop for that check.
 
-The boot task now posts a dismissal request. The existing LVGL timer
-enforces the 1.2-second minimum show time, removes the splash and
-records activity when the dashboard is exposed. The provisioning
-splash stays visible until requested to close. A timer allocation
-failure exits before creating the overlay. The C6 updater retains
-its existing dismissal entry point. The UI runtime starts its
-periodic deadline when its task starts and advances it before
-each lock attempt, eliminating the 40 ms retry loop for that check.
+The real-LVGL regression reproduced the competing lock request and covered
+early dismissal, a busy render, ongoing Wi-Fi setup, explicit reopening and
+synchronous dismissal. The periodic check made two attempts over three
+simulated busy seconds and recovered at the next deadline without catch-up.
+Thirteen SDL checks passed. Two 480 × 480 captures exercised the empty-layout
+clock and Wi-Fi setup. All 661 web tests, web and translation checks, and the
+S3 storage and discovery API tests passed. Storage tests verified that failed
+skip saves preserve settings and successful saves survive reload. The editor passed
+the loopback tests for Home Assistant setup, diagnostics and retry.
 
-The real-LVGL regression reproduced the old competing lock request.
-The new run checked an early dismissal request, a simulated busy
-render, persistent Wi-Fi setup, reopening a splash with a pending
-dismissal, and the existing synchronous dismissal path. The
-periodic check made two lock attempts in a simulated three-second
-busy period, then succeeded at the next deadline without catch-up
-attempts.
-
-Thirteen targeted SDL tests passed, including the splash, screen
-settings, screen saver, screenshot and page-transition checks. Two
-480 × 480 simulator captures exercised the empty-layout clock and
-Wi-Fi setup. All 661 web tests, the web bundle and translation
-checks, and the S3 storage and discovery API tests passed. The
-storage test verified that a failed skip save preserves the previous
-settings and that a successful skip persists on reload.
-
-Chromium also ran the HTML, CSS and `js/app.cf2fda844f46af0d.js`
-embedded in the new image against a loopback fixture. It verified
-skipping Home Assistant, retaining the choice after restarting the
-fixture, adding credentials later and retrying entity discovery
-after a connection failure.
-
-ESP-IDF v6.1 built `panels3` from the working tree at
-`dfff308c-dirty`. The `v0.9.2-rc2` image has the API build stamp
-`Nov 20 2026 07:53:45` China Standard Time and the ESP-IDF descriptor
-stamp `07:49:26`. It is 4,592,656 bytes with 33% of the application
-slot free. Its SHA-256 is
+ESP-IDF v6.1 built `v0.9.2-rc2` from `dfff308c-dirty` with API stamp
+`Nov 20 2026 07:53:45` China Standard Time and descriptor stamp `07:49:26`.
+The application is 4,592,656 bytes with 33% of its slot free. Its SHA-256 is
 `2a3baa2d8cf233a89847b43c887413be736637307d44dcc23586d073a7c15103`.
-The SDK configuration and partition table are byte-identical to
-those of the COM25 `1e8b1e3` build.
-
-The build logs, image fingerprints and local test results are saved in
+The SDK configuration and partition table match the COM25 `1e8b1e3` build.
+Build logs, image checksums and local tests are in
 `.local/validation/panels3-boot-display-lock-2026-11-20/`.
 
 ### COM25 hardware verification of the 07:53:45 build
@@ -279,3 +254,25 @@ The 08:36:01 image was verified locally. The COM25 observations apply to
 the 07:53:45 build. The review evidence and rebuild manifest are in
 `.local/validation/panels3-boot-display-lock-review-2026-11-20/` and
 `.local/validation/panels3-boot-display-lock-review-final-2026-11-20/`.
+
+### Exact `e8bd39e` build and owner confirmation
+
+ESP-IDF v6.1 built `panels3` from the clean `e8bd39e` checkout. The
+`v0.9.2-rc2` image reports `e8bd39e1` and API stamp `Nov 20 2026 08:55:26`
+China Standard Time. The descriptor stamp is `08:50:37`. The 4,593,376-byte
+image has SHA-256
+`1b1d80a63809ef936fbd66db83a6969c15f3a073cc71f092756ce9a569316685`.
+The SDK configuration and partition table match the `07:53:45` image.
+The editor assets match after normalizing Windows line endings and the
+resulting asset filenames. The exact build's embedded editor passed the
+loopback Home Assistant setup, restart, and retry tests.
+
+The owner reported that physical verification passed. The subsequent
+read-only COM25 version query reported `dfff308c-dirty`, API stamp
+`07:53:45`, and valid OTA state. The archived COM25 UART traces attribute
+the 53-to-0 timeout improvement to the earlier `07:53:45` run.
+The exact `e8bd39e` build has local verification. COM25 application
+readback and startup measurements for that image remain unrecorded.
+Optical first-frame timing and blank first boot and skip persistence on
+a spare panel remain uncovered. Build and replay evidence is in
+`.local/validation/panels3-e8bd39e-com25-2026-11-20/`.

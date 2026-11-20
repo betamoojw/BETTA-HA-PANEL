@@ -97,9 +97,9 @@ bool display_is_ready(void)
     return s_display_ready;
 }
 
-bool display_lock(uint32_t timeout_ms)
+__attribute__((noinline)) bool display_lock(uint32_t timeout_ms)
 {
-    return display_port_lock(timeout_ms);
+    return display_port_lock_at(timeout_ms, (uintptr_t)__builtin_return_address(0));
 }
 
 void display_unlock(void)

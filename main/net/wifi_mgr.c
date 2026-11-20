@@ -919,7 +919,7 @@ static void wifi_mgr_maybe_auto_update_c6_fw(const esp_hosted_coprocessor_fwver_
     ESP_LOGW(TAG_WIFI, "Starting automatic C6 OTA update over ESP-Hosted transport");
     /* The deferred update runs after the boot splash is gone (the new image must become valid first): show it again, or the
      * messages below land on a splash nobody sees. A failed update hides it again; a finished one restarts the host. */
-    (void)ui_boot_splash_show();
+    (void)ui_boot_splash_show(NULL);
     ui_boot_splash_set_title("C6 Firmware Update");
     ui_boot_splash_clear_status();
     ui_boot_splash_set_status("Updating Wi-Fi coprocessor");

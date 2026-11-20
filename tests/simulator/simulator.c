@@ -1526,7 +1526,7 @@ int main(int argc, char **argv)
     /* Public demo credentials render the real boot splash, matching app_show_wifi_setup_screen(). */
     const cJSON *setup = cJSON_GetObjectItemCaseSensitive(root, "setup_screen");
     if (cJSON_IsObject(setup)) {
-        ui_boot_splash_show();
+        ui_boot_splash_show(NULL);
         ui_boot_splash_set_title(ui_i18n_get("boot.wifi_setup_title", "Wi-Fi Setup"));
         ui_boot_splash_set_status_layout(true, 520, 0);
         ui_boot_splash_clear_status();

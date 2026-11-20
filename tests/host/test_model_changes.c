@@ -4,10 +4,23 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
+#include "freertos/semphr.h"
 #include "ui/model_reconcile.h"
+static bool mutex_busy;
+static BaseType_t take_model_lock(SemaphoreHandle_t lock, TickType_t ticks)
+{
+    if (mutex_busy) {
+        assert(ticks == 0);
+        return pdFALSE;
+    }
+    return xSemaphoreTake(lock, ticks);
+}
+
 /* Include the real cache so the wrap test can position its counter without
  * billions of updates. All change/consume operations use the public API. */
+#define xSemaphoreTake take_model_lock
 #include "../../main/ha/ha_model.c"
+#undef xSemaphoreTake
 
 static ha_state_t sample;
 static void update(const char *id, const char *value)
@@ -40,6 +53,14 @@ int main(void)
     assert(!strcmp(batch[0].entity_id, "sensor.c") && !strcmp(batch[1].entity_id, "sensor.b"));
     ha_state_version_t delivered;
     assert(ha_model_get_state_versioned("sensor.b", &sample, &delivered));
+    mutex_busy = true;
+    assert(ha_model_try_get_state("sensor.c", &sample) == ESP_ERR_TIMEOUT);
+    assert(strcmp(sample.entity_id, "sensor.b") == 0);
+    mutex_busy = false;
+    assert(ha_model_try_get_state("sensor.c", &sample) == ESP_OK);
+    assert(strcmp(sample.entity_id, "sensor.c") == 0);
+    assert(ha_model_try_get_state("sensor.missing", &sample) == ESP_ERR_NOT_FOUND);
+    assert(ha_model_try_get_state("sensor.b", &sample) == ESP_OK);
     ui_applied_state_t seen = {.revision = delivered.revision, .valid = true};
     assert(ui_model_already_applied(&seen, batch[1].version.revision));
     assert(delivered.slot == batch[1].version.slot && !strcmp(sample.state, "2"));

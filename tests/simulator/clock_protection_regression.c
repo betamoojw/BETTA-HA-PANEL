@@ -8,6 +8,7 @@ static uint32_t test_ms = 1000;
 static int64_t test_time(void) { return (int64_t)test_ms * 1000; }
 #define esp_timer_get_time test_time
 #include "../../main/ui/ui_display_protection.c"
+#include "ui/periodic_refresh.h"
 #include "ui/theme/ui_style_registry.h"
 void sim_screenshot_regression(lv_obj_t *overlay, const char *capture_path);
 
@@ -15,6 +16,8 @@ static runtime_settings_t saved;
 static int brightness = 60, wakes;
 static bool night;
 static bool storage_busy;
+static esp_err_t weather_read_result = ESP_ERR_NOT_FOUND;
+static int weather_temperature = 21;
 bool ui_reply_font_available(void) { return false; }
 lv_font_t *ui_reply_font_create(int px) { (void)px; return NULL; }
 const lv_font_t *mdi_font_weather(void) { return LV_FONT_DEFAULT; }
@@ -29,7 +32,14 @@ int display_get_brightness_percent(void) { return brightness; }
 esp_err_t display_set_brightness_percent(int percent) { brightness = percent; return ESP_OK; }
 void display_note_activity(void) { wakes++; brightness = 60; ui_display_protection_note_activity(); }
 void user_activity_note(uint32_t now) { (void)now; }
-bool ha_model_get_state(const char *id, ha_state_t *out) { (void)id; (void)out; return false; }
+esp_err_t ha_model_try_get_state(const char *id, ha_state_t *out)
+{
+    if (strcmp(id, "weather.test") != 0) return ESP_ERR_NOT_FOUND;
+    if (weather_read_result != ESP_OK) return weather_read_result;
+    strcpy(out->state, "sunny");
+    snprintf(out->attributes_json, sizeof(out->attributes_json), "{\"temperature\":%d}", weather_temperature);
+    return ESP_OK;
+}
 uint32_t ui_runtime_weather_icon_codepoint_for_key(const char *key) { (void)key; return 0; }
 uint16_t ui_pages_count(void) { return 1; }
 bool ui_pages_show_index(uint16_t index) { (void)index; return true; }
@@ -40,6 +50,75 @@ static void advance(uint32_t ms)
 {
     test_ms += ms; lv_tick_inc(ms); ui_display_protection_poll();
     lv_obj_update_layout(lv_layer_top());
+}
+
+static void dispatch_timers(uint32_t ms)
+{
+    test_ms += ms;
+    lv_tick_inc(ms);
+    lv_timer_handler();
+}
+
+static void check_periodic_flip_saver(void)
+{
+    const display_clock_t original = saved.display_clock;
+    saved.display_clock.style = DISPLAY_CLOCK_FLIP;
+    saved.display_clock.start_seconds = 180;
+    assert(ui_display_protection_reload());
+    const int wakes_before = wakes;
+    ui_periodic_refresh_t refresh = {.enabled = true, .run = ui_display_protection_poll};
+    lv_timer_t *timer = ui_periodic_refresh_create(&refresh);
+    assert(timer);
+
+    dispatch_timers(179000);
+    assert(!ui_display_protection_is_active());
+    dispatch_timers(1000);
+    assert(ui_display_protection_is_active() && s_flip_clock);
+    lv_obj_send_event(s_overlay, LV_EVENT_PRESSED, NULL);
+    dispatch_timers(1000);
+    assert(ui_display_protection_is_active() && wakes == wakes_before);
+    lv_obj_send_event(s_overlay, LV_EVENT_RELEASED, NULL);
+    assert(!ui_display_protection_is_active() && !s_flip_clock && wakes == wakes_before + 1);
+    dispatch_timers(1000);
+    assert(!ui_display_protection_is_active());
+
+    lv_timer_delete(timer);
+    saved.display_clock = original;
+    assert(ui_display_protection_reload());
+}
+
+static void check_periodic_weather_retry(void)
+{
+    static runtime_settings_t original;
+    original = saved;
+    strcpy(saved.hardware_saver_mode, "weather");
+    strcpy(saved.hardware_saver_weather_entity_id, "weather.test");
+    saved.hardware_saver_timeout_minutes = 1;
+    saved.hardware_saver_weather_minutes = 2;
+    assert(ui_display_protection_reload());
+    ui_periodic_refresh_t refresh = {.enabled = true, .run = ui_display_protection_poll};
+    lv_timer_t *timer = ui_periodic_refresh_create(&refresh);
+    assert(timer);
+
+    weather_read_result = ESP_ERR_TIMEOUT;
+    dispatch_timers(60000);
+    assert(!ui_display_protection_is_active());
+    weather_read_result = ESP_OK;
+    dispatch_timers(1000);
+    assert(s_state == SAVER_WEATHER && strcmp(lv_label_get_text(s_temperature), "21°C") == 0);
+
+    weather_read_result = ESP_ERR_TIMEOUT;
+    weather_temperature = 22;
+    dispatch_timers(30000);
+    assert(s_state == SAVER_WEATHER && strcmp(lv_label_get_text(s_temperature), "21°C") == 0);
+    weather_read_result = ESP_OK;
+    dispatch_timers(1000);
+    assert(s_state == SAVER_WEATHER && strcmp(lv_label_get_text(s_temperature), "22°C") == 0);
+
+    lv_timer_delete(timer);
+    weather_read_result = ESP_ERR_NOT_FOUND;
+    saved = original;
+    assert(ui_display_protection_reload());
 }
 
 static void check_digital_layout(int width, int height)
@@ -246,6 +325,8 @@ int main(int argc, char **argv)
     advance(300000); assert(!ui_display_protection_is_active());
     strcpy(saved.hardware_saver_mode, "clock"); check_digital_layout(width, height);
     check_flip_layout(width, height);
+    check_periodic_flip_saver();
+    check_periodic_weather_retry();
     if (argc > 3) {
         saved.display_clock.style = argc < 5 || !strcmp(argv[4], "analog") ? DISPLAY_CLOCK_ANALOG :
             (!strcmp(argv[4], "flip") ? DISPLAY_CLOCK_FLIP : DISPLAY_CLOCK_DIGITAL);

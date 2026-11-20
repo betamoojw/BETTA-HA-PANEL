@@ -7159,6 +7159,18 @@ bool ha_client_is_initial_sync_done(void)
     return done;
 }
 
+bool ha_client_try_ui_status(bool *connected, bool *initial_sync_done)
+{
+    if (!connected || !initial_sync_done) return false;
+    SemaphoreHandle_t mutex = s_client.mutex;
+    if (mutex && xSemaphoreTake(mutex, 0) != pdTRUE) return false;
+    bool authenticated = mutex && s_client.authenticated;
+    *initial_sync_done = !APP_HA_FETCH_INITIAL_STATES || (mutex && s_client.initial_layout_sync_done);
+    if (mutex) xSemaphoreGive(mutex);
+    *connected = ha_ws_is_connected() && authenticated;
+    return true;
+}
+
 void ha_client_get_diagnostics(ha_client_diagnostics_t *out)
 {
     if (out == NULL) {

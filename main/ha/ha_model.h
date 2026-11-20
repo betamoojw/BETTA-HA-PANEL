@@ -44,6 +44,8 @@ esp_err_t ha_model_set_entity_name(const char *entity_id, const char *name);
 /* Copies the shared display name when available; leaves out unchanged otherwise. */
 bool ha_model_get_entity_name(const char *entity_id, char *out, size_t out_len);
 bool ha_model_get_state(const char *entity_id, ha_state_t *out_state);
+/* Take a snapshot without waiting for the model lock. */
+esp_err_t ha_model_try_get_state(const char *entity_id, ha_state_t *out_state);
 typedef struct {
     size_t slot; /* Stable until reset; revision remains monotonic across resets. */
     uint32_t revision;

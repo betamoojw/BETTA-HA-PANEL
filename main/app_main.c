@@ -218,9 +218,7 @@ void app_main(void)
     ambient_camera_configure(s_runtime_settings.hardware_auto_brightness, s_runtime_settings.hardware_presence_wake,
         s_runtime_settings.hardware_presence_sensitivity, s_runtime_settings.hardware_night_presence_wake);
     ambient_camera_start();
-    (void)ui_boot_splash_show();
-
-    ui_boot_splash_set_status(ui_i18n_get("boot.initializing_wifi", "Initializing Wi-Fi"));
+    (void)ui_boot_splash_show(ui_i18n_get("boot.initializing_wifi", "Initializing Wi-Fi"));
 
     bool has_wifi_credentials = false;
     /* Start the wired path before the radio so both can acquire a lease. */

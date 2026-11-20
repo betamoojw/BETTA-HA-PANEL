@@ -245,6 +245,16 @@ bool display_port_lock(uint32_t timeout_ms)
     return esp_lv_adapter_lock(timeout_ms ? (int32_t)timeout_ms : -1) == ESP_OK;
 }
 
+#if CONFIG_APP_PANEL_VARIANT_10INCH_1280
+/* Supplied by the reproducible adapter patch in tools/apply_component_patches.py. */
+esp_err_t betta_lv_adapter_lock_at(int32_t timeout_ms, uintptr_t caller);
+
+bool display_port_lock_at(uint32_t timeout_ms, uintptr_t caller)
+{
+    return betta_lv_adapter_lock_at(timeout_ms ? (int32_t)timeout_ms : -1, caller) == ESP_OK;
+}
+#endif
+
 void display_port_unlock(void)
 {
     esp_lv_adapter_unlock();

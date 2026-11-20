@@ -49,6 +49,109 @@ def replace_ppa_legacy(path, old, new):
     return replace(path, old, new)
 
 
+def patch_panel10_lock_context(path):
+    old = '''esp_err_t esp_lv_adapter_lock(int32_t timeout_ms)
+{
+    ESP_RETURN_ON_FALSE(s_ctx.lvgl_mutex, ESP_ERR_INVALID_STATE, TAG, "Adapter LVGL mutex not initialized");
+
+    TickType_t ticks = (timeout_ms < 0) ? portMAX_DELAY : pdMS_TO_TICKS(timeout_ms);
+
+    ESP_RETURN_ON_FALSE(xSemaphoreTakeRecursive(s_ctx.lvgl_mutex, ticks) == pdTRUE,
+                        ESP_ERR_TIMEOUT, TAG, "Failed to acquire LVGL lock");
+
+    return ESP_OK;
+}
+
+void esp_lv_adapter_unlock(void)
+{
+    if (s_ctx.lvgl_mutex) {
+        xSemaphoreGiveRecursive(s_ctx.lvgl_mutex);
+    }
+}'''
+    new = '''/* Panel10 lock context from the actual adapter mutex, including lvgl_worker. */
+#if CONFIG_APP_PANEL_VARIANT_10INCH_1280
+typedef struct {
+    TaskHandle_t task;
+    uintptr_t caller;
+    unsigned depth;
+    char name[configMAX_TASK_NAME_LEN];
+} betta_lvgl_owner_t;
+
+static portMUX_TYPE s_lock_context_mux = portMUX_INITIALIZER_UNLOCKED;
+static betta_lvgl_owner_t s_lock_owner;
+
+static void betta_lvgl_lock_acquired(uintptr_t caller)
+{
+    TaskHandle_t task = xTaskGetCurrentTaskHandle();
+    portENTER_CRITICAL(&s_lock_context_mux);
+    if (s_lock_owner.depth == 0 || s_lock_owner.task != task) {
+        s_lock_owner.task = task;
+        s_lock_owner.caller = caller;
+        s_lock_owner.depth = 0;
+        strlcpy(s_lock_owner.name, pcTaskGetName(NULL), sizeof(s_lock_owner.name));
+    }
+    ++s_lock_owner.depth;
+    portEXIT_CRITICAL(&s_lock_context_mux);
+}
+
+static void betta_lvgl_lock_timeout(int32_t timeout_ms, uintptr_t caller)
+{
+    /* Task names are copied on acquisition so this never dereferences another task. */
+    TaskHandle_t holder = xSemaphoreGetMutexHolder(s_ctx.lvgl_mutex);
+    portENTER_CRITICAL(&s_lock_context_mux);
+    betta_lvgl_owner_t owner = s_lock_owner;
+    portEXIT_CRITICAL(&s_lock_context_mux);
+    bool known = holder && owner.task == holder && owner.depth != 0;
+    ESP_LOGE(TAG, "Failed to acquire LVGL lock (timeout_ms=%" PRId32 " waiter=%s caller=%p holder=%s holder_pc=%p)",
+             timeout_ms, pcTaskGetName(NULL), (void *)caller, known ? owner.name : "unavailable",
+             (void *)(known ? owner.caller : 0));
+}
+
+esp_err_t betta_lv_adapter_lock_at(int32_t timeout_ms, uintptr_t caller)
+#else
+esp_err_t esp_lv_adapter_lock(int32_t timeout_ms)
+#endif
+{
+    ESP_RETURN_ON_FALSE(s_ctx.lvgl_mutex, ESP_ERR_INVALID_STATE, TAG, "Adapter LVGL mutex not initialized");
+
+    TickType_t ticks = (timeout_ms < 0) ? portMAX_DELAY : pdMS_TO_TICKS(timeout_ms);
+    BaseType_t acquired = xSemaphoreTakeRecursive(s_ctx.lvgl_mutex, ticks);
+#if CONFIG_APP_PANEL_VARIANT_10INCH_1280
+    if (acquired != pdTRUE) {
+        betta_lvgl_lock_timeout(timeout_ms, caller);
+        return ESP_ERR_TIMEOUT;
+    }
+    betta_lvgl_lock_acquired(caller);
+#else
+    ESP_RETURN_ON_FALSE(acquired == pdTRUE,
+                        ESP_ERR_TIMEOUT, TAG, "Failed to acquire LVGL lock");
+#endif
+    return ESP_OK;
+}
+
+#if CONFIG_APP_PANEL_VARIANT_10INCH_1280
+__attribute__((noinline)) esp_err_t esp_lv_adapter_lock(int32_t timeout_ms)
+{
+    return betta_lv_adapter_lock_at(timeout_ms, (uintptr_t)__builtin_return_address(0));
+}
+#endif
+
+void esp_lv_adapter_unlock(void)
+{
+    if (s_ctx.lvgl_mutex) {
+#if CONFIG_APP_PANEL_VARIANT_10INCH_1280
+        /* Update metadata before handing the mutex to another core. */
+        TaskHandle_t task = xTaskGetCurrentTaskHandle();
+        portENTER_CRITICAL(&s_lock_context_mux);
+        if (s_lock_owner.task == task && s_lock_owner.depth != 0) --s_lock_owner.depth;
+        portEXIT_CRITICAL(&s_lock_context_mux);
+#endif
+        xSemaphoreGiveRecursive(s_ctx.lvgl_mutex);
+    }
+}'''
+    return replace(path, old, new)
+
+
 def ensure_requires(path, keyword, tokens):
     """Make sure `tokens` are in the `keyword` list (REQUIRES / PRIV_REQUIRES) of idf_component_register()."""
     text = path.read_text(encoding="utf-8")
@@ -64,6 +167,9 @@ def ensure_requires(path, keyword, tokens):
 
 # (component directory, file inside it, what, edit function, its arguments[, optional: the place may not exist])
 PATCHES = [
+    ("espressif__esp_lvgl_adapter", "src/adapter/esp_lv_adapter.c",
+     "esp_lvgl_adapter: record Panel10 waiter and holder on lock timeout",
+     patch_panel10_lock_context, ()),
     ("espressif__esp_websocket_client", "esp_websocket_client.c",
      "esp_websocket_client: serialize TLS polling/close and bound stalled receives",
      patch_websocket_transport, ()),

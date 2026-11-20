@@ -299,13 +299,13 @@ bool ha_model_get_state(const char *entity_id, ha_state_t *out_state)
     return ha_model_get_state_versioned(entity_id, out_state, NULL);
 }
 
-bool ha_model_get_state_versioned(const char *entity_id, ha_state_t *out_state, ha_state_version_t *version)
+static esp_err_t get_state(const char *entity_id, ha_state_t *out_state, ha_state_version_t *version,
+                           TickType_t wait_ticks)
 {
     if (s_model_mutex == NULL || s_states == NULL || entity_id == NULL || out_state == NULL) {
-        return false;
+        return ESP_ERR_INVALID_STATE;
     }
-    bool found = false;
-    xSemaphoreTake(s_model_mutex, portMAX_DELAY);
+    if (xSemaphoreTake(s_model_mutex, wait_ticks) != pdTRUE) return ESP_ERR_TIMEOUT;
     int idx = find_state_index(entity_id);
     if (idx >= 0) {
         *out_state = s_states[idx];
@@ -313,10 +313,19 @@ bool ha_model_get_state_versioned(const char *entity_id, ha_state_t *out_state, 
             version->slot = (size_t)idx;
             version->revision = s_state_versions[idx];
         }
-        found = true;
     }
     xSemaphoreGive(s_model_mutex);
-    return found;
+    return idx >= 0 ? ESP_OK : ESP_ERR_NOT_FOUND;
+}
+
+bool ha_model_get_state_versioned(const char *entity_id, ha_state_t *out_state, ha_state_version_t *version)
+{
+    return get_state(entity_id, out_state, version, portMAX_DELAY) == ESP_OK;
+}
+
+esp_err_t ha_model_try_get_state(const char *entity_id, ha_state_t *out_state)
+{
+    return get_state(entity_id, out_state, NULL, 0);
 }
 
 esp_err_t ha_model_changes(uint32_t after, ha_model_change_t *out, size_t capacity,

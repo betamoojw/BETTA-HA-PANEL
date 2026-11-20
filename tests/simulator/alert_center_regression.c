@@ -35,11 +35,18 @@ int sim_alert_center_regression(void)
     assert(alert_policy_sample(true,&primed,&active,last,sizeof(last),"second"));
     assert(!alert_policy_sample(true,&primed,&active,last,sizeof(last),"unavailable"));
     assert(!alert_policy_sample(true,&primed,&active,last,sizeof(last),"second"));
-    assert(alert_policy_connections(29999,true,false,true,false,true,false)==0);
-    assert(alert_policy_connections(30000,true,false,true,false,true,false)==1);
-    assert(alert_policy_connections(30000,true,true,true,false,true,false)==6);
-    assert(alert_policy_connections(30000,true,true,false,false,false,false)==0);
-    assert(alert_policy_connections(30000,true,true,true,true,true,true)==0);
+    assert(alert_policy_connections(29999, true, true, true, false, false, true, false) == 0);
+    assert(alert_policy_connections(30000, true, false, true, false, false, true, false) ==
+        ALERT_CONNECTION_WIFI_DOWN);
+    /* Wi-Fi has rejoined. A cached disconnected sample must not raise an HA alert while busy. */
+    assert(alert_policy_connections(30000, true, true, true, false, false, true, false) ==
+        (ALERT_CONNECTION_HA_KEEP | ALERT_CONNECTION_MQTT_DOWN));
+    assert(alert_policy_connections(31000, true, true, true, true, false, true, true) ==
+        ALERT_CONNECTION_HA_DOWN);
+    assert(alert_policy_connections(32000, true, true, true, false, false, true, true) ==
+        ALERT_CONNECTION_HA_KEEP);
+    assert(alert_policy_connections(33000, true, true, true, true, true, true, true) == 0);
+    assert(alert_policy_connections(34000, true, true, false, false, false, false, false) == 0);
     const char *langs[]={"en","de","es","fr","pl","zh-cn","zh-tw"};
     for(unsigned l=0;l<7;l++) {
         assert(ui_i18n_init(langs[l])==ESP_OK);ui_pages_init();

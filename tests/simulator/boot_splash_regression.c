@@ -3,6 +3,7 @@
  */
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "lvgl.h"
 #include "esp_app_desc.h"
 #include "drivers/display_init.h"
@@ -14,8 +15,10 @@
 
 #define CHECK(c) do { if (!(c)) { fprintf(stderr, "FAIL line %d: %s\n", __LINE__, #c); exit(1); } } while (0)
 static bool fail_lock;
+static bool contend_after_unlock;
 static unsigned lock_attempts;
 static unsigned activity_events;
+static unsigned completed_frames;
 static void (*before_display_lock)(void);
 static ui_license_warning_status_t license_status(void)
 { return (ui_license_warning_status_t){.state = LICENSE_MISSING, .uptime_us = LICENSE_LCD_DELAY_US}; }
@@ -31,7 +34,13 @@ bool display_lock(uint32_t ms)
     }
     return !fail_lock;
 }
-void display_unlock(void) {}
+void display_unlock(void)
+{
+    if (contend_after_unlock) {
+        contend_after_unlock = false;
+        fail_lock = true;
+    }
+}
 void display_note_activity(void) { ++activity_events; }
 int display_geometry_width(void) { return 480; }
 int display_geometry_height(void) { return 480; }
@@ -41,7 +50,12 @@ const char *ui_i18n_get_language(void) { return "en"; }
 const esp_app_desc_t *esp_app_get_description(void)
 { static const esp_app_desc_t desc = {.version = "test"}; return &desc; }
 static void flush(lv_display_t *d, const lv_area_t *a, uint8_t *p)
-{ (void)a; (void)p; lv_display_flush_ready(d); }
+{
+    (void)a;
+    (void)p;
+    if (lv_display_flush_is_last(d)) ++completed_frames;
+    lv_display_flush_ready(d);
+}
 
 static void advance_time(uint32_t ms)
 {
@@ -49,12 +63,12 @@ static void advance_time(uint32_t ms)
     lv_tick_inc(ms);
 }
 
-static void reshow_splash(void) { CHECK(ui_boot_splash_show() == ESP_OK); }
+static void reshow_splash(void) { CHECK(ui_boot_splash_show(NULL) == ESP_OK); }
 static void run_due_timers(void) { (void)lv_timer_handler(); }
 
 static void check_dismissal_interleavings(uint32_t children)
 {
-    CHECK(ui_boot_splash_show() == ESP_OK);
+    CHECK(ui_boot_splash_show(NULL) == ESP_OK);
     advance_time(1500);
     const unsigned activity_before_hide = activity_events;
     before_display_lock = reshow_splash;
@@ -71,7 +85,7 @@ static void check_dismissal_interleavings(uint32_t children)
     CHECK(lv_obj_get_child_count(lv_layer_top()) == children);
     CHECK(activity_events == activity_before_hide + 1);
 
-    CHECK(ui_boot_splash_show() == ESP_OK);
+    CHECK(ui_boot_splash_show(NULL) == ESP_OK);
     advance_time(1500);
     fail_lock = true;
     ui_boot_splash_hide();
@@ -81,7 +95,7 @@ static void check_dismissal_interleavings(uint32_t children)
     CHECK(lv_obj_get_child_count(lv_layer_top()) == children);
     CHECK(activity_events == activity_before_hide + 3);
 
-    CHECK(ui_boot_splash_show() == ESP_OK);
+    CHECK(ui_boot_splash_show(NULL) == ESP_OK);
     advance_time(1199);
     /* The scheduler delay stub leaves the virtual clock just before the deadline. */
     ui_boot_splash_hide();
@@ -91,23 +105,59 @@ static void check_dismissal_interleavings(uint32_t children)
     CHECK(lv_obj_get_child_count(lv_layer_top()) == children);
 }
 
+static unsigned periodic_refreshes;
+
+static void record_periodic_refresh(void) { ++periodic_refreshes; }
+
 static void check_periodic_refresh(void)
 {
-    int64_t next_attempt_ms = UI_PERIODIC_REFRESH_MS;
+    ui_periodic_refresh_t refresh = {.run = record_periodic_refresh};
+    lv_timer_t *timer = ui_periodic_refresh_create(&refresh);
+    CHECK(timer != NULL);
+    advance_time(UI_PERIODIC_REFRESH_MS);
+    lv_timer_handler();
+    CHECK(periodic_refreshes == 0);
+
     const unsigned locks_before = lock_attempts;
+    atomic_store(&refresh.enabled, true);
+    /* While LVGL owns the display, another task cannot take the lock. */
     fail_lock = true;
-    /* A busy first render spans many UI task turns. Only the periodic deadlines may try. */
-    for (int64_t now_ms = 0; now_ms < 3000; now_ms += 20) {
-        if (ui_periodic_refresh_begin(now_ms, &next_attempt_ms)) CHECK(!display_lock(20));
-    }
-    CHECK(lock_attempts == locks_before + 2);
+    advance_time(UI_PERIODIC_REFRESH_MS - 1);
+    lv_timer_handler();
+    CHECK(periodic_refreshes == 0);
+    advance_time(1);
+    lv_timer_handler();
+    CHECK(periodic_refreshes == 1);
+    advance_time(3 * UI_PERIODIC_REFRESH_MS);
+    lv_timer_handler();
+    lv_timer_handler();
+    CHECK(periodic_refreshes == 2);
+    CHECK(lock_attempts == locks_before);
     fail_lock = false;
-    CHECK(!ui_periodic_refresh_begin(2999, &next_attempt_ms));
-    CHECK(ui_periodic_refresh_begin(3000, &next_attempt_ms) && display_lock(20));
-    display_unlock();
-    CHECK(lock_attempts == locks_before + 3);
-    CHECK(ui_periodic_refresh_begin(6000, &next_attempt_ms));
-    CHECK(!ui_periodic_refresh_begin(6000, &next_attempt_ms));
+    lv_timer_delete(timer);
+}
+
+static void check_initial_wifi_status(uint32_t children)
+{
+    const unsigned locks_before = lock_attempts;
+    const unsigned frames_before = completed_frames;
+    /* The adapter may take the display lock as soon as the first refresh releases it. */
+    contend_after_unlock = true;
+    CHECK(ui_boot_splash_show("Initializing Wi-Fi") == ESP_OK);
+    CHECK(fail_lock);
+    CHECK(completed_frames > frames_before);
+    CHECK(lv_obj_get_child_count(lv_layer_top()) == children + 1);
+    lv_obj_t *splash = lv_obj_get_child(lv_layer_top(), -1);
+    lv_obj_t *status = lv_obj_get_child_by_type(splash, -1, &lv_label_class);
+    CHECK(status != NULL);
+    CHECK(strcmp(lv_label_get_text(status), "Initializing system\nInitializing Wi-Fi") == 0);
+    CHECK(lock_attempts == locks_before + 1);
+
+    fail_lock = false;
+    ui_boot_splash_request_hide();
+    advance_time(1500);
+    lv_timer_handler();
+    CHECK(lv_obj_get_child_count(lv_layer_top()) == children);
 }
 
 int main(void)
@@ -123,7 +173,7 @@ int main(void)
     const uint32_t children = lv_obj_get_child_count(lv_layer_top());
     ui_license_warning_set_source(license_status);
     for (int manual = 0; manual < 2; ++manual) {
-        CHECK(ui_boot_splash_show() == ESP_OK);
+        CHECK(ui_boot_splash_show(NULL) == ESP_OK);
         if (manual) {
             ui_boot_splash_set_progress(100);
             ui_boot_splash_set_setup();
@@ -160,10 +210,10 @@ int main(void)
         fail_lock = false;
     }
 
-    CHECK(ui_boot_splash_show() == ESP_OK);
+    CHECK(ui_boot_splash_show(NULL) == ESP_OK);
     advance_time(1500);
     ui_boot_splash_request_hide();
-    CHECK(ui_boot_splash_show() == ESP_OK);
+    CHECK(ui_boot_splash_show(NULL) == ESP_OK);
     lv_timer_handler();
     CHECK(lv_obj_get_child_count(lv_layer_top()) == children + 1);
     ui_boot_splash_hide(); /* Coprocessor update error paths retain synchronous dismissal. */
@@ -171,7 +221,9 @@ int main(void)
 
     check_dismissal_interleavings(children);
     check_periodic_refresh();
+    check_initial_wifi_status(children);
     puts("boot splash: minimum time, provisioning, and lock-free dismiss passed");
-    puts("periodic refresh: bounded attempts, recovery, and no catch-up retries passed");
+    puts("boot splash: first refresh includes Wi-Fi status with one lock attempt");
+    puts("periodic refresh: runtime start, LVGL dispatch, and no catch-up passed");
     return 0;
 }

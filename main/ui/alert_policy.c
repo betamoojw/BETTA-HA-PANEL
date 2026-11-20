@@ -13,10 +13,15 @@ bool alert_policy_sample(bool event, bool *primed, bool *active, char *last,
     return fire;
 }
 unsigned alert_policy_connections(uint64_t uptime_ms, bool wifi_expected, bool wifi,
-    bool ha_expected, bool ha, bool mqtt_expected, bool mqtt)
+    bool ha_expected, bool ha_status_available, bool ha, bool mqtt_expected, bool mqtt)
 {
     if (uptime_ms < 30000) return 0;
-    return (wifi_expected && !wifi ? 1U : 0U) |
-        (wifi && ha_expected && !ha ? 2U : 0U) |
-        (wifi && mqtt_expected && !mqtt ? 4U : 0U);
+    if (!wifi) return wifi_expected ? ALERT_CONNECTION_WIFI_DOWN : 0;
+
+    unsigned alerts = mqtt_expected && !mqtt ? ALERT_CONNECTION_MQTT_DOWN : 0;
+    if (ha_expected) {
+        if (!ha_status_available) alerts |= ALERT_CONNECTION_HA_KEEP;
+        else if (!ha) alerts |= ALERT_CONNECTION_HA_DOWN;
+    }
+    return alerts;
 }

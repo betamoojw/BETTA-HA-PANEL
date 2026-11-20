@@ -156,24 +156,25 @@ static void saver_position(lv_obj_t *group)
         margin + (max_y - margin) * positions[index][1] / 100);
 }
 
-static bool weather_update(void)
+static esp_err_t weather_update(void)
 {
-    if (s_settings.hardware_saver_weather_entity_id[0] == '\0') return false;
+    if (s_settings.hardware_saver_weather_entity_id[0] == '\0') return ESP_ERR_NOT_FOUND;
     if (s_weather_state == NULL) s_weather_state = ui_calloc_prefer_psram(1, sizeof(*s_weather_state));
-    if (s_weather_state == NULL ||
-        !ha_model_get_state(s_settings.hardware_saver_weather_entity_id, s_weather_state) ||
-        strcmp(s_weather_state->state, "unavailable") == 0 ||
-        strcmp(s_weather_state->state, "unknown") == 0) return false;
+    if (s_weather_state == NULL) return ESP_ERR_NO_MEM;
+    esp_err_t err = ha_model_try_get_state(s_settings.hardware_saver_weather_entity_id, s_weather_state);
+    if (err != ESP_OK) return err;
+    if (strcmp(s_weather_state->state, "unavailable") == 0 ||
+        strcmp(s_weather_state->state, "unknown") == 0) return ESP_ERR_NOT_FOUND;
 
     cJSON *attrs = cJSON_Parse(s_weather_state->attributes_json);
     cJSON *item = attrs != NULL ? cJSON_GetObjectItemCaseSensitive(attrs, "temperature") : NULL;
     if (!cJSON_IsNumber(item)) {
         if (attrs != NULL) cJSON_Delete(attrs);
-        return false;
+        return ESP_FAIL;
     }
     if (!isfinite(item->valuedouble)) {
         cJSON_Delete(attrs);
-        return false;
+        return ESP_FAIL;
     }
     cJSON *unit_item = cJSON_GetObjectItemCaseSensitive(attrs, "temperature_unit");
     const char *unit = cJSON_IsString(unit_item) && unit_item->valuestring != NULL &&
@@ -202,7 +203,7 @@ static bool weather_update(void)
     uint32_t cp = ui_runtime_weather_icon_codepoint_for_key(key);
     lv_label_set_text(s_icon, utf8_from_codepoint(cp, icon) ? icon : "");
     cJSON_Delete(attrs);
-    return true;
+    return ESP_OK;
 }
 
 static void delete_flip_clock(void)
@@ -451,8 +452,10 @@ void ui_display_protection_poll(void)
     } else if (!night_mode_active() && strcmp(s_settings.hardware_saver_mode, "weather") == 0 &&
         idle_ms < start_ms + (uint32_t)s_settings.hardware_saver_weather_minutes * 60000U) {
         if (now - s_last_weather_ms >= 30000U || s_state != SAVER_WEATHER) {
+            esp_err_t err = weather_update();
+            if (err == ESP_ERR_TIMEOUT) return; /* Keep the current display and retry on the next tick. */
             s_last_weather_ms = now;
-            if (weather_update()) target = SAVER_WEATHER;
+            if (err == ESP_OK) target = SAVER_WEATHER;
         } else {
             target = SAVER_WEATHER;
         }

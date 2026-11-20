@@ -8,7 +8,8 @@
 
 #include "esp_err.h"
 
-esp_err_t ui_boot_splash_show(void);
+/* Add an optional status line before the first refresh of a new splash. */
+esp_err_t ui_boot_splash_show(const char *initial_status);
 /* Mark a persistent provisioning screen; applied by its LVGL timer. */
 void ui_boot_splash_set_setup(void);
 void ui_boot_splash_set_title(const char *title_text);

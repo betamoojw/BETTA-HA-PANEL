@@ -191,13 +191,13 @@ bootloader, partition table, NVS and OTA data, retained its pre-write
 digest. The coredump partition, all 18.625 MiB of LittleFS, the inactive
 app and the unused tail of `ota_1` also matched. [App-only preservation procedure](../development/build.md#32-mib-p4-preservation-checks)
 
-The 225-second UART capture recorded a single LVGL lock timeout after
-the splash appeared and before time synchronization, HTTP startup and
-dashboard loading. The layout-loaded and splash-hidden messages were
-855 ms apart. UART matched ELF prefix `3496adf70`, reported ESP-Hosted
-3.1.0 on both chips and recorded GT9271 touch initialization. HTTP
-reported boot 230 and a valid `ota_1` at 231 seconds of uptime, after
-COM24 closed. There were no new retained crash reports.
+The 225-second UART capture recorded one LVGL lock timeout 50 ms after `Boot splash shown`.
+It was followed at the same timestamp by the Wi-Fi recovery policy. ELF `3496adf70` and
+the interval point to the 50 ms `ui_boot_splash_set_status()` request in `app_main` after
+the first refresh. A timeout skips “Initializing Wi-Fi”. The lock owner remains unverified.
+UART reported ESP-Hosted 3.1.0 on both chips, GT9271 initialization and an 855 ms interval
+from layout loaded to splash hidden. HTTP reported boot 230 and valid `ota_1` at 231 seconds
+of uptime, after COM24 closed. There were no new retained crash reports.
 
 The administrator signed in through the web form. Anonymous layout
 requests returned HTTP 401 and the served editor assets matched the image.
@@ -214,6 +214,64 @@ in its creation timestamp. The settings response changed only in the
 live clock and the newly reported Home Assistant setup and timezone fields.
 Build, readback, UART, browser and PNG evidence is archived locally in
 `.local/validation/panel10-dev-com24-2026-11-20/`.
+
+### Startup splash lock diagnosis, 2026-11-20
+
+The fix draws both initial lines under the splash creation lock. Simulated contention on the
+old path reproduced the missing Wi-Fi line. All nine selected host checks passed.
+
+The `Nov 20 2026 10:49:49` China Standard Time image (`5b25a9eb-dirty`, ESP-IDF v6.1)
+updated only COM24 `ota_1` at `0x6A0000`. The full slot readback matched the application and
+preserved the unwritten tail. Metadata/NVS, coredump, the inactive application and all 18.625 MiB
+of LittleFS matched before boot. The LittleFS backup mounted read-only with layout and settings
+present and zero `.grph` files. Boot 231 still reported valid `ota_1` at 226 seconds. The nine
+pages, 36 widgets and saved settings matched, and administrator login and anonymous HTTP 401 passed.
+
+The splash-to-Wi-Fi interval was 1 ms with zero lock timeouts, compared with one in the earlier
+trial. The full 225-second count was 12 versus the earlier 1. One timeout followed splash dismissal
+by 4.058 seconds, and 11 occurred 206–225 seconds after the host started the reset. The later callers
+remain unverified. GT9271 initialized and the layout-loaded to splash-hidden interval was 851 ms.
+The dashboard snapshot and two later clock-saver snapshots succeeded. The latter showed the seconds
+advancing at 392–394 seconds of uptime. The owner saw “Initializing Wi-Fi” and confirmed normal
+dashboard handoff and touch navigation. Touch wake and page switching also worked after the later
+timeouts. Optical first-frame timing remains unmeasured. The evidence is archived in
+`.local/validation/panel10-boot-splash-com24-2026-11-20/`.
+
+### Post-handoff lock follow-up, 2026-11-20
+
+The first timeout came 4.058 seconds after the splash closed and 362 ms after Home
+Assistant logged its initial state import. The 180-second clock idle deadline had yet to elapse.
+The 11 later warnings were spaced at roughly whole-second intervals. They began near the
+configured flip-clock entry time. The matching ELF contains a 20 ms lock request in the
+one-second `ui_runtime` refresh. An earlier COM24 diagnostic run sampled `lvgl_worker` as
+the holder on comparable `ui_runtime` waits. The 10:49:49 UART log lacks per-event task and
+caller addresses, so the exact first request and individual owners remain unverified.
+The Wi-Fi status-line fix finishes before Wi-Fi initialization, and splash dismissal deletes its timer.
+
+The adapter's LVGL timer now runs the periodic top-bar and screen-protection refresh.
+Home Assistant status, alert scans and weather snapshots skip a busy mutex and retry on a later tick.
+Panel10 lock errors include the waiter, caller PC and sampled holder context when available.
+The snapshot is taken after the wait expires. Use the matching ELF to resolve the PCs.
+
+The COM24 retest used the ESP-IDF v6.1 image stamped `Nov 20 2026 12:05:11` China Standard Time
+(`5b25a9eb-dirty`, ELF `420a6eefc`). Only `ota_1` at `0x6A0000` was written. The whole slot was read
+back and the application matched the image byte for byte. The pre-boot checks matched metadata/NVS,
+coredump, all LittleFS, the inactive slot and the unwritten tail. Boot 235 remained valid at 304 seconds.
+The 300.083-second UART capture contained zero LVGL lock timeouts. The count fell from 1 to 0 in the
+first eight seconds after handoff and from 11 to 0 around reset +206–225 seconds.
+The active clock overlay was sampled at reset +210 and +223 seconds. Two later snapshots showed
+advancing seconds. The owner saw the Wi-Fi prompt and confirmed the flip clock, touch wake and page
+switching. All nine pages, 36 widgets, saved settings and login protection matched. The LittleFS backup
+contained zero `.grph` files. Optical first-frame timing and on-device timeout attribution remain unverified.
+UART, readback and on-device evidence are archived in
+`.local/validation/panel10-post-splash-com24-2026-11-20/`.
+
+The review fixed an HA alert edge case. A busy status snapshot leaves the existing alert in place
+until a fresh sample arrives. Wi-Fi loss or disabling HA clears the HA alert. The ESP-IDF v6.1
+rebuild stamped `Nov 20 2026 15:37:58` China Standard Time (ELF `794a658a3`) was verified locally.
+All 17 selected simulator checks, HA and adapter host checks, and eight storage checks passed.
+The image fits the application slot with 32,240 bytes free. The image and build record are in
+`.local/validation/panel10-precommit-2026-11-20/`.
 
 ## Technical notes
 

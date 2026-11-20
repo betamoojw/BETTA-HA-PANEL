@@ -586,18 +586,22 @@ static void ui_runtime_refresh_topbar(void)
     size_t count;
     if (reports && coredump_archive_snapshot(reports, &count))
         for (unsigned i = 0; i < COREDUMP_STORE_LIMIT; i++) ui_alert_center_crash(i, i < count ? &reports[i] : NULL);
+    bool ha_connected = s_topbar_cache.ha_connected;
+    bool ha_initial_sync_done = s_topbar_cache.ha_initial_sync_done;
+    bool ha_status_available = ha_client_try_ui_status(&ha_connected, &ha_initial_sync_done);
+    bool wifi_connected = net_mgr_is_connected();
     uint64_t now_ms = esp_timer_get_time() / 1000;
-    unsigned failures = alert_policy_connections(now_ms, s_alert_wifi_expected, net_mgr_is_connected(),
-        s_alert_ha_expected, ha_client_is_connected(), s_alert_mqtt_expected, mqtt_mgr_is_connected());
-    if (failures & 1U)
+    unsigned connection_alerts = alert_policy_connections(now_ms, s_alert_wifi_expected, wifi_connected,
+        s_alert_ha_expected, ha_status_available, ha_connected, s_alert_mqtt_expected, mqtt_mgr_is_connected());
+    if (connection_alerts & ALERT_CONNECTION_WIFI_DOWN)
         ui_alert_center_set(UI_ALERT_WIFI, ui_i18n_get("alerts.wifi", "Wi-Fi disconnected"),
             ui_i18n_get("alerts.wifi_detail", "The panel cannot reach Wi-Fi. Check the access point and network settings. Reconnection is automatic."), 0);
     else ui_alert_center_clear(UI_ALERT_WIFI);
-    if (failures & 2U)
+    if (connection_alerts & ALERT_CONNECTION_HA_DOWN)
         ui_alert_center_set(UI_ALERT_HA, ui_i18n_get("alerts.ha", "Home Assistant disconnected"),
             ui_i18n_get("alerts.ha_detail", "Dashboard data may be stale. Check Home Assistant availability and the configured connection in Web Settings."), 0);
-    else ui_alert_center_clear(UI_ALERT_HA);
-    if (failures & 4U)
+    else if (!(connection_alerts & ALERT_CONNECTION_HA_KEEP)) ui_alert_center_clear(UI_ALERT_HA);
+    if (connection_alerts & ALERT_CONNECTION_MQTT_DOWN)
         ui_alert_center_set(UI_ALERT_MQTT, ui_i18n_get("alerts.mqtt", "MQTT disconnected"),
             ui_i18n_get("alerts.mqtt_detail", "MQTT notifications are unavailable. Check the broker and MQTT settings. Reconnection is automatic."), 0);
     else ui_alert_center_clear(UI_ALERT_MQTT);
@@ -607,10 +611,7 @@ static void ui_runtime_refresh_topbar(void)
     struct tm info = {0};
     localtime_r(&now, &info);
 
-    bool wifi_connected = net_mgr_is_connected();
     bool wifi_setup_ap_active = wifi_mgr_is_setup_ap_active();
-    bool ha_connected = ha_client_is_connected();
-    bool ha_initial_sync_done = ha_client_is_initial_sync_done();
 
     bool datetime_changed = !s_topbar_cache.valid || info.tm_min != s_topbar_cache.minute ||
                             info.tm_hour != s_topbar_cache.hour || info.tm_mday != s_topbar_cache.day ||
@@ -641,6 +642,14 @@ static void ui_runtime_refresh_topbar(void)
     s_topbar_cache.ha_connected = ha_connected;
     s_topbar_cache.ha_initial_sync_done = ha_initial_sync_done;
 }
+
+static void ui_runtime_periodic_refresh(void)
+{
+    ui_runtime_refresh_topbar();
+    ui_display_protection_poll();
+}
+
+static ui_periodic_refresh_t s_periodic_refresh = {.run = ui_runtime_periodic_refresh};
 
 static void ui_runtime_show_weather_icon_overlay(void)
 {
@@ -1557,7 +1566,9 @@ static void ui_runtime_check_alerts(const char *entity_id)
             continue;
         }
         ha_state_t state = {0};
-        if (!ha_model_get_state(alert->entity_id, &state)) {
+        bool found = entity_id ? ha_model_get_state(alert->entity_id, &state)
+                               : ha_model_try_get_state(alert->entity_id, &state) == ESP_OK;
+        if (!found) {
             continue;
         }
         bool is_event = strncmp(alert->entity_id, "event.", 6) == 0;
@@ -1769,7 +1780,6 @@ static void ui_runtime_task(void *arg)
 {
     (void)arg;
     int64_t last_reload_ms = -1000;
-    int64_t next_periodic_refresh_ms = esp_timer_get_time() / 1000 + UI_PERIODIC_REFRESH_MS;
     while (true) {
         ui_watchdog_beat_runtime();
         screen_settings_process(); /* Flash writes must run outside the LVGL lock. */
@@ -1818,19 +1828,13 @@ static void ui_runtime_task(void *arg)
 
         ui_runtime_reconcile_step(now_ms);
 
-        int64_t refresh_now_ms = esp_timer_get_time() / 1000;
-        if (ui_periodic_refresh_begin(refresh_now_ms, &next_periodic_refresh_ms) && display_lock(20)) {
-            ui_runtime_refresh_topbar();
-            ui_display_protection_poll();
-            display_unlock();
-        }
-
         vTaskDelay(pdMS_TO_TICKS(20));
     }
 }
 
 esp_err_t ui_runtime_init(void)
 {
+    if (s_initialized) return ESP_OK;
     esp_err_t err = ui_runtime_alloc_buffers();
     if (err != ESP_OK) {
         return err;
@@ -1838,6 +1842,10 @@ esp_err_t ui_runtime_init(void)
 
     if (!display_lock(UI_RUNTIME_LOCK_MS)) {
         return ESP_ERR_TIMEOUT;
+    }
+    if (!ui_periodic_refresh_create(&s_periodic_refresh)) {
+        display_unlock();
+        return ESP_ERR_NO_MEM;
     }
     s_topbar_cache.valid = false;
     theme_default_init();
@@ -1871,5 +1879,7 @@ esp_err_t ui_runtime_start(void)
 
     BaseType_t created =
         xTaskCreate(ui_runtime_task, "ui_runtime", APP_UI_TASK_STACK, NULL, APP_UI_TASK_PRIO, &s_ui_task);
-    return (created == pdPASS) ? ESP_OK : ESP_FAIL;
+    if (created != pdPASS) return ESP_FAIL;
+    atomic_store(&s_periodic_refresh.enabled, true);
+    return ESP_OK;
 }

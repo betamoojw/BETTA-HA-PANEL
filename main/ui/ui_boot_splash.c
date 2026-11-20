@@ -314,7 +314,7 @@ static lv_obj_t *splash_create_emblem(lv_obj_t *parent)
     return emblem;
 }
 
-esp_err_t ui_boot_splash_show(void)
+esp_err_t ui_boot_splash_show(const char *initial_status)
 {
     if (!display_is_ready()) {
         return ESP_ERR_INVALID_STATE;
@@ -397,6 +397,7 @@ esp_err_t ui_boot_splash_show(void)
 
     s_splash.status_line_count = 0;
     splash_add_status_line(ui_i18n_get("boot.initializing_system", "Initializing system"));
+    splash_add_status_line(initial_status);
     s_splash.progress_value = 0;
     s_manual_progress = false;
     s_splash.shown_at_ms = splash_now_ms();

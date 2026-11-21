@@ -845,7 +845,7 @@ function renderCanvas() {
     box.dataset.widgetId = widget.id;
     box.classList.toggle("overlapping", overlapping.has(widget.id));
     box.style.zIndex = isEmptyTile ? "1" : "10";
-    const previewId = widget.binding?.source === "knx" ? knxPreviewKey(widget.type, widget.binding.object_id) : widget.entity_id;
+    const previewId = widget.binding?.source === "knx" ? knxWidgetPreviewKey(widget) : widget.entity_id;
     const previewState = isEmptyTile ? "design" : (previewSourceState(previewId) || "unavailable");
     box.classList.toggle("matte-on", ["on", "open", "playing", "home"].includes(String(previewState).toLowerCase()));
     let extraHint = "";

@@ -20,7 +20,8 @@ void ui_knx_layout_changed(void)
 knx_view_result_t ui_knx_apply(ui_widget_instance_t *widget, ha_state_t *scratch)
 {
     knx_view_result_t result = knx_widget_read(widget->entity_id, knx_tile_kind(widget->type),
-                                               widget->knx_write_value, &widget->knx_revision, scratch);
+                                               widget->knx_write_value, widget->knx_controls,
+                                               &widget->knx_revision, scratch);
     if (result == KNX_VIEW_UPDATED) ui_widget_factory_apply_state(widget, scratch);
     else if (result == KNX_VIEW_BUSY && widget->knx_revision == 0) ui_widget_factory_mark_unavailable(widget);
     return result;

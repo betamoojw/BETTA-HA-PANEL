@@ -9,6 +9,9 @@ Changes of **this fork**, compared with upstream v0.8.2. The release notes of th
 Changes since [v0.9.2-rc1](#v092-rc1).
 
 - The layout editor can bind widgets directly to [KNX communication objects](knx.md#dashboard-widgets).
+  Choose a widget type first and assign commands and feedback separately. One Light can bind four
+  objects for switching and dimming. Existing single-object layouts still work. The Inspector
+  can rebind an RGB Light to another RGB object and clears the fixed value when a Scene changes target.
   External group writes and responses update the LCD, including multiple widgets and readable
   objects sharing an address. DPT 5.001 Sensor tiles show whole percentages on the panel and in
   the editor preview. Home Assistant and KNX widgets can share a dashboard.

@@ -10,7 +10,11 @@ const settings = fs.readFileSync(new URL("../../components/webui/www/js/settings
 const backupSource = settings.slice(settings.indexOf("async function backupGet("), settings.indexOf("function bindBackup("));
 const registry = {media_type:"knx_ip",comObjects:[{id:"lamp",name:"客厅灯",writable:true}]};
 const stored = {
-  "/api/layout":{pages:[]}, "/api/settings":{ui:{language:"en"},hardware:{rotation:180}},
+  "/api/layout":{pages:[{id:"room",widgets:[
+    {type:"slider",binding:{source:"knx",roles:{brightness_command:"A",brightness_feedback:"B"}}},
+    {type:"scene_tile",binding:{source:"knx",object_id:"pulse",value:"on"}},
+    {type:"sensor",entity_id:"sensor.room"}
+  ]}]}, "/api/settings":{ui:{language:"en"},hardware:{rotation:180}},
   "/api/themes":{themes:[]}, "/api/i18n/languages":{languages:[]},
   "/api/knx":{enabled:true}, "/api/knx/config":registry,
   "/api/camera/config":{local:{enabled:false,stream_enabled:false},sources:[{id:"door",source:"http",snapshot_url:"http://camera.test/jpeg",password_set:true}]}
@@ -39,6 +43,8 @@ test("full backup includes KNX configuration and enable preference without chang
   assert.deepEqual(backup.knx,{configuration:registry,enabled:true});
   assert.equal(backup.settings.ui.language,"en");assert.equal(backup.settings.hardware.rotation,180);
   const restore=setup(backup);await restore.run("restoreBackup()");
+  assert.deepEqual(backup.layout,stored["/api/layout"]);
+  assert.deepEqual(restore.writes.find(w=>w.path==="/api/layout").body,backup.layout);
   assert.deepEqual(restore.writes.slice(0,2),[
     {path:"/api/knx/config",body:registry},{path:"/api/knx",body:{enabled:true}}
   ]);

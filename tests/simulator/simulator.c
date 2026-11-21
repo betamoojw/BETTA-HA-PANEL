@@ -260,9 +260,8 @@ static void parse_widget_def(const cJSON *json, ui_widget_def_t *def)
     copy_field(def->entity_id, sizeof(def->entity_id), json, "entity_id");
     const cJSON *binding = cJSON_GetObjectItemCaseSensitive(json, "binding");
     if (binding) {
-        const char *object_id;
-        if (knx_layout_binding(binding, def->type, &object_id, &def->knx_write_value))
-            snprintf(def->entity_id, sizeof(def->entity_id), KNX_BINDING_PREFIX "%s", object_id);
+        if (knx_layout_binding(binding, def->type, &def->knx))
+            snprintf(def->entity_id, sizeof(def->entity_id), KNX_BINDING_PREFIX "%s", def->knx.primary);
     }
     copy_field(def->secondary_entity_id, sizeof(def->secondary_entity_id), json, "secondary_entity_id");
     copy_field(def->tertiary_entity_id, sizeof(def->tertiary_entity_id), json, "tertiary_entity_id");

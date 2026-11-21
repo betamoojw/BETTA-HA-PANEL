@@ -34,3 +34,39 @@ static inline knx_tile_kind_t knx_tile_kind(const char *type)
     if (!strcmp(type, "scene_tile")) return KNX_TILE_ACTION;
     return KNX_TILE_NONE;
 }
+
+/* The first four roles are independently routable control endpoints. */
+typedef enum {
+    KNX_SWITCH_COMMAND, KNX_SWITCH_FEEDBACK, KNX_BRIGHTNESS_COMMAND, KNX_BRIGHTNESS_FEEDBACK,
+    KNX_VALUE_FEEDBACK, KNX_NUMBER_FEEDBACK, KNX_FIXED_ACTION, KNX_ROLE_COUNT
+} knx_role_t;
+#define KNX_CONTROL_ROLES 4
+
+static inline const char *knx_role_name(knx_role_t role)
+{
+    static const char *const names[] = {"switch_command", "switch_feedback", "brightness_command",
+        "brightness_feedback", "value_feedback", "number_feedback", "action"};
+    return names[role];
+}
+
+static inline bool knx_tile_has_role(knx_tile_kind_t kind, knx_role_t role)
+{
+    switch (kind) {
+    case KNX_TILE_LIGHT: return role < KNX_CONTROL_ROLES;
+    case KNX_TILE_SWITCH: return role == KNX_SWITCH_COMMAND || role == KNX_SWITCH_FEEDBACK;
+    case KNX_TILE_SLIDER: return role == KNX_BRIGHTNESS_COMMAND || role == KNX_BRIGHTNESS_FEEDBACK;
+    case KNX_TILE_BINARY: return role == KNX_SWITCH_FEEDBACK;
+    case KNX_TILE_NUMBER: return role == KNX_NUMBER_FEEDBACK;
+    case KNX_TILE_VALUE: return role == KNX_VALUE_FEEDBACK;
+    case KNX_TILE_ACTION: return role == KNX_FIXED_ACTION;
+    default: return false;
+    }
+}
+
+/* Only interactive KNX widgets own this data. The LCD updates the capability
+ * flags and confirmed brightness together with the state under its display lock. */
+typedef struct {
+    char id[KNX_CONTROL_ROLES][KNX_OBJECT_ID_MAX + 1];
+    bool switch_writable, brightness_writable;
+    int brightness; /* -1 until external brightness feedback */
+} knx_control_binding_t;

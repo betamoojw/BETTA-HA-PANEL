@@ -418,7 +418,6 @@ setTextById("addBambuPrinterBtn", "layout.widgets.add_bambu_printer");
   setTextById("addPageMenuGroupSpecial", "layout.pages.menu_group_special");
   setTextById("addTileTitle", "add_tile.title");
   setTextById("knxSourceLabel", "knx.widget_source");
-  setTextById("knxTileObjectLabel", "knx.object");
   setTextById("knxTileTypeLabel", "knx.widget_type");
   setTextById("knxTileValueLabel", "knx.value");
   setTextById("knxTileApply", "knx.widget_use");

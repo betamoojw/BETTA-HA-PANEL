@@ -1,10 +1,17 @@
 /* SPDX-License-Identifier: LicenseRef-FNCL-1.1 | Copyright (c) 2026 andre68723 */
 const knxWidgetTypes = ["sensor", "gauge", "graph", "binary_tile", "contact_tile", "button", "slider", "light_tile", "scene_tile"];
+const knxTileRoles = {
+  sensor: ["value_feedback"], gauge: ["number_feedback"], graph: ["number_feedback"],
+  binary_tile: ["switch_feedback"], contact_tile: ["switch_feedback"],
+  button: ["switch_command", "switch_feedback"], slider: ["brightness_command", "brightness_feedback"],
+  light_tile: ["switch_command", "switch_feedback", "brightness_command", "brightness_feedback"], scene_tile: ["action"],
+};
 const knxField = id => document.getElementById(id);
 let knxPickerRequest = null;
 let knxPickerTarget = null;
 let knxPickerObjects = [];
 let knxPreview = new Map();
+let knxRegistry = new Map();
 let knxPreviewRequest = 0;
 let knxPreviewLoading = false;
 
@@ -12,10 +19,14 @@ function knxPreviewKey(type, id) { return `knx:${type}:${id}`; }
 
 function rememberKnxPreview(objects, routing) {
   const views = new Map();
+  knxRegistry = new Map(objects.map(o => [o.id, o]));
   for (const o of objects) {
-    for (const type of o.widget_types || []) {
+    const types = new Set(o.widget_types || []);
+    for (const [type, roles] of Object.entries(knxTileRoles))
+      if (roles.some(role => o.widget_roles?.includes(role))) types.add(type);
+    for (const type of types) {
       const live = routing === "running" && o.live_feedback && o.value != null;
-      let state = "unavailable", percent = 0;
+      let state = "unavailable", percent = null;
       if (type === "scene_tile" && routing === "running" && !live) state = "ready";
       else if (live) {
         if (typeof o.value === "boolean") state = o.value ? "on" : "off";
@@ -29,10 +40,35 @@ function rememberKnxPreview(objects, routing) {
       }
       const scaling = o.datapoint_type === "DPT-5.001";
       const unit = o.unit || (scaling ? "%" : "");
-      views.set(knxPreviewKey(type, o.id), {state, percent, unit, name: o.name, live, scalingSensor: scaling && type === "sensor"});
+      views.set(knxPreviewKey(type, o.id), {state, percent, unit, name: o.name, live,
+        rgb: o.datapoint_type?.startsWith("DPT-232"), dimmer: scaling || o.datapoint_type?.startsWith("DPT-232"),
+        precision: o.display_precision, scalingSensor: scaling && type === "sensor"});
     }
   }
   knxPreview = views;
+}
+
+// Separate composite keys keep lights sharing a switch but using different dimmers independent.
+function knxWidgetPreviewKey(widget) {
+  const {type, binding} = widget, roles = binding.roles;
+  if (!roles) {
+    if (type === "light_tile" && !knxRegistry.get(binding.object_id)?.widget_types?.includes(type)) return "knx:missing";
+    return knxPreviewKey(type, binding.object_id);
+  }
+  const feedbackRole = knxTileRoles[type]?.find(r => r.endsWith("_feedback")) || "action";
+  if (type !== "light_tile") {
+    const id = roles[feedbackRole];
+    const valid = knxRegistry.get(id)?.widget_roles?.includes(feedbackRole);
+    return valid ? knxPreviewKey(type, id) : "knx:missing";
+  }
+  const key = `knx:roles:light:${JSON.stringify(knxTileRoles[type].map(r => roles[r]))}`;
+  const feedback = role => knxRegistry.get(roles[role])?.widget_roles?.includes(role)
+    ? knxPreview.get(knxPreviewKey(type, roles[role])) : null;
+  const power = feedback("switch_feedback"), level = feedback("brightness_feedback");
+  knxPreview.set(key, {state: power?.live ? power.state : "unavailable",
+    percent: level?.live ? level.percent : null, live: !!(power?.live || level?.live),
+    dimmer: !!(roles.brightness_command || roles.brightness_feedback)});
+  return key;
 }
 
 function previewSourceState(key) {
@@ -48,7 +84,7 @@ async function refreshKnxWidgetPreview() {
     const page = await fetchKnxWidgetObjects(controller.signal);
     if (seq === knxPreviewRequest) rememberKnxPreview(page.objects, page.state);
   } catch (_) {
-    if (seq === knxPreviewRequest) knxPreview.clear();
+    if (seq === knxPreviewRequest) rememberKnxPreview([], "disabled");
   } finally { clearTimeout(timer); knxPreviewLoading = false; }
   if (seq === knxPreviewRequest) renderCanvas();
 }
@@ -79,7 +115,7 @@ function replaceKnxOptions(select, entries) {
   select.replaceChildren(...options);
 }
 
-// The device advertises compatible tiles using the same DPT/permission rules as the LCD.
+// The device advertises the roles actually accepted by the command and feedback paths.
 async function fetchKnxWidgetObjects(signal) {
   const objects = [];
   let offset = 0, generation;
@@ -95,42 +131,118 @@ async function fetchKnxWidgetObjects(signal) {
   }
 }
 
-function renderKnxWriteValue(reset) {
-  const object = knxPickerObjects[Number(knxField("knxTileObject").value)];
-  const action = knxField("knxTileType").value === "scene_tile";
-  knxField("knxTileValueWrap").classList.toggle("hidden", !action);
-  const input = knxField("knxTileValue");
-  if (reset) {
-    const existing = knxPickerTarget?.widget?.binding;
-    input.value = existing?.object_id === object?.id ? existing?.value ?? "" : "";
+function knxLegacyRoles(widget, objects) {
+  const {type, binding} = widget;
+  if (binding.roles) return {...binding.roles};
+  let roles = knxTileRoles[type];
+  if (type === "light_tile") {
+    const dpt = objects.find(o => o.id === binding.object_id)?.datapoint_type;
+    if (dpt?.startsWith("DPT-1.") || dpt === "DPT-1") roles = knxTileRoles.button;
+    else if (dpt === "DPT-5.001") roles = knxTileRoles.slider;
+    else return {}; // Keep an existing RGB or missing light intact until explicitly rebound.
   }
-  knxField("knxTileFormat").textContent = action ? (object?.value_format || "") : "";
-  const validValue = !action || layoutJsonBytes(input.value) <= 255 &&
-    (input.value.length > 0 || ["DPT-16", "DPT-24", "DPT-28"].includes(object?.datapoint_type?.split(".")[0]));
-  knxField("knxTileApply").disabled = !object || !knxField("knxTileType").value || !validValue;
+  return Object.fromEntries(roles.map(role => [role, binding.object_id]));
 }
 
-function renderKnxTileTypes(preferred) {
-  const object = knxPickerObjects[Number(knxField("knxTileObject").value)];
-  const select = knxField("knxTileType");
-  const types = (object?.widget_types || []).filter(type =>
-    knxWidgetTypes.includes(type) && (!knxPickerTarget?.widget || type === knxPickerTarget.widget.type));
-  replaceKnxOptions(select, types.map(type => [type, widgetTypeLabel(type)]));
-  if (types.includes(preferred)) select.value = preferred;
-  renderKnxWriteValue(true);
+function knxObjectLabel(o) {
+  const access = [o.readable && "R", o.writable && "W"].filter(Boolean).join("/");
+  return [o.name, o.id, o.group_address, o.datapoint_type, access].join(" · ");
+}
+
+function knxObjectField(id, caption, candidates, current) {
+  const label = document.createElement("label"), title = document.createElement("span");
+  title.textContent = caption;
+  const select = document.createElement("select");
+  select.id = id;
+  const entries = [["", t("knx.unbound")], ...candidates.map(o => [o.id, knxObjectLabel(o)])];
+  const unavailable = current && !candidates.some(o => o.id === current);
+  if (unavailable) entries.push([current, current + " · " + t("knx.unknown")]);
+  replaceKnxOptions(select, entries);
+  if (unavailable) select.options[select.options.length - 1].disabled = true;
+  select.value = current;
+  label.append(title, select);
+  return {label, select, unavailable};
+}
+
+function knxRoleHint(role) {
+  const read = role.endsWith("_feedback");
+  const dpt = role.startsWith("brightness_") ? "DPT 5.001" : role.startsWith("switch_") ? "DPT 1"
+    : t(role === "number_feedback" ? "knx.numeric_dpt" : "knx.any_dpt");
+  return t(read ? "knx.need_read" : "knx.need_write", {dpt});
+}
+
+function updateKnxApply() {
+  const target = knxPickerTarget;
+  if (!target) return;
+  const {type, roles} = target, action = type === "scene_tile";
+  const o = knxPickerObjects.find(entry => entry.id === roles.action);
+  knxField("knxTileValueWrap").classList.toggle("hidden", !action);
+  knxField("knxTileFormat").textContent = action ? o?.value_format || "" : "";
+  const input = knxField("knxTileValue");
+  const saved = target.widget?.binding;
+  const validValue = !action || layoutJsonBytes(input.value) <= 255 &&
+    (input.value.length > 0 || ["DPT-16", "DPT-24", "DPT-28"].includes(o?.datapoint_type?.split(".")[0]) ||
+     (!o && saved?.value === "" && roles.action === (saved.object_id || saved.roles?.action)));
+  knxField("knxTileApply").disabled = !type || (!target.objectId && !Object.values(roles).some(Boolean)) || !validValue;
+}
+
+function knxLegacyRgbField(target) {
+  if (target.type !== "light_tile" || !target.widget?.binding?.object_id) return null;
+  const candidates = knxPickerObjects.filter(o =>
+    o.datapoint_type?.split(".")[0] === "DPT-232" && o.widget_types?.includes("light_tile"));
+  if (!candidates.length) return null;
+  const current = Object.keys(target.roles).length ? "" : target.objectId;
+  const field = knxObjectField("knxTileRgbObject", t("knx.object") + " · RGB", candidates, current);
+  field.select.onchange = () => {
+    const id = field.select.value;
+    if (id === current || (id && !candidates.some(o => o.id === id))) return;
+    target.objectId = id;
+    target.roles = {};
+    target.edited = true;
+    renderKnxRoles();
+    knxField("knxTileRgbObject").focus();
+  };
+  return field;
+}
+
+function renderKnxRoles() {
+  const target = knxPickerTarget;
+  if (!target) return;
+  const rgb = knxLegacyRgbField(target);
+  const rows = rgb ? [rgb.label] : [];
+  const roles = rgb?.select.value ? [] : knxTileRoles[target.type] || [];
+  for (const role of roles) {
+    const candidates = knxPickerObjects.filter(o => o.widget_roles?.includes(role));
+    const {label, select, unavailable} = knxObjectField("knxRole_" + role, t(`knx.role_${role}`),
+      candidates, target.roles[role] || "");
+    const hint = document.createElement("span");
+    hint.id = select.id + "_hint";
+    hint.className = "meta no-shorten";
+    select.setAttribute("aria-describedby", hint.id);
+    hint.textContent = !candidates.length || unavailable ? knxRoleHint(role) : "";
+    select.onchange = () => {
+      if (select.value === (target.roles[role] || "")) return;
+      if (select.value && !candidates.some(o => o.id === select.value)) return;
+      if (role === "action") knxField("knxTileValue").value = "";
+      target.objectId = "";
+      if (select.value) target.roles[role] = select.value;
+      else delete target.roles[role];
+      target.edited = true;
+      hint.textContent = candidates.length ? "" : knxRoleHint(role);
+      updateKnxApply();
+    };
+    label.append(hint);
+    rows.push(label);
+  }
+  knxField("knxTileRoles").replaceChildren(...rows);
+  updateKnxApply();
 }
 
 async function loadKnxWidgetPicker() {
   knxPickerRequest?.abort();
-  const request = new AbortController();
+  const request = new AbortController(), target = knxPickerTarget;
   knxPickerRequest = request;
-  const target = knxPickerTarget;
-  const select = knxField("knxTileObject"), status = knxField("knxTileStatus");
-  const previous = knxPickerObjects[Number(select.value)]?.id || target?.widget?.binding?.object_id;
-  const preferredType = target?.widget?.type || knxField("knxTileType").value;
-  knxPickerObjects = [];
-  replaceKnxOptions(select, []);
-  renderKnxTileTypes();
+  const status = knxField("knxTileStatus");
   status.textContent = t("entity_picker.pending");
   const timer = setTimeout(() => request.abort(), 12000);
   try {
@@ -138,16 +250,18 @@ async function loadKnxWidgetPicker() {
     if (request !== knxPickerRequest) return;
     ++knxPreviewRequest;
     rememberKnxPreview(objects, state);
-    knxPickerObjects = objects.filter(o => Array.isArray(o.widget_types) &&
-      (target?.widget ? o.widget_types.includes(target.widget.type) : o.widget_types.length));
-    replaceKnxOptions(select, knxPickerObjects.map((o, i) =>
-      [String(i), [o.name, o.id, o.group_address, o.datapoint_type].join(" · ")]));
-    const index = knxPickerObjects.findIndex(o => o.id === previous);
-    if (index >= 0) select.value = String(index);
-    renderKnxTileTypes(preferredType);
-    status.textContent = knxPickerObjects.length ? t(`knx.state.${state}`) : t("knx.widget_empty");
-  } catch (error) {
-    if (request === knxPickerRequest) status.textContent = t("knx.failed");
+    knxPickerObjects = objects;
+    if (!target.edited && target.widget?.binding?.source === "knx")
+      target.roles = knxLegacyRoles(target.widget, objects);
+    renderKnxRoles();
+    status.textContent = target.objectId && !objects.some(o => o.id === target.objectId)
+      ? t("knx.single_binding", {id: target.objectId}) : t(`knx.state.${state}`);
+  } catch (_) {
+    if (request === knxPickerRequest) {
+      knxPickerObjects = [];
+      renderKnxRoles();
+      status.textContent = t("knx.failed");
+    }
   } finally {
     clearTimeout(timer);
     if (request === knxPickerRequest) knxPickerRequest = null;
@@ -156,21 +270,31 @@ async function loadKnxWidgetPicker() {
 
 function startKnxWidgetPicker(widget = null) {
   closeAddTileDialog(); // Cancel HA discovery and ignore late results after a source switch.
-  knxPickerTarget = {page: selectedPage(), widget};
+  const type = widget?.type || "";
+  knxPickerTarget = {page: selectedPage(), widget, type, edited: false, objectId: widget?.binding?.object_id || "",
+    roles: widget?.binding?.source === "knx" ? knxLegacyRoles(widget, []) : {}};
+  const select = knxField("knxTileType");
+  const entries = widget ? [[type, widgetTypeLabel(type)]]
+    : [["", t("knx.widget_type")], ...knxWidgetTypes.map(id => [id, widgetTypeLabel(id)])];
+  replaceKnxOptions(select, entries);
+  select.value = type;
+  select.disabled = !!widget;
+  knxField("knxTileValue").value = widget?.binding?.value ?? "";
+  renderKnxRoles();
   showWidgetSource("knx");
   el.addTileOverlay.classList.remove("hidden");
-  knxField("knxTileObject").focus();
+  select.focus();
   return loadKnxWidgetPicker();
 }
 
 function useKnxWidgetObject() {
   const target = knxPickerTarget;
-  const o = knxPickerObjects[Number(knxField("knxTileObject").value)];
-  const type = knxField("knxTileType").value;
-  if (!target || selectedPage() !== target.page || !o?.widget_types.includes(type) ||
-      knxField("knxTileApply").disabled) return;
-  const binding = {source: "knx", object_id: o.id};
+  if (!target || selectedPage() !== target.page || knxField("knxTileApply").disabled) return;
+  const {type, roles} = target;
+  const binding = target.objectId
+    ? {...target.widget.binding, object_id: target.objectId} : {source: "knx", roles: {...roles}};
   if (type === "scene_tile") binding.value = knxField("knxTileValue").value;
+  const first = knxPickerObjects.find(o => o.id === Object.values(roles)[0]);
   if (target.widget) {
     if (selectedWidget() !== target.widget || type !== target.widget.type) return;
     layoutHistoryBoundary();
@@ -184,7 +308,7 @@ function useKnxWidgetObject() {
     delete target.widget.history_popup;
     if (type === "button") target.widget.button_mode = DEFAULT_BUTTON_MODE;
     renderAll();
-  } else if (!addWidget(type, {entityId: "", title: o.name, binding})) return;
+  } else if (!addWidget(type, {entityId: "", title: first?.name || widgetTypeLabel(type), binding})) return;
   closeAddTileDialog();
 }
 
@@ -192,7 +316,8 @@ function renderKnxInspector(widget) {
   knxField("knxInspectorBinding")?.classList.toggle("hidden", !knxWidgetTypes.includes(widget?.type));
   const binding = widget?.binding, current = knxField("knxInspectorCurrent");
   knxField("knxInspectorHa")?.classList.toggle("hidden", binding?.source !== "knx");
-  if (current) current.textContent = binding?.source === "knx" ? `KNX · ${binding.object_id}` : "";
+  if (current) current.textContent = binding?.source === "knx" ? binding.object_id || Object.entries(binding.roles || {})
+    .map(([role, id]) => t(`knx.role_${role}`) + " · " + id).join(" / ") : "";
   for (const input of [el.fHistoryPopup, el.fGraphHaHistory, el.fSliderEntityDomain, el.fButtonMode, el.fSensorView])
     if (input) input.disabled = binding?.source === "knx";
 }
@@ -203,9 +328,14 @@ function bindKnxWidgetPicker() {
   source.onchange = () => source.value === "knx" ? startKnxWidgetPicker() : openAddTileDialog();
   knxField("knxInspectorChoose").onclick = () => startKnxWidgetPicker(selectedWidget());
   knxField("knxInspectorHa").onclick = () => openInspectorEntityPicker("primary");
-  knxField("knxTileObject").onchange = () => renderKnxTileTypes();
-  knxField("knxTileType").onchange = () => renderKnxWriteValue(true);
-  knxField("knxTileValue").oninput = () => renderKnxWriteValue(false);
+  knxField("knxTileType").onchange = () => {
+    if (!knxPickerTarget || knxPickerTarget.widget) return;
+    knxPickerTarget.type = knxField("knxTileType").value;
+    knxPickerTarget.roles = {};
+    knxField("knxTileValue").value = "";
+    renderKnxRoles();
+  };
+  knxField("knxTileValue").oninput = updateKnxApply;
   knxField("knxTileApply").onclick = useKnxWidgetObject;
   knxField("knxTileReload").onclick = loadKnxWidgetPicker;
 }

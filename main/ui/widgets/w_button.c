@@ -15,7 +15,7 @@
 #include "ui/theme/ui_style.h"
 #include "ui/ui_i18n.h"
 #include "ui/ui_bindings.h"
-#include "layout/knx_binding.h"
+#include "ui/ui_knx_control.h"
 #include "ui/ui_memory.h"
 
 typedef enum {
@@ -28,6 +28,7 @@ typedef enum {
 
 typedef struct {
     char entity_id[APP_MAX_ENTITY_ID_LEN];
+    knx_control_binding_t *knx;
     lv_obj_t *card;
     lv_obj_t *title_label;
     lv_obj_t *state_label;
@@ -484,7 +485,7 @@ static void button_apply_visual(lv_obj_t *card, w_button_ctx_t *ctx, bool is_on,
             ui_style_inset_effects(ctx->action_switch);
             ui_style_drop_shadow(ctx->action_switch, LV_PART_KNOB);
 
-            if (unavailable) {
+            if (ctx->knx ? !ctx->knx->switch_writable : unavailable) {
                 lv_obj_add_state(ctx->action_switch, LV_STATE_DISABLED);
             } else {
                 lv_obj_clear_state(ctx->action_switch, LV_STATE_DISABLED);
@@ -542,6 +543,10 @@ static void button_run_primary_action(w_button_ctx_t *ctx)
     }
 
     if (button_mode_uses_switch(ctx->mode)) {
+        if (ctx->knx) {
+            (void)knx_widget_control_roles(ctx->knx, KNX_TOGGLE, 0);
+            return;
+        }
         bool next = !ctx->is_on;
         if (ui_bindings_toggle_entity(ctx->entity_id) == ESP_OK && !knx_binding_id(ctx->entity_id)) {
             button_apply_visual(ctx->card, ctx, next, false, next ? "ON" : "OFF");
@@ -586,7 +591,7 @@ static void w_button_switch_event_cb(lv_event_t *event)
     }
 
     w_button_ctx_t *ctx = (w_button_ctx_t *)lv_event_get_user_data(event);
-    if (ctx == NULL || ctx->suppress_event || ctx->unavailable || !button_mode_uses_switch(ctx->mode)) {
+    if (ctx == NULL || ctx->suppress_event || (!ctx->knx && ctx->unavailable) || !button_mode_uses_switch(ctx->mode)) {
         return;
     }
 
@@ -596,9 +601,19 @@ static void w_button_switch_event_cb(lv_event_t *event)
     }
 
     bool checked = lv_obj_has_state(sw, LV_STATE_CHECKED);
-    if (knx_binding_id(ctx->entity_id)) {
-        (void)ui_bindings_set_entity_power(ctx->entity_id, checked);
-        button_apply_visual(ctx->card, ctx, ctx->is_on, false, ctx->is_on ? "ON" : "OFF");
+    if (ctx->knx) {
+        /* With no confirmed position, either half must still accept an explicit target. */
+        lv_indev_t *input = lv_indev_active();
+        if (ctx->unavailable && input && lv_indev_get_type(input) == LV_INDEV_TYPE_POINTER) {
+            lv_point_t touch;
+            lv_area_t bounds;
+            lv_indev_get_point(input, &touch);
+            lv_obj_get_coords(sw, &bounds);
+            checked = touch.x > (bounds.x1 + bounds.x2) / 2;
+        }
+        (void)knx_widget_control_roles(ctx->knx, KNX_SET_POWER, checked);
+        button_apply_visual(ctx->card, ctx, ctx->is_on, ctx->unavailable,
+                            ctx->unavailable ? "unavailable" : ctx->is_on ? "ON" : "OFF");
     } else if (ui_bindings_toggle_entity(ctx->entity_id) == ESP_OK) {
         button_apply_visual(ctx->card, ctx, checked, false, checked ? "ON" : "OFF");
     }
@@ -664,11 +679,12 @@ esp_err_t w_button_create(const ui_widget_def_t *def, lv_obj_t *parent, ui_widge
     lv_label_set_text(action_icon, "");
     lv_obj_set_hidden(action_icon, true);
 
-    w_button_ctx_t *ctx = ui_calloc_prefer_psram(1, sizeof(w_button_ctx_t));
+    w_button_ctx_t *ctx = ui_knx_control_context(sizeof(*ctx), def, out_instance);
     if (ctx == NULL) {
         lv_obj_del(card);
         return ESP_ERR_NO_MEM;
     }
+    ctx->knx = out_instance->knx_controls;
     snprintf(ctx->entity_id, sizeof(ctx->entity_id), "%s", def->entity_id);
     ctx->card = card;
     ctx->title_label = title;

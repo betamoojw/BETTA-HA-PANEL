@@ -122,14 +122,14 @@ esp_err_t w_scene_create(const ui_widget_def_t *def, lv_obj_t *parent, ui_widget
     if (def == NULL || parent == NULL || out_instance == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
-    size_t preset_size = def->knx_write_value ? strlen(def->knx_write_value) + 1 : 0;
+    size_t preset_size = def->knx.preset ? strlen(def->knx.preset) + 1 : 0;
     w_scene_ctx_t *ctx = ui_calloc_prefer_psram(1, sizeof(*ctx) + preset_size);
     if (ctx == NULL) {
         return ESP_ERR_NO_MEM;
     }
     strlcpy(ctx->entity_id, def->entity_id, sizeof(ctx->entity_id));
     if (preset_size) {
-        memcpy(ctx->preset, def->knx_write_value, preset_size);
+        memcpy(ctx->preset, def->knx.preset, preset_size);
         out_instance->knx_write_value = ctx->preset;
     }
 

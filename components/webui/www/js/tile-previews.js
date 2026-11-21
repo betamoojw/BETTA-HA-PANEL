@@ -251,9 +251,10 @@ function previewLocalizeNumber(text) {
     ? text.replace(".", ",") : text;
 }
 
-function previewSensorNumber(raw, unit, dc, mode, scaling = false) {
+function previewSensorNumber(raw, unit, dc, mode, scaling = false, precision) {
   const numeric = /^[+-]?\d*\.?\d*$/.test(raw) && /\d/.test(raw);
-  let number = scaling && numeric ? Number(raw).toFixed(0) : raw;
+  const digits = Number.isInteger(precision) && precision >= 0 && precision <= 6 ? precision : 0;
+  let number = scaling && numeric ? Number(raw).toFixed(digits) : raw;
   if (numeric && mode === "auto") {
     const ladder = PREVIEW_UNIT_LADDERS.find((units) => units.includes(unit));
     let value = Number(raw);
@@ -360,7 +361,7 @@ function previewSensorValue(widget) {
   if (text === null && dc === "enum" && /^[a-z0-9_]*[a-z][a-z0-9_]*$/.test(raw)) {
     text = raw.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
   }
-  if (text === null) text = previewSensorNumber(raw, unit, dc, widget.sensor_unit || "", knxPreview.get(id)?.scalingSensor);
+  if (text === null) text = previewSensorNumber(raw, unit, dc, widget.sensor_unit || "", knxPreview.get(id)?.scalingSensor, knxPreview.get(id)?.precision);
   return escapeHtml(text);
 }
 
@@ -721,8 +722,8 @@ function previewWeekday(offset) {
 
 function tilePreviewMarkup(widget) {
   if (widget.binding?.source === "knx") {
-    const key = knxPreviewKey(widget.type, widget.binding.object_id);
-    if (!knxPreview.get(key)?.live && previewSourceState(key) === "unavailable") {
+    const key = knxWidgetPreviewKey(widget);
+    if (widget.type !== "light_tile" && !knxPreview.get(key)?.live && previewSourceState(key) === "unavailable") {
       return `<div class="tp tp-sensor">${widgetNamePreview(widget, "small")}<b>--</b></div><div class="resize-handle"></div>`;
     }
     widget = { ...widget, entity_id: key };
@@ -1117,9 +1118,15 @@ function tilePreviewMarkup(widget) {
       // Like the panel: state and brightness on top, colour wheel, the lamp, the name and the brightness slider; a light that
       // is off reads OFF and 0 % with a grey lamp (the brightness itself is not known to the editor).
       {
-        const off = previewEntityState(widget.entity_id) === "off";
-        const pct = knxPreview.get(widget.entity_id)?.percent ?? (off ? 0 : 70);
-        return `<div class="tp tp-light${off ? " tp-light-off" : ""}"><div class="tp-light-top"><span>${escapeHtml(off ? t("layout.preview.off", {}, "OFF") : t("layout.preview.on", {}, "ON"))}</span><span class="tp-light-pct">${pct} %<i class="tp-wheel"></i></span></div><svg class="tp-bulb-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21h6M10 18.5h4M12 2.8a6.2 6.2 0 0 0-3.6 11.2c.3.3.6.7.6 1.2v1.3h6v-1.3c0-.5.3-.9.6-1.2A6.2 6.2 0 0 0 12 2.8z" fill="none" stroke="${off ? "#8a9aa8" : "#ff9d3d"}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>${name('b', '')}<div class="tp-bar tp-bar-knob"><i style="width:${pct}%"></i><u style="left:${pct}%"></u></div><div class="tp-switch tp-matte-switch"><i></i></div></div>${handle}`;
+        const knx = widget.binding?.source === "knx", view = knxPreview.get(widget.entity_id);
+        const power = previewEntityState(widget.entity_id), off = knx ? power !== "on" : power === "off";
+        const pct = knx ? view?.percent : off ? 0 : 70;
+        const dimmer = !knx || (view?.dimmer ?? pct != null);
+        const status = knx && power !== "on" && power !== "off" ? "--"
+          : escapeHtml(off ? t("layout.preview.off", {}, "OFF") : t("layout.preview.on", {}, "ON"));
+        const level = pct == null ? "--" : pct + " %";
+        const wheel = !knx || (!widget.binding.roles && view?.rgb) ? '<i class="tp-wheel"></i>' : "";
+        return `<div class="tp tp-light${off ? " tp-light-off" : ""}"><div class="tp-light-top"><span>${status}</span>${dimmer ? `<span class="tp-light-pct">${level}${wheel}</span>` : ""}</div><svg class="tp-bulb-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21h6M10 18.5h4M12 2.8a6.2 6.2 0 0 0-3.6 11.2c.3.3.6.7.6 1.2v1.3h6v-1.3c0-.5.3-.9.6-1.2A6.2 6.2 0 0 0 12 2.8z" fill="none" stroke="${off ? "#8a9aa8" : "#ff9d3d"}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>${name('b', '')}${dimmer ? `<div class="tp-bar tp-bar-knob"><i style="width:${pct ?? 0}%"></i><u style="left:${pct ?? 0}%"></u></div>` : ""}<div class="tp-switch tp-matte-switch"><i></i></div></div>${handle}`;
       }
     case "heating_tile": {
       // The default style shows target, current temperature and the action under the ring (like w_heating_tile.c);

@@ -165,7 +165,15 @@ def local_knx_object(obj):
         if scaling: types.append('slider')
         if family in ('1', '232') or scaling: types.append('light_tile')
     if write: types.append('scene_tile')
-    return dict(obj, valid=False, live_feedback=False, widget_types=types)
+    roles = []
+    if family == '1' and write: roles.append('switch_command')
+    if family == '1' and read: roles.append('switch_feedback')
+    if scaling and write: roles.append('brightness_command')
+    if scaling and read: roles.append('brightness_feedback')
+    if read: roles.append('value_feedback')
+    if numeric and read: roles.append('number_feedback')
+    if write: roles.append('action')
+    return dict(obj, valid=False, live_feedback=False, widget_types=types, widget_roles=roles)
 
 
 class Store:

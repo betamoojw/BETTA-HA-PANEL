@@ -529,6 +529,74 @@ static void slider_unavailable_test(void)
     CHECK(sim_host_slider_sets() == before + 2 && sim_host_slider_last() == 55);
 }
 
+static void knx_roles_test(void)
+{
+    lv_screen_load(lv_obj_create(NULL));
+    ui_widget_def_t def = {.w = 360, .h = 240};
+    ui_widget_instance_t slider = {0}, light = {0};
+    def.knx.controls[KNX_BRIGHTNESS_COMMAND] = "A";
+    def.knx.controls[KNX_BRIGHTNESS_FEEDBACK] = "B";
+    strcpy(def.entity_id, "knx:B");
+    CHECK(w_slider_create(&def, lv_screen_active(), &slider) == ESP_OK);
+    lv_obj_t *bar = find_slider(slider.obj);
+    ha_state_t state = {0};
+    strcpy(state.entity_id, def.entity_id);
+    strcpy(state.state, "unavailable");
+    slider.knx_controls->brightness_writable = true;
+    w_slider_apply_state(&slider, &state);
+    CHECK(!lv_obj_has_state(bar, LV_STATE_DISABLED));
+    unsigned before = sim_knx_writes();
+    drag_slider(bar, 80);
+    CHECK(sim_knx_writes() == before + 1 && sim_knx_last_write("A", KNX_SET_PERCENT, 80));
+    CHECK(lv_slider_get_value(bar) == 0 && label(slider.obj, "--"));
+    strcpy(state.state, "62");
+    slider.knx_controls->brightness = 62;
+    w_slider_apply_state(&slider, &state);
+    CHECK(lv_slider_get_value(bar) == 62 && label(slider.obj, "62 %"));
+    lv_obj_send_event(bar, LV_EVENT_PRESSED, NULL);
+    lv_slider_set_value(bar, 90, LV_ANIM_OFF);
+    lv_obj_send_event(bar, LV_EVENT_VALUE_CHANGED, NULL);
+    strcpy(state.state, "31");
+    slider.knx_controls->brightness = 31;
+    w_slider_apply_state(&slider, &state);
+    lv_obj_send_event(bar, LV_EVENT_RELEASED, NULL);
+    CHECK(sim_knx_writes() == before + 2 && sim_knx_last_write("A", KNX_SET_PERCENT, 90));
+    CHECK(lv_slider_get_value(bar) == 31);
+
+    def.knx.controls[KNX_SWITCH_COMMAND] = "P";
+    def.knx.controls[KNX_SWITCH_FEEDBACK] = "S";
+    CHECK(w_light_tile_create(&def, lv_screen_active(), &light) == ESP_OK);
+    bar = find_slider(light.obj);
+    light.knx_controls->switch_writable = light.knx_controls->brightness_writable = true;
+    strcpy(state.state, "off");
+    light.knx_controls->brightness = 62;
+    w_light_tile_apply_state(&light, &state);
+    CHECK(lv_slider_get_value(bar) == 62 && label(light.obj, "OFF"));
+    drag_slider(bar, 80);
+    CHECK(sim_knx_last_write("A", KNX_SET_PERCENT, 80) && lv_slider_get_value(bar) == 62);
+    lv_obj_send_event(light.obj, LV_EVENT_CLICKED, NULL);
+    CHECK(sim_knx_last_write("P", KNX_TOGGLE, 0) && label(light.obj, "OFF"));
+    light.knx_controls->brightness = 20;
+    w_light_tile_apply_state(&light, &state);
+    CHECK(lv_slider_get_value(bar) == 20 && label(light.obj, "OFF"));
+    lv_obj_send_event(bar, LV_EVENT_PRESSED, NULL);
+    lv_slider_set_value(bar, 90, LV_ANIM_OFF);
+    lv_obj_send_event(bar, LV_EVENT_VALUE_CHANGED, NULL);
+    light.knx_controls->brightness = 12;
+    w_light_tile_apply_state(&light, &state);
+    CHECK(lv_slider_get_value(bar) == 90);
+    lv_obj_send_event(bar, LV_EVENT_PRESS_LOST, NULL);
+    CHECK(sim_knx_writes() == before + 4 && lv_slider_get_value(bar) == 12);
+    def.knx.controls[KNX_BRIGHTNESS_COMMAND] = def.knx.controls[KNX_BRIGHTNESS_FEEDBACK] = NULL;
+    ui_widget_instance_t switch_only = {0};
+    CHECK(w_light_tile_create(&def, lv_screen_active(), &switch_only) == ESP_OK);
+    switch_only.knx_controls->switch_writable = true;
+    w_light_tile_apply_state(&switch_only, &state);
+    CHECK(lv_obj_is_hidden(find_slider(switch_only.obj)));
+    lv_obj_send_event(switch_only.obj, LV_EVENT_CLICKED, NULL);
+    CHECK(sim_knx_writes() == before + 5 && sim_knx_last_write("P", KNX_TOGGLE, 0));
+}
+
 int sim_controls_regression(void)
 {
     now = lv_tick_get(); lv_tick_set_cb(tick);
@@ -546,6 +614,7 @@ int sim_controls_regression(void)
     phase = "light"; light_test(); phase = "vacuum"; vacuum_test();
     phase = "cached favorites"; cached_favorites_test();
     phase = "slider unavailable"; slider_unavailable_test();
+    phase = "KNX bindings"; knx_roles_test();
     void sim_alarm_panel_regression(void (*delay)(uint32_t));
     phase = "alarm panel"; sim_alarm_panel_regression(weather_delay);
     /* A fixture can contain more entities than widget slots. Keep the firmware model's capacity. */

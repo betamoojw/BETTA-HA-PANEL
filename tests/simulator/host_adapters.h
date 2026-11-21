@@ -5,6 +5,10 @@
 
 #include "ha/ha_model.h"
 #include "cJSON.h"
+#include "knx/knx_widget.h"
+
+unsigned sim_knx_writes(void);
+bool sim_knx_last_write(const char *id, knx_widget_action_t action, int value);
 #include "ha/ha_energy_model.h"
 #include "ha/ha_camera_stream.h"
 

@@ -60,6 +60,25 @@ bool ha_model_get_entity_name(const char *entity_id, char *out, size_t out_len)
     return false;
 }
 
+static struct { unsigned calls; knx_widget_action_t action; int value; char id[KNX_OBJECT_ID_MAX+1]; } knx_write;
+
+esp_err_t knx_widget_control_roles(const knx_control_binding_t *controls, knx_widget_action_t action, int value)
+{
+    const char *id = controls->id[action == KNX_SET_PERCENT ? KNX_BRIGHTNESS_COMMAND : KNX_SWITCH_COMMAND];
+    if (!*id) return ESP_ERR_INVALID_ARG;
+    knx_write.calls++;
+    knx_write.action = action;
+    knx_write.value = value;
+    strcpy(knx_write.id, id);
+    return ESP_OK;
+}
+
+unsigned sim_knx_writes(void) { return knx_write.calls; }
+bool sim_knx_last_write(const char *id, knx_widget_action_t action, int value)
+{
+    return !strcmp(knx_write.id, id) && knx_write.action == action && knx_write.value == value;
+}
+
 /* Fixed-value actions use the same simulator transport boundary as HA services. */
 esp_err_t knx_widget_control(const char *key, knx_widget_action_t action, int value, const char *preset)
 {

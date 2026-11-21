@@ -28,10 +28,14 @@ Caches live only in RAM with monotonic last_update_ms timestamps.
 
 ## Widget bindings
 
-HA layouts retain their existing `entity_id`. A KNX layout entry stores
-`"binding": {"source": "knx", "object_id": "living_temperature"}`. A fixed-value action also
-stores a string `value` inside the binding. The editor gets compatible widget types from
-the registry. Restoring the layout can precede restoring the KNX configuration.
+A KNX widget stores stable object IDs in `binding.roles`. For example, a Slider saves
+`{"source":"knx","roles":{"brightness_command":"A","brightness_feedback":"B"}}` inside `binding`.
+Light additionally supports `switch_command` and `switch_feedback`. Sensor uses `value_feedback`,
+Gauge and Graph use `number_feedback`, Binary and Contact use `switch_feedback`, and Scene uses
+`action` with a string in `binding.value`. The objects API advertises `widget_roles` using the
+same DPT and permission predicate as the worker. Its `widget_types` field retains the single-object
+contract. Layout validation checks role names, shape and ID bounds independently of the registry,
+so a layout can be restored first. Legacy `binding.object_id` and HA `entity_id` remain valid.
 
 The routing callback decodes an external write or response once per group address. Under the
 registry lock it publishes the value, receive timestamp and revision to every readable alias.

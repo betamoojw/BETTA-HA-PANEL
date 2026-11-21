@@ -87,6 +87,7 @@ cJSON* KnxObjectJson(const KnxCommunicationObject& object) {
     cJSON_AddStringToObject(json, "group_address", object.group_address.c_str());
     cJSON_AddStringToObject(json, "datapoint_type", KnxDptName(object.datapoint_type).c_str());
     cJSON_AddStringToObject(json, "unit", object.unit.c_str());
+    if (object.display_precision >= 0) cJSON_AddNumberToObject(json, "display_precision", object.display_precision);
     const char* format = "decimal integer";
     switch (object.datapoint_type.main) {
         case 1: format = "on/off or true/false"; break;
@@ -117,6 +118,12 @@ cJSON* KnxObjectJson(const KnxCommunicationObject& object) {
                              "button", "slider", "light_tile", "scene_tile"})
         if (KnxWidgetSupports(object, knx_tile_kind(type)))
             cJSON_AddItemToArray(types, cJSON_CreateString(type));
+    cJSON* roles = cJSON_AddArrayToObject(json, "widget_roles");
+    for (int i = 0; i < KNX_ROLE_COUNT; ++i) {
+        auto role = static_cast<knx_role_t>(i);
+        if (KnxWidgetRoleSupports(object, role))
+            cJSON_AddItemToArray(roles, cJSON_CreateString(knx_role_name(role)));
+    }
     cJSON_AddBoolToObject(json, "valid", object.valid);
     cJSON_AddBoolToObject(json, "live_feedback", object.live_feedback);
     if (object.valid) {

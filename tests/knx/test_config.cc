@@ -34,6 +34,11 @@ int main() {
     reject("1/0/1","32/0/1"); reject("1/0/1","1/8/1"); reject("1/0/1","1/0/256");
     reject("\"id\":\"switch\"","\"id\":\"switch\",\"id\":\"other\"");
     reject("\"id\":\"switch\"","\"id\":\"switch\",\"unknown\":true");
+    for (const char* invalid : {"-1", "7", "1.5", "true"})
+        reject("\"writable\":true", std::string("\"writable\":true,\"display_precision\":") + invalid);
+    std::string precise = base;
+    precise.insert(precise.rfind("true}") + 4, ",\"display_precision\":2");
+    assert(parse(precise));
     std::string twice=base; twice.insert(twice.rfind(']'), std::string(",")+o); assert(!parse(twice));
     std::vector<KnxCommunicationObject> objects; std::string canonical,error;
     assert(KnxParseConfiguration(base,128,128,objects,canonical,error));

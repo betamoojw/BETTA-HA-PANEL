@@ -77,6 +77,18 @@ static void knx_bindings(void)
         {"sensor", "\"binding\":{\"source\":\"knx\",\"object_id\":\"room\"},\"entity_id\":\"sensor.other\"", false},
         {"sensor", "\"binding\":{\"source\":\"knx\",\"object_id\":\"room\"},\"sensor_entities\":[\"sensor.other\"]", false},
         {"graph", "\"binding\":{\"source\":\"knx\",\"object_id\":\"room\"},\"graph_ha_history\":true", false},
+        {"slider", "\"binding\":{\"source\":\"knx\",\"roles\":{\"brightness_command\":\"A\",\"brightness_feedback\":\"B\"}}", true},
+        {"slider", "\"binding\":{\"source\":\"knx\",\"roles\":{\"brightness_command\":\"A\",\"brightness_feedback\":\"A\"}}", true},
+        {"light_tile", "\"binding\":{\"source\":\"knx\",\"roles\":{\"switch_command\":\"P\",\"switch_feedback\":\"S\",\"brightness_command\":\"A\",\"brightness_feedback\":\"B\"}}", true},
+        {"light_tile", "\"binding\":{\"source\":\"knx\",\"roles\":{\"switch_command\":\"P\"}}", true},
+        {"button", "\"binding\":{\"source\":\"knx\",\"roles\":{\"switch_feedback\":\"removed\"}}", true},
+        {"sensor", "\"binding\":{\"source\":\"knx\",\"roles\":{\"value_feedback\":\"AB\"}}", true},
+        {"scene_tile", "\"binding\":{\"source\":\"knx\",\"roles\":{\"action\":\"pulse\"},\"value\":\"off\"}", true},
+        {"sensor", "\"binding\":{\"source\":\"knx\",\"roles\":{\"value_feedback\":\"AB\"},\"object_id\":\"AB\"}", false},
+        {"slider", "\"binding\":{\"source\":\"knx\",\"roles\":{}}", false},
+        {"slider", "\"binding\":{\"source\":\"knx\",\"roles\":{\"switch_command\":\"P\"}}", false},
+        {"light_tile", "\"binding\":{\"source\":\"knx\",\"roles\":{\"brightness_feedback\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"}}", false},
+        {"scene_tile", "\"binding\":{\"source\":\"knx\",\"roles\":{\"action\":\"A\"}}", false},
         {"camera_tile", "\"binding\":{\"source\":\"knx\",\"object_id\":\"room\"}", false},
     };
     layout_validation_result_t *result = calloc(1, sizeof(*result));
@@ -84,8 +96,8 @@ static void knx_bindings(void)
     for (size_t i = 0; i < sizeof(cases)/sizeof(*cases); ++i) {
         char json[640];
         snprintf(json, sizeof(json), "{\"version\":1,\"pages\":[{\"id\":\"p\",\"widgets\":[{"
-            "\"id\":\"w\",\"type\":\"%s\",%s,\"rect\":{\"x\":0,\"y\":0,\"w\":260,\"h\":100}}]}]}",
-            cases[i].type, cases[i].fields);
+            "\"id\":\"w\",\"type\":\"%s\",%s,\"rect\":{\"x\":0,\"y\":0,\"w\":260,\"h\":%d}}]}]}",
+            cases[i].type, cases[i].fields, !strcmp(cases[i].type, "scene_tile") ? 100 : 200);
         assert(layout_validate_json(json, result) == cases[i].valid);
     }
     free(result);

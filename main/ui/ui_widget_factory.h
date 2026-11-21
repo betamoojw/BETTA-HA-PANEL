@@ -13,6 +13,7 @@
 #include "ha/ha_model.h"
 #include "layout/bambu_printer_slots.h"
 #include "layout/room_air_slots.h"
+#include "layout/knx_layout_binding.h"
 #include "layout/energy_timeline_colors.h"
 
 /* Entities beyond primary / secondary / tertiary: the room card list (7) and the car tile extras. */
@@ -110,7 +111,7 @@ typedef struct {
     bool stock_selector;    /* stock_quotes: period buttons on the chart tile, default true */
     bool stock_previous;    /* stock_quotes: cards show the period's start price under the price, default false */
     const cJSON *alarm_config; /* Borrowed only during factory creation; alarm_panel copies its configuration. */
-    const char *knx_write_value; /* Borrowed during creation; only a fixed-value action copies it. */
+    knx_layout_binding_t knx; /* Borrowed from the layout until widget creation returns. */
     air_config_t air_config; /* air_quality_tile thresholds, copied into its private context */
     int x;
     int y;
@@ -122,6 +123,7 @@ typedef struct {
     char id[APP_MAX_WIDGET_ID_LEN];
     char page_id[APP_MAX_PAGE_ID_LEN];
     const char *knx_write_value; /* Owned by the action widget context. */
+    knx_control_binding_t *knx_controls; /* Owned by the interactive widget context. */
     uint32_t knx_revision; /* Last KNX snapshot applied to this widget. */
     char type[24]; /* includes energy_price_forecast (21 characters) */
     char title[APP_MAX_NAME_LEN];

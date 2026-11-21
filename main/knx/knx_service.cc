@@ -67,7 +67,7 @@ bool fail(char* out, size_t size, const char* reason) {
     return false;
 }
 KnxCommunicationObject* find(const char* id) {
-    if (id) for (auto& o : objects) if (o.id == id) return &o;
+    if (id && *id) for (auto& o : objects) if (o.id == id) return &o;
     return nullptr;
 }
 void receive(const knx_telegram_t* t, void*) {
@@ -308,10 +308,48 @@ extern "C" bool knx_command(const char* id, const char* address, const char* val
 
 extern "C" uint32_t knx_widget_revision(void) { return view_revision.load(); }
 
+// Callers hold state_mutex across role resolution, projection and queue validation.
+static KnxCommunicationObject* bound_object(const knx_control_binding_t& binding, knx_role_t role) {
+    auto* o = find(binding.id[role]);
+    return o && KnxWidgetRoleSupports(*o, role) ? o : nullptr;
+}
+
+static bool routing_active() {
+    return enabled && generation == active_generation && !strcmp(state, "running");
+}
+
+static knx_view_result_t read_controls(knx_control_binding_t& binding, knx_tile_kind_t kind,
+                                       const char* key, uint32_t* cursor, ha_state_t* out) {
+    auto* power = bound_object(binding, KNX_SWITCH_FEEDBACK);
+    auto* level = bound_object(binding, KNX_BRIGHTNESS_FEEDBACK);
+    // Compare ages so a revision rollover cannot hide fresh feedback.
+    const uint32_t now = view_revision.load();
+    uint32_t revision = registry_revision;
+    for (auto* o : {power, level})
+        if (o && now - o->widget_revision < now - revision) revision = o->widget_revision;
+    if (*cursor == revision) return KNX_VIEW_UNCHANGED;
+    const bool active = routing_active();
+    binding.switch_writable = active && bound_object(binding, KNX_SWITCH_COMMAND);
+    binding.brightness_writable = active && bound_object(binding, KNX_BRIGHTNESS_COMMAND);
+    const float* percent = active && level && level->live_feedback ? std::get_if<float>(&level->current_value) : nullptr;
+    const bool* on = active && power && power->live_feedback ? std::get_if<bool>(&power->current_value) : nullptr;
+    binding.brightness = percent ? static_cast<int>(*percent + .5f) : -1;
+
+    memset(out, 0, sizeof(*out));
+    snprintf(out->entity_id, sizeof(out->entity_id), "%s", key);
+    if (kind == KNX_TILE_SLIDER && percent)
+        snprintf(out->state, sizeof(out->state), "%d", binding.brightness);
+    else strcpy(out->state, on ? (*on ? "on" : "off") : "unavailable");
+    out->last_changed_unix_ms = std::max(on ? power->last_update_ms : 0, percent ? level->last_update_ms : 0);
+    *cursor = revision;
+    return KNX_VIEW_UPDATED;
+}
+
 extern "C" knx_view_result_t knx_widget_read(const char* key, knx_tile_kind_t kind,
-                                              const char* preset, uint32_t* cursor, ha_state_t* out) {
+                                              const char* preset, knx_control_binding_t* controls, uint32_t* cursor, ha_state_t* out) {
     std::unique_lock<std::mutex> guard(state_mutex, std::try_to_lock);
     if (!guard.owns_lock()) return KNX_VIEW_BUSY;
+    if (controls) return read_controls(*controls, kind, key, cursor, out);
     auto* o = find(knx_binding_id(key));
     const uint32_t revision = o ? o->widget_revision : registry_revision;
     if (*cursor == revision) return KNX_VIEW_UNCHANGED;
@@ -326,6 +364,26 @@ extern "C" knx_view_result_t knx_widget_read(const char* key, knx_tile_kind_t ki
     }
     *cursor = revision;
     return KNX_VIEW_UPDATED;
+}
+
+extern "C" esp_err_t knx_widget_control_roles(const knx_control_binding_t* controls, knx_widget_action_t action, int value) {
+    if (!controls || (action != KNX_TOGGLE && action != KNX_SET_POWER && action != KNX_SET_PERCENT))
+        return ESP_ERR_INVALID_ARG;
+    std::unique_lock<std::mutex> guard(state_mutex, std::try_to_lock);
+    if (!guard.owns_lock()) return ESP_ERR_TIMEOUT;
+    const auto role = action == KNX_SET_PERCENT ? KNX_BRIGHTNESS_COMMAND : KNX_SWITCH_COMMAND;
+    auto* target = bound_object(*controls, role);
+    if (!target) return ESP_ERR_INVALID_ARG;
+    if (action == KNX_TOGGLE) {
+        auto* feedback = bound_object(*controls, KNX_SWITCH_FEEDBACK);
+        auto* on = feedback && feedback->live_feedback ? std::get_if<bool>(&feedback->current_value) : nullptr;
+        if (!on) return ESP_ERR_INVALID_STATE;
+        value = !*on;
+        action = KNX_SET_POWER;
+    }
+    std::string text;
+    if (!KnxWidgetCommandValue(*target, action, value, nullptr, text)) return ESP_ERR_INVALID_ARG;
+    return queue_command(target, text.c_str(), true, nullptr, 0) ? ESP_OK : ESP_FAIL;
 }
 
 extern "C" esp_err_t knx_widget_control(const char* key, knx_widget_action_t action, int value, const char* preset) {

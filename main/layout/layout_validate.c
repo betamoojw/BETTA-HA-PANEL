@@ -408,20 +408,20 @@ static bool validate_widget(cJSON *widget, const char *known_widget_ids, size_t 
 
     const cJSON *binding = cJSON_GetObjectItemCaseSensitive(widget, "binding");
     if (binding) {
-        const char *object_id, *write_value;
-        if (!knx_layout_binding(binding, cJSON_GetStringValue(type), &object_id, &write_value))
+        knx_layout_binding_t parsed;
+        if (!knx_layout_binding(binding, cJSON_GetStringValue(type), &parsed))
             layout_validation_add(result, "Invalid KNX object binding or fixed write value");
         const cJSON *ha_fields[] = {entity_id, secondary_entity_id, tertiary_entity_id};
         for (size_t i = 0; i < sizeof(ha_fields) / sizeof(*ha_fields); ++i) {
             if (ha_fields[i] && (!cJSON_IsString(ha_fields[i]) || ha_fields[i]->valuestring[0])) {
-                layout_validation_add(result, "KNX widgets bind to one configured object");
+                layout_validation_add(result, "KNX widgets cannot also bind Home Assistant entities");
                 break;
             }
         }
         const char *view = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(widget, "sensor_view"));
         if ((view && !strcmp(view, "list")) || cJSON_GetArraySize(cJSON_GetObjectItemCaseSensitive(widget, "sensor_entities")) ||
             (cJSON_IsString(button_mode) && button_mode_requires_media_player(button_mode->valuestring)))
-            layout_validation_add(result, "KNX widgets require a single-object display or control");
+            layout_validation_add(result, "KNX bindings do not support sensor lists or media transport controls");
         if (cJSON_IsTrue(history_popup) || cJSON_IsTrue(graph_ha_history))
             layout_validation_add(result, "KNX widgets use local history");
     } else if (requires_entity) {

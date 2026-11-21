@@ -51,7 +51,7 @@ constexpr size_t kMaximumDescriptionLength = 192;
 bool IsKnownField(const char* name) {
     constexpr const char* kFields[] = {
         "id", "name", "description", "group_address", "datapoint_type", "readable", "writable",
-        "unit",
+        "unit", "display_precision",
     };
     return name != nullptr &&
            std::any_of(std::begin(kFields), std::end(kFields),
@@ -247,6 +247,7 @@ bool KnxParseConfiguration(const std::string& json_text, size_t maximum_objects,
 
         KnxCommunicationObject object;
         std::string datapoint_type;
+        const cJSON *precision = cJSON_GetObjectItemCaseSensitive(item, "display_precision");
         if (!JsonString(item, "id", object.id, true, kMaximumIdLength)) {
             error = ObjectFieldError(index, "id");
         } else if (!JsonString(item, "name", object.name, true, kMaximumNameLength)) {
@@ -268,7 +269,11 @@ bool KnxParseConfiguration(const std::string& json_text, size_t maximum_objects,
             error = ObjectFieldError(index, "writable");
         } else if (!JsonString(item, "unit", object.unit, false, 32)) {
             error = ObjectFieldError(index, "unit");
+        } else if (precision && (!cJSON_IsNumber(precision) || precision->valueint != precision->valuedouble ||
+                                 precision->valueint < 0 || precision->valueint > 6)) {
+            error = ObjectFieldError(index, "display_precision");
         } else {
+            if (precision) object.display_precision = precision->valueint;
             object.group_address = KnxFormatGroupAddress(object.parsed_group_address);
             valid = ValidateObject(object, objects, index, error);
         }

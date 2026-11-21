@@ -1037,9 +1037,8 @@ static bool ui_runtime_widget_from_json(cJSON *widget_json, ui_widget_def_t *out
     }
     const cJSON *binding = cJSON_GetObjectItemCaseSensitive(widget_json, "binding");
     if (binding) {
-        const char *object_id;
-        if (!knx_layout_binding(binding, out->type, &object_id, &out->knx_write_value)) return false;
-        snprintf(out->entity_id, sizeof(out->entity_id), KNX_BINDING_PREFIX "%s", object_id);
+        if (!knx_layout_binding(binding, out->type, &out->knx)) return false;
+        snprintf(out->entity_id, sizeof(out->entity_id), KNX_BINDING_PREFIX "%s", out->knx.primary);
     }
     if (cJSON_IsString(secondary_entity_id) && secondary_entity_id->valuestring != NULL) {
         snprintf(out->secondary_entity_id, sizeof(out->secondary_entity_id), "%s", secondary_entity_id->valuestring);

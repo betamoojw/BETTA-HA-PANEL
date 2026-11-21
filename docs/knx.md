@@ -65,8 +65,8 @@ are never rewritten by this feature.
 
 Use your installation's addresses and datapoints; this example is synthetic.
 Each object needs a unique ID. Objects sharing a group address must use the same DPT. Use separate command and feedback objects
-when actuators have separate group addresses. Sensor/status objects should be
-readable only. The nat field must be false for Routing.
+when actuators have separate group addresses. A feedback object must be
+readable and may also be writable. The nat field must be false for Routing.
 The interface_identifier is a descriptive label; the panel uses its existing Wi-Fi interface.
 
 Limits are 128 objects and 65,535 UTF-8 bytes. IDs allow 48 bytes, names 80,
@@ -77,31 +77,44 @@ Unknown/duplicate fields and unsupported DPTs reject the entire import.
 
 ## Dashboard widgets
 
-In **Layout → + Widget**, select **KNX** under **Data source**. Choose an object from the saved
-configuration, choose a widget, then select **Use object** and **Save**. Each layout keeps the
-object ID, so the widget follows address changes made to that same object. Use the widget's
-Inspector to choose a different KNX object or switch back to a Home Assistant entity.
+In **Layout → + Widget**, select **KNX** as the data source, then choose the widget type.
+Assign objects by purpose, select **Use bindings**, then **Save** the layout. Each selector
+shows the object's name, ID, group address, DPT and access (R, W or R/W). If a selector
+has no candidates, its hint identifies the required access and DPT.
 
-| Widget | Required permissions and datapoint |
-| --- | --- |
-| Sensor | Any readable object. Scalar readings include their configured unit. DPT 5.001 (Scaling) displays whole percentages on the panel and in the editor preview, for example `62%`. The objects API keeps the measured value. |
-| Gauge, Graph | Readable numeric DPT, including temperature and percentage. Graph keeps local samples. |
-| Binary, Contact | Readable DPT 1. |
-| Button | Readable and writable DPT 1. |
-| Slider | Readable and writable DPT 5.001 scaling. |
-| Light | Readable and writable DPT 1 for switching, DPT 5.001 for brightness, or DPT 232 for RGB. |
-| Scene / action | Any writable object. Enter the fixed value in the format shown for its DPT. |
+| Widget | Command (writable) | Feedback (readable) |
+| --- | --- | --- |
+| Button in switch mode | Switch command, DPT 1 (for example 1.001) | Switch feedback, DPT 1 |
+| Slider | Absolute brightness, DPT 5.001 | Actual brightness, DPT 5.001 |
+| Light | Switch command and brightness command | Switch feedback and brightness feedback, independently. Switching uses DPT 1 and brightness uses DPT 5.001. |
+| Sensor | — | Any supported DPT, including an R/W object |
+| Gauge, Graph | — | Numeric DPT. Graph keeps local samples. |
+| Binary, Contact | — | DPT 1 |
+| Scene / fixed-value action | Any supported writable DPT and a fixed value in the indicated format | — |
 
-When another device sends a group write or response, the panel updates each readable object
-on the destination group address and refreshes all its bound widgets automatically. Home
-Assistant and the browser can both be offline. A switch or dimmer continues to show the
-last bus value while a command is in flight. After a routing reconnect, feedback widgets
-show unavailable until a fresh telegram arrives. **Request read** in KNX settings can solicit
-that feedback from a responding actuator.
+For a dimmer, choose **Slider**. Bind **Brightness command** to the actuator's input
+(for example `2/0/2`) and **Brightness feedback** to its status address (for example `2/1/2`).
+If you request 80% and the actuator reports 62%, the LCD and editor show 62%.
+An R/W object can occupy either role or both. **Light** accepts four separate objects.
+For an on/off light, assign just the two switch roles. Its brightness bar stays hidden.
 
-For installations with separate command and status addresses, use a fixed-value action for the
-command and bind a status widget to the readable feedback object. A widget whose object was
-removed keeps its binding so that restoring the same ID reconnects it.
+A command needs a writable target. An explicit on/off or percentage can be sent before
+the first status arrives. A toggle also needs the latest valid switch feedback to choose
+the opposite value. The display waits for an external group write or response. Local echoes
+and successful sends do not confirm state. A light's brightness feedback updates only its
+brightness. After routing reconnects, fresh feedback is required for each state role.
+
+DPT 5.001 Sensor tiles show whole percentages by default, for example `62%`. An optional
+`display_precision` on the communication object selects 0–6 decimal places. The objects API
+retains the decoded value. Other sensor types keep their usual formatting.
+
+Use **Edit KNX bindings** in the Inspector to change or clear one role while keeping the others.
+A missing object keeps its saved ID. Restoring that ID reconnects the binding, even if the group
+address changes. For an existing single-object RGB Light, choose another readable and writable
+DPT 232 object in the RGB selector to keep colour control. Choose **Unassigned** there to use
+separate switch and brightness roles. Changing a Scene's target clears its fixed value.
+Enter a value for the new object, or leave it empty for a text DPT that accepts empty strings.
+**Home Assistant** in the Inspector selects an HA entity.
 
 ## Values and voice control
 

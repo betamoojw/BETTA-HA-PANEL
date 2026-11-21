@@ -35,6 +35,9 @@ static void test_scaling_sensor_feedback() {
         assert(!cJSON_HasObjectItem(api, "knx_scaling"));
         cJSON_Delete(api);
     }
+    object.display_precision = 2;
+    assert(KnxWidgetProject(object, KNX_TILE_VALUE, state));
+    assert(strstr(state.attributes_json, "\"display_precision\":2"));
     object.live_feedback = false;
     assert(!KnxWidgetProject(object, KNX_TILE_VALUE, state));
     auto humidity = feedback("DPT-9.007", "61.75");

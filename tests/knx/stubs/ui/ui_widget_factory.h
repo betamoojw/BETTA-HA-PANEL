@@ -1,11 +1,13 @@
 /* SPDX-License-Identifier: LicenseRef-FNCL-1.1 | Copyright (c) 2026 andre68723 */
 #pragma once
 #include "ha/ha_model.h"
+#include "layout/knx_binding.h"
 
 /* Record the LCD factory boundary while running the production drain on the host. */
 typedef struct {
     char entity_id[APP_MAX_ENTITY_ID_LEN], type[24];
     const char *knx_write_value;
+    knx_control_binding_t *knx_controls;
     uint32_t knx_revision;
     char rendered[APP_MAX_STATE_LEN];
     unsigned applications;

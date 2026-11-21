@@ -17,7 +17,7 @@
 #include "ui/theme/ui_style.h"
 #include "ui/ui_i18n.h"
 #include "ui/ui_bindings.h"
-#include "layout/knx_binding.h"
+#include "ui/ui_knx_control.h"
 #include "ui/ui_memory.h"
 
 typedef enum {
@@ -30,6 +30,7 @@ typedef enum {
 
 typedef struct {
     char entity_id[APP_MAX_ENTITY_ID_LEN];
+    knx_control_binding_t *knx;
     lv_obj_t *card;
     lv_obj_t *title_label;
     lv_obj_t *state_label;
@@ -549,7 +550,7 @@ static void slider_apply_visual(w_slider_ctx_t *ctx)
     lv_obj_set_style_bg_opa(card, LV_OPA_COVER, LV_PART_MAIN);
     ui_style_card_set_active(card, ctx->is_on && !ctx->unavailable);
     /* An unavailable entity cannot take a value: the slider stops answering touch until HA reports a state again. */
-    if (ctx->unavailable) {
+    if (ctx->knx ? !ctx->knx->brightness_writable : ctx->unavailable) {
         lv_obj_add_state(ctx->slider, LV_STATE_DISABLED);
     } else {
         lv_obj_clear_state(ctx->slider, LV_STATE_DISABLED);
@@ -606,7 +607,8 @@ static void slider_apply_visual(w_slider_ctx_t *ctx)
     lv_slider_set_value(ctx->slider, clamp_percent(ctx->value), LV_ANIM_OFF);
     ctx->suppress_event = false;
 
-    slider_set_value_label(ctx->value_label, ctx->value);
+    if (ctx->knx && ctx->unavailable && !ctx->dragging) lv_label_set_text(ctx->value_label, "--");
+    else slider_set_value_label(ctx->value_label, ctx->value);
     if (ctx->is_cover && !ctx->unavailable) {
         const char *text = ui_i18n_get("cover.open", "Open");
         if (strcmp(ctx->cover_state, "closed") == 0) {
@@ -645,7 +647,7 @@ static void w_slider_event_cb(lv_event_t *event)
         return;
     }
 
-    if (ctx->unavailable) {
+    if (ctx->knx ? !ctx->knx->brightness_writable : ctx->unavailable) {
         /* The entity went unavailable (also mid-drag): send nothing, keep the flag until HA reports a state, and put the knob back. */
         ctx->dragging = false;
         slider_apply_visual(ctx);
@@ -658,12 +660,12 @@ static void w_slider_event_cb(lv_event_t *event)
     } else if (code == LV_EVENT_VALUE_CHANGED) {
         ctx->value = clamp_percent(lv_slider_get_value(slider));
         ctx->dragging = true;
-        ctx->unavailable = false;
+        if (!ctx->knx) ctx->unavailable = false;
         ctx->is_on = ctx->value > 0;
         slider_apply_visual(ctx);
     } else if (code == LV_EVENT_RELEASED) {
-        if (knx_binding_id(ctx->entity_id)) {
-            (void)ui_bindings_set_slider_value(ctx->entity_id, clamp_percent(lv_slider_get_value(slider)));
+        if (ctx->knx) {
+            (void)knx_widget_control_roles(ctx->knx, KNX_SET_PERCENT, clamp_percent(lv_slider_get_value(slider)));
             ctx->dragging = false;
             ctx->value = ctx->feedback_value;
             ctx->is_on = ctx->value > 0;
@@ -693,7 +695,7 @@ static void w_slider_event_cb(lv_event_t *event)
         slider_apply_visual(ctx);
     } else if (code == LV_EVENT_PRESS_LOST) {
         ctx->dragging = false;
-        if (knx_binding_id(ctx->entity_id)) {
+        if (ctx->knx) {
             ctx->value = ctx->feedback_value;
             ctx->is_on = ctx->value > 0;
         }
@@ -750,11 +752,12 @@ esp_err_t w_slider_create(const ui_widget_def_t *def, lv_obj_t *parent, ui_widge
     lv_slider_set_value(slider, 0, LV_ANIM_OFF);
     lv_obj_set_event_bubble(slider, false);
 
-    w_slider_ctx_t *ctx = ui_calloc_prefer_psram(1, sizeof(w_slider_ctx_t));
+    w_slider_ctx_t *ctx = ui_knx_control_context(sizeof(*ctx), def, out_instance);
     if (ctx == NULL) {
         lv_obj_del(card);
         return ESP_ERR_NO_MEM;
     }
+    ctx->knx = out_instance->knx_controls;
     snprintf(ctx->entity_id, sizeof(ctx->entity_id), "%s", def->entity_id);
     ctx->is_cover = strncmp(ctx->entity_id, "cover.", 6) == 0;
     ctx->card = card;
@@ -801,7 +804,14 @@ void w_slider_apply_state(ui_widget_instance_t *instance, const ha_state_t *stat
         return;
     }
 
+    if (ctx->knx && ctx->dragging && ctx->knx->brightness_writable) {
+        /* Feedback arriving during a gesture is the value to restore on release. */
+        ctx->feedback_value = clamp_percent(ctx->knx->brightness);
+        ctx->unavailable = ctx->knx->brightness < 0;
+        return;
+    }
     if (slider_state_is_unavailable(state->state)) {
+        ctx->feedback_value = 0;
         ctx->value = 0;
         ctx->is_on = false;
         ctx->unavailable = true;

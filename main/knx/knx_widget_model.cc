@@ -24,6 +24,20 @@ void set_text(char *dest, size_t size, const char *text) {
 int brightest(const knx_dpt232_color_t& rgb) { return std::max({rgb.red, rgb.green, rgb.blue}); }
 }
 
+bool KnxWidgetRoleSupports(const KnxCommunicationObject& o, knx_role_t role) {
+    switch (role) {
+        case KNX_SWITCH_COMMAND: return o.writable && o.datapoint_type.main == 1;
+        case KNX_SWITCH_FEEDBACK: return o.readable && o.datapoint_type.main == 1;
+        case KNX_BRIGHTNESS_COMMAND: return o.writable && scaling(o.datapoint_type);
+        case KNX_BRIGHTNESS_FEEDBACK: return o.readable && scaling(o.datapoint_type);
+        case KNX_VALUE_FEEDBACK: return o.readable;
+        case KNX_NUMBER_FEEDBACK: return o.readable && numeric(o.datapoint_type);
+        case KNX_FIXED_ACTION: return o.writable;
+        default: return false;
+    }
+}
+
+// Compatibility of the original single-object layout and widget_types API field.
 bool KnxWidgetSupports(const KnxCommunicationObject& o, knx_tile_kind_t kind) {
     const auto& d = o.datapoint_type;
     switch (kind) {
@@ -73,6 +87,7 @@ bool KnxWidgetProject(const KnxCommunicationObject& o, knx_tile_kind_t kind, ha_
     bool ok = value && cJSON_AddStringToObject(attrs, "unit_of_measurement",
                    o.unit.empty() && scaling(o.datapoint_type) ? "%" : o.unit.c_str()) &&
               (!scaling_sensor || cJSON_AddTrueToObject(attrs, "knx_scaling")) &&
+              (!scaling_sensor || o.display_precision < 0 || cJSON_AddNumberToObject(attrs, "display_precision", o.display_precision)) &&
               cJSON_PrintPreallocated(attrs, state.attributes_json, sizeof(state.attributes_json), false);
     if (ok) {
         if (cJSON_IsBool(value)) strcpy(state.state, cJSON_IsTrue(value) ? "on" : "off");
@@ -97,8 +112,8 @@ bool KnxWidgetCommandValue(const KnxCommunicationObject& o, knx_widget_action_t 
         text = preset;
         return true; // The queue validates the complete configured DPT.
     }
-    if (!o.readable || !o.live_feedback) return false;
     if (action == KNX_TOGGLE) {
+        if (!o.readable || !o.live_feedback || o.datapoint_type.main != 1) return false;
         auto b = std::get_if<bool>(&o.current_value);
         if (!b) return false;
         text = *b ? "off" : "on";
@@ -115,10 +130,11 @@ bool KnxWidgetCommandValue(const KnxCommunicationObject& o, knx_widget_action_t 
         text = std::to_string(value);
         return true;
     }
-    auto rgb = std::get_if<knx_dpt232_color_t>(&o.current_value);
-    if (!rgb) return false;
+    if (o.datapoint_type.main != 232) return false;
     int red, green, blue;
     if (level) {
+        auto rgb = std::get_if<knx_dpt232_color_t>(&o.current_value);
+        if (!o.readable || !o.live_feedback || !rgb) return false;
         const int peak = brightest(*rgb);
         const int target = (value * 255 + 50) / 100;
         auto channel = [peak, target](int component) { return peak ? (component * target + peak / 2) / peak : target; };

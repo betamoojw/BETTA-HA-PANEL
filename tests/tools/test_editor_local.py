@@ -86,6 +86,8 @@ class LocalCapacityHandlerTest(unittest.TestCase):
             page = self.request(handler, '/api/knx/objects?offset=0')[1]
             self.assertEqual(page['objects'][0]['widget_types'],
                              ['sensor', 'gauge', 'graph', 'slider', 'light_tile', 'scene_tile'])
+            self.assertEqual(page['objects'][0]['widget_roles'],
+                             ['brightness_command', 'brightness_feedback', 'value_feedback', 'number_feedback', 'action'])
             self.assertFalse(page['objects'][0]['live_feedback'])
             self.assertEqual(page['state'], 'disabled')
 

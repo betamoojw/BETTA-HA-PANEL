@@ -45,6 +45,7 @@ struct KnxCommunicationObject {
     KnxDpt datapoint_type;
     bool readable = false;
     bool writable = false;
+    int display_precision = -1; // Optional scaling Sensor display override.
     std::string unit;  // Optional unit of measurement (e.g., "%", "°C")
     KnxValue current_value = false;
     bool valid = false;

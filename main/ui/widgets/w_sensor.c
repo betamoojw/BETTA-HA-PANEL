@@ -171,7 +171,7 @@ static void sensor_date_text(const w_sensor_ctx_t *ctx, char *out, size_t out_le
 
 /* The state as the device class and the tile's sensor_format/sensor_unit choose (ha_sensor_value.h). */
 static void sensor_value_text(w_sensor_ctx_t *ctx, const ha_state_t *state, const char *device_class,
-                              const char *unit, bool knx_scaling, double numeric_value, char *out, size_t out_len)
+                              const char *unit, bool knx_scaling, int precision, double numeric_value, char *out, size_t out_len)
 {
     if (ctx->timestamp) {
         sensor_timestamp_text(ctx, out, out_len);
@@ -200,7 +200,11 @@ static void sensor_value_text(w_sensor_ctx_t *ctx, const ha_state_t *state, cons
         return;
     }
     char rounded[APP_MAX_STATE_LEN];
-    const bool has_precision = ha_display_precision_format(state->entity_id, state->state, rounded, sizeof(rounded));
+    bool has_precision = ha_display_precision_format(state->entity_id, state->state, rounded, sizeof(rounded));
+    if (knx_scaling && precision >= 0 && precision <= 6) {
+        snprintf(rounded, sizeof(rounded), "%.*f", precision, numeric_value);
+        has_precision = true;
+    }
     if (knx_scaling && ha_sv_percent_text(numeric_value, has_precision ? rounded : NULL, unit, ctx->unit_mode,
                                          ui_i18n_get_language(), out, out_len)) return;
     const char *value = has_precision ||
@@ -630,7 +634,9 @@ void w_sensor_apply_state(ui_widget_instance_t *instance, const ha_state_t *stat
                 ha_sv_date_parse(state->state, &ctx->date_y, &ctx->date_m, &ctx->date_d);
     const bool knx_scaling = ctx->numeric && knx_binding_id(ctx->entity_id) &&
                              cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(attrs, "knx_scaling"));
-    sensor_value_text(ctx, state, device_class, unit, knx_scaling, numeric_value, value_text, sizeof(value_text));
+    const cJSON *precision = cJSON_GetObjectItemCaseSensitive(attrs, "display_precision");
+    sensor_value_text(ctx, state, device_class, unit, knx_scaling, cJSON_IsNumber(precision) ? precision->valueint : -1,
+                      numeric_value, value_text, sizeof(value_text));
 
     if (attrs != NULL) {
         cJSON_Delete(attrs);

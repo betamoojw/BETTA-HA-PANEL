@@ -190,17 +190,17 @@ workspace adapter over one model, validation/save path and history; the local re
 
 ## Device-backed preview
 
-Time zone locations come from `net/timezone_catalog.c` and the vendored recurring
-rules in `net/tzdb/`. Regenerate with `tools/generate_timezones.py` and keep the
-snapshot attribution. `api/api_time_status.c` supplies a small clock-only reply
-at `/api/settings?time_only=1`; the picker polls it only while its page is visible.
+Time zones come from `net/timezone_catalog.c` and recurring rules in `net/tzdb/`; regenerate with
+`tools/generate_timezones.py` and retain attribution. `api/api_time_status.c` serves the clock-only
+`/api/settings?time_only=1` reply; the picker polls only while its page is visible.
+
+Live view owns its pending image URL until decoding succeeds. Closing or reaching the request deadline
+aborts decoding and releases that URL; a failed refresh preserves the last successful image.
 
 For live readings, serve `www/` on localhost and proxy `/api` to a panel; saves then go to that panel.
 Back up its layout or make the proxy read-only. The local test server above does not provide this mode.
-Browser smoke test on a flashed panel: check board, assets and canvas, then Settings → Device, Network,
-Home Assistant and back without saving. Check for console errors and the generated
-`styles.<hash>.css` and `js/app.<hash>.js`. Device workloads and evidence collection are in
-[Checks and device tests](development/testing.md).
+On a flashed panel, check board, assets, canvas and Settings → Device, Network, Home Assistant and back without saving.
+Check console errors and generated `styles.<hash>.css`/`js/app.<hash>.js`; see [device tests](development/testing.md) for evidence.
 
 ## Rules for the editor
 

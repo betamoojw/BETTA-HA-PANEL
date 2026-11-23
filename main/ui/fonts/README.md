@@ -2,7 +2,8 @@
 # Fonts of the panel
 
 Text, font symbols and monochrome emoji are drawn by LVGL's `lv_tiny_ttf` from **five TrueType subsets** that are
-embedded in the image as const arrays (`lv_tiny_ttf` reads them in place; S3 XIP also copies read-only data to PSRAM). No bitmap font is generated per size and
+embedded in the image as const arrays (`lv_tiny_ttf` reads them in place; S3 XIP also copies read-only data to PSRAM).
+Panel10 alone compresses the Chinese array at build time and shares one restored PSRAM copy, as described below. No bitmap font is generated per size and
 `lv_font_conv` is not used: a size is an integer given at run time, so the text size can follow the board, the role and the user's setting
 (`docs/appearance.md`, "Text size") without regenerating anything.
 
@@ -29,6 +30,23 @@ so a large font reduces memory available to widgets and Live Display.
 Each requested size has a 32-glyph cache;
 the shared font budget is 96 instances, including text, icons and emoji.
 Regular, bold and measurement fonts share the same CJK fallback at a given size.
+
+On Panel10, the build packs these same font bytes with zlib (191,200 bytes instead
+of 285,336, before decoder code and alignment). Initial text-font setup requests
+the CJK fallback even with English selected; it restores
+one 285,336-byte PSRAM buffer shared by every size for the rest of the boot.
+This does not change glyph coverage, metrics, cache size or the generated source
+font/array. Other boards and SDL use the original raw array.
+`tools/pack_cjk_font.py` produces the build-only data; `ui/cjk_font_data.c` checks
+stream completion, exact length, full input consumption and the TrueType header.
+Decoder/output allocations use PSRAM. Failure frees them, publishes no partial
+cache and keeps the emoji fallback; later font requests can retry. The successful
+buffer is immutable and must outlive every `lv_tiny_ttf` instance that borrows it.
+Panel10's read-only-data-in-PSRAM profile retains the compressed bytes too;
+the estimated steady PSRAM increase is 191,200 bytes plus alignment, with extra
+temporary decoder allocations. This is not a device measurement. See
+[storage budgets](../../../docs/hardware/storage.md#panel10-chinese-font-compression)
+for the tradeoff and pending hardware checks.
 
 Source: [Noto Sans SC variable TrueType](https://github.com/notofonts/noto-cjk/tree/main/Sans/Variable/TTF/Subset),
 version 2.004, source SHA256

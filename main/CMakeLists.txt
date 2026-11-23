@@ -754,14 +754,30 @@ target_compile_definitions(
         APP_HAVE_LIGHT_COLOR_BUTTON_IMAGES=${LIGHT_COLOR_BUTTON_IMAGES_AVAILABLE}
         APP_HAVE_LIGHT_RGB_SLIDER_IMAGE=${LIGHT_RGB_SLIDER_IMAGE_AVAILABLE})
 
-# Every text, symbol, icon and emoji is rendered at run time by lv_tiny_ttf from four committed subsets (const arrays in flash),
+# Every text, symbol, icon and emoji is rendered at run time by lv_tiny_ttf from five committed subsets,
 # see ui/text_font.c and tools/generate_widget_fonts.py. No bitmap font is compiled any more.
 target_sources(${COMPONENT_LIB} PRIVATE
     "${CMAKE_CURRENT_LIST_DIR}/ui/fonts/ttf_poppins_data.c"
     "${CMAKE_CURRENT_LIST_DIR}/ui/fonts/ttf_poppins_bold_data.c"
     "${CMAKE_CURRENT_LIST_DIR}/ui/fonts/ttf_mdi_data.c"
-    "${CMAKE_CURRENT_LIST_DIR}/ui/fonts/ttf_cjk_data.c"
     "${CMAKE_CURRENT_LIST_DIR}/ui/fonts/ttf_emoji_data.c")
+
+# Keep every CJK glyph and metric while preserving Panel10's existing OTA slots.
+# Other boards and SDL continue to use the original read-only array.
+if(CONFIG_APP_PANEL_VARIANT_10INCH_1280)
+    set(PACKED_CJK_DIR "${CMAKE_CURRENT_BINARY_DIR}/packed_cjk")
+    set(CJK_FONT_SOURCE "${CMAKE_CURRENT_LIST_DIR}/ui/fonts/noto_cjk_subset.ttf")
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+        "${CJK_FONT_SOURCE}" "${CMAKE_SOURCE_DIR}/tools/pack_cjk_font.py")
+    execute_process(COMMAND "${PYTHON}" "${CMAKE_SOURCE_DIR}/tools/pack_cjk_font.py"
+        "${CJK_FONT_SOURCE}" "${PACKED_CJK_DIR}/cjk_font_packed.h" COMMAND_ERROR_IS_FATAL ANY)
+    target_include_directories(${COMPONENT_LIB} PRIVATE "${PACKED_CJK_DIR}")
+    target_compile_definitions(${COMPONENT_LIB} PRIVATE APP_CJK_COMPRESSED=1)
+    target_sources(${COMPONENT_LIB} PRIVATE "ui/cjk_font_data.c")
+    idf_component_optional_requires(PRIVATE zlib)
+else()
+    target_sources(${COMPONENT_LIB} PRIVATE "${CMAKE_CURRENT_LIST_DIR}/ui/fonts/ttf_cjk_data.c")
+endif()
 
 set(APP_UI_WEATHER_LOTTIE_ASSETS 0)
 set(APP_UI_BETTA_LOTTIE_ASSET 0)

@@ -32,25 +32,29 @@ The WebUI build bundles/fingerprints ordered JS and CSS, gzips and embeds three 
 
 `components/esp_cam_sensor` is Espressif's core plus OV02C10 (JC8012P4A1), OV5647 (LCD-X, with read-only AEC/AGC statistics) and SC202CS/SC2356 drivers
 (Tab5), cut down to those sensors and the DW9714 motor. `tools/vendor_cam_sensor.py <version>` stages a new registry core
-and keeps all three sensor directories and `project_include.cmake`; `esp_video` pins the matching line (2.3.x wants 2.3.*).
+and keeps all three sensor directories and `project_include.cmake`; `esp_video` selects the compatible sensor line.
 After a version change update the `esp_cam_sensor`, `esp_video`, `esp_ipa` and `esp_h264` entries in the variant lock
 files, rebuild the affected camera variants and check each camera on its panel (`POST /api/camera/test`, the
 `ambient_cam: luma ...` log line). Tab5 awaits its first device test.
 
-Panel10 also pins `esp_sccb_intf` to 0.0.9 so resolving the vendored camera's
-open dependency range does not silently upgrade its SCCB interface driver.
+Panel10 pins `esp_sccb_intf` to 1.0.0, matching the updated video stack and IDF 6.1.1.
 
-Versions stop at `esp_video` 2.3.0, `esp_ipa` 2.2.0~1 and `esp_cam_sensor` 2.3.0 on purpose: the prebuilt `libesp_ipa.a`
-of esp_ipa 2.3.0+ contains RISC-V Zba/Zbb instructions (`sh2add`, ...; `objdump` counts 0 up to 2.2.0, 163 in 2.3.0, 193
-in 2.4.0) that P4 rev v1.x silicon does not execute. A trial with esp_video 2.5.0 crashed the camera task with an illegal
-instruction 20 s after boot (`create_ipa_array`; the rollback bootloader restored the previous image). ESP-IDF treats P4
-rev < 3.0 and ≥ 3.0 as mutually exclusive builds (`ESP32P4_SELECTS_REV_LESS_V3`), so the newer line needs a separate build
-for v3.x boards. `MAX_LINE` in `tools/check_component_updates.py` holds the caps; a prebuilt library cannot be told to
-avoid the instructions.
+All camera variants use `esp_video` 2.6.0, `esp_cam_sensor` 2.7.0, `esp_ipa` 2.5.0 and `esp_h264` 1.4.1. The Tab5 board support
+package `m5stack_tab5` 1.3.3 asks for `esp_video ~2.6` itself (1.3.2 asked for `~2.0` and was copied locally).
+The prebuilt `libesp_ipa.a` of esp_ipa 2.3.0 to 2.4.x contains RISC-V Zba/Zbb instructions (`sh2add`, ...; `objdump` counts
+0 up to 2.2.0, 163 in 2.3.0, 193 in 2.4.0) that P4 rev v1.x silicon does not execute (illegal instruction in
+`create_ipa_array`). esp_ipa 2.5.0 adds `libesp_ipa_p4_less_v3.a` (0 such instructions for ESP-IDF 5.5 and 6.0+, also the
+newlib build), which the component selects through `CONFIG_ESP32P4_SELECTS_REV_LESS_V3`; the default library still holds 297 and
+is only linked by `panel10` (rev v3.x). ESP-IDF treats P4 rev < 3.0 and ≥ 3.0 as mutually exclusive builds. Check the archive
+with `objdump` before raising a version again.
+
+The SC202CS profile (`sensors/sc202cs/cfg/sc202cs_default.json`) uses identity matrices in its CCM table: esp_ipa 2.5.0 blends
+the table by gain and produced 4.79 for a Matrix entry, outside the ISP limit of ±4 (`ISP_CCM ... out of range`, ISP start
+failed on Tab5). Ambient sensing only needs luma. Earlier camera trials do not qualify these updated dependencies.
 
 ## Shared LVGL adapter
 
-Every panel registers display and touch with `esp_lvgl_adapter` 0.7.5 through
+P4 panels use `esp_lvgl_adapter` 0.7.9; S3 retains 0.7.3. Each registers display and touch through
 `main/drivers/display_port.c`. Board files initialize hardware only. The shared
 adapter task uses priority 20, core 1 and the existing internal-RAM stack; LVGL
 allocations, two partial draw buffers and rotation scratch use PSRAM first.
@@ -66,8 +70,8 @@ is disabled because BETTA owns brightness, wake and inactivity policy.
 
 Some BSPs still depend on `esp_lvgl_port` for their own convenience functions.
 It may appear in the resolved component list, but BETTA does not initialize its
-task or register displays/touch through it. Panel10 and JC V2 share the new source
-path but have no hardware qualification in this fork.
+task or register displays/touch through it. Earlier board-specific acceptance does not
+qualify the updated adapter; JC V2 still has no hardware qualification in this fork.
 
 Device acceptance on 2026-10-13, source `650fd258`: panel4, original paneljc and
 one ST7121/v1.3 Tab5 report adapter 0.7.3, valid OTA, live Home Assistant connection
@@ -120,21 +124,12 @@ two seconds. Initial layout priming, HA reconnect and the exceptional failed-eve
 keep their existing complete refresh paths. Single entity/widget application can still be
 slow; timing diagnostics distinguish that from the removed periodic sweep.
 
-## Vendored PPA driver (temporary)
-
-`components/esp_driver_ppa` is ESP-IDF 6.1's driver with upstream commit `469aa16` (esp-idf#19096, #19023): the
-P4 DIG-734 workaround now uses the rotated block size, so 90/270 degree RGB565 rotations no longer fail to complete.
-It overrides the IDF component for all variants. Remove it, with its `LICENSE` entry, once the ESP-IDF in use
-contains the change: `grep -n "in_block_w" $IDF_PATH/components/esp_driver_ppa/src/ppa_srm.c` finds the fixed code.
-After removing it, rebuild every variant, run a rotation soak on paneljc and tab5 and check that `GET /api/version`
-reports no PPA coredump.
-
 ## Waveshare LCD-4B BSP override
 
 Panel4 uses BSP 3.0.1 from `third_party/waveshare__esp32_p4_wifi6_touch_lcd_4b`.
 The official source and Apache-2.0 license are preserved; `BETTA.md` records the
-registry archive hash and repository commit. Only the adapter manifest constraint
-changes from `~0.6` to `0.7.5`, matching the shared runtime and LVGL 9.6.
+registry archive hash and repository commit. The local manifest pins
+`esp_lvgl_adapter` 0.7.9 for LVGL 9.6 and `esp_codec_dev` 1.6.2 for shared audio.
 Dependency solving runs before the configure patch hook, so this override belongs
 in the manifest rather than a manual edit of `managed_components/`.
 
@@ -148,17 +143,26 @@ chime path remain board-specific.
 
 Panel10 targets the ready-made ESP32-P4-WIFI6-Touch-LCD-10.1 through Waveshare
 BSP 2.0.3 in `third_party/waveshare__esp32_p4_wifi6_touch_lcd_x`. Its `BETTA.md`
-records the official archive hash and local adapter/DSI-clock changes. The preset
-selects P4 Rev3.0+, JD9365, RGB565, two DPI framebuffers and fixed 270-degree
-landscape. GT9271 uses a non-null BSP configuration and the GT911-family driver;
+records the official archive hash and local adapter, codec and DSI-clock changes. The preset
+selects P4 Rev3.0+, JD9365, RGB565 and two synchronized DPI framebuffers with configurable
+CPU rotation. GT9271 uses a non-null BSP configuration and the GT911-family driver;
 LVGL applies rotation. PWM brightness uses GPIO26; touch reset/interrupt stay NC.
-The shared adapter/PPA runtime is retained. Optional OV5647 sensing shares the
+The shared adapter retains Panel10's CPU rotation path. Optional OV5647 sensing shares the
 BSP I2C bus and uses Espressif's original sensor modes/ISP profile with a small
-read-only metering extension. ES8311 chimes use the existing transient output
-path and BSP pins. Microphone capture is not initialized. Both runtime features
+read-only metering extension. AI Assistant owns ES8311/ES7210 playback and capture;
+the independent chime path stays disabled. Camera and assistant runtime options
 start off; manufacturer examples and source hashes are recorded in the vendor notes.
 This replaces the inherited Nano BSP and its compatibility patches; the Nano
-plus separate DSI kit is no longer the panel10 target. Hardware validation is pending.
+plus separate DSI kit is no longer the panel10 target. Earlier tests are recorded in the
+[panel guide](../hardware/panel10.md); validation of these dependency updates is pending.
+
+## Tab5 BSP override
+
+Tab5 takes `m5stack_tab5` 1.3.3 from `third_party/espressif__m5stack_tab5`.
+Its manifest pins `esp_codec_dev` 1.6.2, matching the Waveshare and JC profiles.
+The local source carries forward BETTA's null display-configuration guard and
+uses the BSP's default DSI lane rate for the detected panel. Archive provenance
+and the Apache-2.0 license are in that directory.
 
 ## Patches to fetched components
 
@@ -171,7 +175,9 @@ build at a commit whose manifest differs from the lock). The small edits needed 
 - serialized WebSocket polling/close, post-lock connection checks and stalled-frame
   handling in `tools/patch_websocket_transport.py`,
 - a bounded wait for the PPA screen rotation in `esp_lvgl_port` (see
-  [UI stall watchdog](learnings.md#watchdogs-and-crash-evidence)).
+  [UI stall watchdog](learnings.md#watchdogs-and-crash-evidence)),
+- no error log line for a timed-out `esp_lv_adapter_lock()`: `display_lock(20)` polls and retries by design, and `display_timing` counts
+  the timeouts (an animated energy page produced a few per minute).
 
 The root `CMakeLists.txt` runs the script on every configure, right after `project()`. Check or apply outside a build:
 
@@ -281,8 +287,10 @@ registry version (see `tools/README.md`). Run it before touching `dependencies.l
 
 ## Dependency pins
 
-Variant manifests and lock files are authoritative. JC/Tab5 select `esp_sccb_intf` 1.0.0 and
-`libpng` 1.6.59; Panel10 has its own lock at 1.6.59, while Panel4 retains 1.6.58~2.
+Variant manifests and lock files are authoritative. The five P4 variants select
+`esp_codec_dev` 1.6.2. JC/Tab5 select `esp_sccb_intf` 1.0.0 and
+`libpng` 1.6.59~1. Panel10 also selects SCCB 1.0.0 but retains its `libpng` 1.6.58~2
+and `zlib` 1.3.2~1 pins; Panel4 retains `libpng` 1.6.58~2. S3 has no camera or codec dependency.
 The Waveshare BSP's split ESP-IDF driver dependencies are supplied during the first configure;
 a second configure is not required to discover missing driver components. Shared build/CI scripts
 may still reconfigure deliberately for their other responsibilities.

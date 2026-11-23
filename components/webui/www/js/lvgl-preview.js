@@ -192,10 +192,7 @@ async function liveViewLoad() {
     load.timer = liveViewEnv.setTimeout(() => {
       if (liveView.load !== load) return;
       load.timedOut = true;
-      liveView.load = null;
-      liveViewEnv.clearTimeout(load.timer);
-      load.controller.abort();
-      liveViewReleaseLoad(load);
+      liveViewCancel();
       liveView.previous = Boolean(liveView.current);
       liveViewStatus(liveViewFailure(null, load) + (liveView.current ? " " + t("live.previous") : ""), "error");
       liveViewRefreshUi();
@@ -237,8 +234,7 @@ function liveViewStamp(date) {
 function liveViewCancel() {
   const load = liveView.load;
   if (!load) return;
-  liveView.load = null;
-  liveViewEnv.clearTimeout(load.timer);
+  liveViewFinish(load);
   load.controller.abort();
   liveViewReleaseLoad(load);
 }

@@ -96,6 +96,8 @@ static void betta_lvgl_lock_acquired(uintptr_t caller)
 
 static void betta_lvgl_lock_timeout(int32_t timeout_ms, uintptr_t caller)
 {
+    /* Short polling timeouts are expected; display_timing counts them. */
+    if (timeout_ms >= 0 && timeout_ms <= 20) return;
     /* Task names are copied on acquisition so this never dereferences another task. */
     TaskHandle_t holder = xSemaphoreGetMutexHolder(s_ctx.lvgl_mutex);
     portENTER_CRITICAL(&s_lock_context_mux);
@@ -123,8 +125,7 @@ esp_err_t esp_lv_adapter_lock(int32_t timeout_ms)
     }
     betta_lvgl_lock_acquired(caller);
 #else
-    ESP_RETURN_ON_FALSE(acquired == pdTRUE,
-                        ESP_ERR_TIMEOUT, TAG, "Failed to acquire LVGL lock");
+    if (acquired != pdTRUE) return ESP_ERR_TIMEOUT;
 #endif
     return ESP_OK;
 }
@@ -149,7 +150,32 @@ void esp_lv_adapter_unlock(void)
         xSemaphoreGiveRecursive(s_ctx.lvgl_mutex);
     }
 }'''
-    return replace(path, old, new)
+    text = path.read_text(encoding="utf-8")
+    if new in text:
+        return "present", None
+    # Upgrade existing dev and upstream patch results as well as pristine sources.
+    # A component-manager cache can retain either state across reconfiguration.
+    legacy = new.replace(
+        "    /* Short polling timeouts are expected; display_timing counts them. */\n"
+        "    if (timeout_ms >= 0 && timeout_ms <= 20) return;\n", "",
+    ).replace(
+        "    if (acquired != pdTRUE) return ESP_ERR_TIMEOUT;",
+        "    ESP_RETURN_ON_FALSE(acquired == pdTRUE,\n"
+        "                        ESP_ERR_TIMEOUT, TAG, \"Failed to acquire LVGL lock\");",
+    )
+    quiet = old.replace(
+        "    ESP_RETURN_ON_FALSE(xSemaphoreTakeRecursive(s_ctx.lvgl_mutex, ticks) == pdTRUE,\n"
+        "                        ESP_ERR_TIMEOUT, TAG, \"Failed to acquire LVGL lock\");",
+        "    /* andre68723/BETTA-HA-PANEL fork patch (tools/apply_component_patches.py): short polling timeouts are expected;\n"
+        "     * display_timing records them, so no error log line per attempt. */\n"
+        "    if (xSemaphoreTakeRecursive(s_ctx.lvgl_mutex, ticks) != pdTRUE) {\n"
+        "        return ESP_ERR_TIMEOUT;\n"
+        "    }",
+    )
+    for previous in (old, legacy, quiet):
+        if previous in text:
+            return "applied", text.replace(previous, new, 1)
+    return "missing", None
 
 
 def ensure_requires(path, keyword, tokens):
@@ -168,7 +194,7 @@ def ensure_requires(path, keyword, tokens):
 # (component directory, file inside it, what, edit function, its arguments[, optional: the place may not exist])
 PATCHES = [
     ("espressif__esp_lvgl_adapter", "src/adapter/esp_lv_adapter.c",
-     "esp_lvgl_adapter: record Panel10 waiter and holder on lock timeout",
+     "esp_lvgl_adapter: retain Panel10 lock context without logging expected polling timeouts",
      patch_panel10_lock_context, ()),
     ("espressif__esp_websocket_client", "esp_websocket_client.c",
      "esp_websocket_client: serialize TLS polling/close and bound stalled receives",
@@ -201,16 +227,6 @@ PATCHES = [
         "        return ESP_FAIL;\n"
         "    }\n"
         "    eh_host_port_sem_post(sem_to_slave_queue);\n")),
-    ("espressif__m5stack_tab5", "src/bsp_display.c",
-     "tab5 BSP: bsp_display_new_with_handles() accepts a NULL config (first boot on a Tab5 crashed with a load access fault)",
-     replace, ("        .phy_clk_src = config->dsi_bus.phy_clk_src,\n"
-               "        .lane_bit_rate_mbps = config->dsi_bus.lane_bit_rate_mbps,\n",
-               "        /* andre68723/BETTA-HA-PANEL fork patch (tools/apply_component_patches.py): main/drivers/display_init_tab5.c passes NULL;\n"
-               "         * the BSP's own start path picks the same defaults (965 Mbps on the ST7121 board, 1000 Mbps otherwise). */\n"
-               "        .phy_clk_src = config != NULL ? config->dsi_bus.phy_clk_src : 0,\n"
-               "        .lane_bit_rate_mbps = config != NULL ? config->dsi_bus.lane_bit_rate_mbps\n"
-               "            : (board_version == BSP_TAB5_BOARD_VERSION_ST7121 ? BSP_LCD_ST712X_MIPI_DSI_LANE_BITRATE_MBPS\n"
-               "                                                               : BSP_LCD_MIPI_DSI_LANE_BITRATE_MBPS),\n")),
     ("espressif__esp_lvgl_adapter", "src/display/bridge/v9/lvgl_bridge_v9.c",
      "RGB cache-safe ISR: keep the v9 bridge callback context in internal RAM",
      replace, ("    esp_lv_adapter_display_bridge_v9_t *impl = calloc(1, sizeof(*impl));",

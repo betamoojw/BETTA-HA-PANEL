@@ -7,6 +7,7 @@
 #include <string.h>
 
 #include "ui/fonts/ttf_data.h"
+#include "ui/cjk_font_data.h"
 #include "ui/reply_font_file.h"
 
 /* lv_tiny_ttf puts the base line one pixel lower than the converter did: re-applied after every create (see text_scale.h) */
@@ -216,14 +217,17 @@ const lv_font_t *ui_font_clock(int max_width, int max_height, bool format_24h, b
 }
 
 /* Shared by regular, emphasis and measurement fonts. Keep the Latin line metrics;
- * only glyphs missing from Poppins reach this cache. Outlines use embedded rodata. */
+ * only glyphs missing from Poppins reach this cache. Panel10 shares one unpacked subset. */
 static const lv_font_t *cjk_for_text(int px)
 {
     font_instance_t *inst = find_instance(FAMILY_CJK, px);
     if (inst != NULL) return inst->font;
     const lv_font_t *emoji = ui_font_emoji_for_text(px);
     if (s_count >= UI_FONT_MAX_INSTANCES - 1) { s_stats.budget_hits++; return emoji; }
-    lv_font_t *font = make_font(ttf_cjk_data, ttf_cjk_size, px, LV_FONT_KERNING_NONE, 32);
+    unsigned int cjk_size = 0;
+    const unsigned char *cjk_data = ui_cjk_font_data(&cjk_size);
+    if (!cjk_data) { s_stats.create_failures++; return emoji; }
+    lv_font_t *font = make_font(cjk_data, cjk_size, px, LV_FONT_KERNING_NONE, 32);
     if (font == NULL) return emoji;
     int line_height, base_line;
     text_scale_text_metrics(px, &line_height, &base_line);

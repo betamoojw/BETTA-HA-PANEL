@@ -54,7 +54,16 @@ LittleFS is used for runtime configuration and persisted graph history, rather t
 
 Settings publish a new generation only after its complete secret record is committed to NVS. A failed save retains the previous endpoint/credential pair. Transient read or allocation errors leave existing settings and layouts on flash intact. During the first upgrade from upstream v0.8.2, generation zero preserves the old secret bundle, bound to its connection targets. Unchanged legacy credentials remain usable after a rollback. Changing a connection target or its credential clears that legacy key before publishing the new file; if firmware is downgraded afterwards, re-enter the affected credentials because older versions cannot read the new records. Legacy edits after rollback take precedence over a matching migration snapshot.
 
-`main/CMakeLists.txt` embeds the matching `release/network_adapter_esp32c6_<version>.bin` in the P4 app. The current 3.1.0 payload is 1,385,536 bytes (about 1.321 MiB). On `panel10`, the payload is embedded as a losslessly compressed archive; the updater restores it in PSRAM and verifies its length and SHA256 before transfer. Other profiles retain the raw image. The C6's running firmware lives in the coprocessor's own flash. `wifi_mgr.c` checks versions and sends the bundled update over ESP-Hosted when required, deferring it until a pending P4 OTA image passes validation.
+`main/CMakeLists.txt` embeds `release/network_adapter_esp32c6_<version>.bin` in the P4 app.
+The 3.1.0 artifact fetched on 2026-11-23 is 1,472,016 bytes, SHA256
+`4ac31b47eb3bf7e239e657173dcb317433a2cc7799a4ec518aeda9856d06d614`.
+Panel10's lossless BC6Z archive is 869,719 bytes; the updater restores it in PSRAM
+and verifies its length and SHA256 before transfer. Other profiles embed the raw image.
+An earlier local 3.1.0 artifact was 1,385,536 bytes; that is a historical measurement,
+not the current payload budget. Release assets can change under the same version name:
+verify the file hash against the [build instructions](../development/build.md#set-up).
+The C6's running firmware lives in its own flash. `wifi_mgr.c` checks versions and
+updates it over ESP-Hosted when required, after a pending P4 OTA image passes validation.
 
 On the 32 MiB boards **both app slots must lie inside the first 16 MiB**. The
 flash is quad flash and the cache cannot map addresses above 16 MiB (the
@@ -74,8 +83,8 @@ The app contains the firmware, editor and built-in assets:
 
 | Item | Storage in the app |
 | --- | --- |
-| ESP-Hosted C6 firmware | Embedded 3.1.0 payload: 1,385,536 bytes (about 1.321 MiB) |
-| Fonts | Four TrueType subsets, rendered at runtime by `lv_tiny_ttf`; no per-size bitmap fonts |
+| ESP-Hosted C6 firmware | Raw 3.1.0 artifact above: 1,472,016 bytes; verify the exact artifact hash |
+| Fonts | Five TrueType subsets, rendered at runtime by `lv_tiny_ttf`; no per-size bitmap fonts |
 | Web editor | Gzip-compressed HTML, CSS and JavaScript |
 | Built-in images | Light-color images and boot splash PNG |
 | Libraries | LVGL, networking, TLS, HTTP/MQTT and the CA certificate bundle |
@@ -154,6 +163,44 @@ catalog-byte parity, generated output and size bounds. `tools/test_host.sh`
 checks both catalog paths, all seven languages, custom overrides, corrupt or
 truncated data and allocation failures with the actual zlib decoder. Device
 acceptance must still exercise language switching and translation export.
+
+## Panel10 Chinese font compression
+
+Panel10 embeds the existing Chinese TrueType subset as a zlib stream. Decoding
+restores the same 285,336 font bytes; all 969 codepoints, outlines and metrics
+remain unchanged. The compressed payload is 191,200 bytes, saving 94,136 bytes
+before decoder code and alignment. Other boards and the simulator retain the
+original font array. Source attribution and the SIL OFL license remain in
+`main/ui/fonts/`.
+
+The first text-font setup requests its CJK fallback, even with English selected,
+and expands one PSRAM buffer shared by every size for the boot lifetime. It does
+not wait for a Chinese character to appear. This costs 285,336
+bytes for the restored font. With Panel10's read-only-data-in-PSRAM profile,
+the compressed copy also occupies PSRAM: the estimated steady increase over
+the raw font is 191,200 bytes plus alignment, with temporary zlib work memory
+during decoding. These are storage/lifetime calculations, not measured peak
+memory, initial decode/display-lock time, startup latency or rendering performance on hardware.
+
+The decoder requires a complete zlib stream, exact expanded length, no trailing
+data and the TrueType header before publishing the cache. Failure frees decoder
+workspaces and output; text retains its emoji fallback and a later font request
+can retry. Successful requests reuse the cached bytes without another allocation.
+The packer and host tests check byte parity, cache reuse, malformed streams and
+allocation failures; they do not measure hardware responsiveness.
+
+The WakeNet packer also chooses the smaller of its existing and filtered zlib
+streams for each model, checking complete byte restoration. The three bundled
+models save another 16,706 bytes without changing the runtime decoder or model
+buffers. Neither change removes features or changes the partition layout.
+Measure the finished application against its OTA slot after building; payload
+savings alone do not establish the final free space or hardware behavior.
+
+The local 2026-11-23 Panel10 build with ESP-IDF 6.1.1 and the C6 artifact above
+produced a 6,796,976-byte app for the unchanged 6,815,744-byte OTA slot:
+18,768 bytes (18.33 KiB, about 0.28%) remain. This is build-only qualification;
+runtime memory, initial decode/display-lock time and device behavior remain
+unmeasured for this merged image. Recheck capacity after any source or asset change.
 
 ## Crash diagnostics (coredump partition)
 

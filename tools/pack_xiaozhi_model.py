@@ -23,6 +23,18 @@ def pack(source: Path) -> bytes:
     return header + payload
 
 
+def compress_model(data: bytes) -> bytes:
+    # Quantized weights can compress better with filtered DEFLATE. Keep the
+    # default candidate so other models never grow; both use the existing zlib
+    # envelope and firmware decoder without additional runtime allocations.
+    filtered = zlib.compressobj(level=9, memLevel=6, strategy=zlib.Z_FILTERED)
+    candidates = (zlib.compress(data, 9), filtered.compress(data) + filtered.flush())
+    compressed = min(candidates, key=len)
+    if zlib.decompress(compressed) != data:
+        raise ValueError('Compressed model did not round-trip')
+    return struct.pack('<I', len(data)) + compressed
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('source', type=Path)
@@ -31,6 +43,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
     data = pack(args.source)
     if args.compress:
-        data = struct.pack('<I', len(data)) + zlib.compress(data, 9)
+        data = compress_model(data)
     if not args.output.exists() or args.output.read_bytes() != data:
         args.output.write_bytes(data)

@@ -4,6 +4,31 @@
 
 Changes of **this fork**, compared with upstream v0.8.2. The release notes of the original project (v0.8.2 and earlier, by Cpt_Kirk) are kept unchanged in [Upstream release notes](release-notes-upstream.md).
 
+## v0.9.2
+
+Changes since [v0.9.2-rc2](#v092-rc2); the earlier development features below remain available.
+
+- **Integration:** retain KNX widget commands/feedback, optional Home Assistant setup, License/Agreement,
+  seven languages, the S3 mirror, voice and camera options, and low-memory JPEG/PNG/BMP screenshots.
+  Live view keeps PNG fallback, matching download names and immediate cancellation cleanup.
+- **Display diagnostics:** ordinary LVGL lock timeouts no longer emit adapter error logs;
+  Panel10's lock-holder/waiter diagnostics and bounded recovery remain available.
+- **Panel10 capacity:** losslessly compress the existing Chinese UI font and improve WakeNet
+  model packing. Glyphs, models, features and OTA partitions remain unchanged. The font
+  uses one shared PSRAM copy from initial text-font setup, including in English; see the [storage budget](hardware/storage.md#panel10-chinese-font-compression).
+  Hardware memory and timing validation of this change remains pending.
+- **Documentation:** refresh examples using the fixed simulator clock.
+
+### Firmware and hardware
+
+- **ESP-IDF 6.1.1 and LVGL adapter 0.7.9:** the SDK includes the PPA fix for 90° and 270° rotations and stricter HTTP/WebSocket
+  checks. The adapter adds PPA alignment and cache-coherency fixes.
+- **ESP-Hosted 3.1.0:** the panel updates a C6 reporting a different firmware version, with one extra restart. SDIO receive staging
+  uses one slot and Hosted DMA buffers prefer PSRAM to reduce internal-memory pressure.
+- **Camera and audio:** JC, Tab5 and LCD-X use `esp_video` 2.6.0, `esp_cam_sensor` 2.7.0 and `esp_ipa` 2.5.0, which supplies a
+  library for pre-v3 ESP32-P4 silicon. The five P4 variants resolve `esp_codec_dev` 1.6.2. Device validation of these dependency
+  changes is pending.
+
 ## v0.9.2-rc2
 
 Changes since [v0.9.2-rc1](#v092-rc1).

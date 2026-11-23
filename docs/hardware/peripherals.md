@@ -20,7 +20,7 @@ Tab5 uses its SC2356 through the SC202CS sensor driver and the M5Stack BSP camer
 
 LCD-X (`panel10`) uses its OV5647 front camera on the BSP-owned GPIO7/8 I2C
 bus, with no separate reset or power-down GPIO, matching Waveshare's camera
-example. The 800×640 RAW8 mode needs two RGB565 buffers totalling 2,048,000
+example. The esp_video 2.6.0 pipeline converts 800×640 RAW8 to two RGB565 buffers totalling 2,048,000
 bytes in PSRAM. Runtime sensing starts off; the task opens the camera only on
 an enabled automation, advanced motion, a 30-second test or explicit picture demand.
 The OV5647's internal AEC/AGC keeps
@@ -28,7 +28,8 @@ image brightness steady, so the driver reads actual exposure/gain statistics
 instead of treating its exposure-target control as a shutter measurement.
 The current light curve comes from JC measurements; wider LCD-X calibration is
 pending. The [2026-10-27 device trial](panel10.md#validation-status-and-next-checks)
-passed light response, approach/night wake and test expiry. Long-term touch/audio
+passed light response, approach/night wake and test expiry on the firmware tested then;
+it does not qualify the updated camera dependencies. Long-term touch/audio
 coexistence remains unverified. Night wake needs visible light for frame differences.
 
 The ambient task stays on the core that initialized the display. IDF 6.1 binds
@@ -64,7 +65,7 @@ follows codec startup and silent frames; synthesized tones have attack/release r
 lowers PA, closes/deletes all codec interfaces and deletes the I2S channel. The codec library
 requires stereo I2S slots, so the mono samples are duplicated into both slots.
 
-The 4B BSP asks for `esp_codec_dev` ~1.5 (1.5.11 there); the JC has no BSP and runs 1.6.2.
+The P4 manifests pin `esp_codec_dev` 1.6.2, including the local 4B, LCD-X and Tab5 BSP overrides.
 LCD-X panel10 reserves its ES8311/ES7210 and I2S channel for the persistent
 [AI Assistant audio owner](../development/xiaozhi-ai.md). Its independent chime
 path remains disabled; a transient codec owner would disrupt wake detection

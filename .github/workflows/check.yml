@@ -41,7 +41,7 @@ jobs:
         run: |
           sudo sed -i '\|://azure\.archive\.ubuntu\.com/|d' /etc/apt/apt-mirrors.txt
           case "$CHECK_GROUP" in
-            web) packages=(libcjson-dev pkg-config) ;;
+            web) packages=(libcjson-dev zlib1g-dev pkg-config) ;;
             host) packages=(libcjson-dev zlib1g-dev pkg-config) ;;
             sim-*) packages=(libsdl2-dev) ;;
             *) echo "Unexpected check group: $CHECK_GROUP" >&2; exit 1 ;;

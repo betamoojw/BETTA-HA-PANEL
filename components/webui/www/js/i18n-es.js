@@ -1380,7 +1380,7 @@ WEB_I18N_BUILTIN["es"] = {
   "settings.ota.heading": "Actualizar firmware",
   "settings.ota.url": "URL OTA",
   "settings.ota.manual": "Instalar manualmente",
-  "settings.ota.url_placeholder": "https://github.com/andre68723/BETTA-HA-PANEL/releases/latest/download/...",
+  "settings.ota.url_placeholder": "https://github.com/betamoojw/BETTA-HA-PANEL/releases/latest/download/...",
   "settings.ota.flash_url": "Grabar desde URL",
   "settings.ota.checking": "Comprobando...",
   "settings.ota.file": "Archivo OTA .bin",

@@ -120,7 +120,7 @@
     {"text": "cover", "languages": ["es", "fr", "pl"], "reason": "Home Assistant entity-domain identifiers"},
     {"text": "d", "languages": ["es", "pl"], "reason": "Shared word or accepted technical abbreviation"},
     {"text": "h", "languages": ["es", "fr", "pl"], "reason": "Shared word or accepted technical abbreviation"},
-    {"text": "https://github.com/andre68723/BETTA-HA-PANEL/releases/latest/download/...", "languages": ["es", "fr", "pl", "zh-cn", "zh-tw"], "reason": "Download URL"},
+    {"text": "https://github.com/betamoojw/BETTA-HA-PANEL/releases/latest/download/...", "languages": ["es", "fr", "pl", "zh-cn", "zh-tw"], "reason": "Download URL"},
     {"text": "light", "languages": ["es", "fr", "pl"], "reason": "Home Assistant entity-domain identifiers"},
     {"text": "max", "languages": ["fr", "pl"], "reason": "Shared word or accepted technical abbreviation"},
     {"text": "media_player", "languages": ["es", "fr", "pl"], "reason": "Home Assistant entity-domain identifiers"},

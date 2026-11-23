@@ -1440,7 +1440,7 @@ const WEB_I18N_BUILTIN = {
     "settings.ota.heading": "Firmware Update",
     "settings.ota.url": "OTA URL",
     "settings.ota.manual": "Install manually",
-    "settings.ota.url_placeholder": "https://github.com/andre68723/BETTA-HA-PANEL/releases/latest/download/...",
+    "settings.ota.url_placeholder": "https://github.com/betamoojw/BETTA-HA-PANEL/releases/latest/download/...",
     "settings.ota.flash_url": "Flash from URL",
     "settings.ota.checking": "Checking...",
     "settings.ota.file": "OTA .bin File",

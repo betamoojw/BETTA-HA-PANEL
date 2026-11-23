@@ -1380,7 +1380,7 @@ WEB_I18N_BUILTIN["fr"] = {
   "settings.ota.heading": "Mise à jour du micrologiciel",
   "settings.ota.url": "URL OTA",
   "settings.ota.manual": "Installer manuellement",
-  "settings.ota.url_placeholder": "https://github.com/andre68723/BETTA-HA-PANEL/releases/latest/download/...",
+  "settings.ota.url_placeholder": "https://github.com/betamoojw/BETTA-HA-PANEL/releases/latest/download/...",
   "settings.ota.flash_url": "Flasher depuis l'URL",
   "settings.ota.checking": "Vérification...",
   "settings.ota.file": "Fichier OTA .bin",

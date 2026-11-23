@@ -1380,7 +1380,7 @@ WEB_I18N_BUILTIN["zh-cn"] = {
   "settings.ota.heading": "固件更新",
   "settings.ota.url": "在线旅行社网址",
   "settings.ota.manual": "手动安装",
-  "settings.ota.url_placeholder": "https://github.com/andre68723/BETTA-HA-PANEL/releases/latest/download/...",
+  "settings.ota.url_placeholder": "https://github.com/betamoojw/BETTA-HA-PANEL/releases/latest/download/...",
   "settings.ota.flash_url": "从地址烧录",
   "settings.ota.checking": "正在检查…",
   "settings.ota.file": "OTA .bin 文件",

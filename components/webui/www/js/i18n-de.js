@@ -1413,7 +1413,7 @@ Object.assign(WEB_I18N_BUILTIN, {
     "settings.ota.heading": "Firmware-Update",
     "settings.ota.url": "OTA-URL",
     "settings.ota.manual": "Manuell installieren",
-    "settings.ota.url_placeholder": "https://github.com/andre68723/BETTA-HA-PANEL/releases/latest/download/...",
+    "settings.ota.url_placeholder": "https://github.com/betamoojw/BETTA-HA-PANEL/releases/latest/download/...",
     "settings.ota.flash_url": "Von URL flashen",
     "settings.ota.checking": "Wird geprüft...",
     "settings.ota.file": "OTA .bin Datei",

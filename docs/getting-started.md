@@ -38,7 +38,7 @@ Use the device guide's firmware name and flashing connector. The
 4. Keep the release notes open for any device-specific installation or upgrade instructions.
    Checksums and command-line verification are covered in the [download reference](development/build.md#install-a-downloaded-image).
 
-Choose the [latest stable release](https://github.com/andre68723/BETTA-HA-PANEL/releases/latest)
+Choose the [latest stable release](https://github.com/betamoojw/BETTA-HA-PANEL/releases/latest)
 for normal use, or a release marked **Pre-release** to test a release candidate. Under **Assets**, select
 `betta86-ha-panel-<version>-<variant>.factory.bin` or `betta86-ha-panel-<version>-<variant>.ota.bin`.
 Use the same version and variant for the image and its `SHA256SUMS`.

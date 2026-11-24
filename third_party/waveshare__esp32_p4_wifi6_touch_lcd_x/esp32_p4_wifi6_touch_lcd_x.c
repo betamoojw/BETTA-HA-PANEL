@@ -1230,7 +1230,8 @@ err:
 
 esp_err_t bsp_touch_new(const bsp_display_cfg_t *cfg, esp_lcd_touch_handle_t *ret_touch)
 {
-    assert(cfg != NULL);
+    ESP_RETURN_ON_FALSE(cfg && ret_touch, ESP_ERR_INVALID_ARG, TAG, "Invalid touch configuration");
+    *ret_touch = NULL;
 
     /* Initilize I2C */
     BSP_ERROR_CHECK_RETURN_ERR(bsp_i2c_init());
@@ -1272,8 +1273,16 @@ esp_err_t bsp_touch_new(const bsp_display_cfg_t *cfg, esp_lcd_touch_handle_t *re
         return ESP_ERR_NOT_FOUND;
     }
     tp_io_config.scl_speed_hz = CONFIG_BSP_I2C_CLK_SPEED_HZ;
+    /* Touch polling runs under the LVGL lock. IDF maps zero to an infinite
+     * wait, including its NACK/bus-busy path. Bound each transfer and bus-lock
+     * wait while sharing GPIO7/8 with camera/codec clients. */
+    tp_io_config.transaction_timeout_ms = 50;
     ESP_RETURN_ON_ERROR(esp_lcd_new_panel_io_i2c(i2c_handle, &tp_io_config, &tp_io_handle), TAG, "");
-    return esp_lcd_touch_new_i2c_gt911(tp_io_handle, &tp_cfg, ret_touch);
+    esp_err_t ret = esp_lcd_touch_new_i2c_gt911(tp_io_handle, &tp_cfg, ret_touch);
+    if (ret != ESP_OK) {
+        esp_lcd_panel_io_del(tp_io_handle);
+    }
+    return ret;
 }
 
 #if (BSP_CONFIG_NO_GRAPHIC_LIB == 0)

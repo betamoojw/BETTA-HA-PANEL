@@ -13,7 +13,9 @@ typedef void *i2c_master_bus_handle_t;
 typedef int portMUX_TYPE;
 #define ESP_OK 0
 #define ESP_FAIL -1
-#define ESP_ERR_INVALID_STATE -2
+#ifndef ESP_ERR_INVALID_STATE
+#define ESP_ERR_INVALID_STATE 0x103
+#endif
 #define ESP_ERR_NOT_SUPPORTED -3
 #ifndef ESP_ERR_NO_MEM
 #define ESP_ERR_NO_MEM 0x101

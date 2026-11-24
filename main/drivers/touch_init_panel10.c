@@ -10,6 +10,7 @@
 #include "bsp/esp32_p4_wifi6_touch_lcd_x.h"
 #include "bsp/touch.h"
 #include "esp_err.h"
+#include "esp_lcd_panel_io.h"
 #include "esp_lcd_touch.h"
 #include "esp_log.h"
 #include "drivers/display_port.h"
@@ -24,6 +25,23 @@ static esp_lcd_touch_handle_t s_touch_handle = NULL;
 static const int TOUCH_INIT_RETRIES = 8;
 static const int TOUCH_INIT_RETRY_DELAY_MS = 250;
 static const uint32_t TOUCH_POLL_PERIOD_MS = 10;
+
+/* A failed scan is unknown input, not a finger release. The shared adapter
+ * holds a brief failure, then cancels the gesture and waits for a clean release. */
+static esp_err_t touch_read_bounded(esp_lcd_touch_handle_t handle, esp_lcd_touch_point_data_t *points,
+                                  uint8_t *count, uint8_t max_count, void *user_ctx)
+{
+    (void)user_ctx;
+    *count = 0;
+    if (esp_lcd_touch_read_data(handle) != ESP_OK) {
+        return ESP_ERR_NOT_FINISHED;
+    }
+    if (esp_lcd_touch_get_data(handle, points, count, max_count) != ESP_OK) {
+        *count = 0;
+        return ESP_ERR_NOT_FINISHED;
+    }
+    return ESP_OK;
+}
 
 static void touch_activity_event_cb(lv_event_t *event)
 {
@@ -43,8 +61,10 @@ static lv_display_t *touch_get_display(void)
 static void touch_release_handle(void)
 {
     if (s_touch_handle != NULL) {
+        esp_lcd_panel_io_handle_t io = s_touch_handle->io;
         esp_lcd_touch_del(s_touch_handle);
         s_touch_handle = NULL;
+        esp_lcd_panel_io_del(io);
     }
 }
 
@@ -101,12 +121,6 @@ esp_err_t touch_init(void)
         return ESP_ERR_INVALID_STATE;
     }
 
-    lv_display_t *disp = touch_get_display();
-    if (disp == NULL) {
-        ESP_LOGE(TAG_TOUCH, "No active LVGL display for touch binding");
-        return ESP_ERR_INVALID_STATE;
-    }
-
     esp_err_t err = ESP_FAIL;
     // The LCD-X BSP requires a config; LVGL applies the display rotation.
     const bsp_display_cfg_t bsp_cfg = {0};
@@ -129,22 +143,27 @@ esp_err_t touch_init(void)
 
     touch_apply_display_rotation_alignment(s_touch_handle);
 
-    const esp_lv_adapter_touch_config_t touch_cfg = {
-        .disp = disp,
-        .handle = s_touch_handle,
-        .scale = {
-            .x = 1.0f,
-            .y = 1.0f,
-        },
-    };
-
     if (!display_lock(1000)) {
         touch_release_handle();
         return ESP_ERR_TIMEOUT;
     }
+    lv_display_t *disp = touch_get_display();
+    if (disp == NULL) {
+        display_unlock();
+        touch_release_handle();
+        ESP_LOGE(TAG_TOUCH, "No active LVGL display for touch binding");
+        return ESP_ERR_INVALID_STATE;
+    }
+    const esp_lv_adapter_touch_config_t touch_cfg = {
+        .disp = disp,
+        .handle = s_touch_handle,
+        .scale = {.x = 1.0f, .y = 1.0f},
+        .callbacks = {.custom_touch_read = touch_read_bounded},
+    };
     s_touch_indev = esp_lv_adapter_register_touch(&touch_cfg);
     if (s_touch_indev != NULL) {
         lv_indev_add_event_cb(s_touch_indev, touch_activity_event_cb, LV_EVENT_PRESSED, NULL);
+        touch_apply_polling_tune(s_touch_indev);
     }
     display_unlock();
 
@@ -153,8 +172,6 @@ esp_err_t touch_init(void)
         touch_release_handle();
         return ESP_FAIL;
     }
-
-    touch_apply_polling_tune(s_touch_indev);
 
     s_touch_ready = true;
     ESP_LOGI(TAG_TOUCH, "Touch initialized (esp_lvgl_adapter + LCD-X GT9271)");

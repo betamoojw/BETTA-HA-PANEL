@@ -99,9 +99,12 @@ on 2026-10-21. Its separate `dependencies.lock.panel10` keeps this BSP out
 of the Panel4 dependency resolution. Physical display/touch checks remain
 required after flashing.
 
+Touch uses a finite 50 ms IDF transaction timeout on this shared bus. Failed
+scans retain input briefly, then cancel the gesture until a valid release;
+see the [I2C stall follow-up](../development/editor-workspace-validation.md#i2c-stall-follow-up).
 The OV5647 front camera reuses `bsp_i2c_get_handle()` (SDA7/SCL8), with reset
 and power-down set to -1, as in the [Waveshare camera example](https://github.com/waveshareteam/ESP32-P4-WIFI6-Touch-LCD-X/blob/main/examples/esp-idf/09_video_lcd_display/main/app_video.c).
-The vendored sensor and `esp_video` both use 2.3.0. The ISP outputs RGB565 to
+The vendored sensor uses 2.7.0 and `esp_video` uses 2.6.0. The ISP outputs RGB565 to
 two PSRAM buffers in bursts. Automation publishes scalar sensing results;
 separate image output controls default to off. See
 [camera validation limits](peripherals.md#ambient-camera).

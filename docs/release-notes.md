@@ -8,6 +8,11 @@ Changes of **this fork**, compared with upstream v0.8.2. The release notes of th
 
 Changes since [v0.9.2-rc2](#v092-rc2); the earlier development features below remain available.
 
+- **Editor workspace:** page and widget inspectors stay in Layout when Settings
+  is restored after login or a delayed layout response refreshes the editor.
+- **Panel10 touch:** bound shared-bus I2C transfers to recover from NACK/busy
+  faults without holding the LVGL loop indefinitely. Failed scans use gesture
+  cancellation protection, and initialization failures release their IO handles.
 - **Integration:** retain KNX widget commands/feedback, optional Home Assistant setup, License/Agreement,
   seven languages, the S3 mirror, voice and camera options, and low-memory JPEG/PNG/BMP screenshots.
   Live view keeps PNG fallback, matching download names and immediate cancellation cleanup.

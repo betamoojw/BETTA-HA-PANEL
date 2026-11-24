@@ -108,7 +108,7 @@ An Energy page has its own options in the page inspector: the data source and **
 
 ![Energy page options in the inspector: data source and Seven-day details](img/examples/editor-energy.png){ width="314" }
 
-The Inspector column stays reserved when changing selection. Its title has an info icon for each widget and
+The Inspector column stays reserved when changing selection in **Layout**. Its title has an info icon for each widget and
 page, with the summary of its guide and a documentation link.
 
 The widget inspector has the same order for every widget. Its header shows the widget type, the name (edit it

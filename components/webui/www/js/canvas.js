@@ -350,10 +350,11 @@ function renderPageIconOptions() {
 function updateInspectorPanels() {
   const widget = selectedWidget();
   const noWidget = !widget;
+  const showLayout = editor.activePane === "layout";
   const pageSection = document.getElementById("pageInspectorSection");
   const widgetSection = document.getElementById("inspectorSection");
-  if (pageSection) pageSection.classList.toggle("hidden", !noWidget);
-  if (widgetSection) widgetSection.classList.toggle("hidden", noWidget);
+  if (pageSection) pageSection.classList.toggle("hidden", !showLayout || !noWidget);
+  if (widgetSection) widgetSection.classList.toggle("hidden", !showLayout || noWidget);
   const heading = document.getElementById("pageInspectorHeading");
   const page = selectedPage();
   const iconSelect = document.getElementById("pageIconSelect");

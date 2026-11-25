@@ -90,6 +90,20 @@ static void knx_bindings(void)
         {"light_tile", "\"binding\":{\"source\":\"knx\",\"roles\":{\"brightness_feedback\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"}}", false},
         {"scene_tile", "\"binding\":{\"source\":\"knx\",\"roles\":{\"action\":\"A\"}}", false},
         {"camera_tile", "\"binding\":{\"source\":\"knx\",\"object_id\":\"room\"}", false},
+        {"cover_tile", "\"binding\":{\"source\":\"knx\",\"roles\":{\"move_command\":\"up_down\",\"stop_command\":\"stop\",\"position_command\":\"target\",\"position_feedback\":\"actual\"}}", true},
+        {"cover_tile", "\"binding\":{\"source\":\"knx\",\"roles\":{\"position_feedback\":\"missing\"},\"position_open_at_100\":true}", true},
+        {"cover_tile", "\"binding\":{\"source\":\"knx\",\"roles\":{\"move_command\":\"write_only\"},\"position_open_at_100\":false}", true},
+        {"cover_tile", "\"binding\":{\"source\":\"knx\",\"roles\":{\"move_command\":\"A\"},\"position_open_at_100\":1}", false},
+        {"cover_tile", "\"binding\":{\"source\":\"knx\",\"object_id\":\"ambiguous\"}", false},
+        {"cover_tile", "\"binding\":{\"source\":\"knx\",\"roles\":{\"brightness_command\":\"A\"}}", false},
+        {"climate_tile", "\"binding\":{\"source\":\"knx\",\"roles\":{\"target_temperature_command\":\"set\",\"target_temperature_feedback\":\"target\",\"current_temperature_feedback\":\"room\",\"hvac_mode_command\":\"mode_set\",\"hvac_mode_feedback\":\"mode\"}}", true},
+        {"climate_tile", "\"binding\":{\"source\":\"knx\",\"roles\":{\"current_temperature_feedback\":\"room\"}}", true},
+        {"climate_tile", "\"binding\":{\"source\":\"knx\",\"roles\":{\"hvac_mode_command\":\"mode\"},\"position_open_at_100\":false}", false},
+        {"climate_tile", "\"binding\":{\"source\":\"knx\",\"roles\":{\"target_temperature_command\":\"A\",\"target_temperature_command\":\"B\"}}", false},
+        {"fan_tile", "\"binding\":{\"source\":\"knx\",\"roles\":{\"switch_command\":\"power\",\"switch_feedback\":\"status\",\"fan_speed_command\":\"speed\",\"fan_speed_feedback\":\"rpm_percent\"}}", true},
+        {"fan_tile", "\"binding\":{\"source\":\"knx\",\"roles\":{\"fan_speed_feedback\":\"readonly\"}}", true},
+        {"fan_tile", "\"binding\":{\"source\":\"knx\",\"roles\":{\"fan_speed_command\":\"A\"}},\"entity_id\":\"fan.mixed\"", false},
+        {"fan_tile", "\"binding\":{\"source\":\"knx\",\"roles\":{\"fan_speed_command\":\"A\"}},\"secondary_entity_id\":\"sensor.mixed\"", false},
     };
     layout_validation_result_t *result = calloc(1, sizeof(*result));
     assert(result);
@@ -99,6 +113,15 @@ static void knx_bindings(void)
             "\"id\":\"w\",\"type\":\"%s\",%s,\"rect\":{\"x\":0,\"y\":0,\"w\":260,\"h\":%d}}]}]}",
             cases[i].type, cases[i].fields, !strcmp(cases[i].type, "scene_tile") ? 100 : 200);
         assert(layout_validate_json(json, result) == cases[i].valid);
+        if (cases[i].valid) {
+            cJSON *saved = cJSON_Parse(json);
+            assert(saved && widget_types_normalize_layout(saved));
+            char *serialized = cJSON_PrintUnformatted(saved);
+            assert(serialized && layout_validate_json(serialized, result));
+            cJSON *restored = cJSON_Parse(serialized);
+            assert(restored && cJSON_Compare(saved, restored, true));
+            cJSON_Delete(saved); cJSON_Delete(restored); cJSON_free(serialized);
+        }
     }
     free(result);
 }
@@ -145,6 +168,6 @@ static void allocation_failures(void)
 int main(void)
 {
     normalization(); validation(); knx_bindings(); allocation_failures();
-    puts("PASS: legacy weather reads, idempotence, retained fields, validation and allocation cleanup");
+    puts("PASS: legacy weather and KNX layout validation, save/reload, retained roles and allocation cleanup");
     return 0;
 }

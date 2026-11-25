@@ -37,6 +37,37 @@ same DPT and permission predicate as the worker. Its `widget_types` field retain
 contract. Layout validation checks role names, shape and ID bounds independently of the registry,
 so a layout can be restored first. Legacy `binding.object_id` and HA `entity_id` remain valid.
 
+Cover, Climate and Fan reuse the native HA widgets with role-based KNX adapters. Their
+bindings require `roles`; a single object does not unambiguously describe these devices.
+Cover accepts `move_command`, `stop_command`, `position_command` and `position_feedback`.
+Its optional boolean `position_open_at_100` defaults to false and only belongs to Cover.
+Climate uses `target_temperature_command`, `target_temperature_feedback`,
+`current_temperature_feedback`, `hvac_mode_command` and `hvac_mode_feedback`.
+Fan adds `fan_speed_command` and `fan_speed_feedback` alongside the existing switch roles.
+The [user guide](../knx.md#cover) lists the exact subtype and command conventions.
+
+`knx_widget_model.cc` projects confirmed role values into the existing state/attribute
+shape; no HA entity is registered and no HA service call is needed. The worker resolves
+each current object and its access under the registry lock, and revalidates commands
+before queuing. The UI gets a writable-role mask independently of feedback availability.
+An absent role omits its attribute rather than synthesizing a zero or an Off state.
+Native controls retain their bus-confirmed values after a command. The thermostat keeps
+its input draft separately and cancels it if target feedback changes or becomes invalid.
+
+All control IDs are owned by the widget's PSRAM-preferred context and freed with it.
+The control-binding structure is 896 bytes (previously 204); the 692-byte increase
+applies to each KNX control context using it. Ordinary HA contexts do not allocate it.
+Composite views track every bound object's revision, including aliases on a shared address;
+registry replacement also refreshes capabilities when IDs are removed or retyped.
+An external DPT 9 invalid marker (`0x7FFF`) invalidates every readable alias and advances
+its revision so the previous valid reading cannot remain on screen. Other malformed
+telegrams retain the existing rejection behavior.
+
+The mapping follows the supplied [KNX DPT reference, v02.02.01](https://support.knx.org/hc/en-us/article_attachments/15392631105682),
+especially pages 26–32, 39 and 115–117, and the [HA KNX cover convention](https://www.home-assistant.io/integrations/knx/#cover).
+The reference defines DPT semantics; configured actuator capabilities and ETS parameters
+still determine which optional objects are appropriate for a particular installation.
+
 The routing callback decodes an external write or response once per group address. Under the
 registry lock it publishes the value, receive timestamp and revision to every readable alias.
 The UI task checks the revision on its normal loop (20 ms delay between turns), takes the display
@@ -88,6 +119,12 @@ scripts/build.sh panel10 build
 Override ESP_KNX_IP_DIR and CJSON_DIR for standalone host checkouts.
 Coverage includes wire packets, subtype/enum boundaries, JSON fields and limits,
 MCP argument/errors, import/edit/save/reload and permission-aware controls.
+The composite-widget cases also exercise command polarity, percentage inversion,
+temperature invalidation, reconnects, partial bindings and feedback independence.
+`tests/host/test_layout_compat.c` covers complete layout validation and serialization;
+the SDL controls suite exercises the real Cover, Climate and Fan event handlers with
+synthetic KNX adapters while Home Assistant is offline. Editor tests cover role changes,
+save/reload, all seven translations and real-cache previews without sample state.
 Real Routing reception, reconnect, voice-to-actuator operation and concurrent
 audio/display stability require a separate authorized device trial.
 

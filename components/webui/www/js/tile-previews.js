@@ -723,6 +723,7 @@ function previewWeekday(offset) {
 function tilePreviewMarkup(widget) {
   if (widget.binding?.source === "knx") {
     const key = knxWidgetPreviewKey(widget);
+    if (knxControlWidgetTypes.includes(widget.type)) return knxControlPreviewMarkup({...widget, entity_id: key});
     if (widget.type !== "light_tile" && !knxPreview.get(key)?.live && previewSourceState(key) === "unavailable") {
       return `<div class="tp tp-sensor">${widgetNamePreview(widget, "small")}<b>--</b></div><div class="resize-handle"></div>`;
     }

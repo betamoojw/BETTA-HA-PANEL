@@ -9,7 +9,8 @@
 static inline void *ui_knx_control_context(size_t size, const ui_widget_def_t *def, ui_widget_instance_t *instance)
 {
     const char *const *ids = def->knx.controls;
-    bool bound = ids[0] || ids[1] || ids[2] || ids[3];
+    bool bound = false;
+    for (unsigned i = 0; i < KNX_CONTROL_ROLES; ++i) bound |= ids[i] != NULL;
     char *ctx = ui_calloc_prefer_psram(1, size + (bound ? sizeof(knx_control_binding_t) : 0));
     instance->knx_controls = NULL;
     if (ctx && bound) {
@@ -17,6 +18,7 @@ static inline void *ui_knx_control_context(size_t size, const ui_widget_def_t *d
         for (unsigned i = 0; i < KNX_CONTROL_ROLES; ++i)
             if (ids[i]) strcpy(controls->id[i], ids[i]);
         controls->brightness = -1;
+        controls->position_open_at_100 = def->knx.position_open_at_100;
         instance->knx_controls = controls;
     }
     return ctx;

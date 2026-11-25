@@ -91,6 +91,9 @@ has no candidates, its hint identifies the required access and DPT.
 | Gauge, Graph | — | Numeric DPT. Graph keeps local samples. |
 | Binary, Contact | — | DPT 1 |
 | Scene / fixed-value action | Any supported writable DPT and a fixed value in the indicated format | — |
+| Cover | Move, DPT 1.008 or 1.009; optional stop, DPT 1.010 or 3.008; optional absolute position, DPT 5.001 | Actual position, DPT 5.001 |
+| Climate | Absolute target temperature, DPT 9.001; optional HVAC control mode, DPT 20.105 | Target temperature and current temperature, separately, DPT 9.001; optional control mode, DPT 20.105 |
+| Fan | Switch command, DPT 1; percentage speed command, DPT 5.001 | Switch feedback, DPT 1; actual percentage speed, DPT 5.001 |
 
 For a dimmer, choose **Slider**. Bind **Brightness command** to the actuator's input
 (for example `2/0/2`) and **Brightness feedback** to its status address (for example `2/1/2`).
@@ -115,6 +118,61 @@ DPT 232 object in the RGB selector to keep colour control. Choose **Unassigned**
 separate switch and brightness roles. Changing a Scene's target clears its fixed value.
 Enter a value for the new object, or leave it empty for a text DPT that accepts empty strings.
 **Home Assistant** in the Inspector selects an HA entity.
+
+### Cover
+
+Choose **Cover**, then assign **Up/down command** and **Position feedback**. Up/open sends
+zero to a DPT 1.008/1.009 move object; down/close sends one. If only **Position command**
+is assigned, the arrow buttons send the corresponding endpoint percentage instead.
+The existing cover bar shows position; it is not an arbitrary-position slider.
+
+The default is the usual KNX closed percentage: 0% means fully open and 100% fully closed.
+The tile shows an open percentage, so a KNX value of 70% appears as 30% open.
+Enable **KNX 100% means fully open** only for an actuator configured with the opposite
+percentage direction. The option applies to both position commands and feedback, survives
+save/reload, and does not reverse the move command's defined polarity.
+
+The stop button is available only with an explicitly bound stop object. DPT 1.010 sends
+zero (stop); DPT 3.008 sends the break code. DPT 1.007 is a step command and is not offered
+as a universal stop. Check the actuator's ETS application before choosing its objects.
+The tile does not infer travel time or movement from the last requested position.
+
+### Climate
+
+Bind **Target temperature command**, **Target temperature feedback** and **Measured
+temperature feedback** independently. Only absolute Celsius DPT 9.001 is accepted;
+a DPT 9.002 temperature difference is not an absolute setpoint. The existing climate
+tile uses 0.5°C adjustments within 7–35°C. Its plus/minus buttons need a writable target
+and a current, valid target feedback value. A draft adjustment is sent after the existing
+800 ms input delay; the displayed reading remains bus-confirmed.
+
+Optional HVAC control mode objects must use DPT 20.105. The selector offers Auto (0),
+Heat (1), Cool (3), Off (6), Fan only (9) and Dry (14). Use these only when supported by
+the configured controller; the DPT does not advertise its installed equipment capabilities.
+Unmapped incoming mode values show no assumed mode. DPT 20.102 operating presets such as
+Comfort and Economy are not substituted for heat/cool control modes. Presets, temperature
+offsets, fan modes and swing modes are not added by this KNX climate adapter.
+
+Missing live feedback or the DPT 9 invalid-data marker clears the corresponding reading
+without clearing the other roles. Other malformed telegrams leave the last valid cache intact.
+Restoring valid bus feedback restores the reading and eligible controls.
+
+### Fan
+
+Switch power and percentage speed use separate command/feedback pairs. A speed report
+does not imply that the fan is on. The power button needs valid switch feedback to toggle;
+the slower/faster buttons need speed feedback. The large tile's four speed buttons send
+25%, 50%, 75% or 100% and can be used before speed feedback when the command is writable.
+These are percentage presets, not a claim that the actuator has four hardware speeds.
+
+This adapter accepts DPT 5.001 speed percentages. DPT 5.010 step counts require an explicit
+step-count mapping and are not accepted here. DPT 20.111 describes fan operating behavior,
+not low/medium/high speed. Oscillation and device-specific presets remain HA-only controls.
+
+All three tiles reuse the existing panel styles and support feedback-only bindings.
+Missing commands disable the corresponding controls. Routing disconnects disable commands;
+fresh external feedback is required after reconnect. Their editor previews use the actual
+KNX cache instead of example HA values. Existing HA bindings retain their behavior.
 
 ## Values and voice control
 

@@ -20,11 +20,13 @@
 #include "ui/theme/ui_style.h"
 #include "ui/ui_i18n.h"
 #include "ui/ui_memory.h"
+#include "ui/ui_knx_control.h"
 
 #define W_COVER_FEAT_STOP 8U
 
 typedef struct {
     char entity_id[APP_MAX_ENTITY_ID_LEN];
+    knx_control_binding_t *knx;
     lv_obj_t *card;
     lv_obj_t *title;
     lv_obj_t *state;
@@ -42,6 +44,15 @@ typedef struct {
 static void cover_call(w_cover_ctx_t *ctx, const char *service)
 {
     if (ctx == NULL || ctx->entity_id[0] == '\0' || ctx->unavailable) {
+        return;
+    }
+    if (ctx->knx) {
+        const knx_widget_action_t action = !strcmp(service, "open_cover") ? KNX_COVER_OPEN
+            : !strcmp(service, "close_cover") ? KNX_COVER_CLOSE : KNX_COVER_STOP;
+        const bool writable = action == KNX_COVER_STOP ? knx_control_can_write(ctx->knx, KNX_STOP_COMMAND)
+            : knx_control_can_write(ctx->knx, KNX_MOVE_COMMAND) || knx_control_can_write(ctx->knx, KNX_POSITION_COMMAND);
+        if (!writable) return;
+        (void)knx_widget_control_roles(ctx->knx, action, 0);
         return;
     }
     char payload[APP_MAX_ENTITY_ID_LEN + 24];
@@ -185,13 +196,15 @@ static void cover_render(w_cover_ctx_t *ctx)
     lv_bar_set_value(ctx->bar, ctx->position >= 0 ? ctx->position : 0, LV_ANIM_OFF);
     lv_obj_set_style_opa(ctx->bar, ctx->position >= 0 && !ctx->unavailable ? LV_OPA_COVER : LV_OPA_30, LV_PART_MAIN);
     lv_obj_set_style_opa(ctx->bar, ctx->position >= 0 && !ctx->unavailable ? LV_OPA_COVER : LV_OPA_TRANSP, LV_PART_INDICATOR);
-    cover_style_button(ctx->btn_up, strcmp(ctx->state_raw, "opening") == 0, !ctx->unavailable);
-    cover_style_button(ctx->btn_stop, false, !ctx->unavailable);
-    cover_style_button(ctx->btn_down, strcmp(ctx->state_raw, "closing") == 0, !ctx->unavailable);
-    const lv_opa_t opa = ctx->unavailable ? LV_OPA_40 : LV_OPA_COVER;
-    lv_obj_set_style_opa(ctx->btn_up, opa, LV_PART_MAIN);
-    lv_obj_set_style_opa(ctx->btn_stop, opa, LV_PART_MAIN);
-    lv_obj_set_style_opa(ctx->btn_down, opa, LV_PART_MAIN);
+    const bool move = !ctx->unavailable && (!ctx->knx ||
+        knx_control_can_write(ctx->knx, KNX_MOVE_COMMAND) || knx_control_can_write(ctx->knx, KNX_POSITION_COMMAND));
+    const bool stop = !ctx->unavailable && (!ctx->knx || knx_control_can_write(ctx->knx, KNX_STOP_COMMAND));
+    cover_style_button(ctx->btn_up, strcmp(ctx->state_raw, "opening") == 0, move);
+    cover_style_button(ctx->btn_stop, false, stop);
+    cover_style_button(ctx->btn_down, strcmp(ctx->state_raw, "closing") == 0, move);
+    lv_obj_set_style_opa(ctx->btn_up, move ? LV_OPA_COVER : LV_OPA_40, LV_PART_MAIN);
+    lv_obj_set_style_opa(ctx->btn_stop, stop ? LV_OPA_COVER : LV_OPA_40, LV_PART_MAIN);
+    lv_obj_set_style_opa(ctx->btn_down, move ? LV_OPA_COVER : LV_OPA_40, LV_PART_MAIN);
 }
 
 static void cover_event_cb(lv_event_t *event)
@@ -210,11 +223,13 @@ esp_err_t w_cover_create(const ui_widget_def_t *def, lv_obj_t *parent, ui_widget
     if (def == NULL || parent == NULL || out_instance == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
-    w_cover_ctx_t *ctx = ui_calloc_prefer_psram(1, sizeof(*ctx));
+    w_cover_ctx_t *ctx = ui_knx_control_context(sizeof(*ctx), def, out_instance);
     if (ctx == NULL) {
         return ESP_ERR_NO_MEM;
     }
     snprintf(ctx->entity_id, sizeof(ctx->entity_id), "%s", def->entity_id);
+    ctx->knx = out_instance->knx_controls;
+    ctx->features_known = ctx->knx != NULL;
     ctx->position = -1;
     ctx->unavailable = true;
 
@@ -275,7 +290,8 @@ void w_cover_apply_state(ui_widget_instance_t *instance, const ha_state_t *state
     if (strncmp(state->entity_id, ctx->entity_id, APP_MAX_ENTITY_ID_LEN) != 0) {
         return;
     }
-    ctx->unavailable = strcmp(state->state, "unavailable") == 0 || strcmp(state->state, "unknown") == 0;
+    ctx->unavailable = strcmp(state->state, "unavailable") == 0 || (!ctx->knx && strcmp(state->state, "unknown") == 0);
+    if (ctx->knx) ctx->features = 0;
     strlcpy(ctx->state_raw, state->state, sizeof(ctx->state_raw));
     ctx->position = -1;
     cJSON *attrs = state->attributes_json[0] != '\0' ? cJSON_Parse(state->attributes_json) : NULL;

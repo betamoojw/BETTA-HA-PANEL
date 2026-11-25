@@ -1626,6 +1626,7 @@ aside.actions-panel section {
 
 .add-tile-ha-pane, .knx-widget-fields { display: grid; gap: 10px; min-width: 0; }
 .knx-widget-fields select, .knx-widget-fields input { width: 100%; min-width: 0; }
+.knx-widget-fields input[type="checkbox"] { width: auto; }
 
 .add-tile-results:empty,
 .add-tile-ha-heading:empty {

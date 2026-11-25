@@ -88,6 +88,7 @@ add_executable(betta-widget-sim
     camera_stream_stub.c
     room_air_regression.c
   controls_regression.c
+    knx_controls_regression.c
   alarm_panel_regression.c
     weather_now_regression.c
     popup_contract_regression.c

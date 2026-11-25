@@ -38,6 +38,7 @@ set(WEBUI_JS_SOURCES
     js/layout-model.js
     js/pickers.js
     js/knx-widget-picker.js
+    js/knx-control-preview.js
     js/readability.js
     js/bambu-printer.js
     js/evcc-wallbox.js

@@ -2,10 +2,14 @@
 // Copyright (c) 2026 andre68723
 #include "knx_widget_model.h"
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
 
 namespace {
 bool scaling(const KnxDpt& dpt) { return dpt.main == 5 && dpt.has_subtype && dpt.subtype == 1; }
+bool subtype(const KnxDpt& dpt, unsigned main, unsigned sub) {
+    return dpt.main == main && dpt.has_subtype && dpt.subtype == sub;
+}
 bool numeric(const KnxDpt& dpt) {
     return (dpt.main >= 5 && dpt.main <= 9 && !(dpt.main == 6 && dpt.subtype == 20)) ||
            (dpt.main >= 12 && dpt.main <= 14) || dpt.main == 29;
@@ -33,6 +37,15 @@ bool KnxWidgetRoleSupports(const KnxCommunicationObject& o, knx_role_t role) {
         case KNX_VALUE_FEEDBACK: return o.readable;
         case KNX_NUMBER_FEEDBACK: return o.readable && numeric(o.datapoint_type);
         case KNX_FIXED_ACTION: return o.writable;
+        case KNX_MOVE_COMMAND: return o.writable && (subtype(o.datapoint_type, 1, 8) || subtype(o.datapoint_type, 1, 9));
+        case KNX_STOP_COMMAND: return o.writable && (subtype(o.datapoint_type, 1, 10) || subtype(o.datapoint_type, 3, 8));
+        case KNX_POSITION_COMMAND: case KNX_FAN_SPEED_COMMAND: return o.writable && scaling(o.datapoint_type);
+        case KNX_POSITION_FEEDBACK: case KNX_FAN_SPEED_FEEDBACK: return o.readable && scaling(o.datapoint_type);
+        case KNX_TARGET_TEMPERATURE_COMMAND: return o.writable && subtype(o.datapoint_type, 9, 1);
+        case KNX_TARGET_TEMPERATURE_FEEDBACK: case KNX_CURRENT_TEMPERATURE_FEEDBACK:
+            return o.readable && subtype(o.datapoint_type, 9, 1);
+        case KNX_HVAC_MODE_COMMAND: return o.writable && subtype(o.datapoint_type, 20, 105);
+        case KNX_HVAC_MODE_FEEDBACK: return o.readable && subtype(o.datapoint_type, 20, 105);
         default: return false;
     }
 }
@@ -107,6 +120,35 @@ bool KnxWidgetProject(const KnxCommunicationObject& o, knx_tile_kind_t kind, ha_
 bool KnxWidgetCommandValue(const KnxCommunicationObject& o, knx_widget_action_t action,
                            int value, const char *preset, std::string& text) {
     if (!o.writable) return false;
+    if (action == KNX_COVER_OPEN || action == KNX_COVER_CLOSE) {
+        if (!KnxWidgetRoleSupports(o, KNX_MOVE_COMMAND)) return false;
+        text = action == KNX_COVER_OPEN ? "off" : "on";
+        return true;
+    }
+    if (action == KNX_COVER_STOP) {
+        if (!KnxWidgetRoleSupports(o, KNX_STOP_COMMAND)) return false;
+        text = o.datapoint_type.main == 1 ? "off" : "false,0";
+        return true;
+    }
+    if (action == KNX_SET_TARGET_TEMPERATURE) {
+        if (!KnxWidgetRoleSupports(o, KNX_TARGET_TEMPERATURE_COMMAND)) return false;
+        char temperature[32];
+        snprintf(temperature, sizeof(temperature), "%.1f", value / 10.0);
+        KnxValue parsed;
+        if (!KnxParseValue(o.datapoint_type, temperature, parsed)) return false;
+        text = temperature;
+        return true;
+    }
+    if (action == KNX_SET_HVAC_MODE) {
+        if (!KnxWidgetRoleSupports(o, KNX_HVAC_MODE_COMMAND) || !knx_hvac_mode_name(value)) return false;
+        text = std::to_string(value);
+        return true;
+    }
+    if (action == KNX_SET_FAN_PERCENT) {
+        if (!KnxWidgetRoleSupports(o, KNX_FAN_SPEED_COMMAND) || value < 0 || value > 100) return false;
+        text = std::to_string(value);
+        return true;
+    }
     if (action == KNX_SEND_VALUE) {
         if (!preset || strlen(preset) > KNX_COMMAND_VALUE_MAX) return false;
         text = preset;
@@ -146,4 +188,90 @@ bool KnxWidgetCommandValue(const KnxCommunicationObject& o, knx_widget_action_t 
     snprintf(color, sizeof(color), "%d,%d,%d", red, green, blue);
     text = color;
     return true;
+}
+
+bool KnxWidgetProjectRoles(const KnxCommunicationObject *const objects[KNX_ROLE_COUNT], knx_tile_kind_t kind,
+                          bool active, knx_control_binding_t& binding, ha_state_t& state) {
+    auto object = [&](knx_role_t role) -> const KnxCommunicationObject* {
+        const auto* o = objects[role];
+        return o && knx_tile_has_role(kind, role) && KnxWidgetRoleSupports(*o, role) ? o : nullptr;
+    };
+    auto live = [&](knx_role_t role) -> const KnxValue* {
+        const auto* o = object(role);
+        return active && o && o->live_feedback ? &o->current_value : nullptr;
+    };
+    auto number = [&](knx_role_t role) -> const float* {
+        const auto* value = live(role);
+        const auto* result = value ? std::get_if<float>(value) : nullptr;
+        return result && std::isfinite(*result) ? result : nullptr;
+    };
+    auto boolean = [&](knx_role_t role) -> const bool* {
+        const auto* value = live(role);
+        return value ? std::get_if<bool>(value) : nullptr;
+    };
+    binding.writable_roles = 0;
+    state.attributes_json[0] = '\0';
+    state.last_changed_unix_ms = 0;
+    for (int i = 0; i < KNX_ROLE_COUNT; ++i) {
+        auto role = static_cast<knx_role_t>(i);
+        const auto* o = object(role);
+        if (active && o && knx_role_is_command(role)) binding.writable_roles |= UINT32_C(1) << i;
+        if (active && o && !knx_role_is_command(role) && o->live_feedback)
+            state.last_changed_unix_ms = std::max<int64_t>(state.last_changed_unix_ms, o->last_update_ms);
+    }
+    binding.switch_writable = knx_control_can_write(&binding, KNX_SWITCH_COMMAND);
+    binding.brightness_writable = knx_control_can_write(&binding, KNX_BRIGHTNESS_COMMAND);
+    const auto* percent = number(KNX_BRIGHTNESS_FEEDBACK);
+    const auto* on = boolean(KNX_SWITCH_FEEDBACK);
+    binding.brightness = percent ? static_cast<int>(*percent + .5f) : -1;
+
+    if (kind == KNX_TILE_LIGHT || kind == KNX_TILE_SWITCH || kind == KNX_TILE_SLIDER) {
+        if (kind == KNX_TILE_SLIDER && percent)
+            snprintf(state.state, sizeof(state.state), "%d", binding.brightness);
+        else strcpy(state.state, on ? (*on ? "on" : "off") : "unavailable");
+        return true;
+    }
+    strcpy(state.state, active ? "unknown" : "unavailable");
+    cJSON* attrs = cJSON_CreateObject();
+    if (!attrs) return false;
+    bool ok = true;
+    if (kind == KNX_TILE_COVER) {
+        const auto* position = number(KNX_POSITION_FEEDBACK);
+        if (position) {
+            const float raw_open = binding.position_open_at_100 ? *position : 100 - *position;
+            const int open = std::clamp(static_cast<int>(raw_open + .5f), 0, 100);
+            strcpy(state.state, open ? "open" : "closed");
+            ok = cJSON_AddNumberToObject(attrs, "current_position", open);
+        }
+        unsigned features = knx_control_can_write(&binding, KNX_MOVE_COMMAND) ||
+            knx_control_can_write(&binding, KNX_POSITION_COMMAND) ? 3U : 0U;
+        if (knx_control_can_write(&binding, KNX_POSITION_COMMAND)) features |= 4U;
+        if (knx_control_can_write(&binding, KNX_STOP_COMMAND)) features |= 8U;
+        ok = ok && cJSON_AddNumberToObject(attrs, "supported_features", features);
+    } else if (kind == KNX_TILE_CLIMATE) {
+        const auto* current = number(KNX_CURRENT_TEMPERATURE_FEEDBACK);
+        const auto* target = number(KNX_TARGET_TEMPERATURE_FEEDBACK);
+        const auto* mode_value = live(KNX_HVAC_MODE_FEEDBACK);
+        const auto* mode_code = mode_value ? std::get_if<uint8_t>(mode_value) : nullptr;
+        const char* mode = mode_code ? knx_hvac_mode_name(*mode_code) : nullptr;
+        if (mode) strcpy(state.state, mode);
+        ok = (!current || cJSON_AddNumberToObject(attrs, "current_temperature", *current)) &&
+             (!target || cJSON_AddNumberToObject(attrs, "temperature", *target)) &&
+             cJSON_AddStringToObject(attrs, "temperature_unit", "C") &&
+             cJSON_AddNumberToObject(attrs, "min_temp", 7) && cJSON_AddNumberToObject(attrs, "max_temp", 35);
+        cJSON* modes = cJSON_AddArrayToObject(attrs, "hvac_modes");
+        ok = ok && modes;
+        if (modes && knx_control_can_write(&binding, KNX_HVAC_MODE_COMMAND))
+            for (int code : {0, 1, 3, 6, 9, 14})
+                ok = cJSON_AddItemToArray(modes, cJSON_CreateString(knx_hvac_mode_name(code))) && ok;
+    } else if (kind == KNX_TILE_FAN) {
+        const auto* speed = number(KNX_FAN_SPEED_FEEDBACK);
+        if (on) strcpy(state.state, *on ? "on" : "off");
+        ok = (!speed || cJSON_AddNumberToObject(attrs, "percentage", std::clamp(static_cast<int>(*speed + .5f), 0, 100))) &&
+             cJSON_AddNumberToObject(attrs, "percentage_step", 25) &&
+             cJSON_AddNumberToObject(attrs, "supported_features", knx_control_can_write(&binding, KNX_FAN_SPEED_COMMAND) ? 1 : 0);
+    } else ok = false;
+    ok = ok && cJSON_PrintPreallocated(attrs, state.attributes_json, sizeof(state.attributes_json), false);
+    cJSON_Delete(attrs);
+    return ok;
 }

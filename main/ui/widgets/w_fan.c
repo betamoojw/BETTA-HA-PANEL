@@ -23,6 +23,7 @@
 #include "ui/theme/ui_style.h"
 #include "ui/ui_i18n.h"
 #include "ui/ui_memory.h"
+#include "ui/ui_knx_control.h"
 
 #define W_FAN_FEAT_SET_SPEED 1U
 #define W_FAN_FEAT_OSCILLATE 2U
@@ -39,6 +40,7 @@
 
 typedef struct {
     char entity_id[APP_MAX_ENTITY_ID_LEN];
+    knx_control_binding_t *knx;
     lv_obj_t *card;
     lv_obj_t *title;
     lv_obj_t *state;
@@ -58,6 +60,7 @@ typedef struct {
     int spin_angle;
     bool large;
     bool on;
+    bool power_known;
     bool oscillating;
     float step; /* percentage_step of the device, 0 unknown */
     int step_count;
@@ -72,9 +75,29 @@ typedef struct {
 
 static void fan_apply_blade_angles(w_fan_ctx_t *ctx);
 
+static bool fan_speed_enabled(const w_fan_ctx_t *ctx, bool relative)
+{
+    return !ctx->unavailable && (!ctx->knx ||
+        (knx_control_can_write(ctx->knx, KNX_FAN_SPEED_COMMAND) && (!relative || ctx->percentage >= 0)));
+}
+
 static void fan_call(w_fan_ctx_t *ctx, const char *service)
 {
     if (ctx == NULL || ctx->entity_id[0] == '\0' || ctx->unavailable) {
+        return;
+    }
+    if (ctx->knx) {
+        if (!strcmp(service, "turn_on") || !strcmp(service, "turn_off")) {
+            if (ctx->power_known && knx_control_can_write(ctx->knx, KNX_SWITCH_COMMAND))
+                (void)knx_widget_control_roles(ctx->knx, KNX_TOGGLE, 0);
+        } else if (fan_speed_enabled(ctx, true) &&
+                   (!strcmp(service, "increase_speed") || !strcmp(service, "decrease_speed"))) {
+            const int step = ctx->step > 0 ? (int)lroundf(ctx->step) : 25;
+            int percentage = ctx->percentage + (!strcmp(service, "increase_speed") ? step : -step);
+            if (percentage < 0) percentage = 0;
+            if (percentage > 100) percentage = 100;
+            (void)knx_widget_control_roles(ctx->knx, KNX_SET_FAN_PERCENT, percentage);
+        }
         return;
     }
     char payload[APP_MAX_ENTITY_ID_LEN + 24];
@@ -85,6 +108,14 @@ static void fan_call(w_fan_ctx_t *ctx, const char *service)
 static void fan_call_json(w_fan_ctx_t *ctx, const char *service, const char *key, cJSON *value)
 {
     if (ctx == NULL || ctx->entity_id[0] == '\0' || ctx->unavailable) {
+        cJSON_Delete(value);
+        return;
+    }
+    if (ctx->knx) {
+        if (!strcmp(service, "set_percentage") && cJSON_IsNumber(value) &&
+            isfinite(value->valuedouble) && value->valuedouble >= 0 && value->valuedouble <= 100 &&
+            fan_speed_enabled(ctx, false))
+            (void)knx_widget_control_roles(ctx->knx, KNX_SET_FAN_PERCENT, (int)lround(value->valuedouble));
         cJSON_Delete(value);
         return;
     }
@@ -284,6 +315,13 @@ static void fan_layout_large(w_fan_ctx_t *ctx, lv_coord_t w, lv_coord_t h)
     const lv_coord_t pad = 12;
     const lv_coord_t chip_h = 36;
     const lv_coord_t pbtn = 40;
+    int speed_rows = 1;
+    if (ctx->knx && speed) {
+        lv_point_t size;
+        lv_text_get_size(&size, "100%", ui_font_role(UI_TEXT_META), 0, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
+        if (ctx->step_count * (size.x + 8) + (ctx->step_count - 1) * 8 > w - 2 * pad)
+            speed_rows = 2;
+    }
 
     const lv_coord_t title_h = ui_widget_name_height(ctx->title, ui_font_role(UI_TEXT_META));
     const lv_coord_t state_h = lv_font_get_line_height(ui_font_role(UI_TEXT_META));
@@ -308,13 +346,14 @@ static void fan_layout_large(w_fan_ctx_t *ctx, lv_coord_t w, lv_coord_t h)
         bottom = feat_y - 8;
     }
     if (speed) {
-        speed_y = bottom - chip_h;
+        speed_y = bottom - speed_rows * chip_h - (speed_rows - 1) * 8;
         bottom = speed_y - 8;
     }
 
     lv_coord_t d = bottom - top_end;
     if (d > w - 2 * pad) d = w - 2 * pad;
-    if (d < 60) d = 60;
+    if (d < 60 && !ctx->knx) d = 60;
+    if (d < 24) d = 24;
     lv_obj_set_size(ctx->rotor, d, d);
     lv_obj_set_pos(ctx->rotor, (w - d) / 2, top_end + (bottom - top_end - d) / 2);
     fan_show(ctx->rotor, true);
@@ -332,7 +371,12 @@ static void fan_layout_large(w_fan_ctx_t *ctx, lv_coord_t w, lv_coord_t h)
         fan_show(ctx->step_btn[i], speed && i < ctx->step_count);
     }
     if (speed) {
-        fan_place_row(ctx->step_btn, ctx->step_count, pad, speed_y, w - 2 * pad, chip_h);
+        const int columns = (ctx->step_count + speed_rows - 1) / speed_rows;
+        for (int row = 0; row < speed_rows; ++row) {
+            const int start = row * columns;
+            const int count = ctx->step_count - start < columns ? ctx->step_count - start : columns;
+            fan_place_row(ctx->step_btn + start, count, pad, speed_y + row * (chip_h + 8), w - 2 * pad, chip_h);
+        }
     }
 
     /* Oscillation first, then the presets; the row shows at most FAN_MAX_PRESETS + 1 buttons. */
@@ -393,6 +437,11 @@ static void fan_render(w_fan_ctx_t *ctx)
     char text[64];
     if (ctx->unavailable) {
         snprintf(text, sizeof(text), "%s", ui_i18n_get("common.unavailable", "unavailable"));
+    } else if (ctx->knx && !ctx->power_known) {
+        if (ctx->percentage >= 0) snprintf(text, sizeof(text), "%d %%", ctx->percentage);
+        else snprintf(text, sizeof(text), "%s", ui_i18n_get("common.unknown", "unknown"));
+    } else if (ctx->knx && ctx->percentage >= 0) {
+        snprintf(text, sizeof(text), "%s  %d %%", ui_i18n_get(ctx->on ? "common.on" : "common.off", ctx->on ? "ON" : "OFF"), ctx->percentage);
     } else if (!ctx->on) {
         snprintf(text, sizeof(text), "%s", ui_i18n_get("common.off", "OFF"));
     } else if (ctx->percentage >= 0) {
@@ -405,17 +454,20 @@ static void fan_render(w_fan_ctx_t *ctx)
         snprintf(text + len, sizeof(text) - len, "  %s", ctx->preset_mode);
     }
     lv_label_set_text(ctx->state, text);
-    lv_bar_set_value(ctx->bar, ctx->on && ctx->percentage >= 0 ? ctx->percentage : 0, LV_ANIM_OFF);
-    const bool show_bar = ctx->on && ctx->percentage >= 0 && !ctx->unavailable;
+    lv_bar_set_value(ctx->bar, (ctx->on || ctx->knx) && ctx->percentage >= 0 ? ctx->percentage : 0, LV_ANIM_OFF);
+    const bool show_bar = (ctx->on || ctx->knx) && ctx->percentage >= 0 && !ctx->unavailable;
     lv_obj_set_style_opa(ctx->bar, show_bar ? LV_OPA_COVER : LV_OPA_30, LV_PART_MAIN);
     lv_obj_set_style_opa(ctx->bar, show_bar ? LV_OPA_COVER : LV_OPA_TRANSP, LV_PART_INDICATOR);
-    fan_style_button(ctx->btn_minus, false, !ctx->unavailable);
-    fan_style_button(ctx->btn_power, ctx->on, !ctx->unavailable);
-    fan_style_button(ctx->btn_plus, false, !ctx->unavailable);
+    const bool speed_enabled = fan_speed_enabled(ctx, true);
+    const bool power_enabled = !ctx->unavailable && (!ctx->knx ||
+        (ctx->power_known && knx_control_can_write(ctx->knx, KNX_SWITCH_COMMAND)));
+    fan_style_button(ctx->btn_minus, false, speed_enabled);
+    fan_style_button(ctx->btn_power, ctx->on, power_enabled);
+    fan_style_button(ctx->btn_plus, false, speed_enabled);
     const lv_opa_t opa = ctx->unavailable ? LV_OPA_40 : LV_OPA_COVER;
-    lv_obj_set_style_opa(ctx->btn_minus, opa, LV_PART_MAIN);
-    lv_obj_set_style_opa(ctx->btn_power, opa, LV_PART_MAIN);
-    lv_obj_set_style_opa(ctx->btn_plus, opa, LV_PART_MAIN);
+    lv_obj_set_style_opa(ctx->btn_minus, speed_enabled ? LV_OPA_COVER : LV_OPA_40, LV_PART_MAIN);
+    lv_obj_set_style_opa(ctx->btn_power, power_enabled ? LV_OPA_COVER : LV_OPA_40, LV_PART_MAIN);
+    lv_obj_set_style_opa(ctx->btn_plus, speed_enabled ? LV_OPA_COVER : LV_OPA_40, LV_PART_MAIN);
 
     /* Rotor colours and the chips of the large look. */
     const bool running = ctx->on && !ctx->unavailable;
@@ -426,13 +478,16 @@ static void fan_render(w_fan_ctx_t *ctx)
     }
     lv_obj_set_style_bg_color(ctx->hub, blade, LV_PART_MAIN);
     lv_obj_set_style_border_color(ctx->rotor, running ? blade : lv_color_hex(APP_UI_COLOR_CARD_BORDER), LV_PART_MAIN);
-    const int cur = (ctx->step > 0.0f && ctx->percentage >= 0) ? (int)(ctx->percentage / ctx->step + 0.5f) : -1;
+    int cur = (ctx->step > 0.0f && ctx->percentage >= 0) ? (int)(ctx->percentage / ctx->step + 0.5f) : -1;
+    if (ctx->knx && (cur < 1 || ctx->percentage != (int)lroundf(cur * ctx->step))) cur = -1;
     for (int i = 0; i < FAN_MAX_STEPS; i++) {
         char num[8];
-        snprintf(num, sizeof(num), "%d", i + 1);
+        if (ctx->knx) snprintf(num, sizeof(num), "%d%%", (int)lroundf((i + 1) * ctx->step));
+        else snprintf(num, sizeof(num), "%d", i + 1);
         lv_label_set_text(lv_obj_get_child(ctx->step_btn[i], 0), num);
-        ui_style_action_button(ctx->step_btn[i], lv_obj_get_child(ctx->step_btn[i], 0), cur == i + 1 ? UI_CONTROL_SELECTED : UI_CONTROL_ACTION, !ctx->unavailable);
-        lv_obj_set_style_opa(ctx->step_btn[i], opa, LV_PART_MAIN);
+        const bool enabled = fan_speed_enabled(ctx, false);
+        ui_style_action_button(ctx->step_btn[i], lv_obj_get_child(ctx->step_btn[i], 0), cur == i + 1 ? UI_CONTROL_SELECTED : UI_CONTROL_ACTION, enabled);
+        lv_obj_set_style_opa(ctx->step_btn[i], enabled ? LV_OPA_COVER : LV_OPA_40, LV_PART_MAIN);
     }
     lv_label_set_text(lv_obj_get_child(ctx->osc_btn, 0), ui_i18n_get("fan.oscillate", "Oscillate"));
     fan_style_button(ctx->osc_btn, ctx->oscillating, !ctx->unavailable);
@@ -489,11 +544,13 @@ esp_err_t w_fan_create(const ui_widget_def_t *def, lv_obj_t *parent, ui_widget_i
     if (def == NULL || parent == NULL || out_instance == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
-    w_fan_ctx_t *ctx = ui_calloc_prefer_psram(1, sizeof(*ctx));
+    w_fan_ctx_t *ctx = ui_knx_control_context(sizeof(*ctx), def, out_instance);
     if (ctx == NULL) {
         return ESP_ERR_NO_MEM;
     }
     snprintf(ctx->entity_id, sizeof(ctx->entity_id), "%s", def->entity_id);
+    ctx->knx = out_instance->knx_controls;
+    ctx->features_known = ctx->knx != NULL;
     ctx->percentage = -1;
     ctx->unavailable = true;
 
@@ -563,8 +620,10 @@ void w_fan_apply_state(ui_widget_instance_t *instance, const ha_state_t *state)
     if (strncmp(state->entity_id, ctx->entity_id, APP_MAX_ENTITY_ID_LEN) != 0) {
         return;
     }
-    ctx->unavailable = strcmp(state->state, "unavailable") == 0 || strcmp(state->state, "unknown") == 0;
+    ctx->unavailable = strcmp(state->state, "unavailable") == 0 || (!ctx->knx && strcmp(state->state, "unknown") == 0);
     ctx->on = strcmp(state->state, "on") == 0;
+    ctx->power_known = ctx->on || strcmp(state->state, "off") == 0;
+    if (ctx->knx) { ctx->features = 0; ctx->step_count = 0; }
     ctx->percentage = -1;
     ctx->oscillating = false;
     ctx->preset_mode[0] = '\0';
@@ -621,5 +680,6 @@ void w_fan_mark_unavailable(ui_widget_instance_t *instance)
     }
     w_fan_ctx_t *ctx = (w_fan_ctx_t *)instance->ctx;
     ctx->unavailable = true;
+    if (ctx->knx) { ctx->power_known = false; ctx->percentage = -1; }
     fan_render(ctx);
 }

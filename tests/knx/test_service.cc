@@ -262,6 +262,158 @@ static void exercise_widget_roles(const char *layout_path, const char *trace_pat
     }
 }
 
+static void exercise_composite_widgets() {
+    const char* registry = R"([
+      {"id":"M","name":"Move","group_address":"3/0/1","datapoint_type":"DPT-1.008","readable":false,"writable":true},
+      {"id":"STOP","name":"Stop","group_address":"3/0/2","datapoint_type":"DPT-1.010","readable":false,"writable":true},
+      {"id":"BREAK","name":"Break","group_address":"3/0/3","datapoint_type":"DPT-3.008","readable":false,"writable":true},
+      {"id":"P","name":"Position command","group_address":"3/0/4","datapoint_type":"DPT-5.001","readable":false,"writable":true},
+      {"id":"PF","name":"Position feedback","group_address":"3/1/4","datapoint_type":"DPT-5.001","readable":true,"writable":false},
+      {"id":"T","name":"Target command","group_address":"3/0/5","datapoint_type":"DPT-9.001","readable":false,"writable":true},
+      {"id":"TF","name":"Target feedback","group_address":"3/1/5","datapoint_type":"DPT-9.001","readable":true,"writable":false},
+      {"id":"CF","name":"Current temperature","group_address":"3/1/6","datapoint_type":"DPT-9.001","readable":true,"writable":false},
+      {"id":"CFA","name":"Temperature alias","group_address":"3/1/6","datapoint_type":"DPT-9.001","readable":true,"writable":false},
+      {"id":"MODE","name":"Mode command","group_address":"3/0/7","datapoint_type":"DPT-20.105","readable":false,"writable":true},
+      {"id":"MF","name":"Mode feedback","group_address":"3/1/7","datapoint_type":"DPT-20.105","readable":true,"writable":false},
+      {"id":"POWER","name":"Power command","group_address":"3/0/8","datapoint_type":"DPT-1.001","readable":false,"writable":true},
+      {"id":"SF","name":"Power feedback","group_address":"3/1/8","datapoint_type":"DPT-1.001","readable":true,"writable":false},
+      {"id":"SPEED","name":"Speed command","group_address":"3/0/9","datapoint_type":"DPT-5.001","readable":false,"writable":true},
+      {"id":"FF","name":"Speed feedback","group_address":"3/1/9","datapoint_type":"DPT-5.001","readable":true,"writable":false},
+      {"id":"PRESET","name":"Operating preset","group_address":"3/0/10","datapoint_type":"DPT-20.102","readable":false,"writable":true}])";
+    std::string config = kKnxDefaultConfiguration;
+    config.replace(config.find("3671"), 4, "3672");
+    config.replace(config.find("224.0.23.12"), 11, "224.0.23.13");
+    config.replace(config.find("[]"), 2, registry);
+    char error[160];
+    assert(knx_configure(config.c_str(), error, sizeof(error)) && knx_enable(true, error, sizeof(error)));
+    knx_control_binding_t cover{}, position{}, climate{}, fan{};
+    strcpy(cover.id[KNX_MOVE_COMMAND], "M"); strcpy(cover.id[KNX_STOP_COMMAND], "STOP");
+    strcpy(cover.id[KNX_POSITION_FEEDBACK], "PF");
+    strcpy(position.id[KNX_POSITION_COMMAND], "P"); strcpy(position.id[KNX_POSITION_FEEDBACK], "PF");
+    strcpy(climate.id[KNX_TARGET_TEMPERATURE_COMMAND], "T");
+    strcpy(climate.id[KNX_TARGET_TEMPERATURE_FEEDBACK], "TF");
+    strcpy(climate.id[KNX_CURRENT_TEMPERATURE_FEEDBACK], "CF");
+    strcpy(climate.id[KNX_HVAC_MODE_COMMAND], "MODE"); strcpy(climate.id[KNX_HVAC_MODE_FEEDBACK], "MF");
+    strcpy(fan.id[KNX_SWITCH_COMMAND], "POWER"); strcpy(fan.id[KNX_SWITCH_FEEDBACK], "SF");
+    strcpy(fan.id[KNX_FAN_SPEED_COMMAND], "SPEED"); strcpy(fan.id[KNX_FAN_SPEED_FEEDBACK], "FF");
+    uint32_t cover_cursor = 0, position_cursor = 0, climate_cursor = 0, fan_cursor = 0;
+    auto read = [](knx_control_binding_t& binding, knx_tile_kind_t kind, uint32_t& cursor, const char* expected) {
+        assert(knx_widget_read("knx:composite", kind, nullptr, &binding, &cursor, &scratch) == KNX_VIEW_UPDATED);
+        assert(!strcmp(scratch.state, expected));
+    };
+    auto attribute = [](const char* key, double expected) {
+        cJSON* attrs = cJSON_Parse(scratch.attributes_json);
+        const cJSON* value = cJSON_GetObjectItemCaseSensitive(attrs, key);
+        assert(cJSON_IsNumber(value) && value->valuedouble == expected);
+        cJSON_Delete(attrs);
+    };
+    auto absent = [](const char* key) {
+        cJSON* attrs = cJSON_Parse(scratch.attributes_json);
+        assert(attrs && !cJSON_HasObjectItem(attrs, key)); cJSON_Delete(attrs);
+    };
+    auto publish = [](unsigned sub, std::initializer_list<uint8_t> data, bool loopback = false) {
+        knx_telegram_t t{};
+        t.source = loopback ? source : 0x1102;
+        t.destination = knx_group_address(3, 1, sub);
+        t.command = KNX_COMMAND_RESPONSE;
+        t.data_length = data.size();
+        std::copy(data.begin(), data.end(), t.data);
+        callback(&t, nullptr);
+    };
+    struct CommandCase { std::function<esp_err_t()> send; unsigned sub; std::vector<uint8_t> payload; };
+    const std::vector<CommandCase> commands = {
+        {[&] { return knx_widget_control_roles(&cover, KNX_COVER_OPEN, 0); }, 1, {0}},
+        {[&] { return knx_widget_control_roles(&cover, KNX_COVER_CLOSE, 0); }, 1, {1}},
+        {[&] { return knx_widget_control_roles(&cover, KNX_COVER_STOP, 0); }, 2, {0}},
+        {[&] { strcpy(cover.id[KNX_STOP_COMMAND], "BREAK"); return knx_widget_control_roles(&cover, KNX_COVER_STOP, 0); }, 3, {0}},
+        {[&] { return knx_widget_control_roles(&position, KNX_COVER_OPEN, 0); }, 4, {0, 0}},
+        {[&] { return knx_widget_control_roles(&position, KNX_COVER_CLOSE, 0); }, 4, {0, 255}},
+        {[&] { position.position_open_at_100 = true; return knx_widget_control_roles(&position, KNX_COVER_OPEN, 0); }, 4, {0, 255}},
+        {[&] { return knx_widget_control_roles(&position, KNX_COVER_CLOSE, 0); }, 4, {0, 0}},
+        {[&] { return knx_widget_control_roles(&climate, KNX_SET_TARGET_TEMPERATURE, 215); }, 5, {0, 0x0c, 0x33}},
+        {[&] { return knx_widget_control_roles(&climate, KNX_SET_HVAC_MODE, 1); }, 7, {0, 1}},
+        {[&] { return knx_widget_control_roles(&climate, KNX_SET_HVAC_MODE, 6); }, 7, {0, 6}},
+        {[&] { return knx_widget_control_roles(&climate, KNX_SET_HVAC_MODE, 14); }, 7, {0, 14}},
+        {[&] { return knx_widget_control_roles(&fan, KNX_SET_FAN_PERCENT, 0); }, 9, {0, 0}},
+        {[&] { return knx_widget_control_roles(&fan, KNX_SET_FAN_PERCENT, 100); }, 9, {0, 255}},
+        {[&] { return knx_widget_control_roles(&fan, KNX_SET_POWER, 1); }, 8, {1}},
+    };
+    size_t next = 0, before = writes.size();
+    enum { Sending, Offline, Reconnected } phase = Sending;
+    iteration = [&] {
+        if (phase == Sending) {
+            if (next == 0) {
+                read(cover, KNX_TILE_COVER, cover_cursor, "unknown"); absent("current_position");
+                assert(knx_control_can_write(&cover, KNX_MOVE_COMMAND));
+                read(climate, KNX_TILE_CLIMATE, climate_cursor, "unknown"); absent("temperature"); absent("current_temperature");
+                assert(knx_control_can_write(&climate, KNX_HVAC_MODE_COMMAND));
+                read(fan, KNX_TILE_FAN, fan_cursor, "unknown"); absent("percentage");
+                assert(knx_widget_control_roles(&fan, KNX_TOGGLE, 0) != ESP_OK);
+                assert(knx_widget_control_roles(&position, KNX_COVER_STOP, 0) != ESP_OK);
+                assert(knx_widget_control_roles(&climate, KNX_SET_HVAC_MODE, 2) != ESP_OK);
+            } else {
+                assert(writes.size() == before + next);
+                assert(writes.back().address == knx_group_address(3, 0, commands[next - 1].sub));
+                assert(writes.back().data == commands[next - 1].payload);
+                // A successful command never supplies missing feedback.
+                assert(knx_widget_read("knx:composite", KNX_TILE_FAN, nullptr, &fan, &fan_cursor, &scratch) == KNX_VIEW_UNCHANGED);
+            }
+            if (next < commands.size()) { assert(commands[next++].send() == ESP_OK); return; }
+            publish(4, {0, 0}, true);
+            assert(knx_widget_read("knx:composite", KNX_TILE_COVER, nullptr, &cover, &cover_cursor, &scratch) == KNX_VIEW_UNCHANGED);
+            for (const auto& sample : {std::pair<int, int>{0, 100}, {128, 50}, {255, 0}}) {
+                publish(4, {0, static_cast<uint8_t>(sample.first)});
+                read(cover, KNX_TILE_COVER, cover_cursor, sample.second ? "open" : "closed");
+                attribute("current_position", sample.second);
+            }
+            read(position, KNX_TILE_COVER, position_cursor, "open"); attribute("current_position", 100);
+            publish(5, {0, 0x0c, 0x65}); publish(6, {0, 0x0c, 0x33}); publish(7, {0, 3});
+            read(climate, KNX_TILE_CLIMATE, climate_cursor, "cool");
+            attribute("temperature", 22.5); attribute("current_temperature", 21.5);
+            publish(6, {0, 0x7f}); // malformed temperature keeps the preceding good observation
+            assert(knx_widget_read("knx:composite", KNX_TILE_CLIMATE, nullptr, &climate, &climate_cursor, &scratch) == KNX_VIEW_UNCHANGED);
+            publish(6, {0, 0x7f, 0xff}); // explicit invalid marker revokes all aliases
+            read(climate, KNX_TILE_CLIMATE, climate_cursor, "cool"); absent("current_temperature"); attribute("temperature", 22.5);
+            for (const char* id : {"CF", "CFA"}) {
+                cJSON* o = knx_object(id);
+                assert(cJSON_IsFalse(cJSON_GetObjectItem(o, "valid")) && cJSON_IsFalse(cJSON_GetObjectItem(o, "live_feedback")));
+                assert(!cJSON_HasObjectItem(o, "value")); cJSON_Delete(o);
+            }
+            publish(5, {0, 0x7f, 0xff});
+            read(climate, KNX_TILE_CLIMATE, climate_cursor, "cool"); absent("temperature");
+            publish(6, {0, 0x0c, 0x33});
+            read(climate, KNX_TILE_CLIMATE, climate_cursor, "cool"); attribute("current_temperature", 21.5);
+            publish(7, {0, 2}); // specified but unsupported HVAC control mode is never reinterpreted
+            read(climate, KNX_TILE_CLIMATE, climate_cursor, "unknown"); attribute("current_temperature", 21.5);
+            publish(8, {0}); publish(9, {0, 128});
+            read(fan, KNX_TILE_FAN, fan_cursor, "off"); attribute("percentage", 50); attribute("percentage_step", 25);
+            strcpy(climate.id[KNX_HVAC_MODE_COMMAND], "PRESET");
+            assert(knx_widget_control_roles(&climate, KNX_SET_HVAC_MODE, 3) != ESP_OK);
+            strcpy(climate.id[KNX_HVAC_MODE_COMMAND], "MODE");
+            strcpy(fan.id[KNX_FAN_SPEED_COMMAND], "FF");
+            assert(knx_widget_control_roles(&fan, KNX_SET_FAN_PERCENT, 50) != ESP_OK);
+            strcpy(fan.id[KNX_FAN_SPEED_COMMAND], "SPEED");
+            test_online = false; phase = Offline;
+        } else if (phase == Offline) {
+            read(cover, KNX_TILE_COVER, cover_cursor, "unavailable"); absent("current_position");
+            read(climate, KNX_TILE_CLIMATE, climate_cursor, "unavailable"); absent("current_temperature");
+            read(fan, KNX_TILE_FAN, fan_cursor, "unavailable"); absent("percentage");
+            assert(!cover.writable_roles && !climate.writable_roles && !fan.writable_roles);
+            assert(knx_widget_control_roles(&fan, KNX_SET_FAN_PERCENT, 50) != ESP_OK);
+            test_online = true; phase = Reconnected;
+        } else {
+            read(cover, KNX_TILE_COVER, cover_cursor, "unknown"); absent("current_position");
+            read(climate, KNX_TILE_CLIMATE, climate_cursor, "unknown"); absent("current_temperature"); absent("temperature");
+            read(fan, KNX_TILE_FAN, fan_cursor, "unknown"); absent("percentage");
+            assert(knx_control_can_write(&fan, KNX_FAN_SPEED_COMMAND));
+            assert(knx_widget_control_roles(&fan, KNX_TOGGLE, 0) != ESP_OK);
+            assert(writes.size() == before + commands.size());
+            throw Done{};
+        }
+    };
+    try { test_worker(nullptr); } catch (const Done&) {}
+}
+
 int main(int argc, char **argv) {
     assert(argc == 1 || argc == 3);
     persisted=kKnxDefaultConfiguration;
@@ -391,5 +543,6 @@ int main(int argc, char **argv) {
     };
     try {test_worker(nullptr);} catch(const Done&) {}
     exercise_widget_roles(argc == 3 ? argv[1] : nullptr, argc == 3 ? argv[2] : nullptr);
+    exercise_composite_widgets();
     puts("KNX worker: enable/disable, permissions, generation revocation, feedback, storage failure, reconnect and retry passed");
 }

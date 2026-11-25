@@ -332,3 +332,193 @@ test("Scene target changes clear the old preset and preserve valid empty text va
   await run('knxField("knxTileReload").onclick()');
   assert.equal(run('knxField("knxTileApply").disabled'), true);
 });
+
+function controlRegistry(run) {
+  run(`objects = [
+    {id:"move", datapoint_type:"DPT-1.008", writable:true, widget_roles:["move_command"]},
+    {id:"stop", datapoint_type:"DPT-1.010", writable:true, widget_roles:["stop_command"]},
+    {id:"position_cmd", datapoint_type:"DPT-5.001", writable:true, widget_roles:["position_command"]},
+    {id:"position", datapoint_type:"DPT-5.001", readable:true, widget_roles:["position_feedback"]},
+    {id:"position_alt", datapoint_type:"DPT-5.001", readable:true, widget_roles:["position_feedback"]},
+    {id:"target_cmd", datapoint_type:"DPT-9.001", writable:true, widget_roles:["target_temperature_command"]},
+    {id:"target", datapoint_type:"DPT-9.001", readable:true, widget_roles:["target_temperature_feedback"]},
+    {id:"current", datapoint_type:"DPT-9.001", readable:true, widget_roles:["current_temperature_feedback"]},
+    {id:"mode_cmd", datapoint_type:"DPT-20.105", writable:true, widget_roles:["hvac_mode_command"]},
+    {id:"mode", datapoint_type:"DPT-20.105", readable:true, widget_roles:["hvac_mode_feedback"]},
+    {id:"speed_cmd", datapoint_type:"DPT-5.001", writable:true, widget_roles:["fan_speed_command"]},
+    {id:"speed", datapoint_type:"DPT-5.001", readable:true, widget_roles:["fan_speed_feedback"]},
+    {id:"power_cmd", datapoint_type:"DPT-1.001", writable:true, widget_roles:["switch_command"]},
+    {id:"power", datapoint_type:"DPT-1.001", readable:true, widget_roles:["switch_feedback"]},
+    {id:"step", datapoint_type:"DPT-1.007", writable:true, widget_roles:["action"]},
+    {id:"preset", datapoint_type:"DPT-20.102", writable:true, widget_roles:["action"]},
+    {id:"delta", datapoint_type:"DPT-9.002", writable:true, widget_roles:["action"]},
+    {id:"literal_percent", datapoint_type:"DPT-5.004", readable:true, writable:true, widget_roles:["number_feedback","action"]},
+  ].map(o => ({name:o.id, group_address:"3/0/1", ...o})); routing = "running";
+  globalThis.feedback = (id, value) => Object.assign(objects.find(o => o.id === id), {live_feedback:true, value});
+  globalThis.view = () => knxPreview.get(knxWidgetPreviewKey(selectedWidget()));`);
+}
+
+async function addControl(run, type, roles) {
+  await run("startKnxWidgetPicker()");
+  run('choose("knxTileType", ' + JSON.stringify(type) + ')');
+  for (const [role, id] of Object.entries(roles)) run('choose(' + JSON.stringify("knxRole_" + role) + ', ' + JSON.stringify(id) + ')');
+  run('knxField("knxTileApply").onclick()');
+}
+
+test("KNX cover direction and independent roles survive creation, replacement, clearing and reload", async () => {
+  const run = chooser(); controlRegistry(run);
+  await run("startKnxWidgetPicker()");
+  run('choose("knxTileType", "cover_tile")');
+  assert.deepEqual(roleOptions(run, "move_command"), ["", "move"]);
+  assert.deepEqual(roleOptions(run, "stop_command"), ["", "stop"]);
+  assert.deepEqual(roleOptions(run, "position_command"), ["", "position_cmd"]);
+  assert.deepEqual(roleOptions(run, "position_feedback"), ["", "position", "position_alt"]);
+  assert.match(run('knxField("knxRole_stop_command_hint").textContent'), /1\.007/);
+  run('choose("knxRole_move_command", "move"); choose("knxRole_stop_command", "stop"); choose("knxRole_position_feedback", "position")');
+  run('knxField("knxPositionOpenAt100").checked = true; knxField("knxPositionOpenAt100").onchange(); knxField("knxTileApply").onclick()');
+  const original = {source:"knx", roles:{move_command:"move", stop_command:"stop", position_feedback:"position"}, position_open_at_100:true};
+  assert.deepEqual(await saveAndReloadBinding(run), original);
+  for (const next of ["position_alt", "", "position"]) {
+    await run('knxField("knxInspectorChoose").onclick()');
+    assert.equal(run('knxField("knxPositionOpenAt100").checked'), true);
+    run('choose("knxRole_position_feedback", ' + JSON.stringify(next) + '); knxField("knxTileApply").onclick()');
+    const binding = await saveAndReloadBinding(run);
+    assert.equal(binding.roles.move_command, "move");
+    assert.equal(binding.roles.stop_command, "stop");
+    assert.equal(binding.roles.position_feedback, next || undefined);
+    assert.equal(binding.position_open_at_100, true);
+  }
+  await run('knxField("knxInspectorChoose").onclick()');
+  run('knxField("knxPositionOpenAt100").checked = false; knxField("knxPositionOpenAt100").onchange(); knxField("knxTileApply").onclick()');
+  assert.equal((await saveAndReloadBinding(run)).position_open_at_100, false);
+});
+
+test("cover preview converts real feedback after inversion, never a command echo", async () => {
+  const run = chooser(); controlRegistry(run);
+  await addControl(run, "cover_tile", {position_command:"position_cmd", position_feedback:"position"});
+  run('feedback("position_cmd", 70); rememberKnxPreview(objects, "running")');
+  assert.equal(run("view().current_position"), null);
+  assert.equal(run("view().canMove"), true);
+  assert.equal(run("view().canStop"), false);
+  assert.doesNotMatch(run("tilePreviewMarkup(selectedWidget())"), /70|■/);
+  for (const inverted of [false, true]) {
+    run('selectedWidget().binding.position_open_at_100 = ' + inverted);
+    for (const raw of [0, 0.5, 50, 61.9607849, 100]) {
+      run('feedback("position", ' + raw + '); rememberKnxPreview(objects, "running")');
+      const expected = Math.round(inverted ? raw : 100 - raw);
+      assert.equal(run("view().current_position"), expected);
+      assert.match(run("tilePreviewMarkup(selectedWidget())"), new RegExp("<small>" + expected + " %</small>"));
+    }
+  }
+  run('rememberKnxPreview(objects, "disabled")');
+  assert.equal(run("view().state"), "unavailable");
+  assert.equal(run("view().current_position"), null);
+  assert.equal(run("view().canMove"), false);
+});
+
+test("climate role selectors keep target, measured temperature and control mode distinct through reload", async () => {
+  const run = chooser(); controlRegistry(run);
+  await run("startKnxWidgetPicker()"); run('choose("knxTileType", "climate_tile")');
+  assert.deepEqual(roleOptions(run, "target_temperature_command"), ["", "target_cmd"]);
+  assert.deepEqual(roleOptions(run, "target_temperature_feedback"), ["", "target"]);
+  assert.deepEqual(roleOptions(run, "current_temperature_feedback"), ["", "current"]);
+  assert.deepEqual(roleOptions(run, "hvac_mode_command"), ["", "mode_cmd"]);
+  assert.deepEqual(roleOptions(run, "hvac_mode_feedback"), ["", "mode"]);
+  const roles = {target_temperature_command:"target_cmd", target_temperature_feedback:"target", current_temperature_feedback:"current", hvac_mode_command:"mode_cmd", hvac_mode_feedback:"mode"};
+  for (const [role, id] of Object.entries(roles)) run('choose(' + JSON.stringify("knxRole_" + role) + ', ' + JSON.stringify(id) + ')');
+  run('knxField("knxTileApply").onclick()');
+  assert.deepEqual(await saveAndReloadBinding(run), {source:"knx", roles});
+  run('feedback("target_cmd", 30); feedback("mode_cmd", 1); feedback("current", 21.5); rememberKnxPreview(objects, "running")');
+  assert.equal(run("view().temperature"), null);
+  assert.equal(run("view().current_temperature"), 21.5);
+  assert.equal(run("view().canTemperature"), false);
+  assert.equal(run("view().canMode"), true);
+  assert.equal(run("view().state"), "unknown");
+  assert.match(run("tilePreviewMarkup(selectedWidget())"), /21\.5°C/);
+  assert.doesNotMatch(run("tilePreviewMarkup(selectedWidget())"), /30\.0|Fan:|Swing:/);
+  run('feedback("target", 23); rememberKnxPreview(objects, "running")');
+  assert.equal(run("view().temperature"), 23);
+  assert.equal(run("view().canTemperature"), true);
+  for (const [code, mode] of [[0,"auto"],[1,"heat"],[3,"cool"],[6,"off"],[9,"fan_only"],[14,"dry"],[2,"unknown"]]) {
+    run('feedback("mode", ' + code + '); rememberKnxPreview(objects, "running")');
+    assert.equal(run("view().state"), mode);
+  }
+  await run('knxField("knxInspectorChoose").onclick()');
+  run('choose("knxRole_hvac_mode_command", ""); knxField("knxTileApply").onclick()');
+  const updated = await saveAndReloadBinding(run);
+  assert.deepEqual(updated, {source:"knx", roles:Object.fromEntries(Object.entries(roles).filter(([role]) => role !== "hvac_mode_command"))});
+  assert.equal(run("view().canMode"), false);
+  assert.equal(run("view().current_temperature"), 21.5);
+});
+
+test("fan percentage controls use confirmed speed independently from switch power", async () => {
+  const run = chooser(); controlRegistry(run);
+  await addControl(run, "fan_tile", {switch_command:"power_cmd", switch_feedback:"power", fan_speed_command:"speed_cmd", fan_speed_feedback:"speed"});
+  const saved = await saveAndReloadBinding(run);
+  assert.equal(saved.position_open_at_100, undefined);
+  assert.equal(saved.roles.fan_speed_command, "speed_cmd");
+  run('selectedWidget().rect.h = 260; feedback("speed_cmd", 100); rememberKnxPreview(objects, "running")');
+  assert.equal(run("view().state"), "unknown");
+  assert.equal(run("view().percentage"), null);
+  assert.equal(run("view().canSpeed"), true);
+  assert.equal(run("view().canStep"), false);
+  assert.equal(run("view().canPower"), false);
+  let markup = run("tilePreviewMarkup(selectedWidget())");
+  assert.match(markup, /control-action/);
+  assert.doesNotMatch(markup, /60|100 %|Auto|Sleep|Breeze/);
+  run('feedback("speed", 62); rememberKnxPreview(objects, "running")');
+  assert.equal(run("view().percentage"), 62);
+  assert.equal(run("view().state"), "unknown");
+  assert.equal(run("view().canStep"), true);
+  assert.equal(run("view().canPower"), false);
+  assert.match(run("tilePreviewMarkup(selectedWidget())"), /<small>62 %<\/small>/);
+  assert.doesNotMatch(run("tilePreviewMarkup(selectedWidget())"), /<i class="control-active">/);
+  run('feedback("speed", 50); rememberKnxPreview(objects, "running")');
+  markup = run("tilePreviewMarkup(selectedWidget())");
+  assert.deepEqual([...markup.matchAll(/<i class="control-active">([^<]+)<\/i>/g)].map(match => match[1]), ["50%"]);
+  run('selectedWidget().rect.w = 240');
+  assert.match(run("tilePreviewMarkup(selectedWidget())"), /--knx-speed-columns:2/);
+  run('selectedWidget().rect.w = 500');
+  assert.match(run("tilePreviewMarkup(selectedWidget())"), /--knx-speed-columns:4/);
+  run('feedback("speed", 62); rememberKnxPreview(objects, "running")');
+  run('feedback("power", false); rememberKnxPreview(objects, "running")');
+  assert.equal(run("view().state"), "off");
+  assert.equal(run("view().canPower"), true);
+  assert.match(run("tilePreviewMarkup(selectedWidget())"), /OFF · 62 %/i);
+  run('objects.find(o => o.id === "speed").live_feedback = false; rememberKnxPreview(objects, "running")');
+  assert.equal(run("view().percentage"), null);
+  assert.equal(run("view().canStep"), false);
+  run('rememberKnxPreview(objects, "waiting_for_network")');
+  for (const capability of ["canSpeed", "canStep", "canPower"]) assert.equal(run("view()." + capability), false);
+});
+
+test("composite KNX previews isolate shared IDs and preserve missing bindings for recovery", async () => {
+  const run = chooser(); controlRegistry(run);
+  await addControl(run, "cover_tile", {move_command:"move", position_feedback:"position"});
+  run('feedback("position", 25); feedback("position_alt", 80); rememberKnxPreview(objects, "running")');
+  const normalKey = run("knxWidgetPreviewKey(selectedWidget())");
+  run('globalThis.other = JSON.parse(JSON.stringify(selectedWidget())); other.binding.position_open_at_100 = true');
+  const reversedKey = run("knxWidgetPreviewKey(other)");
+  assert.notEqual(normalKey, reversedKey);
+  assert.equal(run("knxPreview.get(" + JSON.stringify(normalKey) + ").current_position"), 75);
+  assert.equal(run("knxPreview.get(" + JSON.stringify(reversedKey) + ").current_position"), 25);
+  run('objects = objects.filter(o => o.id !== "move")');
+  await run('knxField("knxInspectorChoose").onclick()');
+  assert.equal(run('knxField("knxRole_move_command").value'), "move");
+  run('choose("knxRole_position_feedback", "position_alt"); knxField("knxTileApply").onclick()');
+  assert.equal((await saveAndReloadBinding(run)).roles.move_command, "move");
+  assert.equal(run("view().canMove"), false);
+  assert.equal(run("view().current_position"), 20);
+  run('objects.push({id:"move", name:"Restored", group_address:"4/0/1", datapoint_type:"DPT-1.009", writable:true, widget_roles:["move_command"]}); rememberKnxPreview(objects, "running")');
+  assert.equal(run("view().canMove"), true);
+});
+
+test("new KNX type choices keep requirement hints without eligible registry objects", async () => {
+  const run = chooser(); controlRegistry(run); run("objects = []");
+  await run("startKnxWidgetPicker()");
+  for (const [type, role, dpt] of [["cover_tile","move_command","1.008"],["climate_tile","hvac_mode_command","20.105"],["fan_tile","fan_speed_feedback","5.001"]]) {
+    run('choose("knxTileType", ' + JSON.stringify(type) + ')');
+    assert.equal(run('knxField("knxTileApply").disabled'), true);
+    assert.ok(run('knxField(' + JSON.stringify("knxRole_" + role + "_hint") + ').textContent').includes(dpt));
+  }
+});

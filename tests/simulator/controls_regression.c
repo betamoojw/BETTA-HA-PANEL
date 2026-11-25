@@ -615,6 +615,8 @@ int sim_controls_regression(void)
     phase = "cached favorites"; cached_favorites_test();
     phase = "slider unavailable"; slider_unavailable_test();
     phase = "KNX bindings"; knx_roles_test();
+    void sim_knx_controls_regression(void (*delay)(uint32_t));
+    phase = "KNX cover/climate/fan"; sim_knx_controls_regression(weather_delay);
     void sim_alarm_panel_regression(void (*delay)(uint32_t));
     phase = "alarm panel"; sim_alarm_panel_regression(weather_delay);
     /* A fixture can contain more entities than widget slots. Keep the firmware model's capacity. */

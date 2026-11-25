@@ -2,8 +2,7 @@
 
 # Web editor source
 
-User guide: [Use the web editor](editor.md). This page covers the source.
-Field-by-field domain and eligibility contracts: [Entity search rules](development/entity-search.md).
+Related guides: [Use the web editor](editor.md) and [Entity search rules](development/entity-search.md).
 
 Plain HTML, CSS and JavaScript in `components/webui/www/`, no framework. For development serve that directory:
 `index.html` loads the modules in order. The firmware build generates an `index.html` that loads one ordered bundle
@@ -49,6 +48,7 @@ www/js/room-air.js     Air quality bindings, evaluation fields and measured-valu
 www/js/layout-model.js layout model, entity domains and suggestions, loading layout and entities
 www/js/pickers.js     entity pickers, the "+ Widget" dialog (widget types and entity search)
 www/js/knx-widget-picker.js  registry-backed object selection, rebinding and KNX previews
+www/js/knx-control-preview.js composite KNX Cover, Climate and Fan previews from confirmed role values
 www/js/readability.js panel4 role sizes, day-count and gauge-width hints for the previews (after pickers, before canvas)
 www/js/bambu-printer.js Bambu printer widget: Inspector fields for its entity bindings and the canvas preview (before canvas)
 www/js/evcc-wallbox.js wallbox bindings, loadpoint discovery, optional power/flow header and its preview

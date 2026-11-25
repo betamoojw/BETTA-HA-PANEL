@@ -24,6 +24,7 @@
 #include "ui/theme/ui_style.h"
 #include "ui/ui_i18n.h"
 #include "ui/ui_memory.h"
+#include "ui/ui_knx_control.h"
 
 #define CLIMATE_MAX_OPTIONS 10
 #define CLIMATE_OPTION_LEN 24
@@ -32,6 +33,7 @@
 
 typedef struct {
     char entity_id[APP_MAX_ENTITY_ID_LEN];
+    knx_control_binding_t *knx;
     lv_obj_t *card;
     lv_obj_t *title;
     lv_obj_t *current;
@@ -64,6 +66,7 @@ typedef struct {
     int swing_mode_count;
     char unit[8];
     float target;
+    float pending_target; /* KNX command draft; target remains bus-confirmed. */
     float current_temp;
     float min_temp;
     float max_temp;
@@ -75,11 +78,23 @@ typedef struct {
 
 static void climate_render(w_climate_ctx_t *ctx);
 
+static bool climate_target_enabled(const w_climate_ctx_t *ctx)
+{
+    return !ctx->unavailable && ctx->has_target &&
+        (!ctx->knx || knx_control_can_write(ctx->knx, KNX_TARGET_TEMPERATURE_COMMAND));
+}
+
 /* ---- services -------------------------------------------------------- */
 
 static void climate_send_target(w_climate_ctx_t *ctx)
 {
-    if (ctx == NULL || ctx->unavailable || !ctx->has_target) {
+    if (ctx == NULL || !climate_target_enabled(ctx)) {
+        return;
+    }
+    if (ctx->knx) {
+        (void)knx_widget_control_roles(ctx->knx, KNX_SET_TARGET_TEMPERATURE, (int)lroundf(ctx->pending_target * 10.0f));
+        ctx->pending_send = false;
+        climate_render(ctx);
         return;
     }
     char payload[APP_MAX_ENTITY_ID_LEN + 48];
@@ -99,15 +114,16 @@ static void climate_send_timer_cb(lv_timer_t *timer)
 
 static void climate_step(w_climate_ctx_t *ctx, float delta)
 {
-    if (ctx == NULL || ctx->unavailable || !ctx->has_target) {
+    if (ctx == NULL || !climate_target_enabled(ctx)) {
         return;
     }
-    float next = ctx->target + delta;
+    float next = (ctx->knx && ctx->pending_send ? ctx->pending_target : ctx->target) + delta;
     if (ctx->max_temp > ctx->min_temp) {
         if (next < ctx->min_temp) next = ctx->min_temp;
         if (next > ctx->max_temp) next = ctx->max_temp;
     }
-    ctx->target = next;
+    if (ctx->knx) ctx->pending_target = next;
+    else ctx->target = next;
     ctx->pending_send = true;
     climate_render(ctx);
     lv_timer_reset(ctx->send_timer);
@@ -202,6 +218,13 @@ static void climate_option_cb(lv_event_t *e)
             break;
     }
     if (value != NULL) {
+        if (ctx->knx) {
+            const int mode = knx_hvac_mode_value(value);
+            if (kind == CLIMATE_POPUP_MODE && mode >= 0 && knx_control_can_write(ctx->knx, KNX_HVAC_MODE_COMMAND))
+                (void)knx_widget_control_roles(ctx->knx, KNX_SET_HVAC_MODE, mode);
+            climate_popup_close(ctx);
+            return;
+        }
         char payload[APP_MAX_ENTITY_ID_LEN + 64];
         snprintf(payload, sizeof(payload), "{\"entity_id\":\"%s\",\"%s\":\"%s\"}", ctx->entity_id, payload_key, value);
         (void)ha_client_call_service("climate", service, payload);
@@ -232,10 +255,12 @@ static const char *climate_mode_text(const char *mode, char *buf, size_t buf_siz
 
 static void climate_show_popup(w_climate_ctx_t *ctx, unsigned kind)
 {
+    if (ctx == NULL || (ctx->knx && (kind != CLIMATE_POPUP_MODE ||
+        !knx_control_can_write(ctx->knx, KNX_HVAC_MODE_COMMAND)))) return;
     const int count = kind == CLIMATE_POPUP_FAN ? ctx->fan_mode_count
                      : kind == CLIMATE_POPUP_SWING ? ctx->swing_mode_count
                                                     : ctx->hvac_mode_count;
-    if (ctx == NULL || ctx->popup != NULL || count == 0 || ctx->unavailable) {
+    if (ctx->popup != NULL || count == 0 || ctx->unavailable) {
         return;
     }
     lv_obj_t *screen = lv_scr_act();
@@ -572,17 +597,20 @@ static void climate_render(w_climate_ctx_t *ctx)
         snprintf(ctx->swing_full, sizeof(ctx->swing_full), "%s: %s", ui_i18n_get("climate.swing_short", "Swing"), ctx->swing_bare);
         lv_label_set_text(ctx->swing_label, ctx->swing_full);
     }
-    if (ctx->unavailable) {
-        climate_popup_close(ctx);
+    if (ctx->unavailable || (ctx->knx && !climate_target_enabled(ctx))) {
         ctx->pending_send = false;
         if (ctx->send_timer != NULL) lv_timer_pause(ctx->send_timer);
     }
-    ui_style_action_button(ctx->btn_minus, lv_obj_get_child(ctx->btn_minus, 0), UI_CONTROL_ACTION, !ctx->unavailable && ctx->has_target);
-    ui_style_action_button(ctx->btn_plus, lv_obj_get_child(ctx->btn_plus, 0), UI_CONTROL_ACTION, !ctx->unavailable && ctx->has_target);
-    ui_style_action_button(ctx->mode_btn, ctx->mode_label, UI_CONTROL_ACTION, !ctx->unavailable && ctx->hvac_mode_count > 0);
+    if (ctx->unavailable || (ctx->knx && !knx_control_can_write(ctx->knx, KNX_HVAC_MODE_COMMAND)))
+        climate_popup_close(ctx);
+    ui_style_action_button(ctx->btn_minus, lv_obj_get_child(ctx->btn_minus, 0), UI_CONTROL_ACTION, climate_target_enabled(ctx));
+    ui_style_action_button(ctx->btn_plus, lv_obj_get_child(ctx->btn_plus, 0), UI_CONTROL_ACTION, climate_target_enabled(ctx));
+    ui_style_action_button(ctx->mode_btn, ctx->mode_label, UI_CONTROL_ACTION, !ctx->unavailable && ctx->hvac_mode_count > 0 &&
+        (!ctx->knx || knx_control_can_write(ctx->knx, KNX_HVAC_MODE_COMMAND)));
     ui_style_action_button(ctx->fan_btn, ctx->fan_label, UI_CONTROL_ACTION, !ctx->unavailable && ctx->fan_mode_count > 0);
     ui_style_action_button(ctx->swing_btn, ctx->swing_label, UI_CONTROL_ACTION, !ctx->unavailable && ctx->swing_mode_count > 0);
-    const bool active = !ctx->unavailable && strcmp(ctx->hvac_mode, "off") != 0;
+    const bool active = !ctx->unavailable && strcmp(ctx->hvac_mode, "off") != 0 &&
+        (!ctx->knx || (ctx->hvac_mode[0] && strcmp(ctx->hvac_mode, "unknown")));
     ui_style_card_set_active(ctx->card, active);
     lv_obj_set_style_text_color(ctx->target_label, lv_color_hex(active ? APP_UI_COLOR_TEXT_PRIMARY : APP_UI_COLOR_TEXT_MUTED), LV_PART_MAIN);
     climate_layout(ctx);
@@ -612,11 +640,12 @@ esp_err_t w_climate_create(const ui_widget_def_t *def, lv_obj_t *parent, ui_widg
     if (def == NULL || parent == NULL || out_instance == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
-    w_climate_ctx_t *ctx = ui_calloc_prefer_psram(1, sizeof(*ctx));
+    w_climate_ctx_t *ctx = ui_knx_control_context(sizeof(*ctx), def, out_instance);
     if (ctx == NULL) {
         return ESP_ERR_NO_MEM;
     }
     snprintf(ctx->entity_id, sizeof(ctx->entity_id), "%s", def->entity_id);
+    ctx->knx = out_instance->knx_controls;
     ctx->unavailable = true;
     ctx->min_temp = 7.0f;
     ctx->max_temp = 35.0f;
@@ -693,18 +722,30 @@ void w_climate_apply_state(ui_widget_instance_t *instance, const ha_state_t *sta
     if (strncmp(state->entity_id, ctx->entity_id, APP_MAX_ENTITY_ID_LEN) != 0) {
         return;
     }
-    ctx->unavailable = strcmp(state->state, "unavailable") == 0 || strcmp(state->state, "unknown") == 0;
+    ctx->unavailable = strcmp(state->state, "unavailable") == 0 || (!ctx->knx && strcmp(state->state, "unknown") == 0);
     strlcpy(ctx->hvac_mode, state->state, sizeof(ctx->hvac_mode)); /* the entity state is the hvac mode */
+    if (ctx->knx) {
+        ctx->has_target = ctx->has_current = false;
+        ctx->hvac_mode_count = ctx->fan_mode_count = ctx->swing_mode_count = 0;
+        if (!strcmp(ctx->hvac_mode, "unknown")) ctx->hvac_mode[0] = '\0';
+    }
     cJSON *attrs = state->attributes_json[0] != '\0' ? cJSON_Parse(state->attributes_json) : NULL;
     if (attrs != NULL) {
         float v = 0.0f;
         cJSON *n = cJSON_GetObjectItemCaseSensitive(attrs, "temperature");
-        if (cJSON_IsNumber(n) && !ctx->pending_send) {
+        if (ctx->knx && cJSON_IsNumber(n) && isfinite(n->valuedouble) && !ctx->unavailable) {
+            if (ctx->pending_send && fabsf(ctx->target - (float)n->valuedouble) > 0.01f) {
+                ctx->pending_send = false;
+                lv_timer_pause(ctx->send_timer);
+            }
+            ctx->target = (float)n->valuedouble;
+            ctx->has_target = true;
+        } else if (!ctx->knx && cJSON_IsNumber(n) && !ctx->pending_send) {
             ctx->target = (float)n->valuedouble;
             ctx->has_target = true;
         }
         n = cJSON_GetObjectItemCaseSensitive(attrs, "current_temperature");
-        ctx->has_current = cJSON_IsNumber(n);
+        ctx->has_current = cJSON_IsNumber(n) && (!ctx->knx || (isfinite(n->valuedouble) && !ctx->unavailable));
         if (ctx->has_current) {
             ctx->current_temp = (float)n->valuedouble;
         }
@@ -746,5 +787,6 @@ void w_climate_mark_unavailable(ui_widget_instance_t *instance)
     }
     w_climate_ctx_t *ctx = (w_climate_ctx_t *)instance->ctx;
     ctx->unavailable = true;
+    if (ctx->knx) ctx->has_target = ctx->has_current = false;
     climate_render(ctx);
 }

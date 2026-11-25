@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LicenseRef-FNCL-1.1
 // Copyright (c) 2026 andre68723
 #include "knx_widget_model.h"
+#include "layout/knx_layout_binding.h"
 #include <cassert>
 #include <cstdlib>
 #include <cstring>
@@ -46,8 +47,101 @@ static void test_scaling_sensor_feedback() {
     assert(!strstr(state.attributes_json, "knx_scaling") && !strcmp(state.state, "61.75"));
 }
 
+static void test_composite_roles_and_schema() {
+    struct RoleCase { knx_role_t role; const char* allowed; const char* rejected; };
+    for (const auto& c : {RoleCase{KNX_MOVE_COMMAND, "1.008", "1.007"},
+                         RoleCase{KNX_STOP_COMMAND, "1.010", "1.007"},
+                         RoleCase{KNX_POSITION_COMMAND, "5.001", "5.004"},
+                         RoleCase{KNX_POSITION_FEEDBACK, "5.001", "5.004"},
+                         RoleCase{KNX_TARGET_TEMPERATURE_COMMAND, "9.001", "9.002"},
+                         RoleCase{KNX_CURRENT_TEMPERATURE_FEEDBACK, "9.001", "9.002"},
+                         RoleCase{KNX_HVAC_MODE_COMMAND, "20.105", "20.102"},
+                         RoleCase{KNX_HVAC_MODE_FEEDBACK, "20.105", "20.102"},
+                         RoleCase{KNX_FAN_SPEED_COMMAND, "5.001", "5.010"},
+                         RoleCase{KNX_FAN_SPEED_FEEDBACK, "5.001", "20.111"}}) {
+        KnxCommunicationObject o;
+        o.readable = o.writable = true;
+        assert(KnxParseDpt(c.allowed, o.datapoint_type));
+        assert(KnxWidgetRoleSupports(o, c.role));
+        if (knx_role_is_command(c.role)) o.writable = false;
+        else o.readable = false;
+        assert(!KnxWidgetRoleSupports(o, c.role));
+        o.readable = o.writable = true;
+        assert(KnxParseDpt(c.rejected, o.datapoint_type));
+        assert(!KnxWidgetRoleSupports(o, c.role));
+    }
+    assert(knx_tile_kind("cover_tile") == KNX_TILE_COVER);
+    assert(knx_tile_kind("climate_tile") == KNX_TILE_CLIMATE);
+    assert(knx_tile_kind("fan_tile") == KNX_TILE_FAN);
+    assert(!knx_tile_has_role(KNX_TILE_LIGHT, KNX_TARGET_TEMPERATURE_COMMAND));
+    assert(!knx_tile_has_role(KNX_TILE_FAN, KNX_BRIGHTNESS_COMMAND));
+    assert(!knx_tile_has_role(KNX_TILE_COVER, KNX_SWITCH_COMMAND));
+    assert(!knx_hvac_mode_name(2) && knx_hvac_mode_value("comfort") == -1);
+    for (int value : {0, 1, 3, 6, 9, 14})
+        assert(knx_hvac_mode_value(knx_hvac_mode_name(value)) == value);
+
+    auto schema = [](const char* type, const char* json, bool valid) {
+        cJSON* root = cJSON_Parse(json);
+        assert(root);
+        knx_layout_binding_t parsed;
+        assert(knx_layout_binding(root, type, &parsed) == valid);
+        if (valid) {
+            char* saved = cJSON_PrintUnformatted(root);
+            cJSON* reload = cJSON_Parse(saved);
+            knx_layout_binding_t restored;
+            assert(knx_layout_binding(reload, type, &restored));
+            assert(parsed.position_open_at_100 == restored.position_open_at_100);
+            for (int i = 0; i < KNX_CONTROL_ROLES; ++i) {
+                assert(!!parsed.controls[i] == !!restored.controls[i]);
+                if (parsed.controls[i]) assert(!strcmp(parsed.controls[i], restored.controls[i]));
+            }
+            cJSON_free(saved); cJSON_Delete(reload);
+        }
+        cJSON_Delete(root);
+    };
+    schema("cover_tile", R"({"source":"knx","roles":{"move_command":"M","position_feedback":"P"},"position_open_at_100":true})", true);
+    schema("cover_tile", R"({"source":"knx","roles":{"position_command":"P"},"position_open_at_100":false})", true);
+    schema("climate_tile", R"({"source":"knx","roles":{"target_temperature_command":"T","target_temperature_feedback":"TF","current_temperature_feedback":"CF","hvac_mode_command":"M","hvac_mode_feedback":"MF"}})", true);
+    schema("fan_tile", R"({"source":"knx","roles":{"switch_command":"P","fan_speed_feedback":"S"}})", true);
+    schema("fan_tile", R"({"source":"knx","roles":{"fan_speed_feedback":"S"},"position_open_at_100":false})", false);
+    schema("cover_tile", R"({"source":"knx","roles":{"position_feedback":"P"},"position_open_at_100":1})", false);
+    schema("cover_tile", R"({"source":"knx","roles":{"position_feedback":"P","position_feedback":"Q"}})", false);
+    schema("cover_tile", R"({"source":"knx","roles":{"hvac_mode_command":"M"}})", false);
+    schema("climate_tile", R"({"source":"knx","roles":{}})", false);
+    for (const char* type : {"cover_tile", "climate_tile", "fan_tile"})
+        schema(type, R"({"source":"knx","object_id":"legacy"})", false);
+}
+
+static void test_composite_commands() {
+    std::string text;
+    auto move = feedback("1.008", "off"), close = feedback("1.009", "off");
+    for (const auto* o : {&move, &close}) {
+        assert(KnxWidgetCommandValue(*o, KNX_COVER_OPEN, 0, nullptr, text) && text == "off");
+        assert(KnxWidgetCommandValue(*o, KNX_COVER_CLOSE, 0, nullptr, text) && text == "on");
+    }
+    auto step = feedback("1.007", "off"), stop = feedback("1.010", "on"), blind = feedback("3.008", "true,1");
+    assert(!KnxWidgetCommandValue(step, KNX_COVER_STOP, 0, nullptr, text));
+    assert(KnxWidgetCommandValue(stop, KNX_COVER_STOP, 0, nullptr, text) && text == "off");
+    assert(KnxWidgetCommandValue(blind, KNX_COVER_STOP, 0, nullptr, text) && text == "false,0");
+    auto temperature = feedback("9.001", "21.5"), difference = feedback("9.002", "1");
+    assert(KnxWidgetCommandValue(temperature, KNX_SET_TARGET_TEMPERATURE, 225, nullptr, text) && text == "22.5");
+    assert(!KnxWidgetCommandValue(temperature, KNX_SET_TARGET_TEMPERATURE, -3000, nullptr, text));
+    assert(!KnxWidgetCommandValue(difference, KNX_SET_TARGET_TEMPERATURE, 225, nullptr, text));
+    auto mode = feedback("20.105", "0"), preset = feedback("20.102", "0");
+    assert(KnxWidgetCommandValue(mode, KNX_SET_HVAC_MODE, 3, nullptr, text) && text == "3");
+    assert(!KnxWidgetCommandValue(mode, KNX_SET_HVAC_MODE, 2, nullptr, text));
+    assert(!KnxWidgetCommandValue(preset, KNX_SET_HVAC_MODE, 3, nullptr, text));
+    auto speed = feedback("5.001", "0");
+    for (int percent : {0, 25, 50, 75, 100})
+        assert(KnxWidgetCommandValue(speed, KNX_SET_FAN_PERCENT, percent, nullptr, text) && text == std::to_string(percent));
+    assert(!KnxWidgetCommandValue(speed, KNX_SET_FAN_PERCENT, -1, nullptr, text));
+    assert(!KnxWidgetCommandValue(speed, KNX_SET_FAN_PERCENT, 101, nullptr, text));
+}
+
 int main() {
     test_scaling_sensor_feedback();
+    test_composite_roles_and_schema();
+    test_composite_commands();
     auto temperature = feedback("DPT-9.001", "21.5");
     temperature.unit = "C";
     ha_state_t state{};

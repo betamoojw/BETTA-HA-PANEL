@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LicenseRef-FNCL-1.1 | Copyright (c) 2026 andre68723 */
 #include "ha_service_request.h"
+#include <stdbool.h>
 #include <string.h>
 
 cJSON *ha_service_request_create(uint32_t id, const char *domain, const char *service, const char *json_data)

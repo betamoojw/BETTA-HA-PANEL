@@ -82,6 +82,9 @@
 .tp-weather-main b { font-size: clamp(14px, 8cqmin, 40px); }
 .tp-weather-hum { text-align: center; width: 100%; }
 .tp-fanbig-top { position: relative; padding-right: 36px; }
+.tp-knx-fan .tp-rotor { min-height: 24px; }
+.tp-knx-speeds { display: grid; grid-template-columns: repeat(var(--knx-speed-columns, 4), minmax(0, 1fr)); gap: 8px; flex: 0 0 auto; }
+.tp-knx-speeds i { min-width: 0; min-height: 36px; box-sizing: border-box; padding: 0 4px; display: grid; place-items: center; }
 .tp-fan-power { position: absolute; top: 0; right: 0; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: linear-gradient(180deg, #d5dde5, #8fa0b0); color: #10202e; font-size: 14px; }
 .tp-clim-modes { display: flex; }
 .tp-clim-modes i { flex: 1; text-align: left; padding: 6px 10px; border-radius: 16px; background: linear-gradient(180deg, #3a566f, #1a2c3d); border: 1px solid #4e6a84; font-size: 12px; }

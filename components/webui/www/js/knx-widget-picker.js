@@ -1,10 +1,14 @@
 /* SPDX-License-Identifier: LicenseRef-FNCL-1.1 | Copyright (c) 2026 andre68723 */
-const knxWidgetTypes = ["sensor", "gauge", "graph", "binary_tile", "contact_tile", "button", "slider", "light_tile", "scene_tile"];
+const knxControlWidgetTypes = ["cover_tile", "climate_tile", "fan_tile"];
+const knxWidgetTypes = ["sensor", "gauge", "graph", "binary_tile", "contact_tile", "button", "slider", "light_tile", "scene_tile", ...knxControlWidgetTypes];
 const knxTileRoles = {
   sensor: ["value_feedback"], gauge: ["number_feedback"], graph: ["number_feedback"],
   binary_tile: ["switch_feedback"], contact_tile: ["switch_feedback"],
   button: ["switch_command", "switch_feedback"], slider: ["brightness_command", "brightness_feedback"],
   light_tile: ["switch_command", "switch_feedback", "brightness_command", "brightness_feedback"], scene_tile: ["action"],
+  cover_tile: ["move_command", "stop_command", "position_command", "position_feedback"],
+  climate_tile: ["target_temperature_command", "target_temperature_feedback", "current_temperature_feedback", "hvac_mode_command", "hvac_mode_feedback"],
+  fan_tile: ["switch_command", "switch_feedback", "fan_speed_command", "fan_speed_feedback"],
 };
 const knxField = id => document.getElementById(id);
 let knxPickerRequest = null;
@@ -14,11 +18,13 @@ let knxPreview = new Map();
 let knxRegistry = new Map();
 let knxPreviewRequest = 0;
 let knxPreviewLoading = false;
+let knxRoutingActive = false;
 
 function knxPreviewKey(type, id) { return `knx:${type}:${id}`; }
 
 function rememberKnxPreview(objects, routing) {
   const views = new Map();
+  knxRoutingActive = routing === "running";
   knxRegistry = new Map(objects.map(o => [o.id, o]));
   for (const o of objects) {
     const types = new Set(o.widget_types || []);
@@ -51,6 +57,7 @@ function rememberKnxPreview(objects, routing) {
 // Separate composite keys keep lights sharing a switch but using different dimmers independent.
 function knxWidgetPreviewKey(widget) {
   const {type, binding} = widget, roles = binding.roles;
+  if (knxControlWidgetTypes.includes(type)) return knxControlPreviewKey(widget);
   if (!roles) {
     if (type === "light_tile" && !knxRegistry.get(binding.object_id)?.widget_types?.includes(type)) return "knx:missing";
     return knxPreviewKey(type, binding.object_id);
@@ -134,6 +141,7 @@ async function fetchKnxWidgetObjects(signal) {
 function knxLegacyRoles(widget, objects) {
   const {type, binding} = widget;
   if (binding.roles) return {...binding.roles};
+  if (knxControlWidgetTypes.includes(type)) return {}; // These widgets require purpose-specific roles.
   let roles = knxTileRoles[type];
   if (type === "light_tile") {
     const dpt = objects.find(o => o.id === binding.object_id)?.datapoint_type;
@@ -166,9 +174,30 @@ function knxObjectField(id, caption, candidates, current) {
 
 function knxRoleHint(role) {
   const read = role.endsWith("_feedback");
-  const dpt = role.startsWith("brightness_") ? "DPT 5.001" : role.startsWith("switch_") ? "DPT 1"
+  const dpt = role === "move_command" ? "DPT 1.008 / 1.009" : role === "stop_command" ? "DPT 1.010 / 3.008"
+    : role.includes("temperature_") ? "DPT 9.001" : role.startsWith("hvac_mode_") ? "DPT 20.105"
+    : /^(brightness|position|fan_speed)_/.test(role) ? "DPT 5.001" : role.startsWith("switch_") ? "DPT 1"
     : t(role === "number_feedback" ? "knx.numeric_dpt" : "knx.any_dpt");
   return t(read ? "knx.need_read" : "knx.need_write", {dpt});
+}
+
+function knxCoverPositionField(target) {
+  const label = document.createElement("label"), row = document.createElement("span");
+  row.className = "row";
+  const input = document.createElement("input"), title = document.createElement("span");
+  input.type = "checkbox";
+  input.id = "knxPositionOpenAt100";
+  input.checked = target.positionOpenAt100 === true;
+  title.textContent = t("knx.position_open_at_100");
+  input.onchange = () => { target.positionOpenAt100 = input.checked; target.edited = true; };
+  row.append(input, title);
+  const hint = document.createElement("span");
+  hint.id = "knxPositionOpenAt100Hint";
+  hint.className = "meta no-shorten";
+  hint.textContent = t("knx.position_direction_hint");
+  input.setAttribute("aria-describedby", hint.id);
+  label.append(row, hint);
+  return label;
 }
 
 function updateKnxApply() {
@@ -219,7 +248,9 @@ function renderKnxRoles() {
     hint.id = select.id + "_hint";
     hint.className = "meta no-shorten";
     select.setAttribute("aria-describedby", hint.id);
-    hint.textContent = !candidates.length || unavailable ? knxRoleHint(role) : "";
+    const roleHint = () => [!candidates.length || unavailable ? knxRoleHint(role) : "",
+      role === "stop_command" ? t("knx.stop_hint") : ""].filter(Boolean).join(" ");
+    hint.textContent = roleHint();
     select.onchange = () => {
       if (select.value === (target.roles[role] || "")) return;
       if (select.value && !candidates.some(o => o.id === select.value)) return;
@@ -228,12 +259,13 @@ function renderKnxRoles() {
       if (select.value) target.roles[role] = select.value;
       else delete target.roles[role];
       target.edited = true;
-      hint.textContent = candidates.length ? "" : knxRoleHint(role);
+      hint.textContent = role === "stop_command" ? t("knx.stop_hint") : candidates.length ? "" : knxRoleHint(role);
       updateKnxApply();
     };
     label.append(hint);
     rows.push(label);
   }
+  if (target.type === "cover_tile") rows.push(knxCoverPositionField(target));
   knxField("knxTileRoles").replaceChildren(...rows);
   updateKnxApply();
 }
@@ -272,6 +304,7 @@ function startKnxWidgetPicker(widget = null) {
   closeAddTileDialog(); // Cancel HA discovery and ignore late results after a source switch.
   const type = widget?.type || "";
   knxPickerTarget = {page: selectedPage(), widget, type, edited: false, objectId: widget?.binding?.object_id || "",
+    positionOpenAt100: widget?.binding?.position_open_at_100 === true,
     roles: widget?.binding?.source === "knx" ? knxLegacyRoles(widget, []) : {}};
   const select = knxField("knxTileType");
   const entries = widget ? [[type, widgetTypeLabel(type)]]
@@ -293,6 +326,7 @@ function useKnxWidgetObject() {
   const {type, roles} = target;
   const binding = target.objectId
     ? {...target.widget.binding, object_id: target.objectId} : {source: "knx", roles: {...roles}};
+  if (type === "cover_tile") binding.position_open_at_100 = target.positionOpenAt100 === true;
   if (type === "scene_tile") binding.value = knxField("knxTileValue").value;
   const first = knxPickerObjects.find(o => o.id === Object.values(roles)[0]);
   if (target.widget) {
@@ -332,6 +366,7 @@ function bindKnxWidgetPicker() {
     if (!knxPickerTarget || knxPickerTarget.widget) return;
     knxPickerTarget.type = knxField("knxTileType").value;
     knxPickerTarget.roles = {};
+    knxPickerTarget.positionOpenAt100 = false;
     knxField("knxTileValue").value = "";
     renderKnxRoles();
   };

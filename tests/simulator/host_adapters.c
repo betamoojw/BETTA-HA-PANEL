@@ -64,7 +64,21 @@ static struct { unsigned calls; knx_widget_action_t action; int value; char id[K
 
 esp_err_t knx_widget_control_roles(const knx_control_binding_t *controls, knx_widget_action_t action, int value)
 {
-    const char *id = controls->id[action == KNX_SET_PERCENT ? KNX_BRIGHTNESS_COMMAND : KNX_SWITCH_COMMAND];
+    if (!controls) return ESP_ERR_INVALID_ARG;
+    knx_role_t role = KNX_SWITCH_COMMAND;
+    switch (action) {
+    case KNX_SET_PERCENT: role = KNX_BRIGHTNESS_COMMAND; break;
+    case KNX_COVER_OPEN:
+    case KNX_COVER_CLOSE:
+        role = controls->id[KNX_MOVE_COMMAND][0] ? KNX_MOVE_COMMAND : KNX_POSITION_COMMAND;
+        break;
+    case KNX_COVER_STOP: role = KNX_STOP_COMMAND; break;
+    case KNX_SET_TARGET_TEMPERATURE: role = KNX_TARGET_TEMPERATURE_COMMAND; break;
+    case KNX_SET_HVAC_MODE: role = KNX_HVAC_MODE_COMMAND; break;
+    case KNX_SET_FAN_PERCENT: role = KNX_FAN_SPEED_COMMAND; break;
+    default: break;
+    }
+    const char *id = controls->id[role];
     if (!*id) return ESP_ERR_INVALID_ARG;
     knx_write.calls++;
     knx_write.action = action;
@@ -86,21 +100,23 @@ esp_err_t knx_widget_control(const char *key, knx_widget_action_t action, int va
     return ESP_OK;
 }
 
-esp_err_t ui_bindings_toggle_entity(const char *entity_id) { (void)entity_id; return ESP_OK; }
+static unsigned s_binding_calls;
+unsigned sim_host_binding_calls(void) { return s_binding_calls; }
+esp_err_t ui_bindings_toggle_entity(const char *entity_id) { (void)entity_id; s_binding_calls++; return ESP_OK; }
 esp_err_t ui_bindings_set_entity_power(const char *entity_id, bool on)
-{ (void)entity_id; (void)on; return ESP_OK; }
+{ (void)entity_id; (void)on; s_binding_calls++; return ESP_OK; }
 static unsigned s_slider_sets;
 static int s_slider_last = -1;
 unsigned sim_host_slider_sets(void) { return s_slider_sets; }
 int sim_host_slider_last(void) { return s_slider_last; }
 esp_err_t ui_bindings_set_slider_value(const char *entity_id, int value)
-{ (void)entity_id; s_slider_sets++; s_slider_last = value; return ESP_OK; }
+{ (void)entity_id; s_binding_calls++; s_slider_sets++; s_slider_last = value; return ESP_OK; }
 esp_err_t ui_bindings_set_climate_target_c(const char *entity_id, float celsius)
-{ (void)entity_id; (void)celsius; return ESP_OK; }
+{ (void)entity_id; (void)celsius; s_binding_calls++; return ESP_OK; }
 esp_err_t ui_bindings_set_light_color_temp_kelvin(const char *entity_id, int kelvin)
-{ (void)entity_id; (void)kelvin; return ESP_OK; }
+{ (void)entity_id; (void)kelvin; s_binding_calls++; return ESP_OK; }
 esp_err_t ui_bindings_set_light_rgb_color(const char *entity_id, uint8_t r, uint8_t g, uint8_t b)
-{ (void)entity_id; (void)r; (void)g; (void)b; return ESP_OK; }
+{ (void)entity_id; (void)r; (void)g; (void)b; s_binding_calls++; return ESP_OK; }
 esp_err_t ui_bindings_media_player_action(const char *entity_id, ui_bindings_media_action_t action)
 { (void)entity_id; (void)action; return ESP_OK; }
 esp_err_t ui_bindings_media_player_set_shuffle(const char *entity_id, bool shuffle)

@@ -78,6 +78,7 @@ void receive(const knx_telegram_t* t, void*) {
     KnxValue value;
     uint32_t revision = 0;
     int64_t received_ms = 0;
+    bool invalid_temperature = false;
     for (auto& o : objects) {
         if (!o.readable || o.parsed_group_address != t->destination) continue;
         // Configuration enforces a single DPT per address. Decode once and
@@ -85,7 +86,12 @@ void receive(const knx_telegram_t* t, void*) {
         if (!revision) {
             if (!KnxDecodeValue(o.datapoint_type, t->data, t->data_length, value)) {
                 ++rejected_count;
-                return;
+                // A DPT 9 invalid-data marker revokes a preceding temperature
+                // observation. Malformed packets still leave the cache alone.
+                invalid_temperature = o.datapoint_type.main == 9 && o.datapoint_type.has_subtype &&
+                    t->data_length == 3 && t->data[1] == 0x7f && t->data[2] == 0xff;
+                if (!invalid_temperature) return;
+                value = std::monostate{};
             }
             revision = next_view_revision();
             received_ms = esp_timer_get_time() / 1000;
@@ -93,8 +99,8 @@ void receive(const knx_telegram_t* t, void*) {
             ++received_count;
         }
         o.current_value = value;
-        o.valid = true;
-        o.live_feedback = true;
+        o.valid = !invalid_temperature;
+        o.live_feedback = !invalid_temperature;
         o.widget_revision = revision;
         o.last_update_ms = received_ms;
     }
@@ -320,27 +326,23 @@ static bool routing_active() {
 
 static knx_view_result_t read_controls(knx_control_binding_t& binding, knx_tile_kind_t kind,
                                        const char* key, uint32_t* cursor, ha_state_t* out) {
-    auto* power = bound_object(binding, KNX_SWITCH_FEEDBACK);
-    auto* level = bound_object(binding, KNX_BRIGHTNESS_FEEDBACK);
+    const KnxCommunicationObject* resolved[KNX_ROLE_COUNT]{};
     // Compare ages so a revision rollover cannot hide fresh feedback.
     const uint32_t now = view_revision.load();
     uint32_t revision = registry_revision;
-    for (auto* o : {power, level})
+    for (int i = 0; i < KNX_ROLE_COUNT; ++i) {
+        const auto role = static_cast<knx_role_t>(i);
+        const auto* o = knx_tile_has_role(kind, role) ? bound_object(binding, role) : nullptr;
+        resolved[i] = o;
         if (o && now - o->widget_revision < now - revision) revision = o->widget_revision;
+    }
     if (*cursor == revision) return KNX_VIEW_UNCHANGED;
-    const bool active = routing_active();
-    binding.switch_writable = active && bound_object(binding, KNX_SWITCH_COMMAND);
-    binding.brightness_writable = active && bound_object(binding, KNX_BRIGHTNESS_COMMAND);
-    const float* percent = active && level && level->live_feedback ? std::get_if<float>(&level->current_value) : nullptr;
-    const bool* on = active && power && power->live_feedback ? std::get_if<bool>(&power->current_value) : nullptr;
-    binding.brightness = percent ? static_cast<int>(*percent + .5f) : -1;
-
     memset(out, 0, sizeof(*out));
     snprintf(out->entity_id, sizeof(out->entity_id), "%s", key);
-    if (kind == KNX_TILE_SLIDER && percent)
-        snprintf(out->state, sizeof(out->state), "%d", binding.brightness);
-    else strcpy(out->state, on ? (*on ? "on" : "off") : "unavailable");
-    out->last_changed_unix_ms = std::max(on ? power->last_update_ms : 0, percent ? level->last_update_ms : 0);
+    if (!KnxWidgetProjectRoles(resolved, kind, routing_active(), binding, *out)) {
+        out->attributes_json[0] = '\0';
+        strcpy(out->state, "unavailable");
+    }
     *cursor = revision;
     return KNX_VIEW_UPDATED;
 }
@@ -367,11 +369,28 @@ extern "C" knx_view_result_t knx_widget_read(const char* key, knx_tile_kind_t ki
 }
 
 extern "C" esp_err_t knx_widget_control_roles(const knx_control_binding_t* controls, knx_widget_action_t action, int value) {
-    if (!controls || (action != KNX_TOGGLE && action != KNX_SET_POWER && action != KNX_SET_PERCENT))
-        return ESP_ERR_INVALID_ARG;
+    if (!controls) return ESP_ERR_INVALID_ARG;
     std::unique_lock<std::mutex> guard(state_mutex, std::try_to_lock);
     if (!guard.owns_lock()) return ESP_ERR_TIMEOUT;
-    const auto role = action == KNX_SET_PERCENT ? KNX_BRIGHTNESS_COMMAND : KNX_SWITCH_COMMAND;
+    knx_role_t role;
+    switch (action) {
+    case KNX_TOGGLE: case KNX_SET_POWER: role = KNX_SWITCH_COMMAND; break;
+    case KNX_SET_PERCENT: role = KNX_BRIGHTNESS_COMMAND; break;
+    case KNX_SET_TARGET_TEMPERATURE: role = KNX_TARGET_TEMPERATURE_COMMAND; break;
+    case KNX_SET_HVAC_MODE: role = KNX_HVAC_MODE_COMMAND; break;
+    case KNX_SET_FAN_PERCENT: role = KNX_FAN_SPEED_COMMAND; break;
+    case KNX_COVER_STOP: role = KNX_STOP_COMMAND; break;
+    case KNX_COVER_OPEN: case KNX_COVER_CLOSE:
+        role = KNX_MOVE_COMMAND;
+        if (!bound_object(*controls, role)) {
+            role = KNX_POSITION_COMMAND;
+            const bool open = action == KNX_COVER_OPEN;
+            value = open == controls->position_open_at_100 ? 100 : 0;
+            action = KNX_SET_PERCENT;
+        }
+        break;
+    default: return ESP_ERR_INVALID_ARG;
+    }
     auto* target = bound_object(*controls, role);
     if (!target) return ESP_ERR_INVALID_ARG;
     if (action == KNX_TOGGLE) {

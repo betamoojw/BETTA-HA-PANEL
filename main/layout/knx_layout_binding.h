@@ -7,6 +7,7 @@
 typedef struct {
     const char *primary, *preset;
     const char *controls[KNX_CONTROL_ROLES];
+    bool position_open_at_100;
 } knx_layout_binding_t;
 
 static inline bool knx_valid_id(const char *id)
@@ -24,13 +25,17 @@ static inline bool knx_layout_binding(const cJSON *binding, const char *type, kn
     const cJSON *object = cJSON_GetObjectItemCaseSensitive(binding, "object_id");
     const cJSON *roles = cJSON_GetObjectItemCaseSensitive(binding, "roles");
     const cJSON *preset = cJSON_GetObjectItemCaseSensitive(binding, "value");
+    const cJSON *position = cJSON_GetObjectItemCaseSensitive(binding, "position_open_at_100");
     out->preset = cJSON_GetStringValue(preset);
     if (!cJSON_IsObject(binding) || !source || strcmp(source, "knx") || kind == KNX_TILE_NONE ||
-        (!!object == !!roles) || cJSON_GetArraySize(binding) != (kind == KNX_TILE_ACTION ? 3 : 2) ||
+        (!!object == !!roles) || cJSON_GetArraySize(binding) != (kind == KNX_TILE_ACTION ? 3 : 2) + (position != NULL) ||
+        (position && (kind != KNX_TILE_COVER || !cJSON_IsBool(position))) ||
         (kind == KNX_TILE_ACTION ? !out->preset || strlen(out->preset) > KNX_COMMAND_VALUE_MAX : preset != NULL))
         return false;
+    out->position_open_at_100 = cJSON_IsTrue(position);
 
     if (object) {
+        if (kind == KNX_TILE_COVER || kind == KNX_TILE_CLIMATE || kind == KNX_TILE_FAN) return false;
         out->primary = cJSON_GetStringValue(object);
         if (!knx_valid_id(out->primary)) return false;
         if (kind == KNX_TILE_SWITCH || kind == KNX_TILE_SLIDER) {
@@ -49,7 +54,7 @@ static inline bool knx_layout_binding(const cJSON *binding, const char *type, kn
         if (i == KNX_ROLE_COUNT || !knx_tile_has_role(kind, (knx_role_t)i) ||
             (seen & (1u << i)) || !knx_valid_id(id)) return false;
         seen |= 1u << i;
-        if (kind == KNX_TILE_LIGHT || kind == KNX_TILE_SWITCH || kind == KNX_TILE_SLIDER)
+        if (knx_tile_has_controls(kind))
             out->controls[i] = id;
         if (!out->primary || i == KNX_SWITCH_FEEDBACK || (kind == KNX_TILE_SLIDER && i == KNX_BRIGHTNESS_FEEDBACK))
             out->primary = id;

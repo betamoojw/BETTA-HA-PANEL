@@ -250,5 +250,49 @@ Panel10 SDL passed 273 KNX and 388 general control checks. Chrome replayed all
 every preset arrow. The ESP-IDF 6.1.1 **21:12:10** image is 6,813,280 bytes,
 leaving 2,464 bytes in each OTA slot (736 fewer than the device-tested build).
 Application SHA-256 is `b9c5b32b729cd607e00057b8c90eacc84ad70576a8cecd14be95bc92551c93c9`.
-This image and the added reconnect, alias and invalid-report cases have local
-coverage only. The physical panel verification above used **20:15:12**.
+At pre-commit review, the 21:12:10 image and the new reconnect, alias and
+invalid-report cases had local coverage only. The preceding COM24 trial used
+**20:15:12**.
+
+## COM24 verification of commit `c9d61c3`
+
+The clean `dev` checkout produced the Waveshare LCD-X image with ESP-IDF 6.1.1 on November 26, 2026.
+The application descriptor and the running panel both reported **21:33:28**. The 6,813,264-byte image left 2,480 bytes free.
+
+| Verified artifact | SHA-256 |
+| --- | --- |
+| Application | `ba28ac0ffe03fc4afbe99081c986a50b63c5c47684e57cc378042a029c21fcdb` |
+| Matching ELF | `f51898dcffa5c6782cc21a0c37e490dd41654a4c24d88877e254248440423024` |
+| Entire `ota_0` read back over COM24 | `db6711252cc73640acda3ea94285069715e5bfdc0f33be6fe4e30ae92eb87cb9` |
+
+The administrator export and frozen LittleFS backup agreed on nine pages and 47 widgets, including **Light Angle**.
+The 19,529,728-byte filesystem held eight files. It contained no `.grph` or `.grph.tmp` files for a sample-by-sample history comparison.
+The old slot matched the 20:15:12 backup. Only `ota_0` at `0x020000–0x69ffff` was programmed. A separate
+read reproduced all 6,815,744 bytes, including the original tail. Before reboot, `ota_1`, metadata/NVS, crash storage and LittleFS matched their pre-write digests.
+
+The 100.044-second COM24 log starts at reset. The bootloader loaded `0x20000` at 1.317 s, HTTP started at
+19.958 s, KNX loaded 76 objects at 21.712 s and the splash closed at 22.357 s. The API reported `c9d61c30`,
+valid `ota_0` and idle OTA. Boot count rose once from 262 to 263 and remained there through uptime 562 s.
+
+Five temporary widgets used a host-simulated actuator on `239.255.71.178:43673`. Chrome loaded the editor from the panel.
+Wi-Fi stayed connected while the isolated KNX route stopped and rejoined.
+
+| KNX exercise | Result on the panel and in the editor |
+| --- | --- |
+| Shared DPT 5.001 command, feedback empty | Both sliders showed 80% then 0%. The panel sent raw values 204 then 0 on `30/7/201`. Reloading the editor kept the feedback empty and the value at 0%. |
+| Independent slider feedback | An 80% command left the bound slider at `--` and the command-only slider at 80%. The actuator returned raw 158 (61.96%) on `30/7/202`. The bound slider showed 62% and stayed there when the shared command changed to 20%. |
+| Chinese DPT 20.102 preset | Both tiles showed **不可用** offline and `--` after rejoining. Command 0 changed the command-only tile to **自动**. The other stayed at `--` until feedback 0 arrived, then also showed **自动**. The owner confirmed the three states on the physical LCD. |
+
+Chrome held a completed picker response from routing epoch 4 for **811 ms**. It contained command 3 (Economy) and feedback 1 (Comfort).
+Fresh command and feedback values of 0 arrived in epoch 5. Immediately before and after the browser released the old response,
+both previews showed **Auto**. The picker still reported active routing and retained command value 0. The subsequent panel capture showed **Auto** on both tiles.
+
+![Chinese panel crops after wake, with the command-only preset on the left and the independently reported preset on the right](../img/development/panel10-knx-c9d61c3-presets.png)
+
+The 180-second flip clock covered four first-pass Chinese panel captures. A remote tap on blank test-page space woke the panel.
+The five repeat captures covered the baseline and the four steps pictured above. The comparison used 13 first-pass pairs and four replacement pairs. All 85 native label regions
+matched the 20:15:12 reference images. The editor values agreed at all 17 checkpoints. The receiver recorded 24 telegrams in the first pass and six in the repeat.
+
+The actuator returned to its initial values. The 47-widget layout, including the `light_angle` binding, the 76-object registry,
+accounts, themes and camera configuration matched their backups byte for byte. Only live time and Wi-Fi signal differed in the settings export.
+Both test sessions signed out and anonymous layout access returned HTTP 401. Three host regressions covered late replies, paginated reconnects and shared addresses.

@@ -322,9 +322,9 @@ WIDGETS = {
     "select_tile": {
         "summary": "Chooses an **option** of a `select.*` or `input_select.*` entity.",
         "entities": [("Select", "`select.*`, `input_select.*`", True)],
-        "requirements": None,
+        "requirements": "For a KNX operating preset, select KNX as the source and bind a DPT 20.102 command, feedback, or both. See [KNX widget bindings](../knx.md#dashboard-widgets).",
         "options": [],
-        "panel": ["A tap opens the option list; picking one requests it.",
+        "panel": ["Tap the tile when the arrow is visible to choose an option. A feedback-only KNX preset displays the reported mode.",
                   "Leave enough width for the title and the longest option; the example is 360 × 100 px."],
     },
     "sensor": {
@@ -341,7 +341,7 @@ WIDGETS = {
     "slider": {
         "summary": "Adjusts a **writable number** such as light brightness, cover position or an input number.",
         "entities": [("Writable number", "light brightness, cover position, an input number and the like", True)],
-        "requirements": None,
+        "requirements": "For KNX, bind a DPT 5.001 percentage or DPT 5.003 angle. An independent feedback object is optional. See [KNX widget bindings](../knx.md#dashboard-widgets).",
         "options": [("Slider entity type", "what the slider sets"),
                     ("Slider direction", "auto, left to right, right to left, bottom to top or top to bottom"),
                     ("Slider accent color", "the colour of the bar")],

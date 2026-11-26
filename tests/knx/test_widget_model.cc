@@ -57,6 +57,10 @@ static void test_composite_roles_and_schema() {
                          RoleCase{KNX_CURRENT_TEMPERATURE_FEEDBACK, "9.001", "9.002"},
                          RoleCase{KNX_HVAC_MODE_COMMAND, "20.105", "20.102"},
                          RoleCase{KNX_HVAC_MODE_FEEDBACK, "20.105", "20.102"},
+                         RoleCase{KNX_PRESET_COMMAND, "20.102", "20.105"},
+                         RoleCase{KNX_PRESET_FEEDBACK, "20.102", "22.101"},
+                         RoleCase{KNX_ANGLE_COMMAND, "5.003", "5.001"},
+                         RoleCase{KNX_ANGLE_FEEDBACK, "5.003", "5.001"},
                          RoleCase{KNX_FAN_SPEED_COMMAND, "5.001", "5.010"},
                          RoleCase{KNX_FAN_SPEED_FEEDBACK, "5.001", "20.111"}}) {
         KnxCommunicationObject o;
@@ -108,6 +112,15 @@ static void test_composite_roles_and_schema() {
     schema("cover_tile", R"({"source":"knx","roles":{"position_feedback":"P","position_feedback":"Q"}})", false);
     schema("cover_tile", R"({"source":"knx","roles":{"hvac_mode_command":"M"}})", false);
     schema("climate_tile", R"({"source":"knx","roles":{}})", false);
+    for (const char* binding : {R"({"source":"knx","roles":{"brightness_command":"A"}})",
+            R"({"source":"knx","roles":{"brightness_command":"A","brightness_feedback":null}})",
+            R"({"source":"knx","roles":{"brightness_command":"A","brightness_feedback":""}})",
+            R"({"source":"knx","roles":{"angle_command":"A","angle_feedback":"B"}})",
+            R"({"source":"knx","object_id":"legacy"})"}) schema("slider", binding, true);
+    schema("slider", R"({"source":"knx","roles":{"brightness_command":"A","angle_feedback":"B"}})", false);
+    schema("slider", R"({"source":"knx","roles":{"brightness_command":"A","brightness_feedback":false}})", false);
+    schema("select_tile", R"({"source":"knx","roles":{"preset_command":"P","preset_feedback":null}})", true);
+    schema("select_tile", R"({"source":"knx","object_id":"ambiguous"})", false);
     for (const char* type : {"cover_tile", "climate_tile", "fan_tile"})
         schema(type, R"({"source":"knx","object_id":"legacy"})", false);
 }
@@ -131,6 +144,14 @@ static void test_composite_commands() {
     assert(KnxWidgetCommandValue(mode, KNX_SET_HVAC_MODE, 3, nullptr, text) && text == "3");
     assert(!KnxWidgetCommandValue(mode, KNX_SET_HVAC_MODE, 2, nullptr, text));
     assert(!KnxWidgetCommandValue(preset, KNX_SET_HVAC_MODE, 3, nullptr, text));
+    for (int code = 0; code <= 4; ++code)
+        assert(KnxWidgetCommandValue(preset, KNX_SET_PRESET, code, nullptr, text) && text == std::to_string(code));
+    assert(!KnxWidgetCommandValue(preset, KNX_SET_PRESET, 5, nullptr, text));
+    assert(!KnxWidgetCommandValue(mode, KNX_SET_PRESET, 0, nullptr, text));
+    auto angle = feedback("5.003", "0");
+    for (int value : {0, 180, 270, 360})
+        assert(KnxWidgetCommandValue(angle, KNX_SET_ANGLE, value, nullptr, text) && text == std::to_string(value));
+    assert(!KnxWidgetCommandValue(angle, KNX_SET_ANGLE, 361, nullptr, text));
     auto speed = feedback("5.001", "0");
     for (int percent : {0, 25, 50, 75, 100})
         assert(KnxWidgetCommandValue(speed, KNX_SET_FAN_PERCENT, percent, nullptr, text) && text == std::to_string(percent));
@@ -138,10 +159,68 @@ static void test_composite_commands() {
     assert(!KnxWidgetCommandValue(speed, KNX_SET_FAN_PERCENT, 101, nullptr, text));
 }
 
+static void test_independent_value_sources() {
+    auto target = feedback("9.001", "19.5");
+    target.command_revision = 1;
+    target.last_command = 21.5f;
+    const KnxCommunicationObject* roles[KNX_ROLE_COUNT]{};
+    roles[KNX_TARGET_TEMPERATURE_COMMAND] = &target;
+    knx_control_binding_t binding{};
+    ha_state_t state{};
+    assert(KnxWidgetProjectRoles(roles, KNX_TILE_CLIMATE, true, binding, state));
+    assert(strstr(state.attributes_json, "\"temperature\":21.5") && !strstr(state.attributes_json, "current_temperature"));
+    strcpy(binding.id[KNX_TARGET_TEMPERATURE_FEEDBACK], "missing");
+    assert(KnxWidgetProjectRoles(roles, KNX_TILE_CLIMATE, true, binding, state));
+    assert(!strstr(state.attributes_json, "\"temperature\":"));
+    auto move = feedback("1.008", "on");
+    move.command_revision = 1;
+    move.last_command = 1;
+    roles[KNX_MOVE_COMMAND] = &move;
+    assert(KnxWidgetProjectRoles(roles, KNX_TILE_COVER, true, binding, state));
+    assert(!strcmp(state.state,"unknown") && !strstr(state.attributes_json,"current_position"));
+    auto power = feedback("1.001", "on"), speed = feedback("5.001", "50");
+    power.command_revision = speed.command_revision = 1;
+    power.last_command = speed.last_command = 0;
+    roles[KNX_SWITCH_COMMAND] = &power;
+    roles[KNX_FAN_SPEED_COMMAND] = &speed;
+    assert(KnxWidgetProjectRoles(roles, KNX_TILE_FAN, true, binding, state));
+    assert(!strcmp(state.state, "off") && strstr(state.attributes_json, "\"percentage\":0"));
+    roles[KNX_FAN_SPEED_FEEDBACK] = &speed;
+    assert(KnxWidgetProjectRoles(roles, KNX_TILE_FAN, true, binding, state));
+    assert(!strcmp(state.state, "off") && strstr(state.attributes_json, "\"percentage\":50"));
+    roles[KNX_BRIGHTNESS_COMMAND] = &speed;
+    roles[KNX_SWITCH_FEEDBACK] = &power;
+    assert(KnxWidgetProjectRoles(roles, KNX_TILE_LIGHT, true, binding, state));
+    assert(!strcmp(state.state, "on") && binding.brightness == 0);
+    auto preset = feedback("20.102", "0");
+    preset.command_revision = 1;
+    preset.last_command = 0;
+    roles[KNX_PRESET_COMMAND] = &preset;
+    assert(KnxWidgetProjectRoles(roles, KNX_TILE_SELECT, false, binding, state));
+    assert(!strcmp(state.state, "unavailable") && !knx_control_can_write(&binding, KNX_PRESET_COMMAND));
+    preset.command_revision = 0;
+    assert(KnxWidgetProjectRoles(roles, KNX_TILE_SELECT, true, binding, state));
+    assert(!strcmp(state.state, "unknown") && knx_control_can_write(&binding, KNX_PRESET_COMMAND));
+    preset.command_revision = 1;
+    assert(KnxWidgetProjectRoles(roles, KNX_TILE_SELECT, true, binding, state));
+    assert(!strcmp(state.state,"Auto"));
+    roles[KNX_PRESET_FEEDBACK] = &preset;
+    preset.live_feedback = false;
+    assert(KnxWidgetProjectRoles(roles, KNX_TILE_SELECT, true, binding, state));
+    assert(!strcmp(state.state, "unknown"));
+    preset.live_feedback = true;
+    assert(KnxWidgetProjectRoles(roles, KNX_TILE_SELECT, true, binding, state));
+    assert(!strcmp(state.state, "Auto"));
+    preset.current_value = uint8_t(5);
+    assert(KnxWidgetProjectRoles(roles, KNX_TILE_SELECT, true, binding, state));
+    assert(!strcmp(state.state,"unknown"));
+}
+
 int main() {
     test_scaling_sensor_feedback();
     test_composite_roles_and_schema();
     test_composite_commands();
+    test_independent_value_sources();
     auto temperature = feedback("DPT-9.001", "21.5");
     temperature.unit = "C";
     ha_state_t state{};

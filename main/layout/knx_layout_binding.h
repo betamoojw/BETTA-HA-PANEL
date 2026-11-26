@@ -35,11 +35,11 @@ static inline bool knx_layout_binding(const cJSON *binding, const char *type, kn
     out->position_open_at_100 = cJSON_IsTrue(position);
 
     if (object) {
-        if (kind == KNX_TILE_COVER || kind == KNX_TILE_CLIMATE || kind == KNX_TILE_FAN) return false;
+        if (kind == KNX_TILE_COVER || kind == KNX_TILE_CLIMATE || kind == KNX_TILE_FAN || kind == KNX_TILE_SELECT) return false;
         out->primary = cJSON_GetStringValue(object);
         if (!knx_valid_id(out->primary)) return false;
         if (kind == KNX_TILE_SWITCH || kind == KNX_TILE_SLIDER) {
-            for (int i = 0; i < KNX_CONTROL_ROLES; ++i)
+            for (int i = 0; i <= KNX_BRIGHTNESS_FEEDBACK; ++i)
                 if (knx_tile_has_role(kind, (knx_role_t)i)) out->controls[i] = out->primary;
         }
         return true;
@@ -52,12 +52,16 @@ static inline bool knx_layout_binding(const cJSON *binding, const char *type, kn
         while (i < KNX_ROLE_COUNT && strcmp(item->string, knx_role_name((knx_role_t)i))) ++i;
         const char *id = cJSON_GetStringValue(item);
         if (i == KNX_ROLE_COUNT || !knx_tile_has_role(kind, (knx_role_t)i) ||
-            (seen & (1u << i)) || !knx_valid_id(id)) return false;
+            (seen & (1u << i))) return false;
         seen |= 1u << i;
+        if (!knx_role_is_command((knx_role_t)i) && (cJSON_IsNull(item) || (id && !*id))) continue;
+        if (!knx_valid_id(id)) return false;
         if (knx_tile_has_controls(kind))
             out->controls[i] = id;
         if (!out->primary || i == KNX_SWITCH_FEEDBACK || (kind == KNX_TILE_SLIDER && i == KNX_BRIGHTNESS_FEEDBACK))
             out->primary = id;
     }
+    if (kind == KNX_TILE_SLIDER && (out->controls[KNX_ANGLE_COMMAND] || out->controls[KNX_ANGLE_FEEDBACK]) &&
+        (out->controls[KNX_BRIGHTNESS_COMMAND] || out->controls[KNX_BRIGHTNESS_FEEDBACK])) return false;
     return out->primary != NULL;
 }

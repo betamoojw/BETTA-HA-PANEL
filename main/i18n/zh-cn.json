@@ -1,5 +1,8 @@
 {
   "lvgl": {
+    "knx": {
+      "preset": {"Auto":"自动","Comfort":"舒适","Standby":"待机","Economy":"节能","Building Protection":"建筑保护"}
+    },
     "common": {
       "on": "开",
       "off": "关",

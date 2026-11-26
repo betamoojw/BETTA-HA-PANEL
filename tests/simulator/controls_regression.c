@@ -210,6 +210,27 @@ static void option_text(void *user, size_t i, char *out, size_t len)
     (void)user;
     snprintf(out, len, "%s", i == 0 ? "Off" : "On");
 }
+static void ha_select_test(void)
+{
+    const char *domains[] = {"select", "input_select"};
+    const char *options = "{\"options\":[\"Economy\",\"Auto\"]}";
+    for (size_t i = 0; i < sizeof(domains) / sizeof(domains[0]); ++i) {
+        ui_widget_def_t def = {.w = 320, .h = 120};
+        strcpy(def.type, "select_tile");
+        snprintf(def.entity_id, sizeof(def.entity_id), "%s.preset", domains[i]);
+        ui_widget_instance_t widget = {0};
+        CHECK(ui_widget_factory_create(&def, lv_screen_active(), &widget) == ESP_OK);
+        sim_host_service_reset(ESP_OK);
+        audit_state(&widget, def.entity_id, "Economy", options);
+        lv_obj_send_event(widget.obj, LV_EVENT_CLICKED, NULL);
+        click(lv_layer_top(), "Auto");
+        sent(domains[i], "select_option", def.entity_id, "option", "Auto");
+        CHECK(label(widget.obj, "Economy"));
+        audit_state(&widget, def.entity_id, "Auto", options);
+        CHECK(label(widget.obj, "Auto"));
+        lv_obj_delete(widget.obj);
+    }
+}
 static void picker_roles_test(void)
 {
     ui_option_picker_cfg_t cfg = {.title = "Selection", .count = 2, .current = 0, .label = option_text};
@@ -595,6 +616,16 @@ static void knx_roles_test(void)
     CHECK(lv_obj_is_hidden(find_slider(switch_only.obj)));
     lv_obj_send_event(switch_only.obj, LV_EVENT_CLICKED, NULL);
     CHECK(sim_knx_writes() == before + 5 && sim_knx_last_write("P", KNX_TOGGLE, 0));
+    def.knx.controls[KNX_SWITCH_FEEDBACK] = NULL;
+    ui_widget_instance_t command_only = {0};
+    CHECK(w_light_tile_create(&def, lv_screen_active(), &command_only) == ESP_OK);
+    CHECK(label(command_only.obj, "--") && !label(command_only.obj, "OFF"));
+    command_only.knx_controls->switch_writable = true;
+    strcpy(state.state, "unknown");
+    w_light_tile_apply_state(&command_only, &state);
+    CHECK(label(command_only.obj, "--") && !label(command_only.obj, "OFF"));
+    lv_obj_send_event(command_only.obj, LV_EVENT_CLICKED, NULL);
+    CHECK(sim_knx_writes() == before + 6 && sim_knx_last_write("P", KNX_TOGGLE, 0));
 }
 
 int sim_controls_regression(void)
@@ -609,6 +640,7 @@ int sim_controls_regression(void)
     sim_weather_now_regression(weather_delay);
     phase = "media primary"; process_primary_test();
     phase = "fan selection"; fan_selection_test();
+    phase = "HA select"; ha_select_test();
     phase = "picker roles"; picker_roles_test();
     phase = "unavailable actions"; stale_controls_test();
     phase = "light"; light_test(); phase = "vacuum"; vacuum_test();

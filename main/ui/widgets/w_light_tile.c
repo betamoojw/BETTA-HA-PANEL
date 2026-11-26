@@ -632,7 +632,8 @@ static void light_apply_visual(lv_obj_t *card, const w_light_tile_ctx_t *ctx, bo
     lv_obj_set_style_text_color(
         w.state_label, is_on ? lv_color_hex(APP_UI_COLOR_STATE_ON) : lv_color_hex(APP_UI_COLOR_STATE_OFF), LV_PART_MAIN);
     if (w.toggle != NULL) {
-        if (ctx && ctx->knx) lv_obj_set_state(w.toggle, LV_STATE_DISABLED, !ctx->knx->switch_writable || ctx->unavailable);
+        if (ctx && ctx->knx) lv_obj_set_state(w.toggle, LV_STATE_DISABLED, !ctx->knx->switch_writable ||
+            (ctx->unavailable && ctx->knx->id[KNX_SWITCH_FEEDBACK][0]));
         lv_obj_set_style_bg_color(w.toggle, ui_style_control_bg(lv_color_hex(APP_UI_COLOR_NAV_BTN_BG_IDLE)), LV_PART_MAIN);
         lv_obj_t *knob = lv_obj_get_child(w.toggle, 0);
         if (knob != NULL) {
@@ -737,6 +738,8 @@ static void light_apply_visual(lv_obj_t *card, const w_light_tile_ctx_t *ctx, bo
         else light_set_value_label(w.value_label, brightness);
     }
     lv_label_set_text(w.icon, light_icon_text_for_font(icon_font));
+    if (ctx && ctx->knx && ctx->unavailable && ctx->knx->switch_writable && !ctx->knx->id[KNX_SWITCH_FEEDBACK][0])
+        status_text = "--";
     lv_label_set_text(w.state_label, light_translate_status(status_text != NULL ? status_text : (is_on ? "ON" : "OFF")));
     if (!light_uses_split(card)) {
         light_position_icon_between_state_and_title(
@@ -1885,8 +1888,8 @@ esp_err_t w_light_tile_create(const ui_widget_def_t *def, lv_obj_t *parent, ui_w
     ctx->popup_overlay = NULL;
     ctx->is_on = false;
     ctx->brightness = 0;
-    ctx->unavailable = false;
-    ctx->can_dim = true;
+    ctx->unavailable = ctx->knx != NULL;
+    ctx->can_dim = !ctx->knx || ctx->knx->id[KNX_BRIGHTNESS_COMMAND][0] || ctx->knx->id[KNX_BRIGHTNESS_FEEDBACK][0];
     ctx->can_color = false;
     ctx->can_color_temp = false;
     ctx->has_rgb_color = false;
@@ -1911,7 +1914,7 @@ esp_err_t w_light_tile_create(const ui_widget_def_t *def, lv_obj_t *parent, ui_w
         lv_obj_add_event_cb(slider, w_light_tile_slider_event_cb, LV_EVENT_PRESS_LOST, ctx);
     }
 
-    light_apply_visual(card, ctx, false, 0, "OFF");
+    light_apply_visual(card, ctx, false, 0, ctx->knx ? "--" : "OFF");
     out_instance->ctx = ctx;
     out_instance->obj = card;
     return ESP_OK;
@@ -1926,7 +1929,7 @@ void w_light_tile_apply_state(ui_widget_instance_t *instance, const ha_state_t *
     }
     w_light_tile_ctx_t *ctx = instance->ctx;
     if (ctx && ctx->knx) {
-        ctx->unavailable = strcmp(state->state, "unavailable") == 0;
+        ctx->unavailable = !strcmp(state->state, "unavailable") || !strcmp(state->state, "unknown");
         ctx->is_on = !strcmp(state->state, "on");
         ctx->can_dim = ctx->knx->id[KNX_BRIGHTNESS_COMMAND][0] || ctx->knx->id[KNX_BRIGHTNESS_FEEDBACK][0];
         if (!ctx->knx->brightness_writable) ctx->knx_dragging = false;

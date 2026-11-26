@@ -4,8 +4,12 @@
 #include "knx_object.h"
 #include "knx_widget.h"
 #include "cJSON.h"
+#include <optional>
 
 void AddValue(cJSON *json, const KnxValue& value);
+std::optional<float> KnxControlScalar(const KnxValue& value);
+std::optional<float> KnxWidgetDisplayValue(const knx_control_binding_t& binding, knx_role_t feedback_role,
+    const KnxCommunicationObject* feedback, const KnxCommunicationObject* command);
 bool KnxWidgetRoleSupports(const KnxCommunicationObject& object, knx_role_t role);
 bool KnxWidgetSupports(const KnxCommunicationObject& object, knx_tile_kind_t kind);
 bool KnxWidgetProject(const KnxCommunicationObject& object, knx_tile_kind_t kind, ha_state_t& state);

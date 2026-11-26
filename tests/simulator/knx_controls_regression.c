@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include "lvgl.h"
+#include "cJSON.h"
 #include "host_adapters.h"
 #include "ui/ui_widget_factory.h"
 #include "ui/ui_i18n.h"
@@ -19,6 +20,12 @@ esp_err_t w_climate_create(const ui_widget_def_t *, lv_obj_t *, ui_widget_instan
 void w_climate_apply_state(ui_widget_instance_t *, const ha_state_t *);
 esp_err_t w_fan_create(const ui_widget_def_t *, lv_obj_t *, ui_widget_instance_t *);
 void w_fan_apply_state(ui_widget_instance_t *, const ha_state_t *);
+esp_err_t w_slider_create(const ui_widget_def_t *, lv_obj_t *, ui_widget_instance_t *);
+void w_slider_apply_state(ui_widget_instance_t *, const ha_state_t *);
+esp_err_t w_select_create(const ui_widget_def_t *, lv_obj_t *, ui_widget_instance_t *);
+void w_select_apply_state(ui_widget_instance_t *, const ha_state_t *);
+esp_err_t w_button_create(const ui_widget_def_t *, lv_obj_t *, ui_widget_instance_t *);
+void w_button_apply_state(ui_widget_instance_t *, const ha_state_t *);
 
 static unsigned checks;
 static const char *phase;
@@ -379,6 +386,143 @@ static void fan_test(void)
     lv_obj_delete(widget.obj);
 }
 
+static void switch_test(void)
+{
+    phase = "optional switch feedback";
+    ui_widget_def_t def = {.w = 320, .h = 180};
+    strcpy(def.type, "button"); strcpy(def.entity_id, "knx:P");
+    def.knx.controls[KNX_SWITCH_COMMAND] = "P";
+    ui_widget_instance_t widget = {0};
+    CHECK(w_button_create(&def, lv_screen_active(), &widget) == ESP_OK);
+    CHECK(find_label(widget.obj, "--", false));
+    widget.knx_controls->switch_writable = true;
+    apply(&widget, w_button_apply_state, def.entity_id, "unknown", "{}");
+    unsigned before = sim_knx_writes();
+    lv_obj_send_event(widget.obj, LV_EVENT_CLICKED, NULL);
+    command(before++, "P", KNX_TOGGLE, 0);
+    lv_obj_t *toggle = lv_obj_get_child_by_type(widget.obj, 0, &lv_switch_class);
+    CHECK(toggle != NULL);
+    lv_obj_send_event(toggle, LV_EVENT_VALUE_CHANGED, NULL);
+    command(before++, "P", KNX_SET_POWER, 0);
+    CHECK(find_label(widget.obj, "--", false)); /* The send is still unconfirmed. */
+    apply(&widget, w_button_apply_state, def.entity_id, "off", "{}");
+    CHECK(find_label(widget.obj, "OFF", false));
+    strcpy(widget.knx_controls->id[KNX_SWITCH_FEEDBACK], "F");
+    apply(&widget, w_button_apply_state, def.entity_id, "unavailable", "{}");
+    lv_obj_send_event(widget.obj, LV_EVENT_CLICKED, NULL);
+    CHECK(sim_knx_writes() == before);
+    widget.knx_controls->switch_writable = false;
+    widget.knx_controls->id[KNX_SWITCH_FEEDBACK][0] = 0;
+    apply(&widget, w_button_apply_state, def.entity_id, "unavailable", "{}");
+    lv_obj_send_event(widget.obj, LV_EVENT_CLICKED, NULL);
+    CHECK(sim_knx_writes() == before && lv_obj_has_state(toggle, LV_STATE_DISABLED));
+    lv_obj_delete(widget.obj);
+}
+
+static void slider_test(bool angle)
+{
+    phase = angle ? "angle slider" : "percentage slider";
+    ui_widget_def_t def = {.w = 320, .h = 120};
+    strcpy(def.type, "slider"); strcpy(def.entity_id, "knx:A");
+    const knx_role_t role = angle ? KNX_ANGLE_COMMAND : KNX_BRIGHTNESS_COMMAND;
+    def.knx.controls[role] = "A";
+    ui_widget_instance_t widget = {0};
+    CHECK(w_slider_create(&def, lv_screen_active(), &widget) == ESP_OK);
+    CHECK(find_label(widget.obj, "--", false));
+    widget.knx_controls->writable_roles = WRITABLE(role);
+    widget.knx_controls->brightness_writable = !angle;
+    apply(&widget, w_slider_apply_state, def.entity_id, "unknown", "{}");
+    CHECK(find_label(widget.obj, "--", false));
+    lv_obj_t *track = lv_obj_get_child_by_type(widget.obj, 0, &lv_slider_class);
+    CHECK(track && lv_slider_get_max_value(track) == (angle ? 360 : 100));
+    const int values[] = {angle ? 270 : 80, 0};
+    unsigned before = sim_knx_writes();
+    for (unsigned i = 0; i < 2; ++i) {
+        lv_slider_set_value(track, values[i], LV_ANIM_OFF);
+        lv_obj_send_event(track, LV_EVENT_RELEASED, NULL);
+        command(before++, "A", angle ? KNX_SET_ANGLE : KNX_SET_PERCENT, values[i]);
+        CHECK(lv_slider_get_value(track) == (i ? values[0] : 0));
+        char number[8], label[16];
+        snprintf(number, sizeof(number), "%d", values[i]);
+        snprintf(label, sizeof(label), angle ? "%d°" : "%d %%", values[i]);
+        apply(&widget, w_slider_apply_state, def.entity_id, number, "{}");
+        CHECK(find_label(widget.obj, label, false));
+    }
+    if (!angle) {
+        strcpy(widget.knx_controls->id[KNX_BRIGHTNESS_FEEDBACK], "B");
+        apply(&widget, w_slider_apply_state, def.entity_id, "unavailable", "{}");
+        lv_slider_set_value(track, 80, LV_ANIM_OFF);
+        lv_obj_send_event(track, LV_EVENT_RELEASED, NULL);
+        command(before, "A", KNX_SET_PERCENT, 80);
+        CHECK(find_label(widget.obj, "--", false));
+        apply(&widget, w_slider_apply_state, def.entity_id, "62", "{}");
+        CHECK(find_label(widget.obj, "62 %", false) && lv_slider_get_value(track) == 62);
+    }
+    lv_obj_delete(widget.obj);
+}
+
+/* Feed the real worker's native projections into LVGL and compare each label
+ * with the preview produced by the editor from the same registry snapshot. */
+static void compare_editor_frames(void)
+{
+    const char *json = getenv("BETTA_KNX_PANEL_STATES");
+    if (!json) return;
+    phase = "worker and editor traces";
+    cJSON *frames = cJSON_Parse(json);
+    CHECK(cJSON_IsArray(frames) && cJSON_GetArraySize(frames) > 0);
+    unsigned labels = 0;
+    for (unsigned bound = 0; bound < 2; ++bound) {
+        ui_widget_def_t def = {.w = 320, .h = 120};
+        strcpy(def.type, "slider"); strcpy(def.entity_id, "knx:A");
+        def.knx.controls[KNX_BRIGHTNESS_COMMAND] = "A";
+        if (bound) def.knx.controls[KNX_BRIGHTNESS_FEEDBACK] = "B";
+        ui_widget_instance_t widget = {0};
+        CHECK(w_slider_create(&def, lv_screen_active(), &widget) == ESP_OK);
+        const cJSON *frame;
+        cJSON_ArrayForEach(frame, frames) {
+            const char *state = cJSON_GetStringValue(cJSON_GetArrayItem(frame, 2 * bound));
+            const char *label = cJSON_GetStringValue(cJSON_GetArrayItem(frame, 2 * bound + 1));
+            CHECK(state && label);
+            apply(&widget, w_slider_apply_state, def.entity_id, state, "{}");
+            CHECK(find_label(widget.obj, label, false));
+            ++labels;
+        }
+        lv_obj_delete(widget.obj);
+    }
+    cJSON_Delete(frames);
+    printf("%u native slider labels matched the editor\n", labels);
+}
+
+static void preset_test(void)
+{
+    phase = "HVAC operating preset";
+    ui_widget_def_t def = {.w = 320, .h = 120};
+    strcpy(def.type, "select_tile"); strcpy(def.entity_id, "knx:S");
+    def.knx.controls[KNX_PRESET_COMMAND] = "S";
+    ui_widget_instance_t widget = {0};
+    CHECK(w_select_create(&def, lv_screen_active(), &widget) == ESP_OK);
+    const char *options = "{\"options\":[\"Auto\",\"Comfort\",\"Standby\",\"Economy\",\"Building Protection\"]}";
+    widget.knx_controls->writable_roles = WRITABLE(KNX_PRESET_COMMAND);
+    apply(&widget, w_select_apply_state, def.entity_id, "unknown", options);
+    CHECK(find_label(widget.obj, "--", false));
+    lv_obj_send_event(widget.obj, LV_EVENT_CLICKED, NULL);
+    const unsigned before = sim_knx_writes();
+    click(lv_layer_top(), "Economy");
+    command(before, "S", KNX_SET_PRESET, 3);
+    CHECK(find_label(widget.obj, "--", false));
+    apply(&widget, w_select_apply_state, def.entity_id, "Economy", options);
+    CHECK(find_label(widget.obj, "Economy", false));
+    lv_obj_send_event(widget.obj, LV_EVENT_CLICKED, NULL);
+    apply(&widget, w_select_apply_state, def.entity_id, "unavailable", "{}");
+    CHECK(!find_label(lv_layer_top(), "Comfort", false));
+    CHECK(find_label(widget.obj, "unavailable", false));
+    apply(&widget, w_select_apply_state, def.entity_id, "unknown", options);
+    CHECK(find_label(widget.obj, "--", false));
+    apply(&widget, w_select_apply_state, def.entity_id, "Auto", options);
+    CHECK(find_label(widget.obj, "Auto", false));
+    lv_obj_delete(widget.obj);
+}
+
 void sim_knx_controls_regression(void (*delay)(uint32_t))
 {
     wait_ms = delay;
@@ -386,6 +530,8 @@ void sim_knx_controls_regression(void (*delay)(uint32_t))
     sim_host_service_reset(ESP_OK);
     const unsigned bindings_before = sim_host_binding_calls();
     cover_test(); climate_test(); fan_test();
+    switch_test(); slider_test(false); slider_test(true); preset_test();
+    compare_editor_frames();
     phase = "HA transport isolation";
     wait_ms(1000);
     CHECK(sim_host_service_calls()->count == 0);

@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: LicenseRef-FNCL-1.1 | Copyright (c) 2026 andre68723
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { loadEditor } from "./load_editor.mjs";
 
 function setup() {
@@ -128,6 +132,85 @@ test("closing a KNX picker rejects its late response and a changed registry cann
   assert.equal(run("knxPickerObjects.length"), 0);
   run('let generation = 0; apiGet = async () => ({objects: [], has_more: true, generation: ++generation, next_offset: 1})');
   await assert.rejects(run("fetchKnxWidgetObjects()"));
+});
+
+test("a reconnect between registry pages discards old commands and feedback, even if both pages say running", async () => {
+  const run = chooser();
+  run(`const requested = {type:"select_tile", binding:{source:"knx", roles:{preset_command:"P"}}};
+    const reported = {type:"select_tile", binding:{source:"knx", roles:{preset_command:"P", preset_feedback:"F"}}};
+    selectedPage().widgets.push(requested, reported);
+    const cmd = {id:"P", writable:true, widget_roles:["preset_command"]};
+    const status = {id:"F", readable:true, widget_roles:["preset_feedback"]};
+    const pages = [
+      {objects:[{...cmd,last_command:3},{...status,live_feedback:true,value:3}], routing_epoch:5, has_more:true, next_offset:2},
+      {objects:[], routing_epoch:6}, {objects:[cmd,status], routing_epoch:6}
+    ];
+    apiGet = async path => {paths.push(path); return {state:"running", generation:1, ...pages.shift()};};`);
+  await run("refreshKnxWidgetPreview()");
+  assert.deepEqual([...run("paths")], [0, 2, 0].map(n => "/api/knx/objects?offset=" + n));
+  for (const tile of ["requested", "reported"]) {
+    assert.match(run(`tilePreviewMarkup(${tile})`), /<b>--<\/b>/);
+    assert.match(run(`tilePreviewMarkup(${tile})`), /tp-select-chevron/);
+  }
+});
+
+test("an older picker response cannot overwrite a fresh zero from the reconnected preview", async () => {
+  const run = chooser();
+  run(`const preset = {type:"select_tile", rect:{w:320,h:120}, binding:{source:"knx",roles:{preset_command:"P"}}};
+    selectedPage().widgets.push(preset);
+    const object = {id:"P",writable:true,widget_roles:["preset_command"]};
+    apiGet = () => new Promise(resolve => globalThis.finishPicker = resolve);
+    const pendingPicker = startKnxWidgetPicker();
+    apiGet = async () => ({objects:[{...object,last_command:0}],state:"running",routing_epoch:2});`);
+  await run("refreshKnxWidgetPreview()");
+  assert.match(run("tilePreviewMarkup(preset)"), /<b>Auto<\/b>/);
+  run('finishPicker({objects:[object],state:"disabled",routing_epoch:1})');
+  await run("pendingPicker");
+  assert.match(run("tilePreviewMarkup(preset)"), /<b>Auto<\/b>/);
+  assert.equal(run('knxField("knxTileStatus").textContent'), run('t("knx.state.running")'));
+  assert.equal(run("knxPickerObjects[0].last_command"), 0);
+});
+
+test("aliases on successive registry pages use the latest command and latest readable feedback independently", async () => {
+  const run = chooser();
+  run(`const shared = {group_address:"2/0/1", datapoint_type:"DPT-5.001", writable:true, readable:true,
+      widget_roles:["brightness_command","brightness_feedback"], live_feedback:true};
+    objects = [
+      {...shared, id:"early", last_command:80, value:80},
+      {...shared, id:"both", last_command:0, value:62},
+      {...shared, id:"read", writable:false, widget_roles:["brightness_feedback"], value:62},
+    ]; routing="running";
+    const level = roles => tilePreviewMarkup({type:"slider", binding:{source:"knx",roles}, rect:{w:320,h:120}})
+      .match(/<\\/i><span>([^<]+)<\\/span>/)[1];`);
+  const refresh = () => run("fetchKnxWidgetObjects().then(page => rememberKnxPreview(page.objects,page.state))");
+  await refresh();
+  for (const id of ["early", "both"]) assert.equal(run(`level({brightness_command:"${id}"})`), "0 %");
+  for (const id of ["early", "both", "read"]) assert.equal(run(`level({brightness_feedback:"${id}"})`), "62 %");
+  run("objects[2].live_feedback = false");
+  await refresh();
+  assert.equal(run('level({brightness_command:"both",brightness_feedback:"early"})'), "--");
+  assert.equal(run('level({brightness_command:"early"})'), "0 %");
+});
+
+test("a KNX button retains its switch for unknown, false and read-only states", async () => {
+  const run = chooser();
+  dimmerRegistry(run);
+  run(`const power = {type:"button",rect:{w:240,h:180},binding:{source:"knx",roles:{switch_command:"P"}}};
+    selectedPage().widgets.push(power);`);
+  async function check(label, style) {
+    await run("refreshKnxWidgetPreview()");
+    const html = run("tilePreviewMarkup(power)");
+    assert.match(html, /tp-switch-big/);
+    assert.match(html, new RegExp('tp-button-state">' + label + '<', 'i'));
+    assert.match(html, new RegExp(style));
+  }
+  await check("--", "control-action");
+  run('objects.find(o=>o.id==="P").last_command=false');
+  await check("off", "control-action");
+  run('power.binding.roles={switch_feedback:"S"}; Object.assign(objects.find(o=>o.id==="S"),{value:true,live_feedback:true})');
+  await check("on", "control-disabled");
+  run('routing="disabled"');
+  await check("Unavailable", "control-disabled");
 });
 
 test("scaling sensor renders whole percentages and a missing feedback placeholder without rounding the source", () => {
@@ -262,6 +345,117 @@ async function saveAndReloadBinding(run) {
   return JSON.parse(run("JSON.stringify(selectedWidget().binding)"));
 }
 
+test("command-only and feedback sliders agree with the KNX worker after save and reload",
+  {skip: !process.env.BETTA_KNX_SERVICE_TEST}, async t => {
+    const run = chooser();
+    dimmerRegistry(run);
+    const dir = mkdtempSync(join(tmpdir(), "betta-knx-slider-"));
+    t.after(() => rmSync(dir, {recursive: true, force: true}));
+    await run("startKnxWidgetPicker()");
+    run('choose("knxTileType","slider"); choose("knxRole_brightness_command","A"); knxField("knxTileApply").onclick()');
+    assert.deepEqual((await saveAndReloadBinding(run)).roles, {brightness_command:"A"});
+    const slider = JSON.parse(run("JSON.stringify(selectedWidget())"));
+    const commandFile = join(dir,"command.json"), feedbackFile = join(dir,"feedback.json"), traceFile = join(dir,"trace.json");
+    writeFileSync(commandFile,run("saved"));
+    await run('knxField("knxInspectorChoose").onclick()');
+    run('choose("knxRole_brightness_feedback","B"); knxField("knxTileApply").onclick()');
+    assert.deepEqual((await saveAndReloadBinding(run)).roles, {brightness_command:"A",brightness_feedback:"B"});
+    writeFileSync(feedbackFile,run("saved"));
+    execFileSync(process.env.BETTA_KNX_SERVICE_TEST, [commandFile,feedbackFile,traceFile]);
+    const trace = JSON.parse(readFileSync(traceFile,"utf8"));
+    const frames = [];
+    const restoredSlider = run("JSON.stringify(selectedWidget())");
+    for (const [name,requested,confirmed] of [
+      ["queued","--","--"], ["eighty","80 %","--"], ["zero","0 %","--"], ["failed","0 %","--"],
+      ["feedback","80 %","62 %"], ["peer","20 %","62 %"], ["queue_full","20 %","62 %"], ["replaced","--","--"],
+    ]) {
+      const page = trace[name];
+      run(`rememberKnxPreview(${JSON.stringify(page.objects)},${JSON.stringify(page.state)})`);
+      const labels = [JSON.stringify(slider), restoredSlider].map(widget =>
+        run(`tilePreviewMarkup(${widget})`).match(/<\/i><span>([^<]+)<\/span>/)?.[1]);
+      assert.deepEqual(labels, [requested, confirmed], name);
+      frames.push([page.panel_command_state, labels[0], page.panel_feedback_state, labels[1]]);
+    }
+    if (process.env.BETTA_KNX_SIMULATOR) {
+      const output = execFileSync(process.env.BETTA_KNX_SIMULATOR, ["--regression", "controls"], {
+        cwd: new URL("../../", import.meta.url), encoding: "utf8",
+        env: {...process.env, SDL_VIDEODRIVER: "dummy", BETTA_SIM_NOW: "1792233000",
+          BETTA_KNX_PANEL_STATES: JSON.stringify(frames)},
+      });
+      assert.match(output, /16 native slider labels matched the editor/);
+    }
+  });
+
+test("nullable feedback, shared command values, angle and HVAC preset round trips", async () => {
+  const run = chooser();
+  dimmerRegistry(run);
+  run(`objects.push({id:"angle",widget_roles:["angle_command"],writable:true,datapoint_type:"DPT-5.003"},
+    {id:"preset",widget_roles:["preset_command"],writable:true,datapoint_type:"DPT-20.102"})`);
+  await run("startKnxWidgetPicker()");
+  run('choose("knxTileType","slider"); choose("knxRole_angle_command","angle"); knxField("knxTileApply").onclick()');
+  assert.deepEqual((await saveAndReloadBinding(run)).roles,{angle_command:"angle"});
+  for (const feedback of [null, "", undefined]) {
+    run(`selectedWidget().binding.roles.angle_feedback=${JSON.stringify(feedback)};
+      objects.find(o=>o.id==="angle").last_command=270; rememberKnxPreview(objects,"running")`);
+    const markup=run("tilePreviewMarkup(selectedWidget())");
+    assert.match(markup,/>270°</);
+    assert.match(markup,/75%/);
+  }
+  run('selectedWidget().binding.roles.angle_feedback="removed"');
+  assert.match(run("tilePreviewMarkup(selectedWidget())"),/>--</);
+  await run("startKnxWidgetPicker()");
+  run('choose("knxTileType","select_tile"); choose("knxRole_preset_command","preset"); knxField("knxTileApply").onclick()');
+  assert.deepEqual((await saveAndReloadBinding(run)).roles,{preset_command:"preset"});
+  for(const [code,label] of [[0,"Auto"],[3,"Economy"],[4,"Building Protection"]]) {
+    run(`objects.find(o=>o.id==="preset").last_command=${code}; rememberKnxPreview(objects,"running")`);
+    assert.ok(run("tilePreviewMarkup(selectedWidget())").includes(">"+label+"<"));
+  }
+  run('rememberKnxPreview(objects,"waiting_for_network")');
+  assert.match(run("tilePreviewMarkup(selectedWidget())"), /<b>Unavailable<\/b>/);
+});
+
+test("KNX presets distinguish offline, rejoined and fresh zero for each binding", async () => {
+  const run = chooser();
+  run(`const command = {id:"P", writable:true, widget_roles:["preset_command"], last_command:3};
+       const feedback = {id:"F", readable:true, widget_roles:["preset_feedback"], live_feedback:true, value:3};
+       objects = [command, feedback];
+       const requested = {id:"requested", type:"select_tile", rect:{x:0,y:0,w:320,h:120},
+         binding:{source:"knx", roles:{preset_command:"P"}}};
+       const reported = {...requested, id:"reported", binding:{source:"knx", roles:{preset_command:"P", preset_feedback:"F"}}};
+       selectedPage().widgets.push(requested, reported);
+       editor.i18nMap = WEB_I18N_BUILTIN["zh-cn"];
+       routing = "running"`);
+  async function expectPresets(requestedLabel, reportedLabel, writable) {
+    await run("refreshKnxWidgetPreview()");
+    for (const [tile, label] of [["requested", requestedLabel], ["reported", reportedLabel]]) {
+      const html = run(`tilePreviewMarkup(${tile})`);
+      assert.equal(html.match(/<b>([^<]*)<\/b>/)?.[1], label, tile);
+      assert.equal(html.includes("tp-select-chevron"), writable, tile);
+    }
+  }
+  await expectPresets("节能", "节能", true);
+  run('routing = "disabled"');
+  await expectPresets("不可用", "不可用", false);
+  run('routing = "running"; delete command.last_command; feedback.live_feedback = false');
+  await expectPresets("--", "--", true);
+  run("command.last_command = 0");
+  await expectPresets("自动", "--", true);
+  run("feedback.value = 0; feedback.live_feedback = true");
+  await expectPresets("自动", "自动", true);
+});
+
+test("Home Assistant select previews keep literal option names and their existing placeholder", () => {
+  const run = chooser();
+  run('editor.i18nMap = WEB_I18N_BUILTIN["zh-cn"]');
+  for (const id of ["select.preset", "input_select.preset"]) {
+    for (const [state, expected] of [["Economy", "Economy"], ["0", "0"], ["unavailable", "--"], ["unknown", "--"]]) {
+      run(`editor.states.set("${id}", "${state}")`);
+      const html = run(`tilePreviewMarkup({type:"select_tile", entity_id:"${id}", rect:{x:0,y:0,w:320,h:120}})`);
+      assert.equal(html.match(/<b>([^<]*)<\/b>/)?.[1], expected, id);
+    }
+  }
+});
+
 test("legacy RGB Light rebinds to another compatible RGB object and survives an offline save", async () => {
   const run = chooser();
   run(`const rgb = {name:"RGB lamp", datapoint_type:"DPT-232.600", readable:true, writable:true,
@@ -353,7 +547,7 @@ function controlRegistry(run) {
     {id:"preset", datapoint_type:"DPT-20.102", writable:true, widget_roles:["action"]},
     {id:"delta", datapoint_type:"DPT-9.002", writable:true, widget_roles:["action"]},
     {id:"literal_percent", datapoint_type:"DPT-5.004", readable:true, writable:true, widget_roles:["number_feedback","action"]},
-  ].map(o => ({name:o.id, group_address:"3/0/1", ...o})); routing = "running";
+  ].map((o, i) => ({name:o.id, group_address:"3/0/" + (i + 1), ...o})); routing = "running";
   globalThis.feedback = (id, value) => Object.assign(objects.find(o => o.id === id), {live_feedback:true, value});
   globalThis.view = () => knxPreview.get(knxWidgetPreviewKey(selectedWidget()));`);
 }

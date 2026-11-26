@@ -52,6 +52,8 @@ struct KnxCommunicationObject {
     uint64_t last_update_ms = 0;
     uint32_t widget_revision = 0;
     bool live_feedback = false;
+    float last_command = 0; // Paired controls use bool, enum8 or float. Zero is a valid command.
+    uint32_t command_revision = 0;
 };
 
 bool KnxParseGroupAddress(const std::string& text, knx_address_t& address);

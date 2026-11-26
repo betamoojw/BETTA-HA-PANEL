@@ -23,6 +23,7 @@
 #include "ui/theme/ui_style.h"
 #include "ui/ui_i18n.h"
 #include "ui/ui_memory.h"
+#include "ui/ui_knx_control.h"
 #include "ui/ui_option_picker.h"
 
 static const char *TAG = "w_select";
@@ -33,6 +34,7 @@ typedef struct {
     char current[HA_SELECT_OPTION_LEN];
     ha_select_options_t options;
     bool unavailable;
+    knx_control_binding_t *knx;
     lv_obj_t *card;
     lv_obj_t *title_label;
     lv_obj_t *value_label;
@@ -61,11 +63,19 @@ static void select_layout(w_select_ctx_t *ctx)
     lv_obj_align(ctx->chevron, LV_ALIGN_RIGHT_MID, -pad + 4, 0);
 }
 
+static const char *select_option_label(const w_select_ctx_t *ctx, const char *option)
+{
+    if (!ctx->knx || !*option) return option;
+    char key[64];
+    snprintf(key, sizeof(key), "knx.preset.%s", option);
+    return ui_i18n_get(key, option);
+}
+
 static void select_render(w_select_ctx_t *ctx)
 {
     const lv_color_t muted = lv_color_hex(APP_UI_COLOR_TEXT_MUTED);
     lv_label_set_text(ctx->value_label, ctx->unavailable ? ui_i18n_get("common.unavailable", "unavailable")
-                                                         : (ctx->current[0] ? ctx->current : "--"));
+                                                         : (ctx->current[0] ? select_option_label(ctx, ctx->current) : "--"));
     lv_obj_set_style_text_color(ctx->value_label, ctx->unavailable ? muted : lv_color_hex(APP_UI_COLOR_TEXT_PRIMARY),
                                 LV_PART_MAIN);
     /* No options to offer (none, or dropped with oversized attributes): no chevron, and a tap
@@ -75,13 +85,19 @@ static void select_render(w_select_ctx_t *ctx)
 
 static void select_picker_label(void *user, size_t index, char *out, size_t out_len)
 {
-    snprintf(out, out_len, "%s", ((w_select_ctx_t *)user)->options.option[index]);
+    const w_select_ctx_t *ctx = user;
+    snprintf(out, out_len, "%s", select_option_label(ctx, ctx->options.option[index]));
 }
 
 static void select_picker_chosen(void *user, size_t index)
 {
     w_select_ctx_t *ctx = (w_select_ctx_t *)user;
     if (index >= ctx->options.count || strcmp(ctx->options.option[index], ctx->current) == 0) {
+        return;
+    }
+    if (ctx->knx) {
+        if (knx_control_can_write(ctx->knx, KNX_PRESET_COMMAND))
+            (void)knx_widget_control_roles(ctx->knx, KNX_SET_PRESET, (int)index);
         return;
     }
     char payload[APP_MAX_ENTITY_ID_LEN + HA_SELECT_OPTION_LEN + 48];
@@ -136,10 +152,11 @@ esp_err_t w_select_create(const ui_widget_def_t *def, lv_obj_t *parent, ui_widge
     if (def == NULL || parent == NULL || out_instance == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
-    w_select_ctx_t *ctx = ui_calloc_prefer_psram(1, sizeof(*ctx));
+    w_select_ctx_t *ctx = ui_knx_control_context(sizeof(*ctx), def, out_instance);
     if (ctx == NULL) {
         return ESP_ERR_NO_MEM;
     }
+    ctx->knx = out_instance->knx_controls;
     strlcpy(ctx->entity_id, def->entity_id, sizeof(ctx->entity_id));
     strlcpy(ctx->title, def->title[0] ? def->title : def->entity_id, sizeof(ctx->title));
     ctx->options.missing = true;
@@ -193,9 +210,12 @@ void w_select_apply_state(ui_widget_instance_t *instance, const ha_state_t *stat
     if (strncmp(state->entity_id, ctx->entity_id, APP_MAX_ENTITY_ID_LEN) != 0) {
         return;
     }
-    ctx->unavailable = strcmp(state->state, "unavailable") == 0 || strcmp(state->state, "unknown") == 0;
-    strlcpy(ctx->current, state->state, sizeof(ctx->current));
+    const bool unknown = strcmp(state->state, "unknown") == 0;
+    ctx->unavailable = strcmp(state->state, "unavailable") == 0 || (!ctx->knx && unknown);
+    strlcpy(ctx->current, ctx->knx && unknown ? "" : state->state, sizeof(ctx->current));
     ha_select_options_parse(state->attributes_json, &ctx->options);
+    if (ctx->knx && ctx->picker && (ctx->unavailable || ctx->options.count == 0))
+        ui_option_picker_close(ctx->picker);
     select_render(ctx);
 }
 
@@ -206,5 +226,6 @@ void w_select_mark_unavailable(ui_widget_instance_t *instance)
     }
     w_select_ctx_t *ctx = (w_select_ctx_t *)instance->ctx;
     ctx->unavailable = true;
+    if (ctx->knx && ctx->picker) ui_option_picker_close(ctx->picker);
     select_render(ctx);
 }

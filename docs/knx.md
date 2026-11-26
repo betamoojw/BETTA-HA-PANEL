@@ -85,10 +85,11 @@ has no candidates, its hint identifies the required access and DPT.
 | Widget | Command (writable) | Feedback (readable) |
 | --- | --- | --- |
 | Button in switch mode | Switch command, DPT 1 (for example 1.001) | Switch feedback, DPT 1 |
-| Slider | Absolute brightness, DPT 5.001 | Actual brightness, DPT 5.001 |
+| Slider | Absolute percentage, DPT 5.001 (0–100%), or angle, DPT 5.003 (0–360°) | Optional readable object of the same subtype |
+| Select | HVAC operating preset, DPT 20.102 | Optional operating preset, DPT 20.102 |
 | Light | Switch command and brightness command | Switch feedback and brightness feedback, independently. Switching uses DPT 1 and brightness uses DPT 5.001. |
 | Sensor | — | Any supported DPT, including an R/W object |
-| Gauge, Graph | — | Numeric DPT. Graph keeps local samples. |
+| Gauge, Graph | — | Numeric DPT 5–9 (except 6.020), 12–14 or 29. Graph keeps local samples. |
 | Binary, Contact | — | DPT 1 |
 | Scene / fixed-value action | Any supported writable DPT and a fixed value in the indicated format | — |
 | Cover | Move, DPT 1.008 or 1.009; optional stop, DPT 1.010 or 3.008; optional absolute position, DPT 5.001 | Actual position, DPT 5.001 |
@@ -101,11 +102,28 @@ If you request 80% and the actuator reports 62%, the LCD and editor show 62%.
 An R/W object can occupy either role or both. **Light** accepts four separate objects.
 For an on/off light, assign just the two switch roles. Its brightness bar stays hidden.
 
-A command needs a writable target. An explicit on/off or percentage can be sent before
-the first status arrives. A toggle also needs the latest valid switch feedback to choose
-the opposite value. The display waits for an external group write or response. Local echoes
-and successful sends do not confirm state. A light's brightness feedback updates only its
-brightness. After routing reconnects, fresh feedback is required for each state role.
+A status address is optional for each command with a matching feedback role. Leave it
+unassigned to show the last command sent successfully to that object, including Off
+and 0%. Other widgets bound to the same command address see the same value. A write
+from another KNX participant to that address also updates it. Until a command is known
+the value is unknown. You can send an explicit value immediately, and the first
+command-only power toggle sends On.
+
+When a feedback address is assigned, only valid external feedback supplies that reading.
+A missing status object, local echo or failed send cannot substitute the requested value.
+Clear just that feedback selector to display commands again. The cache starts empty
+after routing reconnects or the registry is replaced. Sensors and graphs always use readings.
+
+For an angle slider choose the angle roles for both directions. The editor keeps angles
+and percentages separate. The angle uses one byte across 0–360°, so actuator feedback
+can differ from the requested angle by a rounding step. For **Select**, a writable
+DPT 20.102 offers Auto (0), Comfort (1), Standby (2), Economy (3) and Building Protection (4).
+Use a readable object of that subtype for status if the actuator provides one.
+The panel and editor show **Unavailable** while KNX routing is offline. After reconnection
+they show `--` until a new command is sent or, if status is bound, new feedback arrives.
+A reserved operating preset reported by the actuator clears the bound reading
+to `--`. The next valid report restores it, including Auto (0).
+DPT 20.105 HVAC control modes and DPT 22.101 compound status use different encodings.
 
 DPT 5.001 Sensor tiles show whole percentages by default, for example `62%`. An optional
 `display_precision` on the communication object selects 0–6 decimal places. The objects API
@@ -143,8 +161,9 @@ Bind **Target temperature command**, **Target temperature feedback** and **Measu
 temperature feedback** independently. Only absolute Celsius DPT 9.001 is accepted;
 a DPT 9.002 temperature difference is not an absolute setpoint. The existing climate
 tile uses 0.5°C adjustments within 7–35°C. Its plus/minus buttons need a writable target
-and a current, valid target feedback value. A draft adjustment is sent after the existing
-800 ms input delay; the displayed reading remains bus-confirmed.
+and a known target, supplied by its feedback or by the last command when feedback is
+unassigned. The draft is sent after the 800 ms input delay. Measured temperature
+always comes from its own readable object.
 
 Optional HVAC control mode objects must use DPT 20.105. The selector offers Auto (0),
 Heat (1), Cool (3), Off (6), Fan only (9) and Dry (14). Use these only when supported by
@@ -160,8 +179,8 @@ Restoring valid bus feedback restores the reading and eligible controls.
 ### Fan
 
 Switch power and percentage speed use separate command/feedback pairs. A speed report
-does not imply that the fan is on. The power button needs valid switch feedback to toggle;
-the slower/faster buttons need speed feedback. The large tile's four speed buttons send
+does not imply that the fan is on. With a status address the power button waits for
+switch feedback. Slower/faster needs a known speed. The large tile's four speed buttons send
 25%, 50%, 75% or 100% and can be used before speed feedback when the command is writable.
 These are percentage presets, not a claim that the actuator has four hardware speeds.
 
@@ -171,7 +190,7 @@ not low/medium/high speed. Oscillation and device-specific presets remain HA-onl
 
 All three tiles reuse the existing panel styles and support feedback-only bindings.
 Missing commands disable the corresponding controls. Routing disconnects disable commands;
-fresh external feedback is required after reconnect. Their editor previews use the actual
+each role needs a new command or its bound external feedback after reconnect. Editor previews use the same
 KNX cache instead of example HA values. Existing HA bindings retain their behavior.
 
 ## Values and voice control

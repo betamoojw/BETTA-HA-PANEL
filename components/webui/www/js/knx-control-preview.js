@@ -11,10 +11,7 @@ function knxControlPreviewKey(widget) {
     const found = knxRegistry.get(roles[role]);
     return found?.widget_roles?.includes(role) ? found : null;
   };
-  const value = role => {
-    const found = object(role);
-    return knxRoutingActive && found?.readable && found.live_feedback ? found.value : null;
-  };
+  const value = role => knxRoleValue(roles, role);
   const number = role => {
     const raw = value(role);
     return typeof raw === "number" && Number.isFinite(raw) ? raw : null;
@@ -51,7 +48,7 @@ function knxControlPreviewKey(widget) {
     if (knownPower) view.state = power ? "on" : "off";
     view.percentage = percent("fan_speed_feedback");
     view.percentage_step = 25;
-    view.canPower = command("switch_command") && knownPower;
+    view.canPower = command("switch_command") && (knownPower || !roles.switch_feedback);
     view.canSpeed = command("fan_speed_command");
     view.canStep = view.canSpeed && view.percentage !== null;
     view.hasSpeed = view.canSpeed;

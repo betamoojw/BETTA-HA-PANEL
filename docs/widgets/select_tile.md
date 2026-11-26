@@ -16,7 +16,7 @@ Chooses an **option** of a `select.*` or `input_select.*` entity.
 
 ## Requirements
 
-None beyond the entities.
+For a KNX operating preset, select KNX as the source and bind a DPT 20.102 command, feedback, or both. See [KNX widget bindings](../knx.md#dashboard-widgets).
 
 ## Options
 
@@ -24,12 +24,12 @@ No options beyond the entities; the controls follow what the entity supports.
 
 ## On the panel
 
-- A tap opens the option list; picking one requests it.
+- Tap the tile when the arrow is visible to choose an option. A feedback-only KNX preset displays the reported mode.
 - Leave enough width for the title and the longest option; the example is 360 × 100 px.
 
 ### Option picker
 
-The current option is marked. Tap another option to request it, or close the popup to leave it unchanged. The tile updates only after Home Assistant reports the new state.
+The list marks the current option. Tap an option to request it. For a Home Assistant entity, the tile waits for the reported state. A KNX preset with a feedback object waits for its bus report. With feedback unassigned, the tile shows the last successfully sent command, including Auto (0).
 
 <a href="../img/gallery/gallery_select_detail_glow.png"><img src="../img/gallery/gallery_select_detail_glow.png" alt="Charge mode option picker, glow" loading="lazy" width="720" height="720" style="width: 576px"></a>
 

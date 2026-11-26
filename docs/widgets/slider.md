@@ -16,7 +16,7 @@ Adjusts a **writable number** such as light brightness, cover position or an inp
 
 ## Requirements
 
-None beyond the entities.
+For KNX, bind a DPT 5.001 percentage or DPT 5.003 angle. An independent feedback object is optional. See [KNX widget bindings](../knx.md#dashboard-widgets).
 
 ## Options
 

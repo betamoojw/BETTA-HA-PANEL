@@ -126,6 +126,10 @@ cJSON* KnxObjectJson(const KnxCommunicationObject& object) {
     }
     cJSON_AddBoolToObject(json, "valid", object.valid);
     cJSON_AddBoolToObject(json, "live_feedback", object.live_feedback);
+    if (object.command_revision) {
+        if (object.datapoint_type.main == 1) cJSON_AddBoolToObject(json, "last_command", object.last_command != 0);
+        else cJSON_AddNumberToObject(json, "last_command", object.last_command);
+    }
     if (object.valid) {
         AddValue(json, object.current_value);
         cJSON_AddNumberToObject(json, "last_update_ms", static_cast<double>(object.last_update_ms));

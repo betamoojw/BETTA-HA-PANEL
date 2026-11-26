@@ -76,6 +76,8 @@ esp_err_t knx_widget_control_roles(const knx_control_binding_t *controls, knx_wi
     case KNX_SET_TARGET_TEMPERATURE: role = KNX_TARGET_TEMPERATURE_COMMAND; break;
     case KNX_SET_HVAC_MODE: role = KNX_HVAC_MODE_COMMAND; break;
     case KNX_SET_FAN_PERCENT: role = KNX_FAN_SPEED_COMMAND; break;
+    case KNX_SET_PRESET: role = KNX_PRESET_COMMAND; break;
+    case KNX_SET_ANGLE: role = KNX_ANGLE_COMMAND; break;
     default: break;
     }
     const char *id = controls->id[role];

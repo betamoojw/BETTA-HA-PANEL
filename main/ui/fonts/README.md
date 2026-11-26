@@ -21,20 +21,20 @@ tool, commit the result.
 
 ## Chinese subset
 
-`cjk_codepoints.txt` contains 969 codepoints: every Chinese character and
+`cjk_codepoints.txt` contains 979 codepoints: every Chinese character and
 punctuation mark in the built-in panel catalogs, plus common room and device
 names from `cjk_extra.txt`. It is not full Unicode CJK coverage. Both languages share Noto Sans SC
 outlines; regional traditional glyph-shape variants are not selected dynamically.
-The subset is 285,336 bytes. Keep it compact: S3 XIP copies it into PSRAM at boot,
+The subset is 286,900 bytes. Keep it compact: S3 XIP copies it into PSRAM at boot,
 so a large font reduces memory available to widgets and Live Display.
 Each requested size has a 32-glyph cache;
 the shared font budget is 96 instances, including text, icons and emoji.
 Regular, bold and measurement fonts share the same CJK fallback at a given size.
 
-On Panel10, the build packs these same font bytes with zlib (191,200 bytes instead
-of 285,336, before decoder code and alignment). Initial text-font setup requests
+On Panel10, the build packs these same font bytes with zlib (192,227 bytes instead
+of 286,900, before decoder code and alignment). Initial text-font setup requests
 the CJK fallback even with English selected; it restores
-one 285,336-byte PSRAM buffer shared by every size for the rest of the boot.
+one 286,900-byte PSRAM buffer shared by every size for the rest of the boot.
 This does not change glyph coverage, metrics, cache size or the generated source
 font/array. Other boards and SDL use the original raw array.
 `tools/pack_cjk_font.py` produces the build-only data; `ui/cjk_font_data.c` checks
@@ -43,7 +43,7 @@ Decoder/output allocations use PSRAM. Failure frees them, publishes no partial
 cache and keeps the emoji fallback; later font requests can retry. The successful
 buffer is immutable and must outlive every `lv_tiny_ttf` instance that borrows it.
 Panel10's read-only-data-in-PSRAM profile retains the compressed bytes too;
-the estimated steady PSRAM increase is 191,200 bytes plus alignment, with extra
+the estimated steady PSRAM increase is 192,227 bytes plus alignment, with extra
 temporary decoder allocations. This is not a device measurement. See
 [storage budgets](../../../docs/hardware/storage.md#panel10-chinese-font-compression)
 for the tradeoff and pending hardware checks.

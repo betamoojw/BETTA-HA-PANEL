@@ -4,6 +4,7 @@
  */
 static const char I18N_BUILTIN_ES[] =
     "{\"lvgl\":{"
+    "\"knx\":{\"preset\":{\"Auto\":\"Automático\",\"Comfort\":\"Confort\",\"Standby\":\"Espera\",\"Economy\":\"Ahorro\",\"Building Protection\":\"Protección del edificio\"}},"
     "\"common\":{\"on\":\"ENCENDIDO\",\"off\":\"APAGADO\",\"unavailable\":\"no disponible\",\"paused\":\"pausado\",\"playing\":\"reproduciendo\",\"start\":\"Iniciar\",\"pause\":\"Pausa\",\"unknown\":\"Desconocido\"},"
     "\"cover\":{\"open\":\"Abierto\",\"closed\":\"Cerrado\",\"opening\":\"Abriendo\",\"closing\":\"Cerrando\",\"moving\":\"En movimiento\"},"
     "\"datetime\":{\"date\":\"Fecha\",\"time\":\"Hora\",\"save\":\"Guardar\",\"cancel\":\"Cancelar\",\"invalid\":\"Fecha u hora no válida\",\"failed\":\"No se pudo guardar\"},"

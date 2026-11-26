@@ -30,11 +30,12 @@ bool enabled, valid_config, initialized;
 std::atomic<uint32_t> view_revision{1};
 uint32_t registry_revision = 1;
 uint32_t generation = 1, active_generation, received_count, sent_count, rejected_count;
+uint32_t routing_epoch;
 knx_address_t physical;
 int64_t last_received;
 QueueHandle_t commands;
 TaskHandle_t worker;
-struct Command { uint32_t generation; bool write; char id[49], value[256]; };
+struct Command { uint32_t epoch; bool write, toggle; char id[49], value[256]; };
 
 // Writers hold state_mutex. A zero cursor denotes a widget's first observation.
 uint32_t next_view_revision() {
@@ -46,11 +47,20 @@ uint32_t next_view_revision() {
 // Called under state_mutex. Cached commissioning values keep their timestamps.
 // Widgets require fresh feedback after the routing connection changes.
 void invalidate_views() {
+    ++routing_epoch;
     registry_revision = next_view_revision();
     for (auto& o : objects) {
         o.widget_revision = registry_revision;
         o.live_feedback = false;
+        o.command_revision = 0;
     }
+}
+// Only scalar DPTs used by paired controls need a command display cache.
+bool cacheable_command(const KnxCommunicationObject& o) {
+    const auto& d = o.datapoint_type;
+    return o.writable && (d.main == 1 || (d.has_subtype &&
+        ((d.main == 5 && (d.subtype == 1 || d.subtype == 3)) || (d.main == 9 && d.subtype == 1) ||
+         (d.main == 20 && (d.subtype == 102 || d.subtype == 105)))));
 }
 void set_state(const char* next) {
     if (strcmp(state, next) && (!strcmp(state, "running") || !strcmp(next, "running"))) {
@@ -78,19 +88,24 @@ void receive(const knx_telegram_t* t, void*) {
     KnxValue value;
     uint32_t revision = 0;
     int64_t received_ms = 0;
-    bool invalid_temperature = false;
+    bool valid_value = false;
     for (auto& o : objects) {
-        if (!o.readable || o.parsed_group_address != t->destination) continue;
-        // Configuration enforces a single DPT per address. Decode once and
-        // publish the same observation to all readable aliases under the lock.
+        if (o.parsed_group_address != t->destination) continue;
+        const bool observe_command = t->command == KNX_COMMAND_WRITE && cacheable_command(o);
+        if (!o.readable && !observe_command) continue;
+        // Configuration enforces a single DPT per address. Decode once for all aliases.
         if (!revision) {
-            if (!KnxDecodeValue(o.datapoint_type, t->data, t->data_length, value)) {
+            const auto& dpt = o.datapoint_type;
+            valid_value = KnxDecodeValue(dpt, t->data, t->data_length, value);
+            if (!valid_value) {
                 ++rejected_count;
-                // A DPT 9 invalid-data marker revokes a preceding temperature
-                // observation. Malformed packets still leave the cache alone.
-                invalid_temperature = o.datapoint_type.main == 9 && o.datapoint_type.has_subtype &&
-                    t->data_length == 3 && t->data[1] == 0x7f && t->data[2] == 0xff;
-                if (!invalid_temperature) return;
+                // A complete invalid HVAC report revokes the reading. A damaged
+                // packet cannot supersede feedback, or a previously sent command.
+                const bool no_temperature = dpt.main == 9 && t->data_length == 3 &&
+                    t->data[1] == 0x7f && t->data[2] == 0xff;
+                const bool reserved_mode = dpt.main == 20 && (dpt.subtype == 102 || dpt.subtype == 105) &&
+                    t->data_length == 2;
+                if (!dpt.has_subtype || !(no_temperature || reserved_mode)) return;
                 value = std::monostate{};
             }
             revision = next_view_revision();
@@ -98,9 +113,16 @@ void receive(const knx_telegram_t* t, void*) {
             last_received = received_ms;
             ++received_count;
         }
+        if (observe_command && valid_value) {
+            if (const auto scalar = KnxControlScalar(value)) {
+                o.last_command = *scalar;
+                o.command_revision = revision;
+            }
+        }
+        if (!o.readable) continue;
         o.current_value = value;
-        o.valid = !invalid_temperature;
-        o.live_feedback = !invalid_temperature;
+        o.valid = valid_value;
+        o.live_feedback = valid_value;
         o.widget_revision = revision;
         o.last_update_ms = received_ms;
     }
@@ -173,16 +195,31 @@ void run(void*) {
         if (xQueueReceive(commands, &c, pdMS_TO_TICKS(200)) == pdTRUE) {
             std::lock_guard<std::mutex> guard(state_mutex);
             auto* o = find(c.id);
-            if (!enabled || !handle || generation != c.generation || generation != active_generation ||
+            if (!enabled || !handle || routing_epoch != c.epoch || generation != active_generation ||
                 !o || !(c.write ? o->writable : o->readable)) { rejected_count++; continue; }
             std::vector<uint8_t> data(1, 0);
             KnxValue value;
-            if (c.write && (!KnxParseValue(o->datapoint_type, c.value, value) ||
+            const char* text = c.value;
+            if (c.toggle) {
+                text = o->command_revision && o->last_command != 0 ? "off" : "on";
+            }
+            if (c.write && (!KnxParseValue(o->datapoint_type, text, value) ||
                             !KnxEncodeValue(o->datapoint_type, value, data))) { rejected_count++; continue; }
             esp_err_t result = esp_knx_ip_send(handle, o->parsed_group_address,
                 c.write ? KNX_COMMAND_WRITE : KNX_COMMAND_READ, data.data(), data.size());
-            if (result == ESP_OK) sent_count++;
-            else { rejected_count++; error = esp_err_to_name(result); }
+            if (result != ESP_OK) { rejected_count++; error = esp_err_to_name(result); continue; }
+            ++sent_count;
+            if (c.write && cacheable_command(*o)) {
+                const auto scalar = KnxControlScalar(value);
+                if (!scalar) continue;
+                const auto revision = next_view_revision();
+                for (auto& alias : objects) {
+                    if (alias.writable && alias.parsed_group_address == o->parsed_group_address) {
+                        alias.last_command = *scalar;
+                        alias.command_revision = revision;
+                    }
+                }
+            }
         }
     }
 }
@@ -275,6 +312,7 @@ extern "C" cJSON* knx_objects(int offset, int limit) {
     for (int i = offset; i < end; i++) cJSON_AddItemToArray(list, KnxObjectJson(objects[i]));
     cJSON_AddBoolToObject(j, "has_more", end < static_cast<int>(objects.size()));
     cJSON_AddNumberToObject(j, "generation", generation);
+    cJSON_AddNumberToObject(j, "routing_epoch", routing_epoch);
     cJSON_AddNumberToObject(j, "next_offset", end); cJSON_AddStringToObject(j, "state", state);
     return j;
 }
@@ -285,11 +323,11 @@ extern "C" cJSON* knx_object(const char* id) {
     if (j) cJSON_AddStringToObject(j, "state", state);
     return j;
 }
-static bool queue_command(KnxCommunicationObject* o, const char* value, bool write, char* out, size_t size) {
+static bool queue_command(KnxCommunicationObject* o, const char* value, bool write, char* out, size_t size, bool toggle = false) {
     if (!enabled || !initialized || strcmp(state, "running") || generation != active_generation)
         return fail(out, size, "KNX routing is not running");
     if (!o || !(write ? o->writable : o->readable)) return fail(out, size, "Unknown object or operation not permitted");
-    Command c{}; c.generation = generation; c.write = write;
+    Command c{}; c.epoch = routing_epoch; c.write = write; c.toggle = toggle;
     snprintf(c.id, sizeof(c.id), "%s", o->id.c_str());
     if (write) {
         KnxValue v;
@@ -334,7 +372,11 @@ static knx_view_result_t read_controls(knx_control_binding_t& binding, knx_tile_
         const auto role = static_cast<knx_role_t>(i);
         const auto* o = knx_tile_has_role(kind, role) ? bound_object(binding, role) : nullptr;
         resolved[i] = o;
-        if (o && now - o->widget_revision < now - revision) revision = o->widget_revision;
+        if (!o) continue;
+        if (now - o->widget_revision < now - revision) revision = o->widget_revision;
+        const knx_role_t feedback = knx_command_feedback(role);
+        if (feedback != KNX_ROLE_COUNT && !binding.id[feedback][0] && o->command_revision &&
+            now - o->command_revision < now - revision) revision = o->command_revision;
     }
     if (*cursor == revision) return KNX_VIEW_UNCHANGED;
     memset(out, 0, sizeof(*out));
@@ -379,6 +421,8 @@ extern "C" esp_err_t knx_widget_control_roles(const knx_control_binding_t* contr
     case KNX_SET_TARGET_TEMPERATURE: role = KNX_TARGET_TEMPERATURE_COMMAND; break;
     case KNX_SET_HVAC_MODE: role = KNX_HVAC_MODE_COMMAND; break;
     case KNX_SET_FAN_PERCENT: role = KNX_FAN_SPEED_COMMAND; break;
+    case KNX_SET_PRESET: role = KNX_PRESET_COMMAND; break;
+    case KNX_SET_ANGLE: role = KNX_ANGLE_COMMAND; break;
     case KNX_COVER_STOP: role = KNX_STOP_COMMAND; break;
     case KNX_COVER_OPEN: case KNX_COVER_CLOSE:
         role = KNX_MOVE_COMMAND;
@@ -394,8 +438,10 @@ extern "C" esp_err_t knx_widget_control_roles(const knx_control_binding_t* contr
     auto* target = bound_object(*controls, role);
     if (!target) return ESP_ERR_INVALID_ARG;
     if (action == KNX_TOGGLE) {
+        if (!controls->id[KNX_SWITCH_FEEDBACK][0])
+            return queue_command(target, "on", true, nullptr, 0, true) ? ESP_OK : ESP_FAIL;
         auto* feedback = bound_object(*controls, KNX_SWITCH_FEEDBACK);
-        auto* on = feedback && feedback->live_feedback ? std::get_if<bool>(&feedback->current_value) : nullptr;
+        const auto on = KnxWidgetDisplayValue(*controls, KNX_SWITCH_FEEDBACK, feedback, target);
         if (!on) return ESP_ERR_INVALID_STATE;
         value = !*on;
         action = KNX_SET_POWER;

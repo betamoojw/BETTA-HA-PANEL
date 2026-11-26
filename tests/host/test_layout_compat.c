@@ -67,6 +67,11 @@ static void validation(void)
 static void knx_bindings(void)
 {
     static const struct { const char *type, *fields; bool valid; } cases[] = {
+        {"select_tile", "\"binding\":{\"source\":\"knx\",\"roles\":{\"preset_command\":\"A\",\"preset_feedback\":null}}", true},
+        {"select_tile", "\"entity_id\":\"input_select.preset\"", true},
+        {"slider", "\"binding\":{\"source\":\"knx\",\"roles\":{\"angle_command\":\"A\",\"angle_feedback\":\"\"}}", true},
+        {"slider", "\"binding\":{\"source\":\"knx\",\"roles\":{\"brightness_command\":\"A\",\"brightness_feedback\":null}}", true},
+        {"slider", "\"binding\":{\"source\":\"knx\",\"roles\":{\"angle_command\":\"A\",\"brightness_feedback\":\"B\"}}", false},
         {"sensor", "\"entity_id\":\"sensor.room\"", true},
         {"sensor", "\"binding\":{\"source\":\"knx\",\"object_id\":\"sensor.room\"}", true},
         {"scene_tile", "\"binding\":{\"source\":\"knx\",\"object_id\":\"scene\",\"value\":\"false,3\"}", true},

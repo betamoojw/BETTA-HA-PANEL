@@ -64,6 +64,12 @@ add_executable(knx_service_test test_service.cc "${KNX}/knx_service.cc" "${ROOT}
 target_include_directories(knx_service_test BEFORE PRIVATE stubs "${ROOT}/tests/host/stubs" "${ROOT}/main")
 target_link_libraries(knx_service_test PRIVATE knx_codec)
 add_test(NAME knx_service COMMAND knx_service_test)
+find_program(KNX_NODE node)
+if(KNX_NODE)
+  add_test(NAME knx_editor_worker COMMAND ${CMAKE_COMMAND} -E env
+    "BETTA_KNX_SERVICE_TEST=$<TARGET_FILE:knx_service_test>" ${KNX_NODE}
+    --test "--test-name-pattern=agree with the KNX worker" "${ROOT}/tests/webui/knx_widget_picker.test.mjs")
+endif()
 add_executable(knx_api_test test_api.c "${KNX}/knx_api.c" "${CJSON_DIR}/cJSON.c")
 target_include_directories(knx_api_test PRIVATE "${ROOT}/main" "${ROOT}/tests/host/stubs" "${CJSON_DIR}" stubs)
 add_test(NAME knx_api COMMAND knx_api_test)

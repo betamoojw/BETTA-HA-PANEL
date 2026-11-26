@@ -525,7 +525,7 @@ static const char *button_status_text_for_state(const w_button_ctx_t *ctx, const
         return unavailable ? "unavailable" : (is_on ? "ON" : "OFF");
     }
     if (unavailable) {
-        return "unavailable";
+        return ctx->knx && ctx->knx->switch_writable && !ctx->knx->id[KNX_SWITCH_FEEDBACK][0] ? "--" : "unavailable";
     }
     if (ctx->mode == W_BUTTON_MODE_AUTO) {
         return is_on ? "ON" : "OFF";
@@ -538,15 +538,16 @@ static const char *button_status_text_for_state(const w_button_ctx_t *ctx, const
 
 static void button_run_primary_action(w_button_ctx_t *ctx)
 {
+    if (ctx && ctx->knx) {
+        if (ctx->knx->switch_writable && (!ctx->unavailable || !ctx->knx->id[KNX_SWITCH_FEEDBACK][0]))
+            (void)knx_widget_control_roles(ctx->knx, KNX_TOGGLE, 0);
+        return;
+    }
     if (ctx == NULL || ctx->unavailable) {
         return;
     }
 
     if (button_mode_uses_switch(ctx->mode)) {
-        if (ctx->knx) {
-            (void)knx_widget_control_roles(ctx->knx, KNX_TOGGLE, 0);
-            return;
-        }
         bool next = !ctx->is_on;
         if (ui_bindings_toggle_entity(ctx->entity_id) == ESP_OK && !knx_binding_id(ctx->entity_id)) {
             button_apply_visual(ctx->card, ctx, next, false, next ? "ON" : "OFF");
@@ -611,9 +612,10 @@ static void w_button_switch_event_cb(lv_event_t *event)
             lv_obj_get_coords(sw, &bounds);
             checked = touch.x > (bounds.x1 + bounds.x2) / 2;
         }
-        (void)knx_widget_control_roles(ctx->knx, KNX_SET_POWER, checked);
+        if (ctx->knx->switch_writable)
+            (void)knx_widget_control_roles(ctx->knx, KNX_SET_POWER, checked);
         button_apply_visual(ctx->card, ctx, ctx->is_on, ctx->unavailable,
-                            ctx->unavailable ? "unavailable" : ctx->is_on ? "ON" : "OFF");
+                            button_status_text_for_state(ctx, NULL, ctx->is_on, ctx->unavailable));
     } else if (ui_bindings_toggle_entity(ctx->entity_id) == ESP_OK) {
         button_apply_visual(ctx->card, ctx, checked, false, checked ? "ON" : "OFF");
     }
@@ -718,7 +720,8 @@ esp_err_t w_button_create(const ui_widget_def_t *def, lv_obj_t *parent, ui_widge
     lv_obj_add_event_cb(card, w_button_card_event_cb, LV_EVENT_DELETE, ctx);
     lv_obj_add_event_cb(action_switch, w_button_switch_event_cb, LV_EVENT_VALUE_CHANGED, ctx);
 
-    button_apply_visual(card, ctx, false, false, (ctx->mode == W_BUTTON_MODE_AUTO) ? "OFF" : "paused");
+    button_apply_visual(card, ctx, false, ctx->knx != NULL,
+                        ctx->knx ? "--" : (ctx->mode == W_BUTTON_MODE_AUTO ? "OFF" : "paused"));
     out_instance->obj = card;
     out_instance->ctx = ctx;
     return ESP_OK;

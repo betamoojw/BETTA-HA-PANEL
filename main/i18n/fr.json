@@ -1,5 +1,8 @@
 {
   "lvgl": {
+    "knx": {
+      "preset": {"Auto":"Automatique","Comfort":"Confort","Standby":"Veille","Economy":"Économie","Building Protection":"Protection du bâtiment"}
+    },
     "common": {
       "on": "ACTIF",
       "off": "ARRÊT",

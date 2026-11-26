@@ -88,7 +88,7 @@ static void fan_call(w_fan_ctx_t *ctx, const char *service)
     }
     if (ctx->knx) {
         if (!strcmp(service, "turn_on") || !strcmp(service, "turn_off")) {
-            if (ctx->power_known && knx_control_can_write(ctx->knx, KNX_SWITCH_COMMAND))
+            if ((ctx->power_known || !ctx->knx->id[KNX_SWITCH_FEEDBACK][0]) && knx_control_can_write(ctx->knx, KNX_SWITCH_COMMAND))
                 (void)knx_widget_control_roles(ctx->knx, KNX_TOGGLE, 0);
         } else if (fan_speed_enabled(ctx, true) &&
                    (!strcmp(service, "increase_speed") || !strcmp(service, "decrease_speed"))) {
@@ -460,7 +460,7 @@ static void fan_render(w_fan_ctx_t *ctx)
     lv_obj_set_style_opa(ctx->bar, show_bar ? LV_OPA_COVER : LV_OPA_TRANSP, LV_PART_INDICATOR);
     const bool speed_enabled = fan_speed_enabled(ctx, true);
     const bool power_enabled = !ctx->unavailable && (!ctx->knx ||
-        (ctx->power_known && knx_control_can_write(ctx->knx, KNX_SWITCH_COMMAND)));
+        ((ctx->power_known || !ctx->knx->id[KNX_SWITCH_FEEDBACK][0]) && knx_control_can_write(ctx->knx, KNX_SWITCH_COMMAND)));
     fan_style_button(ctx->btn_minus, false, speed_enabled);
     fan_style_button(ctx->btn_power, ctx->on, power_enabled);
     fan_style_button(ctx->btn_plus, false, speed_enabled);

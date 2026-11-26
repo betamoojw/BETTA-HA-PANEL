@@ -19,7 +19,7 @@ typedef enum {
     KNX_COVER_OPEN, KNX_COVER_CLOSE, KNX_COVER_STOP,
     KNX_SET_TARGET_TEMPERATURE, /* value is tenths of a degree Celsius. */
     KNX_SET_HVAC_MODE, /* value is the DPT 20.105 enumeration, not DPT 20.102. */
-    KNX_SET_FAN_PERCENT
+    KNX_SET_FAN_PERCENT, KNX_SET_PRESET, KNX_SET_ANGLE
 } knx_widget_action_t;
 
 static inline const char *knx_hvac_mode_name(int value)

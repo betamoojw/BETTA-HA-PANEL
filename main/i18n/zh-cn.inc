@@ -4,6 +4,7 @@
  */
 static const char I18N_BUILTIN_ZH_CN[] =
     "{\"lvgl\":{"
+    "\"knx\":{\"preset\":{\"Auto\":\"自动\",\"Comfort\":\"舒适\",\"Standby\":\"待机\",\"Economy\":\"节能\",\"Building Protection\":\"建筑保护\"}},"
     "\"common\":{\"on\":\"开\",\"off\":\"关\",\"unavailable\":\"不可用\",\"paused\":\"已暂停\",\"playing\":\"播放中\",\"start\":\"开始\",\"pause\":\"暂停\",\"unknown\":\"未知\"},"
     "\"cover\":{\"open\":\"打开\",\"closed\":\"已关闭\",\"opening\":\"打开中\",\"closing\":\"关闭中\",\"moving\":\"移动中\"},"
     "\"datetime\":{\"date\":\"日期\",\"time\":\"时间\",\"save\":\"保存\",\"cancel\":\"取消\",\"invalid\":\"日期或时间无效\",\"failed\":\"保存失败\"},"

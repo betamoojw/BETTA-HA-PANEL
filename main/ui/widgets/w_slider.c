@@ -50,6 +50,12 @@ typedef struct {
     int last_sent_value;
 } w_slider_ctx_t;
 
+static bool slider_writable(const w_slider_ctx_t *ctx)
+{
+    if (!ctx->knx) return !ctx->unavailable;
+    return knx_angle_slider(ctx->knx) ? knx_control_can_write(ctx->knx, KNX_ANGLE_COMMAND) : ctx->knx->brightness_writable;
+}
+
 static const uint32_t W_SLIDER_FILL_OFF_HEX = 0x8C98A4;
 static const uint32_t W_SLIDER_TRACK_HEX = 0x3A3E43;
 
@@ -301,16 +307,17 @@ static void slider_apply_native_orientation(w_slider_ctx_t *ctx)
     lv_slider_set_orientation(
         ctx->slider, vertical ? LV_SLIDER_ORIENTATION_VERTICAL : LV_SLIDER_ORIENTATION_HORIZONTAL);
     lv_obj_set_style_base_dir(ctx->slider, LV_BASE_DIR_LTR, LV_PART_MAIN);
-    lv_slider_set_range(ctx->slider, reversed ? 100 : 0, reversed ? 0 : 100);
+    const int maximum = knx_angle_slider(ctx->knx) ? 360 : 100;
+    lv_slider_set_range(ctx->slider, reversed ? maximum : 0, reversed ? 0 : maximum);
 }
 
-static void slider_set_value_label(lv_obj_t *label, int value)
+static void slider_set_value_label(lv_obj_t *label, int value, bool angle)
 {
     if (label == NULL) {
         return;
     }
     char text[24] = {0};
-    snprintf(text, sizeof(text), "%d %%", clamp_percent(value));
+    snprintf(text, sizeof(text), angle ? "%d°" : "%d %%", value);
     lv_label_set_text(label, text);
 }
 
@@ -550,7 +557,7 @@ static void slider_apply_visual(w_slider_ctx_t *ctx)
     lv_obj_set_style_bg_opa(card, LV_OPA_COVER, LV_PART_MAIN);
     ui_style_card_set_active(card, ctx->is_on && !ctx->unavailable);
     /* An unavailable entity cannot take a value: the slider stops answering touch until HA reports a state again. */
-    if (ctx->knx ? !ctx->knx->brightness_writable : ctx->unavailable) {
+    if (!slider_writable(ctx)) {
         lv_obj_add_state(ctx->slider, LV_STATE_DISABLED);
     } else {
         lv_obj_clear_state(ctx->slider, LV_STATE_DISABLED);
@@ -604,11 +611,11 @@ static void slider_apply_visual(w_slider_ctx_t *ctx)
     slider_apply_layout(card, ctx);
 
     ctx->suppress_event = true;
-    lv_slider_set_value(ctx->slider, clamp_percent(ctx->value), LV_ANIM_OFF);
+    lv_slider_set_value(ctx->slider, ctx->value, LV_ANIM_OFF);
     ctx->suppress_event = false;
 
     if (ctx->knx && ctx->unavailable && !ctx->dragging) lv_label_set_text(ctx->value_label, "--");
-    else slider_set_value_label(ctx->value_label, ctx->value);
+    else slider_set_value_label(ctx->value_label, ctx->value, knx_angle_slider(ctx->knx));
     if (ctx->is_cover && !ctx->unavailable) {
         const char *text = ui_i18n_get("cover.open", "Open");
         if (strcmp(ctx->cover_state, "closed") == 0) {
@@ -647,7 +654,7 @@ static void w_slider_event_cb(lv_event_t *event)
         return;
     }
 
-    if (ctx->knx ? !ctx->knx->brightness_writable : ctx->unavailable) {
+    if (!slider_writable(ctx)) {
         /* The entity went unavailable (also mid-drag): send nothing, keep the flag until HA reports a state, and put the knob back. */
         ctx->dragging = false;
         slider_apply_visual(ctx);
@@ -658,14 +665,15 @@ static void w_slider_event_cb(lv_event_t *event)
         ctx->dragging = true;
         slider_apply_visual(ctx);
     } else if (code == LV_EVENT_VALUE_CHANGED) {
-        ctx->value = clamp_percent(lv_slider_get_value(slider));
+        ctx->value = lv_slider_get_value(slider);
         ctx->dragging = true;
         if (!ctx->knx) ctx->unavailable = false;
         ctx->is_on = ctx->value > 0;
         slider_apply_visual(ctx);
     } else if (code == LV_EVENT_RELEASED) {
         if (ctx->knx) {
-            (void)knx_widget_control_roles(ctx->knx, KNX_SET_PERCENT, clamp_percent(lv_slider_get_value(slider)));
+            (void)knx_widget_control_roles(ctx->knx, knx_angle_slider(ctx->knx) ? KNX_SET_ANGLE : KNX_SET_PERCENT,
+                                          lv_slider_get_value(slider));
             ctx->dragging = false;
             ctx->value = ctx->feedback_value;
             ctx->is_on = ctx->value > 0;
@@ -736,7 +744,7 @@ esp_err_t w_slider_create(const ui_widget_def_t *def, lv_obj_t *parent, ui_widge
     lv_obj_align(state, LV_ALIGN_TOP_LEFT, 0, 2);
 
     lv_obj_t *value = lv_label_create(card);
-    slider_set_value_label(value, 0);
+    slider_set_value_label(value, 0, false);
     lv_obj_set_style_text_font(value, ui_font_role(UI_TEXT_META), LV_PART_MAIN);
     lv_label_set_long_mode(value, LV_LABEL_LONG_DOT);
     /* Leftover from the old top-right corner position: right-aligned text in a label now sized
@@ -771,7 +779,7 @@ esp_err_t w_slider_create(const ui_widget_def_t *def, lv_obj_t *parent, ui_widge
                                                  : ui_style_accent(lv_color_hex(APP_UI_COLOR_NAV_TAB_ACTIVE));
     ctx->value = 0;
     ctx->is_on = false;
-    ctx->unavailable = false;
+    ctx->unavailable = ctx->knx != NULL;
     ctx->dragging = false;
     ctx->suppress_event = false;
     ctx->last_sent_value = -1;
@@ -804,10 +812,14 @@ void w_slider_apply_state(ui_widget_instance_t *instance, const ha_state_t *stat
         return;
     }
 
-    if (ctx->knx && ctx->dragging && ctx->knx->brightness_writable) {
-        /* Feedback arriving during a gesture is the value to restore on release. */
-        ctx->feedback_value = clamp_percent(ctx->knx->brightness);
-        ctx->unavailable = ctx->knx->brightness < 0;
+    if (ctx->knx) {
+        ctx->unavailable = slider_state_is_unavailable(state->state);
+        ctx->feedback_value = ctx->unavailable ? 0 : atoi(state->state);
+        if (ctx->dragging && slider_writable(ctx)) return;
+        ctx->value = ctx->feedback_value;
+        ctx->is_on = ctx->value > 0;
+        ctx->dragging = false;
+        slider_apply_visual(ctx);
         return;
     }
     if (slider_state_is_unavailable(state->state)) {

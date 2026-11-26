@@ -184,8 +184,9 @@ def panel_details(kind):
                   "1 g/m³ above the outdoor one; that is a benefit margin, not a prediction of the airflow.", ""]
     if kind == "select_tile":
         lines += ["### Option picker", "",
-                  "The current option is marked. Tap another option to request it, or close the popup to leave it unchanged. The tile "
-                  "updates only after Home Assistant reports the new state.", "",
+                  "The list marks the current option. Tap an option to request it. For a Home Assistant entity, the tile waits "
+                  "for the reported state. A KNX preset with a feedback object waits for its bus report. With feedback unassigned, "
+                  "the tile shows the last successfully sent command, including Auto (0).", "",
                   popup_image("gallery_select_detail", "Charge mode option picker"), ""]
     if kind == "vacuum_tile":
         lines += ["### Activity", "",

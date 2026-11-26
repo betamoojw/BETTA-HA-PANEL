@@ -8,10 +8,15 @@ Changes of **this fork**, compared with upstream v0.8.2. The release notes of th
 
 Changes since [v0.9.2-rc2](#v092-rc2); the earlier development features below remain available.
 
-- **KNX widgets:** reuse Cover, Climate and Fan with independent command/feedback
-  objects, exact DPT role filtering, cover percentage direction and cached-state
-  previews. Controls reflect their bound capabilities, and only external feedback
-  confirms readings. Invalid DPT 9 feedback clears the preceding valid value.
+- **KNX widgets:** Select supports DPT 20.102 operating presets and Slider supports
+  DPT 5.003 angles alongside DPT 5.001 percentages. A control with its feedback
+  role unassigned shows the last successfully sent command in the panel and editor.
+  Independent status addresses take precedence. The preset preview shows **Unavailable**
+  while KNX is offline and `--` while waiting for a value after reconnection.
+  A registry read that crosses a reconnect restarts, and shared command addresses
+  display the latest write, including zero. Cover, Climate and Fan retain their
+  role-specific DPT filters. Invalid temperature or reserved HVAC mode reports
+  clear the affected feedback reading.
 - **Editor workspace:** page and widget inspectors stay in Layout when Settings
   is restored after login or a delayed layout response refreshes the editor.
 - **Panel10 touch:** bound shared-bus I2C transfers to recover from NACK/busy

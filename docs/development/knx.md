@@ -20,9 +20,9 @@ Saving uses the shared flash gate and atomic file helper; publish the registry
 only after rename succeeds. Missing files use an empty in-memory registry.
 Unreadable or invalid files are never overwritten or formatted at boot.
 
-Configuration and enable changes increment a generation. Queued commands must
-match that generation and the current permissions before sending. Old requests
-cannot write after a registry replacement or disable.
+Configuration and enable changes increment the configuration generation. Before
+sending, the worker checks the active configuration, routing epoch and current
+object permissions. A queued request expires when its connection ends.
 Incoming self-address telegrams are ignored; no optimistic state confirmation.
 Caches live only in RAM with monotonic last_update_ms timestamps.
 
@@ -37,31 +37,39 @@ same DPT and permission predicate as the worker. Its `widget_types` field retain
 contract. Layout validation checks role names, shape and ID bounds independently of the registry,
 so a layout can be restored first. Legacy `binding.object_id` and HA `entity_id` remain valid.
 
-Cover, Climate and Fan reuse the native HA widgets with role-based KNX adapters. Their
+Cover, Climate, Fan and Select reuse the native HA widgets with role-based KNX adapters. Their
 bindings require `roles`; a single object does not unambiguously describe these devices.
 Cover accepts `move_command`, `stop_command`, `position_command` and `position_feedback`.
 Its optional boolean `position_open_at_100` defaults to false and only belongs to Cover.
 Climate uses `target_temperature_command`, `target_temperature_feedback`,
 `current_temperature_feedback`, `hvac_mode_command` and `hvac_mode_feedback`.
 Fan adds `fan_speed_command` and `fan_speed_feedback` alongside the existing switch roles.
+Select uses `preset_command` and `preset_feedback` for DPT 20.102. Slider accepts the
+existing DPT 5.001 brightness roles or the DPT 5.003 `angle_command`/`angle_feedback` pair.
+Mixing the two quantities in one slider is rejected. A feedback role may be omitted, null
+or an empty string. At least one object must still be assigned.
 The [user guide](../knx.md#cover) lists the exact subtype and command conventions.
 
-`knx_widget_model.cc` projects confirmed role values into the existing state/attribute
-shape; no HA entity is registered and no HA service call is needed. The worker resolves
-each current object and its access under the registry lock, and revalidates commands
-before queuing. The UI gets a writable-role mask independently of feedback availability.
-An absent role omits its attribute rather than synthesizing a zero or an Off state.
-Native controls retain their bus-confirmed values after a command. The thermostat keeps
-its input draft separately and cancels it if target feedback changes or becomes invalid.
+`knx_widget_model.cc` projects each role into the existing HA-shaped view. An assigned
+feedback ID selects only live, readable bus data, even if the ID no longer resolves.
+With no feedback ID, paired roles can display the last command. The worker publishes it
+after the transport accepts the write. Queue admission, failed sends and loopback leave
+both sources intact. External group writes update matching writable aliases. Group
+responses update readable feedback only. The objects API exposes `last_command`
+separately from `value` and `live_feedback`. An absent field means unknown.
+Queued commands carry the routing epoch. Disconnecting or replacing the registry
+invalidates both caches and pending work. The thermostat keeps its editing draft separate.
 
 All control IDs are owned by the widget's PSRAM-preferred context and freed with it.
-The control-binding structure is 896 bytes (previously 204); the 692-byte increase
-applies to each KNX control context using it. Ordinary HA contexts do not allocate it.
+The four additional role IDs cost 196 bytes per interactive KNX context. Ordinary HA
+contexts do not allocate this role table. Each registry object carries an eight-byte
+scalar and revision pair. Cached commands use RAM and never write layout or graph storage.
 Composite views track every bound object's revision, including aliases on a shared address;
 registry replacement also refreshes capabilities when IDs are removed or retyped.
-An external DPT 9 invalid marker (`0x7FFF`) invalidates every readable alias and advances
-its revision so the previous valid reading cannot remain on screen. Other malformed
-telegrams retain the existing rejection behavior.
+An external DPT 9 invalid marker (`0x7FFF`) or a complete DPT 20.102/20.105
+report containing a reserved code clears the reading on every readable alias.
+A truncated telegram preserves the last valid observation. Neither changes the
+last valid command.
 
 The mapping follows the supplied [KNX DPT reference, v02.02.01](https://support.knx.org/hc/en-us/article_attachments/15392631105682),
 especially pages 26–32, 39 and 115–117, and the [HA KNX cover convention](https://www.home-assistant.io/integrations/knx/#cover).
@@ -88,6 +96,11 @@ Every route uses the existing authentication, origin/content-type and rate guard
 | PUT /api/knx/config | Complete replacement registry, up to 65,535 bytes |
 | GET /api/knx/objects?offset=0 | 20 cached objects per page |
 | POST /api/knx/command | Exact object_id, action read/write, string value for writes |
+
+Object pages carry the configuration `generation`, `routing_epoch` and routing state.
+The editor restarts a paged read once if any of these changes. Within one connection
+it uses the latest readable and writable alias observations separately. The picker
+and periodic preview share the newest completed request.
 
 Commands return HTTP 202 with queued=true, completion=asynchronous and
 bus_confirmed=false. Queue/send rejection counts and transport errors appear in
@@ -122,11 +135,47 @@ MCP argument/errors, import/edit/save/reload and permission-aware controls.
 The composite-widget cases also exercise command polarity, percentage inversion,
 temperature invalidation, reconnects, partial bindings and feedback independence.
 `tests/host/test_layout_compat.c` covers complete layout validation and serialization;
-the SDL controls suite exercises the real Cover, Climate and Fan event handlers with
+the SDL controls suite exercises real Slider, Select, Cover, Climate and Fan event handlers with
 synthetic KNX adapters while Home Assistant is offline. Editor tests cover role changes,
 save/reload, all seven translations and real-cache previews without sample state.
 Real Routing reception, reconnect, voice-to-actuator operation and concurrent
 audio/display stability require a separate authorized device trial.
+
+## Command and feedback validation, 2026-11-25
+
+Local Windows tests used the `dev` workspace based on `e24c81a0`, host C/C++, Node
+and the Panel10 SDL simulator with LVGL 9.6. The editor created a command-only
+slider, saved and reloaded it, then assigned a separate feedback object to the same
+slider and saved again. The actual KNX worker processed both layouts against a
+simulated routing transport. Its registry snapshots drove the editor, and its native
+projections drove two LVGL sliders. All 16 labels matched across eight observations.
+
+| Observation | Command only | Independent feedback |
+| --- | --- | --- |
+| 80% queued, send still pending | Unknown | Unknown |
+| 80% sent, then 0% sent | 80%, then 0% | Unknown |
+| Next send fails or a local echo arrives | 0% | Unknown |
+| Send 80%, actuator returns raw 158 on its status address | 80% | 62% |
+| External command writes 20%, then the queue is full | 20% | 62% |
+| Registry is replaced | Unknown | Unknown |
+
+The KNX CTest suite passed 12/12, the full editor suite passed 685/685, and the
+Panel10 LVGL run with this trace passed 292 KNX assertions. The complete C layout
+validator also passed its save/reload and legacy-binding cases. To repeat the joint
+test, set `BETTA_KNX_SIMULATOR` to the built SDL executable when running CTest.
+For a standalone Node run also set `BETTA_KNX_SERVICE_TEST` to `knx_service_test`.
+
+ESP-IDF 6.1.1 built the complete `panel10` v0.9.2 app, including the editor and
+the verified ESP32-C6 3.1.0 image. The panel build stamp is 23:36:56 and the IDF
+application descriptor records 23:22:53. The 6,812,512-byte image leaves
+3,232 bytes in the 6,815,744-byte OTA slot, using 5,168 bytes of the previous
+8,400-byte reserve. The application SHA-256 is
+`dfd7244610e350a5d47a4f6f3386913ea7f9b65b99280aec8f7be7ce7d63f4ca`.
+Physical actuator feedback, multicast loopback timing and recovery after a real
+bus or router outage remain to be verified. This run used local fixtures throughout.
+
+The [Panel10 KNX feedback validation](panel10-knx-feedback-validation.md) records
+the follow-up on COM24 with an isolated simulated actuator.
 
 ## Local validation, 2026-10-25
 

@@ -724,7 +724,7 @@ function tilePreviewMarkup(widget) {
   if (widget.binding?.source === "knx") {
     const key = knxWidgetPreviewKey(widget);
     if (knxControlWidgetTypes.includes(widget.type)) return knxControlPreviewMarkup({...widget, entity_id: key});
-    if (widget.type !== "light_tile" && !knxPreview.get(key)?.live && previewSourceState(key) === "unavailable") {
+    if (!["button", "light_tile", "slider", "select_tile"].includes(widget.type) && !knxPreview.get(key)?.live && ["unknown", "unavailable"].includes(previewSourceState(key))) {
       return `<div class="tp tp-sensor">${widgetNamePreview(widget, "small")}<b>--</b></div><div class="resize-handle"></div>`;
     }
     widget = { ...widget, entity_id: key };
@@ -1054,8 +1054,14 @@ function tilePreviewMarkup(widget) {
       }
       return `<div class="tp tp-pq">${name('div', 'class="tp-name"')}${intervalText}${tabsRow}${chipsRow}${sortRow}${body}</div>${handle}`;
     }
-    case "select_tile":
-      return `<div class="tp tp-select${h >= 110 ? " tp-select-tall" : ""}"><div class="tp-blind-text">${name('small', '')}<b>${previewEntityValue(widget.entity_id, "pv")}</b></div><span class="tp-select-chevron">\u2304</span></div>${handle}`;
+    case "select_tile": {
+      const isKnx = widget.binding?.source === "knx";
+      const canSelect = !isKnx || knxPreview.get(widget.entity_id)?.writable;
+      const label = value => isKnx ? t(`knx.preset.${value}`, {}, value) : value;
+      const value = isKnx && previewSourceState(widget.entity_id) === "unavailable"
+        ? escapeHtml(t("knx.unavailable")) : previewEntityValue(widget.entity_id, "pv", label);
+      return `<div class="tp tp-select${h >= 110 ? " tp-select-tall" : ""}"><div class="tp-blind-text">${name('small', '')}<b>${value}</b></div>${canSelect ? '<span class="tp-select-chevron">⌄</span>' : ""}</div>${handle}`;
+    }
     case "datetime_tile": {
       return `<div class="tp tp-datetime">${name('small', '')}<b>${previewEntityValue(widget.entity_id, "06:30", previewDateTimeValue)}</b></div>${handle}`;
     }
@@ -1145,8 +1151,13 @@ function tilePreviewMarkup(widget) {
       const symbols = { play_pause: previewEntityState(widget.entity_id) === "playing" ? "\u23F8" : "\u25B6", stop: "\u25A0", previous: "\u23EE", next: "\u23ED" };
       if (symbols[widget.button_mode]) return `<div class="tp tp-button tp-button-icon" style="${previewControlAccentStyle(widget)}"><i class="${previewControlClass(widget.button_mode === "play_pause" && previewEntityState(widget.entity_id) === "playing", previewControlAvailable(widget.entity_id))}">${symbols[widget.button_mode]}</i>${name('b', '')}</div>${handle}`;
       // The state line needs room between it and the name above the switch (w_button.c): about 150 px of height.
-      const on = ["on", "open", "playing", "home"].includes(previewEntityState(widget.entity_id));
-      return `<div class="tp tp-button" style="${previewControlAccentStyle(widget)}">${h >= 150 ? `<small class="tp-button-state">${escapeHtml(t(on ? "layout.preview.on" : "layout.preview.off"))}</small>` : ""}<div class="tp-switch tp-switch-big ${on ? "" : "off "}${previewControlClass(on, previewControlAvailable(widget.entity_id))}"><i></i></div>${name('b', '')}</div>${handle}`;
+      const knx = widget.binding?.source === "knx";
+      const state = knx ? previewSourceState(widget.entity_id) : previewEntityState(widget.entity_id);
+      const on = ["on", "open", "playing", "home"].includes(state);
+      const enabled = knx ? !!knxPreview.get(widget.entity_id)?.writable : previewControlAvailable(widget.entity_id);
+      let label = t(on ? "layout.preview.on" : "layout.preview.off");
+      if (knx && state !== "on" && state !== "off") label = state === "unknown" ? "--" : t("knx.unavailable");
+      return `<div class="tp tp-button" style="${previewControlAccentStyle(widget)}">${h >= 150 ? `<small class="tp-button-state">${escapeHtml(label)}</small>` : ""}<div class="tp-switch tp-switch-big ${on ? "" : "off "}${previewControlClass(on, enabled)}"><i></i></div>${name('b', '')}</div>${handle}`;
     }
     case "slider": {
       // Vertical when the direction says so (blinds), horizontal otherwise; like the panel it shows state and value.
@@ -1156,11 +1167,13 @@ function tilePreviewMarkup(widget) {
       const state = escapeHtml(isCover ? t("layout.preview.open", {}, "OPEN") : t("layout.preview.on", {}, "ON"));
       const fromTop = dir === "top_to_bottom";
       // An entity that is off (light, media player) stands at 0 %, as on the panel; otherwise the 60 % sample.
-      const sliderPct = knxPreview.get(widget.entity_id)?.percent ?? (["off", "unavailable"].includes(previewEntityState(widget.entity_id)) ? 0 : 60);
+      const view = knxPreview.get(widget.entity_id), knx = widget.binding?.source === "knx";
+      const sliderPct = knx ? view?.percent ?? 0 : (["off", "unavailable"].includes(previewEntityState(widget.entity_id)) ? 0 : 60);
+      const label = knx && !view?.live ? "--" : view?.unit === "°" ? view.state + "°" : sliderPct + " %";
       if (vertical) {
-        return `<div class="tp tp-slider tp-slider-vertical2"><div class="tp-vbar2"><i style="height:${sliderPct}%;${fromTop ? "top:0" : "bottom:0"}"></i><span>${sliderPct} %</span></div>${name('b', '')}</div>${handle}`;
+        return `<div class="tp tp-slider tp-slider-vertical2"><div class="tp-vbar2"><i style="height:${sliderPct}%;${fromTop ? "top:0" : "bottom:0"}"></i><span>${label}</span></div>${name('b', '')}</div>${handle}`;
       }
-      return `<div class="tp tp-slider tp-slider-h2${isCover ? " tp-slider-cover" : ""}"><div class="tp-hbar2"><i style="width:${sliderPct}%"></i><span>${sliderPct} %</span></div>${name('b', '')}</div>${handle}`;
+      return `<div class="tp tp-slider tp-slider-h2${isCover ? " tp-slider-cover" : ""}"><div class="tp-hbar2"><i style="width:${sliderPct}%"></i><span>${label}</span></div>${name('b', '')}</div>${handle}`;
     }
     case "sensor": {
       if (widget.sensor_view === "list") return sensorListPreview(widget, name) + handle;

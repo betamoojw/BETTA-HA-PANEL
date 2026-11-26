@@ -53,7 +53,7 @@ static void check_readable_tiles(const char *expected) {
 }
 static esp_knx_ip_telegram_callback_t callback;
 static knx_address_t source;
-static bool fail_start;
+static bool fail_start, fail_send;
 struct Done {};
 QueueHandle_t xQueueCreate(unsigned,size_t size) { command_size=size;return (void*)1; }
 void vQueueDelete(QueueHandle_t) {}
@@ -86,6 +86,7 @@ extern "C" esp_err_t esp_knx_ip_stop(esp_knx_ip_handle_t) {stops++;return ESP_OK
 extern "C" esp_err_t esp_knx_ip_destroy(esp_knx_ip_handle_t) {return ESP_OK;}
 extern "C" esp_err_t esp_knx_ip_send(esp_knx_ip_handle_t,knx_address_t address,knx_command_t command,const uint8_t* data,size_t n) {
     assert(command == KNX_COMMAND_WRITE);
+    if (fail_send) return ESP_FAIL;
     writes.push_back({address, {data, data + n}});
     sends++;return ESP_OK;
 }
@@ -279,14 +280,17 @@ static void exercise_composite_widgets() {
       {"id":"SF","name":"Power feedback","group_address":"3/1/8","datapoint_type":"DPT-1.001","readable":true,"writable":false},
       {"id":"SPEED","name":"Speed command","group_address":"3/0/9","datapoint_type":"DPT-5.001","readable":false,"writable":true},
       {"id":"FF","name":"Speed feedback","group_address":"3/1/9","datapoint_type":"DPT-5.001","readable":true,"writable":false},
-      {"id":"PRESET","name":"Operating preset","group_address":"3/0/10","datapoint_type":"DPT-20.102","readable":false,"writable":true}])";
+      {"id":"PRESET","name":"Operating preset","group_address":"3/0/10","datapoint_type":"DPT-20.102","readable":false,"writable":true},
+      {"id":"PF1","name":"Preset status","group_address":"3/1/10","datapoint_type":"DPT-20.102","readable":true,"writable":false},
+      {"id":"PF2","name":"Preset status alias","group_address":"3/1/10","datapoint_type":"DPT-20.102","readable":true,"writable":false}])";
     std::string config = kKnxDefaultConfiguration;
     config.replace(config.find("3671"), 4, "3672");
     config.replace(config.find("224.0.23.12"), 11, "224.0.23.13");
     config.replace(config.find("[]"), 2, registry);
     char error[160];
     assert(knx_configure(config.c_str(), error, sizeof(error)) && knx_enable(true, error, sizeof(error)));
-    knx_control_binding_t cover{}, position{}, climate{}, fan{};
+    knx_control_binding_t cover{}, position{}, climate{}, fan{}, requested_preset{};
+    strcpy(requested_preset.id[KNX_PRESET_COMMAND], "PRESET");
     strcpy(cover.id[KNX_MOVE_COMMAND], "M"); strcpy(cover.id[KNX_STOP_COMMAND], "STOP");
     strcpy(cover.id[KNX_POSITION_FEEDBACK], "PF");
     strcpy(position.id[KNX_POSITION_COMMAND], "P"); strcpy(position.id[KNX_POSITION_FEEDBACK], "PF");
@@ -337,8 +341,18 @@ static void exercise_composite_widgets() {
         {[&] { return knx_widget_control_roles(&fan, KNX_SET_FAN_PERCENT, 0); }, 9, {0, 0}},
         {[&] { return knx_widget_control_roles(&fan, KNX_SET_FAN_PERCENT, 100); }, 9, {0, 255}},
         {[&] { return knx_widget_control_roles(&fan, KNX_SET_POWER, 1); }, 8, {1}},
+        {[&] { return knx_widget_control_roles(&requested_preset, KNX_SET_PRESET, 0); }, 10, {0, 0}},
     };
     size_t next = 0, before = writes.size();
+    uint32_t online_epoch = 0;
+    auto route_epoch = [] {
+        cJSON* page = knx_objects(0, 1);
+        const auto* epoch = cJSON_GetObjectItemCaseSensitive(page, "routing_epoch");
+        assert(cJSON_IsNumber(epoch));
+        const auto value = static_cast<uint32_t>(epoch->valuedouble);
+        cJSON_Delete(page);
+        return value;
+    };
     enum { Sending, Offline, Reconnected } phase = Sending;
     iteration = [&] {
         if (phase == Sending) {
@@ -385,6 +399,26 @@ static void exercise_composite_widgets() {
             read(climate, KNX_TILE_CLIMATE, climate_cursor, "cool"); attribute("current_temperature", 21.5);
             publish(7, {0, 2}); // specified but unsupported HVAC control mode is never reinterpreted
             read(climate, KNX_TILE_CLIMATE, climate_cursor, "unknown"); attribute("current_temperature", 21.5);
+            publish(7, {0, 0}); read(climate, KNX_TILE_CLIMATE, climate_cursor, "auto");
+            publish(7, {0, 255}); read(climate, KNX_TILE_CLIMATE, climate_cursor, "unknown");
+            publish(7, {0, 0}); read(climate, KNX_TILE_CLIMATE, climate_cursor, "auto");
+            knx_control_binding_t preset{};
+            strcpy(preset.id[KNX_PRESET_COMMAND], "PRESET");
+            strcpy(preset.id[KNX_PRESET_FEEDBACK], "PF1");
+            uint32_t preset_cursor = 0;
+            publish(10, {0, 1}); read(preset, KNX_TILE_SELECT, preset_cursor, "Comfort");
+            publish(10, {0}); // A truncated packet cannot revoke a valid report.
+            assert(knx_widget_read("knx:composite", KNX_TILE_SELECT, nullptr, &preset, &preset_cursor, &scratch) == KNX_VIEW_UNCHANGED);
+            publish(10, {0, 5}); // A complete report with a reserved preset clears both aliases.
+            read(preset, KNX_TILE_SELECT, preset_cursor, "unknown");
+            uint32_t request_cursor = 0;
+            read(requested_preset, KNX_TILE_SELECT, request_cursor, "Auto");
+            for (const char* id : {"PF1", "PF2"}) {
+                cJSON* object = knx_object(id);
+                assert(cJSON_IsFalse(cJSON_GetObjectItem(object, "live_feedback")) && !cJSON_HasObjectItem(object, "value"));
+                cJSON_Delete(object);
+            }
+            publish(10, {0, 0}); read(preset, KNX_TILE_SELECT, preset_cursor, "Auto");
             publish(8, {0}); publish(9, {0, 128});
             read(fan, KNX_TILE_FAN, fan_cursor, "off"); attribute("percentage", 50); attribute("percentage_step", 25);
             strcpy(climate.id[KNX_HVAC_MODE_COMMAND], "PRESET");
@@ -393,6 +427,7 @@ static void exercise_composite_widgets() {
             strcpy(fan.id[KNX_FAN_SPEED_COMMAND], "FF");
             assert(knx_widget_control_roles(&fan, KNX_SET_FAN_PERCENT, 50) != ESP_OK);
             strcpy(fan.id[KNX_FAN_SPEED_COMMAND], "SPEED");
+            online_epoch = route_epoch();
             test_online = false; phase = Offline;
         } else if (phase == Offline) {
             read(cover, KNX_TILE_COVER, cover_cursor, "unavailable"); absent("current_position");
@@ -402,6 +437,7 @@ static void exercise_composite_widgets() {
             assert(knx_widget_control_roles(&fan, KNX_SET_FAN_PERCENT, 50) != ESP_OK);
             test_online = true; phase = Reconnected;
         } else {
+            assert(route_epoch() != online_epoch);
             read(cover, KNX_TILE_COVER, cover_cursor, "unknown"); absent("current_position");
             read(climate, KNX_TILE_CLIMATE, climate_cursor, "unknown"); absent("current_temperature"); absent("temperature");
             read(fan, KNX_TILE_FAN, fan_cursor, "unknown"); absent("percentage");
@@ -414,8 +450,151 @@ static void exercise_composite_widgets() {
     try { test_worker(nullptr); } catch (const Done&) {}
 }
 
+// The web round trip supplies two versions of the very same slider and consumes
+// the actual registry snapshots produced by the worker after each bus event.
+static void exercise_command_fallback(const char* unbound_path, const char* bound_path, const char* trace_path) {
+    const char* registry = R"([{"id":"A","name":"Command","group_address":"2/0/2","datapoint_type":"DPT-5.001","readable":false,"writable":true},
+      {"id":"alias","name":"Same address","group_address":"2/0/2","datapoint_type":"DPT-5.001","readable":false,"writable":true},
+      {"id":"B","name":"Actual","group_address":"2/1/2","datapoint_type":"DPT-5.001","readable":true,"writable":false},
+      {"id":"P","name":"Power","group_address":"2/0/1","datapoint_type":"DPT-1.001","readable":false,"writable":true}])";
+    std::string config = kKnxDefaultConfiguration;
+    config.replace(config.find("3671"),4,"3672");
+    config.replace(config.find("224.0.23.12"),11,"224.0.23.13");
+    config.replace(config.find("[]"),2,registry);
+    char error[128];
+    assert(knx_configure(config.c_str(),error,sizeof(error)) && knx_enable(true,error,sizeof(error)));
+    knx_control_binding_t slider{}, actual{}, alias{}, power{};
+    auto load = [](knx_control_binding_t& control, const char* path, bool bound) {
+        if (!path) {
+            strcpy(control.id[KNX_BRIGHTNESS_COMMAND],"A");
+            if (bound) strcpy(control.id[KNX_BRIGHTNESS_FEEDBACK],"B");
+            return;
+        }
+        std::ifstream input(path);
+        std::string json{std::istreambuf_iterator<char>(input),std::istreambuf_iterator<char>()};
+        cJSON* root=cJSON_Parse(json.c_str());
+        const auto* page=cJSON_GetArrayItem(cJSON_GetObjectItem(root,"pages"),0);
+        const cJSON* item;
+        unsigned count=0;
+        cJSON_ArrayForEach(item,cJSON_GetObjectItem(page,"widgets")) {
+            if (strcmp(cJSON_GetStringValue(cJSON_GetObjectItem(item,"type")),"slider")) continue;
+            knx_layout_binding_t parsed{};
+            assert(knx_layout_binding(cJSON_GetObjectItem(item,"binding"),"slider",&parsed));
+            assert(!!parsed.controls[KNX_BRIGHTNESS_FEEDBACK]==bound);
+            for (unsigned i=0;i<KNX_ROLE_COUNT;++i) if(parsed.controls[i]) strcpy(control.id[i],parsed.controls[i]);
+            ++count;
+        }
+        assert(count==1);
+        cJSON_Delete(root);
+    };
+    load(slider,unbound_path,false);
+    load(actual,bound_path,true);
+    strcpy(alias.id[KNX_BRIGHTNESS_COMMAND],"alias");
+    strcpy(power.id[KNX_SWITCH_COMMAND],"P");
+    cJSON* trace=cJSON_CreateObject();
+    auto read = [](knx_control_binding_t& binding, knx_tile_kind_t kind, const char* expected) {
+        uint32_t cursor=0;
+        assert(knx_widget_read("knx:test",kind,nullptr,&binding,&cursor,&scratch)==KNX_VIEW_UPDATED);
+        assert(!strcmp(scratch.state,expected));
+    };
+    uint32_t command_cursor = 0, feedback_cursor = 0;
+    auto sample = [&](const char* name, const char* requested, const char* confirmed) {
+        cJSON* snapshot = knx_objects(0, 20);
+        read(slider,KNX_TILE_SLIDER,requested);
+        cJSON_AddStringToObject(snapshot, "panel_command_state", scratch.state);
+        read(alias,KNX_TILE_SLIDER,requested);
+        read(actual,KNX_TILE_SLIDER,confirmed);
+        cJSON_AddStringToObject(snapshot, "panel_feedback_state", scratch.state);
+        cJSON_AddItemToObject(trace, name, snapshot);
+        const bool command_changed = strcmp(name, "failed") && strcmp(name, "queue_full");
+        const bool feedback_changed = !strcmp(name, "queued") || !strcmp(name, "feedback") || !strcmp(name, "replaced");
+        assert(knx_widget_read("knx:A", KNX_TILE_SLIDER, nullptr, &slider, &command_cursor, &scratch) ==
+            (command_changed ? KNX_VIEW_UPDATED : KNX_VIEW_UNCHANGED));
+        assert(knx_widget_read("knx:B", KNX_TILE_SLIDER, nullptr, &actual, &feedback_cursor, &scratch) ==
+            (feedback_changed ? KNX_VIEW_UPDATED : KNX_VIEW_UNCHANGED));
+    };
+    auto send = [&](int n) { return knx_widget_control_roles(&slider,KNX_SET_PERCENT,n); };
+    auto packet = [](knx_address_t address, knx_address_t from, knx_command_t command, uint8_t raw) {
+        knx_telegram_t t{}; t.source=from; t.destination=address; t.command=command; t.data_length=2; t.data[1]=raw;
+        callback(&t,nullptr);
+    };
+    int step=0;
+    size_t sends_before_replacement = 0;
+    bool disconnect_started = false;
+    iteration=[&] {
+        switch(step++) {
+        case 0:
+            assert(send(80)==ESP_OK);
+            sample("queued","unknown","unavailable");
+            break;
+        case 1:
+            sample("eighty","80","unavailable");
+            assert(send(0)==ESP_OK);
+            break;
+        case 2:
+            sample("zero","0","unavailable");
+            fail_send=true;
+            assert(send(17)==ESP_OK);
+            break;
+        case 3:
+            fail_send=false;
+            packet(knx_group_address(2,0,2),source,KNX_COMMAND_WRITE,204);
+            packet(knx_group_address(2,0,2),0x1102,KNX_COMMAND_RESPONSE,204);
+            sample("failed","0","unavailable");
+            assert(send(80)==ESP_OK);
+            break;
+        case 4:
+            packet(knx_group_address(2,1,2),0x1102,KNX_COMMAND_RESPONSE,158);
+            sample("feedback","80","62");
+            assert(knx_widget_control_roles(&power,KNX_TOGGLE,0)==ESP_OK);
+            assert(knx_widget_control_roles(&power,KNX_TOGGLE,0)==ESP_OK);
+            break;
+        case 5: read(power,KNX_TILE_SWITCH,"on"); break;
+        case 6:
+            read(power,KNX_TILE_SWITCH,"off");
+            packet(knx_group_address(2,0,2),0x1102,KNX_COMMAND_WRITE,51);
+            sample("peer","20","62");
+            for(int i=0;i<8;++i) assert(send(i)==ESP_OK);
+            assert(send(99)!=ESP_OK);
+            sample("queue_full","20","62");
+            sends_before_replacement = writes.size();
+            assert(knx_configure(config.c_str(),error,sizeof(error)));
+            break;
+        case 7:
+            sample("replaced","unknown","unavailable");
+            break;
+        default:
+            if (!disconnect_started) {
+                assert(writes.size() == sends_before_replacement);
+                if (!queue.empty()) break; // Drain all eight old commands through the worker.
+                assert(send(42) == ESP_OK && send(73) == ESP_OK);
+                disconnect_started = true;
+                test_online = false; // First write completes on this iteration; second is still queued.
+                break;
+            }
+            assert(writes.size() == sends_before_replacement + 1);
+            if (!test_online) {
+                read(slider, KNX_TILE_SLIDER, "unavailable");
+                assert(send(15) != ESP_OK);
+                test_online = true;
+                break;
+            }
+            read(slider, KNX_TILE_SLIDER, "unknown");
+            read(actual, KNX_TILE_SLIDER, "unavailable");
+            throw Done{};
+        }
+    };
+    try {test_worker(nullptr);} catch(const Done&) {}
+    if (trace_path) {
+        char* json=cJSON_PrintUnformatted(trace);
+        std::ofstream output(trace_path,std::ios::binary);
+        output<<json; assert(output.good()); cJSON_free(json);
+    }
+    cJSON_Delete(trace);
+}
+
 int main(int argc, char **argv) {
-    assert(argc == 1 || argc == 3);
+    assert(argc == 1 || argc == 3 || argc == 4);
     persisted=kKnxDefaultConfiguration;
     persisted.replace(persisted.find("3671"),4,"3672");
     persisted.replace(persisted.find("224.0.23.12"),11,"224.0.23.13");
@@ -544,5 +723,6 @@ int main(int argc, char **argv) {
     try {test_worker(nullptr);} catch(const Done&) {}
     exercise_widget_roles(argc == 3 ? argv[1] : nullptr, argc == 3 ? argv[2] : nullptr);
     exercise_composite_widgets();
+    exercise_command_fallback(argc==4?argv[1]:nullptr,argc==4?argv[2]:nullptr,argc==4?argv[3]:nullptr);
     puts("KNX worker: enable/disable, permissions, generation revocation, feedback, storage failure, reconnect and retry passed");
 }

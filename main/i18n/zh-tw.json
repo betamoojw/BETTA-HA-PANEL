@@ -1,5 +1,8 @@
 {
   "lvgl": {
+    "knx": {
+      "preset": {"Auto":"自動","Comfort":"舒適","Standby":"待機","Economy":"節能","Building Protection":"建築保護"}
+    },
     "common": {
       "on": "開",
       "off": "關",

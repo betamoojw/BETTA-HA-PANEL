@@ -3,6 +3,16 @@
  * KNX editor English/German additions; other languages use the JSON catalogs.
  */
 Object.assign(WEB_I18N_BUILTIN.en, {
+  "knx.preset.Auto": "Auto",
+  "knx.preset.Comfort": "Comfort",
+  "knx.preset.Standby": "Standby",
+  "knx.preset.Economy": "Economy",
+  "knx.preset.Building Protection": "Building Protection",
+  "knx.role_preset_command": "HVAC preset command",
+  "knx.role_preset_feedback": "HVAC preset feedback",
+  "knx.role_angle_command": "Angle command (degrees)",
+  "knx.role_angle_feedback": "Angle feedback (degrees)",
+  "knx.optional_feedback": "Optional. Leave empty to display the last command on this group address.",
   "knx.role_move_command": "Up/down command",
   "knx.role_stop_command": "Stop command",
   "knx.role_position_command": "Position command",
@@ -72,6 +82,16 @@ Object.assign(WEB_I18N_BUILTIN.en, {
   "knx.state.error": "Error"
 });
 Object.assign(WEB_I18N_BUILTIN.de, {
+  "knx.preset.Auto": "Automatik",
+  "knx.preset.Comfort": "Komfort",
+  "knx.preset.Standby": "Bereitschaft",
+  "knx.preset.Economy": "Sparbetrieb",
+  "knx.preset.Building Protection": "Gebäudeschutz",
+  "knx.role_preset_command": "Betriebsartbefehl",
+  "knx.role_preset_feedback": "Betriebsartrückmeldung",
+  "knx.role_angle_command": "Winkelbefehl (Grad)",
+  "knx.role_angle_feedback": "Winkelrückmeldung (Grad)",
+  "knx.optional_feedback": "Optional. Ohne Zuordnung erscheint der letzte Befehl auf dieser Gruppenadresse.",
   "knx.role_move_command": "Auf/Ab-Befehl",
   "knx.role_stop_command": "Stoppbefehl",
   "knx.role_position_command": "Positionsbefehl",

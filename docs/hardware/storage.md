@@ -166,21 +166,18 @@ acceptance must still exercise language switching and translation export.
 
 ## Panel10 Chinese font compression
 
-Panel10 embeds the existing Chinese TrueType subset as a zlib stream. Decoding
-restores the same 285,336 font bytes; all 969 codepoints, outlines and metrics
-remain unchanged. The compressed payload is 191,200 bytes, saving 94,136 bytes
-before decoder code and alignment. Other boards and the simulator retain the
-original font array. Source attribution and the SIL OFL license remain in
+Panel10 embeds the Chinese TrueType subset for the panel catalogs as a zlib
+stream. The subset covering the KNX operating preset labels contains 979
+codepoints. Its 286,900 bytes compress to 192,227 bytes, saving 94,673 bytes
+before decoder code and alignment. Other boards and the simulator use the
+original font array. Source attribution and the SIL OFL license are in
 `main/ui/fonts/`.
 
 The first text-font setup requests its CJK fallback, even with English selected,
-and expands one PSRAM buffer shared by every size for the boot lifetime. It does
-not wait for a Chinese character to appear. This costs 285,336
-bytes for the restored font. With Panel10's read-only-data-in-PSRAM profile,
-the compressed copy also occupies PSRAM: the estimated steady increase over
-the raw font is 191,200 bytes plus alignment, with temporary zlib work memory
-during decoding. These are storage/lifetime calculations, not measured peak
-memory, initial decode/display-lock time, startup latency or rendering performance on hardware.
+and expands one 286,900-byte PSRAM buffer shared by every size for the boot
+lifetime. With Panel10's read-only-data-in-PSRAM profile the compressed copy
+also occupies PSRAM. Its estimated steady overhead is 192,227 bytes plus
+alignment, with temporary zlib work memory during decoding.
 
 The decoder requires a complete zlib stream, exact expanded length, no trailing
 data and the TrueType header before publishing the cache. Failure frees decoder

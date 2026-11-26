@@ -115,6 +115,7 @@ nav = [
       { "Native settings validation" = "development/native-settings-validation.md" },
       { "Editor workspace validation" = "development/editor-workspace-validation.md" },
       { "Panel10 I2C validation" = "development/panel10-i2c-validation.md" },
+      { "Panel10 KNX feedback validation" = "development/panel10-knx-feedback-validation.md" },
       { "User management validation" = "development/user-management.md" },
       { "Device licensing" = "development/licensing.md" },
       { "AI Assistant spectrum baseline" = "development/assistant-spectrum-baseline.md" },

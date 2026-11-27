@@ -16,6 +16,7 @@ spec = importlib.util.spec_from_file_location("pack_cjk_font", ROOT / "tools/pac
 pack = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(pack)
 SOURCE = ROOT / "main/ui/fonts/noto_cjk_subset.ttf"
+PACKED = SOURCE.with_suffix(".ttf.zlib")
 
 
 class PackedCjkFontTests(unittest.TestCase):
@@ -27,14 +28,33 @@ class PackedCjkFontTests(unittest.TestCase):
     def test_generated_header_round_trips_without_rewriting(self):
         with tempfile.TemporaryDirectory() as tmp:
             output = Path(tmp) / "cjk_font_packed.h"
-            raw, packed = pack.generate(SOURCE, output)
+            raw, packed = pack.generate(SOURCE, output, PACKED)
             self.assertGreater(raw - packed, 90000)
             before = output.read_bytes(), output.stat().st_mtime_ns
-            self.assertEqual(pack.generate(SOURCE, output), (raw, packed))
+            self.assertEqual(pack.generate(SOURCE, output, PACKED), (raw, packed))
             self.assertEqual(before, (output.read_bytes(), output.stat().st_mtime_ns))
             compressed = bytes(int(byte, 16) for byte in re.findall(r"0x([0-9a-f]{2})", output.read_text()))
             self.assertEqual(len(compressed), packed)
+            self.assertEqual(compressed, PACKED.read_bytes())
             self.assertEqual(zlib.decompress(compressed), SOURCE.read_bytes())
+            self.assertLess(packed, len(zlib.compress(SOURCE.read_bytes(), 9)))
+
+    def test_invalid_or_stale_packed_fonts_are_rejected(self):
+        original = PACKED.read_bytes()
+        raw = SOURCE.read_bytes()
+        cases = (b"", b"invalid", original[:-1], original + b"\0",
+                 zlib.compress(raw[:-1]), zlib.compress(raw + b"\0"),
+                 zlib.compress(raw[:-1] + bytes([raw[-1] ^ 1])))
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp)
+            output = directory / "packed.h"
+            packed = directory / "font.zlib"
+            for index, data in enumerate(cases):
+                with self.subTest(case=index):
+                    packed.write_bytes(data)
+                    with self.assertRaisesRegex(ValueError, "does not match the source TTF"):
+                        pack.generate(SOURCE, output, packed)
+                    self.assertFalse(output.exists())
 
     def test_invalid_fonts_are_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -43,7 +63,7 @@ class PackedCjkFontTests(unittest.TestCase):
                 with self.subTest(size=len(data)):
                     source.write_bytes(data)
                     with self.assertRaisesRegex(ValueError, "bounded TrueType"):
-                        pack.generate(source, output)
+                        pack.generate(source, output, PACKED)
                     self.assertFalse(output.exists())
 
     def test_production_decoder_and_raw_board_accessor(self):
@@ -64,7 +84,7 @@ class PackedCjkFontTests(unittest.TestCase):
             zlib_libraries = ["-lz"]
         with tempfile.TemporaryDirectory(prefix="betta-cjk-font-") as tmp:
             directory = Path(tmp)
-            pack.generate(SOURCE, directory / "cjk_font_packed.h")
+            pack.generate(SOURCE, directory / "cjk_font_packed.h", PACKED)
             suffix = ".exe" if os.name == "nt" else ""
             executable = directory / ("decoder" + suffix)
             sources = [ROOT / "tests/host/test_cjk_font_data.c", ROOT / "main/ui/fonts/ttf_cjk_data.c", *zlib_sources]

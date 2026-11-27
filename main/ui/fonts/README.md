@@ -31,8 +31,21 @@ Each requested size has a 32-glyph cache;
 the shared font budget is 96 instances, including text, icons and emoji.
 Regular, bold and measurement fonts share the same CJK fallback at a given size.
 
-On Panel10, the build packs these same font bytes with zlib (192,227 bytes instead
-of 286,900, before decoder code and alignment). Initial text-font setup requests
+On Panel10, the build embeds the checked-in `noto_cjk_subset.ttf.zlib` stream.
+Zopfli reduced the stream from 192,227 to 188,752 bytes; the decoder and expanded
+286,900-byte font are unchanged. Normal builds do not need Zopfli. To regenerate
+the stream after updating the TTF and raw array, use the
+[Zopfli 1.0.3 CLI](https://github.com/google/zopfli/tree/zopfli-1.0.3) from the
+repository root, then run the packer test:
+
+```sh
+zopfli --zlib --i15 main/ui/fonts/noto_cjk_subset.ttf
+python tests/tools/test_pack_cjk_font.py
+```
+
+Commit the refreshed stream with the font sources. The packer rejects missing,
+stale, corrupt or trailing data rather than silently using a different compressor.
+Initial text-font setup requests
 the CJK fallback even with English selected; it restores
 one 286,900-byte PSRAM buffer shared by every size for the rest of the boot.
 This does not change glyph coverage, metrics, cache size or the generated source
@@ -43,7 +56,7 @@ Decoder/output allocations use PSRAM. Failure frees them, publishes no partial
 cache and keeps the emoji fallback; later font requests can retry. The successful
 buffer is immutable and must outlive every `lv_tiny_ttf` instance that borrows it.
 Panel10's read-only-data-in-PSRAM profile retains the compressed bytes too;
-the estimated steady PSRAM increase is 192,227 bytes plus alignment, with extra
+the estimated steady PSRAM increase is 188,752 bytes plus alignment, with extra
 temporary decoder allocations. This is not a device measurement. See
 [storage budgets](../../../docs/hardware/storage.md#panel10-chinese-font-compression)
 for the tradeoff and pending hardware checks.

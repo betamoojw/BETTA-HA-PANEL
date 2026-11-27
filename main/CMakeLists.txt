@@ -767,10 +767,12 @@ target_sources(${COMPONENT_LIB} PRIVATE
 if(CONFIG_APP_PANEL_VARIANT_10INCH_1280)
     set(PACKED_CJK_DIR "${CMAKE_CURRENT_BINARY_DIR}/packed_cjk")
     set(CJK_FONT_SOURCE "${CMAKE_CURRENT_LIST_DIR}/ui/fonts/noto_cjk_subset.ttf")
+    set(CJK_FONT_ZLIB "${CJK_FONT_SOURCE}.zlib")
     set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
-        "${CJK_FONT_SOURCE}" "${CMAKE_SOURCE_DIR}/tools/pack_cjk_font.py")
+        "${CJK_FONT_SOURCE}" "${CJK_FONT_ZLIB}" "${CMAKE_SOURCE_DIR}/tools/pack_cjk_font.py")
     execute_process(COMMAND "${PYTHON}" "${CMAKE_SOURCE_DIR}/tools/pack_cjk_font.py"
-        "${CJK_FONT_SOURCE}" "${PACKED_CJK_DIR}/cjk_font_packed.h" COMMAND_ERROR_IS_FATAL ANY)
+        "${CJK_FONT_SOURCE}" "${PACKED_CJK_DIR}/cjk_font_packed.h"
+        --packed-source "${CJK_FONT_ZLIB}" COMMAND_ERROR_IS_FATAL ANY)
     target_include_directories(${COMPONENT_LIB} PRIVATE "${PACKED_CJK_DIR}")
     target_compile_definitions(${COMPONENT_LIB} PRIVATE APP_CJK_COMPRESSED=1)
     target_sources(${COMPONENT_LIB} PRIVATE "ui/cjk_font_data.c")

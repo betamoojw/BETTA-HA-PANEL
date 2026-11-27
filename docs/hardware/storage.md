@@ -168,15 +168,15 @@ acceptance must still exercise language switching and translation export.
 
 Panel10 embeds the Chinese TrueType subset for the panel catalogs as a zlib
 stream. The subset covering the KNX operating preset labels contains 979
-codepoints. Its 286,900 bytes compress to 192,227 bytes, saving 94,673 bytes
-before decoder code and alignment. Other boards and the simulator use the
+codepoints. Its 286,900 bytes compress to 188,752 bytes with Zopfli, saving
+98,148 bytes before decoder code and alignment. Other boards and the simulator use the
 original font array. Source attribution and the SIL OFL license are in
 `main/ui/fonts/`.
 
 The first text-font setup requests its CJK fallback, even with English selected,
 and expands one 286,900-byte PSRAM buffer shared by every size for the boot
 lifetime. With Panel10's read-only-data-in-PSRAM profile the compressed copy
-also occupies PSRAM. Its estimated steady overhead is 192,227 bytes plus
+also occupies PSRAM. Its estimated steady overhead is 188,752 bytes plus
 alignment, with temporary zlib work memory during decoding.
 
 The decoder requires a complete zlib stream, exact expanded length, no trailing
@@ -198,6 +198,10 @@ produced a 6,796,976-byte app for the unchanged 6,815,744-byte OTA slot:
 18,768 bytes (18.33 KiB, about 0.28%) remain. This is build-only qualification;
 runtime memory, initial decode/display-lock time and device behavior remain
 unmeasured for this merged image. Recheck capacity after any source or asset change.
+
+The November 27 Windows build with the Zopfli font left 4,224 bytes in each
+OTA slot. The [Panel10 CJK font validation](../development/panel10-cjk-font-validation.md)
+records the paired builds, COM24 slot readback and physical display checks.
 
 ## Crash diagnostics (coredump partition)
 

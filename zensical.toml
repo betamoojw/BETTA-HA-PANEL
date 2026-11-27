@@ -115,6 +115,7 @@ nav = [
       { "Native settings validation" = "development/native-settings-validation.md" },
       { "Editor workspace validation" = "development/editor-workspace-validation.md" },
       { "Panel10 I2C validation" = "development/panel10-i2c-validation.md" },
+      { "Panel10 CJK font validation" = "development/panel10-cjk-font-validation.md" },
       { "Panel10 KNX feedback validation" = "development/panel10-knx-feedback-validation.md" },
       { "Panel10 KNX registry capacity validation" = "development/panel10-knx-registry-validation.md" },
       { "Panel10 KNX backup restore validation" = "development/panel10-knx-backup-restore-validation.md" },

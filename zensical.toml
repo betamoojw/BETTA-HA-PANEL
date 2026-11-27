@@ -117,6 +117,7 @@ nav = [
       { "Panel10 I2C validation" = "development/panel10-i2c-validation.md" },
       { "Panel10 KNX feedback validation" = "development/panel10-knx-feedback-validation.md" },
       { "Panel10 KNX registry capacity validation" = "development/panel10-knx-registry-validation.md" },
+      { "Panel10 KNX backup restore validation" = "development/panel10-knx-backup-restore-validation.md" },
       { "User management validation" = "development/user-management.md" },
       { "Device licensing" = "development/licensing.md" },
       { "AI Assistant spectrum baseline" = "development/assistant-spectrum-baseline.md" },

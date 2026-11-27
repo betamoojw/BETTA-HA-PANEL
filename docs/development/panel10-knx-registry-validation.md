@@ -297,3 +297,4 @@ registry resumed routing. All 10 pages and 61 widgets matched the pre-flash layo
 Accounts, saved settings, cameras, languages and themes matched. Only the live clock
 advanced. Signing out returned HTTP 401 for the layout. **Light Angle** and **Power history**
 kept their bindings. The pre-flash LittleFS had no local graph files for a sample comparison.
+The [clean 5ca8249 build](panel10-knx-backup-restore-validation.md) has a separate COM24 record.

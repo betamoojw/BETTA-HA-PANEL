@@ -768,6 +768,526 @@
       "readable": true,
       "writable": true,
       "unit": null
+    },
+    {
+      "id": "dpt_1_002_bool_status",
+      "name": "Building Boolean Status",
+      "description": "Read-only boolean building status",
+      "group_address": "10/0/0",
+      "datapoint_type": "DPT-1.002",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_1_100_heat_cool_status",
+      "name": "Heat/Cool Status",
+      "description": "Operating heat/cool demand state",
+      "group_address": "10/0/1",
+      "datapoint_type": "DPT-1.100",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_2_001_switch_control",
+      "name": "Switch with Control",
+      "description": "Switch command with control and value bits",
+      "group_address": "10/0/2",
+      "datapoint_type": "DPT-2.001",
+      "readable": false,
+      "writable": true,
+      "unit": null
+    },
+    {
+      "id": "dpt_4_002_iso8859_character",
+      "name": "ISO-8859-1 Character",
+      "description": "One ISO-8859-1 character for building displays",
+      "group_address": "10/0/3",
+      "datapoint_type": "DPT-4.002",
+      "readable": true,
+      "writable": true,
+      "unit": null
+    },
+    {
+      "id": "dpt_5_005_decimal_factor",
+      "name": "Decimal Factor",
+      "description": "Unscaled decimal factor value",
+      "group_address": "10/0/4",
+      "datapoint_type": "DPT-5.005",
+      "readable": true,
+      "writable": true,
+      "unit": null
+    },
+    {
+      "id": "dpt_5_006_energy_tariff",
+      "name": "Active Energy Tariff",
+      "description": "Current metering tariff number",
+      "group_address": "10/0/5",
+      "datapoint_type": "DPT-5.006",
+      "readable": true,
+      "writable": true,
+      "unit": null
+    },
+    {
+      "id": "dpt_5_010_object_counter",
+      "name": "Unsigned Object Counter",
+      "description": "Unsigned 8-bit counter or pulse count",
+      "group_address": "10/0/6",
+      "datapoint_type": "DPT-5.010",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_6_010_signed_counter",
+      "name": "Signed Counter",
+      "description": "Signed 8-bit counter or change value",
+      "group_address": "10/0/7",
+      "datapoint_type": "DPT-6.010",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_6_020_room_mode_status",
+      "name": "Room Mode Status",
+      "description": "Three-bit room operating mode status",
+      "group_address": "10/0/8",
+      "datapoint_type": "DPT-6.020",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_7_002_millisecond_period",
+      "name": "Millisecond Period",
+      "description": "Measured or configured period in milliseconds",
+      "group_address": "10/0/9",
+      "datapoint_type": "DPT-7.002",
+      "readable": true,
+      "writable": true,
+      "unit": "ms"
+    },
+    {
+      "id": "dpt_7_003_decisecond_period",
+      "name": "Decisecond Period",
+      "description": "Measured period in tenths of seconds",
+      "group_address": "10/0/10",
+      "datapoint_type": "DPT-7.003",
+      "readable": true,
+      "writable": true,
+      "unit": "s"
+    },
+    {
+      "id": "dpt_7_004_hectomillisecond_period",
+      "name": "Hectomillisecond Period",
+      "description": "Measured period in hundredths of seconds",
+      "group_address": "10/0/11",
+      "datapoint_type": "DPT-7.004",
+      "readable": true,
+      "writable": true,
+      "unit": "s"
+    },
+    {
+      "id": "dpt_7_011_length_mm",
+      "name": "Measured Length",
+      "description": "Object or clear-height length in millimetres",
+      "group_address": "10/0/12",
+      "datapoint_type": "DPT-7.011",
+      "readable": true,
+      "writable": false,
+      "unit": "mm"
+    },
+    {
+      "id": "dpt_7_012_supply_current",
+      "name": "Supply Current",
+      "description": "Measured supply current",
+      "group_address": "10/0/13",
+      "datapoint_type": "DPT-7.012",
+      "readable": true,
+      "writable": false,
+      "unit": "mA"
+    },
+    {
+      "id": "dpt_7_013_brightness_level",
+      "name": "Brightness Level",
+      "description": "Absolute measured brightness",
+      "group_address": "10/0/14",
+      "datapoint_type": "DPT-7.013",
+      "readable": true,
+      "writable": false,
+      "unit": "lx"
+    },
+    {
+      "id": "dpt_8_002_delta_time_ms",
+      "name": "Delta Time Milliseconds",
+      "description": "Elapsed or remaining time in milliseconds",
+      "group_address": "10/0/15",
+      "datapoint_type": "DPT-8.002",
+      "readable": true,
+      "writable": true,
+      "unit": "ms"
+    },
+    {
+      "id": "dpt_8_010_signed_percent",
+      "name": "Signed Percentage",
+      "description": "Signed percentage setpoint or deviation",
+      "group_address": "10/0/16",
+      "datapoint_type": "DPT-8.010",
+      "readable": true,
+      "writable": true,
+      "unit": "%"
+    },
+    {
+      "id": "dpt_8_011_rotation_angle",
+      "name": "Rotation Angle",
+      "description": "Signed rotation or deflection angle",
+      "group_address": "10/0/17",
+      "datapoint_type": "DPT-8.011",
+      "readable": true,
+      "writable": true,
+      "unit": "°"
+    },
+    {
+      "id": "dpt_9_003_outdoor_temperature",
+      "name": "Outdoor Temperature",
+      "description": "Outdoor ambient temperature measurement",
+      "group_address": "10/0/18",
+      "datapoint_type": "DPT-9.003",
+      "readable": true,
+      "writable": false,
+      "unit": "°C"
+    },
+    {
+      "id": "dpt_9_007_relative_humidity",
+      "name": "Relative Humidity",
+      "description": "Room relative humidity measurement",
+      "group_address": "10/0/19",
+      "datapoint_type": "DPT-9.007",
+      "readable": true,
+      "writable": false,
+      "unit": "%"
+    },
+    {
+      "id": "dpt_9_009_airflow",
+      "name": "Airflow",
+      "description": "Airflow volume measurement",
+      "group_address": "10/0/20",
+      "datapoint_type": "DPT-9.009",
+      "readable": true,
+      "writable": false,
+      "unit": "m³/h"
+    },
+    {
+      "id": "dpt_9_010_time_hours",
+      "name": "Time in Hours",
+      "description": "Measured or configured time in hours",
+      "group_address": "10/0/21",
+      "datapoint_type": "DPT-9.010",
+      "readable": true,
+      "writable": true,
+      "unit": "h"
+    },
+    {
+      "id": "dpt_9_020_supply_voltage",
+      "name": "Supply Voltage",
+      "description": "Measured AC or DC supply voltage",
+      "group_address": "10/0/22",
+      "datapoint_type": "DPT-9.020",
+      "readable": true,
+      "writable": false,
+      "unit": "V"
+    },
+    {
+      "id": "dpt_9_021_supply_current_float",
+      "name": "Supply Current Float",
+      "description": "Measured supply current",
+      "group_address": "10/0/23",
+      "datapoint_type": "DPT-9.021",
+      "readable": true,
+      "writable": false,
+      "unit": "A"
+    },
+    {
+      "id": "dpt_9_024_room_power",
+      "name": "Room Power",
+      "description": "Measured active power",
+      "group_address": "10/0/24",
+      "datapoint_type": "DPT-9.024",
+      "readable": true,
+      "writable": false,
+      "unit": "W"
+    },
+    {
+      "id": "dpt_9_025_volume_flow",
+      "name": "Volume Flow",
+      "description": "Volumetric flow measurement",
+      "group_address": "10/0/25",
+      "datapoint_type": "DPT-9.025",
+      "readable": true,
+      "writable": false,
+      "unit": "m³/h"
+    },
+    {
+      "id": "dpt_9_026_rain_amount",
+      "name": "Rain Amount",
+      "description": "Rainfall amount measurement",
+      "group_address": "10/0/26",
+      "datapoint_type": "DPT-9.026",
+      "readable": true,
+      "writable": false,
+      "unit": "mm"
+    },
+    {
+      "id": "dpt_9_028_wind_speed_kmh",
+      "name": "Wind Speed km/h",
+      "description": "Measured wind speed",
+      "group_address": "10/0/27",
+      "datapoint_type": "DPT-9.028",
+      "readable": true,
+      "writable": false,
+      "unit": "km/h"
+    },
+    {
+      "id": "dpt_13_002_volume_flow_m3h",
+      "name": "Liquid/Gas Flow",
+      "description": "Flow rate measurement",
+      "group_address": "10/0/28",
+      "datapoint_type": "DPT-13.002",
+      "readable": true,
+      "writable": false,
+      "unit": "m³/h"
+    },
+    {
+      "id": "dpt_13_012_reactive_energy",
+      "name": "Reactive Energy",
+      "description": "Reactive energy meter value",
+      "group_address": "10/0/29",
+      "datapoint_type": "DPT-13.012",
+      "readable": true,
+      "writable": false,
+      "unit": "varh"
+    },
+    {
+      "id": "dpt_13_014_apparent_energy_kvah",
+      "name": "Apparent Energy kVAh",
+      "description": "Apparent energy meter value",
+      "group_address": "10/0/30",
+      "datapoint_type": "DPT-13.014",
+      "readable": true,
+      "writable": false,
+      "unit": "kVAh"
+    },
+    {
+      "id": "dpt_13_015_reactive_energy_kvarh",
+      "name": "Reactive Energy kVARh",
+      "description": "Reactive energy meter value",
+      "group_address": "10/0/31",
+      "datapoint_type": "DPT-13.015",
+      "readable": true,
+      "writable": false,
+      "unit": "kvarh"
+    },
+    {
+      "id": "dpt_14_019_electric_current",
+      "name": "Electric Current",
+      "description": "Measured electrical current",
+      "group_address": "10/0/32",
+      "datapoint_type": "DPT-14.019",
+      "readable": true,
+      "writable": false,
+      "unit": "A"
+    },
+    {
+      "id": "dpt_14_027_electric_potential",
+      "name": "Electric Potential",
+      "description": "Measured electrical potential",
+      "group_address": "10/0/33",
+      "datapoint_type": "DPT-14.027",
+      "readable": true,
+      "writable": false,
+      "unit": "V"
+    },
+    {
+      "id": "dpt_14_031_energy",
+      "name": "Energy",
+      "description": "Measured energy quantity",
+      "group_address": "10/0/34",
+      "datapoint_type": "DPT-14.031",
+      "readable": true,
+      "writable": false,
+      "unit": "J"
+    },
+    {
+      "id": "dpt_14_058_pressure",
+      "name": "Pressure",
+      "description": "Measured process or room pressure",
+      "group_address": "10/0/35",
+      "datapoint_type": "DPT-14.058",
+      "readable": true,
+      "writable": false,
+      "unit": "Pa"
+    },
+    {
+      "id": "dpt_14_065_speed",
+      "name": "Speed",
+      "description": "Measured linear or airflow speed",
+      "group_address": "10/0/36",
+      "datapoint_type": "DPT-14.065",
+      "readable": true,
+      "writable": false,
+      "unit": "m/s"
+    },
+    {
+      "id": "dpt_15_000_access_control",
+      "name": "Access Control Data",
+      "description": "Building access or keypad control data",
+      "group_address": "10/0/37",
+      "datapoint_type": "DPT-15.000",
+      "readable": true,
+      "writable": true,
+      "unit": null
+    },
+    {
+      "id": "dpt_20_003_occupancy_mode",
+      "name": "Occupancy Mode",
+      "description": "Building occupancy operating mode",
+      "group_address": "10/0/38",
+      "datapoint_type": "DPT-20.003",
+      "readable": true,
+      "writable": true,
+      "unit": null
+    },
+    {
+      "id": "dpt_20_007_alarm_class",
+      "name": "Alarm Class",
+      "description": "Alarm classification for building events",
+      "group_address": "10/0/39",
+      "datapoint_type": "DPT-20.007",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_20_011_system_error_class",
+      "name": "System Error Class",
+      "description": "System equipment error classification",
+      "group_address": "10/0/40",
+      "datapoint_type": "DPT-20.011",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_20_012_hvac_error_class",
+      "name": "HVAC Error Class",
+      "description": "HVAC equipment error classification",
+      "group_address": "10/0/41",
+      "datapoint_type": "DPT-20.012",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_21_001_general_status",
+      "name": "General Device Status",
+      "description": "General status flags for a building device",
+      "group_address": "10/0/42",
+      "datapoint_type": "DPT-21.001",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_22_100_dhw_status",
+      "name": "Domestic Hot Water Status",
+      "description": "Domestic hot-water device status flags",
+      "group_address": "10/0/43",
+      "datapoint_type": "DPT-22.100",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_23_002_alarm_reaction",
+      "name": "Alarm Reaction",
+      "description": "Configured alarm position reaction",
+      "group_address": "10/0/44",
+      "datapoint_type": "DPT-23.002",
+      "readable": true,
+      "writable": true,
+      "unit": null
+    },
+    {
+      "id": "dpt_25_1000_double_nibble",
+      "name": "Double Nibble",
+      "description": "Two 2-bit control values",
+      "group_address": "10/0/45",
+      "datapoint_type": "DPT-25.1000",
+      "readable": true,
+      "writable": true,
+      "unit": null
+    },
+    {
+      "id": "dpt_26_001_scene_status",
+      "name": "Scene Status",
+      "description": "Active scene and scene number status",
+      "group_address": "10/0/46",
+      "datapoint_type": "DPT-26.001",
+      "readable": true,
+      "writable": true,
+      "unit": null
+    },
+    {
+      "id": "dpt_29_010_active_energy_64",
+      "name": "Active Energy 64-bit",
+      "description": "Signed 64-bit active energy meter value",
+      "group_address": "10/0/47",
+      "datapoint_type": "DPT-29.010",
+      "readable": true,
+      "writable": false,
+      "unit": "Wh"
+    },
+    {
+      "id": "dpt_232_600_room_rgb",
+      "name": "Room RGB Colour",
+      "description": "RGB colour value for an RGB light",
+      "group_address": "10/0/48",
+      "datapoint_type": "DPT-232.600",
+      "readable": true,
+      "writable": true,
+      "unit": null
+    },
+    {
+      "id": "dpt_234_001_language_code",
+      "name": "Language Code",
+      "description": "Two-letter language code",
+      "group_address": "10/0/49",
+      "datapoint_type": "DPT-234.001",
+      "readable": true,
+      "writable": true,
+      "unit": null
+    },
+    {
+      "id": "dpt_234_002_region_code",
+      "name": "Region Code",
+      "description": "Two-letter region code",
+      "group_address": "10/0/50",
+      "datapoint_type": "DPT-234.002",
+      "readable": true,
+      "writable": true,
+      "unit": null
+    },
+    {
+      "id": "dpt_30_1010_channel_activation",
+      "name": "Channel Activation 24",
+      "description": "Twenty-four channel activation flags",
+      "group_address": "10/0/51",
+      "datapoint_type": "DPT-30.1010",
+      "readable": true,
+      "writable": true,
+      "unit": null
     }
   ]
 }

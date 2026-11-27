@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LicenseRef-FNCL-1.1
  * Copyright (c) 2026 andre68723 */
 #include "knx.h"
+#include "knx_limits.h"
 #include "api/http_guard.h"
 #include <stdlib.h>
 #include <string.h>
@@ -53,7 +54,7 @@ static esp_err_t config_get(httpd_req_t* req) {
     esp_err_t e = httpd_resp_sendstr(req, json); free(json); return e;
 }
 static esp_err_t config_put(httpd_req_t* req) {
-    char* text = body(req, 65535); if (!text) return ESP_OK;
+    char* text = body(req, KNX_MAX_CONFIG_BYTES); if (!text) return ESP_OK;
     char error[256]; bool ok = knx_configure(text, error, sizeof(error)); free(text);
     return ok ? send_json(req, knx_status()) : httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, error);
 }
@@ -65,7 +66,7 @@ static esp_err_t objects_get(httpd_req_t* req) {
         httpd_query_key_value(query, "offset", offset, sizeof(offset));
     }
     char* end; long n = strtol(offset, &end, 10);
-    if (*end || n < 0 || n > 128) return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid offset");
+    if (end == offset || *end || n < 0 || n > KNX_MAX_OBJECTS) return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid offset");
     return send_json(req, knx_objects(n, 20));
 }
 static esp_err_t command_post(httpd_req_t* req) {

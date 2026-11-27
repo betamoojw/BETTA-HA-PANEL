@@ -6,7 +6,7 @@
 #include "cJSON.h"
 #include <optional>
 
-void AddValue(cJSON *json, const KnxValue& value);
+bool AddValue(cJSON *json, const KnxValue& value);
 std::optional<float> KnxControlScalar(const KnxValue& value);
 std::optional<float> KnxWidgetDisplayValue(const knx_control_binding_t& binding, knx_role_t feedback_role,
     const KnxCommunicationObject* feedback, const KnxCommunicationObject* command);

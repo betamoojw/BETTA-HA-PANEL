@@ -8,7 +8,9 @@ import {loadEditor} from "./load_editor.mjs";
 
 const settings = fs.readFileSync(new URL("../../components/webui/www/js/settings.js",import.meta.url),"utf8");
 const backupSource = settings.slice(settings.indexOf("async function backupGet("), settings.indexOf("function bindBackup("));
-const registry = {media_type:"knx_ip",comObjects:[{id:"lamp",name:"客厅灯",writable:true}]};
+const registry = {media_type:"knx_ip", physical_address:"15.15.199",
+  media_parameters:{multicast_address:"224.0.23.12",udp_port:3671,transport_mode:"routing",interface_identifier:"KNX-IP-Interface",nat:false},
+  comObjects:[{id:"lamp",name:"客厅灯",group_address:"1/0/1",datapoint_type:"DPT-1.001",readable:true,writable:true}]};
 const stored = {
   "/api/layout":{pages:[{id:"room",widgets:[
     {type:"slider",binding:{source:"knx",roles:{brightness_command:"A",brightness_feedback:"B"}}},
@@ -19,7 +21,7 @@ const stored = {
   "/api/knx":{enabled:true}, "/api/knx/config":registry,
   "/api/camera/config":{local:{enabled:false,stream_enabled:false},sources:[{id:"door",source:"http",snapshot_url:"http://camera.test/jpeg",password_set:true}]}
 };
-function setup(backup, failKnx=false) {
+function setup(backup, failKnx=false, storedRegistry=registry) {
   const writes=[], message={}, nodes={settingsBackupMsg:message,settingsBackupFile:{files:[{text:async()=>JSON.stringify(backup)}]}};
   let captured;
   const ctx=vm.createContext({
@@ -29,7 +31,7 @@ function setup(backup, failKnx=false) {
         writes.push({path,body:JSON.parse(options.body)});
         return {ok:!(failKnx && path==="/api/knx/config"),text:async()=>"invalid registry"};
       }
-      return {ok:true,json:async()=>structuredClone(stored[path])};
+      return {ok:true,json:async()=>structuredClone(path==="/api/knx/config"?storedRegistry:stored[path])};
     },
     Blob,URL:{createObjectURL:b=>{captured=b;return "blob:test";},revokeObjectURL(){}},setTimeout(){},
     normalizeTextStep:n=>n||0,UI_STYLE_DEFAULT:"flat",t:k=>k,localizedRequestError:e=>e.message,
@@ -58,6 +60,16 @@ test("full backup includes camera preferences and redacted sources; restore keep
   assert.deepEqual(restore.writes.find(w=>w.path==='/api/camera/config').body,backup.cameras);
   assert.equal(backup.settings.ui.language,'en');assert.equal(backup.settings.hardware.rotation,180);
 });
+
+test("a full registry survives panel backup and restore in the same order",async()=>{
+  const full={...registry,comObjects:Array.from({length:512},(_,i)=>({
+    ...registry.comObjects[0],id:"point-"+i,group_address:`1/${i>>8}/${i%256}`,description:"点".repeat(40)}))};
+  const source=setup(undefined,false,full);await source.run("downloadBackup()");
+  const backup=await source.exported();
+  assert.deepEqual(backup.knx.configuration,full);
+  const restored=setup(backup);await restored.run("restoreBackup()");
+  assert.deepEqual(restored.writes[0],{path:"/api/knx/config",body:full});
+});
 test("legacy backups leave KNX intact and rejected registries cannot enable it",async()=>{
   const backup={format:"betta-panel-backup",layout:{pages:[]},settings:{ui:{language:"en"}}};
   const legacy=setup(backup);await legacy.run("restoreBackup()");
@@ -66,6 +78,16 @@ test("legacy backups leave KNX intact and rejected registries cannot enable it",
   await rejected.run("restoreBackup()");
   assert.deepEqual(rejected.writes.map(w=>w.path),["/api/knx/config"]);
   assert.match(rejected.message.textContent,/invalid registry/);
+});
+test("a rejected 513-object backup leaves languages, themes and dashboard settings untouched", async () => {
+  const backup = {format:"betta-panel-backup", layout:stored["/api/layout"], settings:stored["/api/settings"],
+    languages:{custom:{en:{label:"new"}}}, themes:{custom:[{id:"room"}],active_id:"room"},
+    knx:{configuration:{...registry,comObjects:Array.from({length:513},(_,i)=>({
+      ...registry.comObjects[0],id:String(i),group_address:`1/${i>>8}/${i%256}`}))},enabled:true}};
+  const attempt=setup(backup,true);
+  await attempt.run("restoreBackup()");
+  assert.deepEqual(attempt.writes.map(w=>w.path),["/api/knx/config"]);
+  assert.match(attempt.message.textContent,/invalid registry/);
 });
 test("all seven native editor catalogs include the KNX controls and status text",()=>{
   const {run}=loadEditor();

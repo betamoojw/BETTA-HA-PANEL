@@ -98,7 +98,7 @@ bool KnxWidgetProject(const KnxCommunicationObject& o, knx_tile_kind_t kind, ha_
     }
     cJSON *attrs = cJSON_CreateObject();
     if (!attrs) return false;
-    AddValue(attrs, o.current_value);
+    if (!AddValue(attrs, o.current_value)) { cJSON_Delete(attrs); return false; }
     cJSON *value = cJSON_DetachItemFromObjectCaseSensitive(attrs, "value");
     const bool scaling_sensor = kind == KNX_TILE_VALUE && scaling(o.datapoint_type);
     bool ok = value && cJSON_AddStringToObject(attrs, "unit_of_measurement",

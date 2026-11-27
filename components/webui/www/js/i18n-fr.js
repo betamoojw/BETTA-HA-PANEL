@@ -2055,7 +2055,7 @@ WEB_I18N_BUILTIN["fr"] = {
   "knx.enable": "Activer KNXnet/IP",
   "knx.permissions": "AI Assistant utilise uniquement les objets configurés et leurs droits de lecture/écriture. L’envoi d’une commande ne confirme pas l’état de l’actionneur.",
   "knx.configuration": "Configuration (knxConfig.json)",
-  "knx.edit_hint": "Importez ou modifiez le JSON, puis enregistrez. La désactivation conserve la configuration. Maximum : 128 objets et 65 535 octets UTF-8.",
+  "knx.edit_hint": "Importez ou modifiez le JSON, puis enregistrez. La désactivation conserve la configuration. Maximum : 512 objets et 262 144 octets UTF-8.",
   "knx.import": "Importer JSON",
   "knx.export": "Exporter le brouillon",
   "knx.format": "Formater JSON",

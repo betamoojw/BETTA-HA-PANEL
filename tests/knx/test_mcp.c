@@ -10,6 +10,7 @@
 static unsigned calls;
 static unsigned device_calls;
 static bool large_page;
+static int expected_offset;
 static bool network_supported = true;
 static bool all_device_tools;
 bool xiaozhi_mcp_device_tool_supported(const char* name) {
@@ -32,7 +33,7 @@ cJSON* xiaozhi_mcp_device_tool_call(const char* name,const cJSON* args,char* err
 }
 cJSON* knx_status(void) { return cJSON_Parse("{\"enabled\":false,\"state\":\"disabled\"}"); }
 cJSON* knx_objects(int offset,int limit) {
-    assert(offset==0 && limit==5);
+    assert(offset==expected_offset && limit==5);
     cJSON* result=cJSON_Parse("{\"objects\":[],\"has_more\":false,\"next_offset\":5}");
     if (large_page) {
         char description[193]; memset(description,'"',192); description[192]=0;
@@ -128,7 +129,11 @@ int main(void) {
     assert(cJSON_GetObjectItemCaseSensitive(page,"next_offset")->valueint==count);
     text=cJSON_PrintUnformatted(r); assert(strlen(text)<8192); free(text);
     cJSON_Delete(page);cJSON_Delete(r);large_page=false;
-    const char* bad[]={"{\"limit\":0}","{\"limit\":1.2}","{\"limit\":6}","{\"offset\":-1}","{\"limit\":1,\"limit\":2}","[]","{\"secret\":1}"};
+    expected_offset=511;
+    r=call("self.knx.list_objects","{\"offset\":511}");assert(cJSON_GetObjectItemCaseSensitive(r,"result"));cJSON_Delete(r);
+    expected_offset=512;
+    r=call("self.knx.list_objects","{\"offset\":512}");assert(cJSON_GetObjectItemCaseSensitive(r,"result"));cJSON_Delete(r);
+    const char* bad[]={"{\"limit\":0}","{\"limit\":1.2}","{\"limit\":6}","{\"offset\":-1}","{\"offset\":513}","{\"limit\":1,\"limit\":2}","[]","{\"secret\":1}"};
     for (size_t i=0;i<sizeof(bad)/sizeof(bad[0]);i++) {
         r=call("self.knx.list_objects",bad[i]); assert(cJSON_GetObjectItemCaseSensitive(r,"error")); cJSON_Delete(r);
     }

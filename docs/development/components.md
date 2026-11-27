@@ -172,6 +172,7 @@ build at a commit whose manifest differs from the lock). The small edits needed 
 
 - two esp_hosted SDIO fixes (byte-mode TX workaround, bounded `esp_hosted_tx()` queue wait instead of an infinite one),
 - compatibility fixes for the older fetched Waveshare BSPs, including panel10,
+- a KNX group listener that routes telegrams to the panel's address index and preserves per-address callbacks on ordinary transport handles,
 - serialized WebSocket polling/close, post-lock connection checks and stalled-frame
   handling in `tools/patch_websocket_transport.py`,
 - a bounded wait for the PPA screen rotation in `esp_lvgl_port` (see

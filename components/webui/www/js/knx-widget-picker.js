@@ -143,13 +143,12 @@ async function refreshKnxWidgetPreview() {
   if (knxPreviewLoading || !editor.layout?.pages?.some(p => p.widgets?.some(w => w.binding?.source === "knx"))) return;
   knxPreviewLoading = true;
   const seq = ++knxPreviewRequest;
-  const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 10000);
   try {
-    const page = await fetchKnxWidgetObjects(controller.signal);
+    const page = await fetchKnxWidgetObjects();
     publishKnxPreview(seq, page);
   } catch (_) {
     publishKnxPreview(seq, {objects: [], state: "disabled"});
-  } finally { clearTimeout(timer); knxPreviewLoading = false; }
+  } finally { knxPreviewLoading = false; }
   if (seq === knxLatestSnapshot.request) renderCanvas();
 }
 
@@ -180,11 +179,15 @@ function replaceKnxOptions(select, entries) {
 }
 
 // The device advertises the roles actually accepted by the command and feedback paths.
-async function fetchKnxWidgetObjects(signal) {
+async function fetchKnxWidgetObjects(request = new AbortController()) {
   const objects = [];
   let offset = 0, first, restarted = false;
   for (;;) {
-    const page = await apiGet(`/api/knx/objects?offset=${offset}`, signal);
+    // A full registry needs 26 HTTP requests. Bound each request while it makes progress.
+    const timer = setTimeout(() => request.abort(), 10000);
+    let page;
+    try { page = await apiGet(`/api/knx/objects?offset=${offset}`, request.signal); }
+    finally { clearTimeout(timer); }
     if (!Array.isArray(page.objects)) throw new Error(t("knx.failed"));
     if (!offset) first = page;
     else if (page.generation !== first.generation || page.routing_epoch !== first.routing_epoch || page.state !== first.state) {
@@ -194,11 +197,12 @@ async function fetchKnxWidgetObjects(signal) {
       offset = 0;
       continue;
     }
+    const next = offset + page.objects.length;
+    if (typeof page.has_more !== "boolean" || page.next_offset !== next || next > KNX_MAX_OBJECTS ||
+        (page.has_more && (next === offset || next === KNX_MAX_OBJECTS))) throw new Error(t("knx.failed"));
     objects.push(...page.objects);
     if (!page.has_more) return {objects, state: page.state};
-    if (!Number.isInteger(page.next_offset) || page.next_offset <= offset || page.next_offset >= 128)
-      throw new Error(t("knx.failed"));
-    offset = page.next_offset;
+    offset = next;
   }
 }
 
@@ -349,9 +353,8 @@ async function loadKnxWidgetPicker() {
   knxPickerRequest = request;
   const status = knxField("knxTileStatus");
   status.textContent = t("entity_picker.pending");
-  const timer = setTimeout(() => request.abort(), 12000);
   try {
-    const page = await fetchKnxWidgetObjects(request.signal);
+    const page = await fetchKnxWidgetObjects(request);
     if (request !== knxPickerRequest) return;
     const {objects, state} = publishKnxPreview(seq, page);
     knxPickerObjects = objects;
@@ -367,7 +370,6 @@ async function loadKnxWidgetPicker() {
       status.textContent = t("knx.failed");
     }
   } finally {
-    clearTimeout(timer);
     if (request === knxPickerRequest) knxPickerRequest = null;
   }
 }

@@ -20,7 +20,7 @@ bool KnxLoadConfiguration(std::string& json, std::string& error) {
     }
     bool ok = fseek(f, 0, SEEK_END) == 0;
     long size = ok ? ftell(f) : -1;
-    ok = size > 0 && size <= static_cast<long>(kKnxMaximumConfigurationLength) && fseek(f, 0, SEEK_SET) == 0;
+    ok = size > 0 && size <= KNX_MAX_CONFIG_BYTES && fseek(f, 0, SEEK_SET) == 0;
     if (ok) { json.resize(size); ok = fread(json.data(), 1, size, f) == static_cast<size_t>(size); }
     fclose(f);
     if (!ok) { json.clear(); error = "Incomplete or oversized knxConfig.json"; }

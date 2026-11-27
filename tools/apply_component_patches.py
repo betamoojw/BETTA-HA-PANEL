@@ -193,6 +193,26 @@ def ensure_requires(path, keyword, tokens):
 
 # (component directory, file inside it, what, edit function, its arguments[, optional: the place may not exist])
 PATCHES = [
+    # BETTA already owns the group-address registry. Route group telegrams directly
+    # to it without duplicating 512 entries in the transport's fixed callback table.
+    ("esp_knx_ip", "private_include/esp_knx_ip_internal/context.hpp",
+     "KNX: per-handle group listener",
+     replace, ("    esp_netif_t *netif = nullptr;",
+               "    esp_knx_ip_telegram_callback_t group_listener = nullptr;\n"
+               "    esp_netif_t *netif = nullptr;")),
+    ("esp_knx_ip", "src/esp_knx_ip.cpp", "KNX: dispatch to the application registry",
+     replace, ("    esp_knx_ip_telegram_callback_t callback = nullptr;",
+               "    if (context->group_listener) {\n"
+               "        context->group_listener(&telegram, nullptr);\n"
+               "        return;\n    }\n"
+               "    esp_knx_ip_telegram_callback_t callback = nullptr;")),
+    ("esp_knx_ip", "src/esp_knx_ip.cpp", "KNX: install group listener before start",
+     replace, ('extern "C" esp_err_t esp_knx_ip_destroy(',
+               'extern "C" esp_err_t betta_knx_route_create(const esp_knx_ip_config_t *config,\n'
+               '    esp_knx_ip_telegram_callback_t listener, esp_knx_ip_handle_t *out)\n'
+               '{\n    esp_err_t result = esp_knx_ip_create(config, out);\n'
+               '    if (result == ESP_OK) (*out)->group_listener = listener;\n'
+               '    return result;\n}\n\nextern "C" esp_err_t esp_knx_ip_destroy(')),
     ("espressif__esp_lvgl_adapter", "src/adapter/esp_lv_adapter.c",
      "esp_lvgl_adapter: retain Panel10 lock context without logging expected polling timeouts",
      patch_panel10_lock_context, ()),

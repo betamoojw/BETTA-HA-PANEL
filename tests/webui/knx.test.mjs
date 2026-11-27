@@ -60,9 +60,36 @@ test("import is a draft until save; export uses knxConfig.json",async()=>{
 });
 test("oversized/invalid imports and invalid edits never send a configuration write",async()=>{
   const s=setup();await s.poll();
-  s.node("knxFile").files=[{size:65536,text:async()=>JSON.stringify(config)}];await s.fire("knxFile","change");
+  s.node("knxFile").files=[{size:262145,text:async()=>JSON.stringify(config)}];await s.fire("knxFile","change");
   s.node("knxConfig").value="[]";await s.fire("knxSave","click");
   assert.equal(s.requests.filter(r=>r.method==="PUT").length,0);
+});
+test("512 distinct objects survive import, format, export, save, reload and last-object selection",async()=>{
+  const s=setup({enabled:true});await s.poll();
+  const comObjects=Array.from({length:512},(_,i)=>({...config.comObjects[0],id:"point-"+i,
+    group_address:`1/${Math.floor(i/256)}/${i%256}`,description:"窗".repeat(60)}));
+  const registry={...config,comObjects},text=JSON.stringify(registry);
+  assert.ok(Buffer.byteLength(text)>65535);
+  s.node("knxFile").files=[{size:Buffer.byteLength(text),text:async()=>text}];
+  await s.fire("knxFile","change");await s.fire("knxFormat","click");await s.fire("knxExport","click");
+  assert.deepEqual(s.downloads,["knxConfig.json"]);await s.fire("knxSave","click");
+  assert.deepEqual(s.model.configuration,registry);
+  const reopened=setup(s.model);await reopened.poll();
+  assert.equal(reopened.node("knxObject").children.length,512);
+  reopened.node("knxObject").value="511";await reopened.fire("knxObject","change");
+  await reopened.fire("knxRefresh","click");assert.equal(reopened.requests.at(-1).url,"/api/knx/objects?offset=500");
+  assert.match(reopened.node("knxCache").textContent,/point-511/);
+  for(const invalid of [JSON.stringify({...registry,comObjects:[...comObjects,comObjects[0]]}),
+                        text+" ".repeat(262145-Buffer.byteLength(text))]){
+    reopened.node("knxConfig").value=invalid;await reopened.fire("knxSave","click");
+    assert.equal(reopened.requests.filter(r=>r.method==="PUT").length,0);
+  }
+  // An accepted near-limit compact registry stays saveable after reload/Format.
+  const near={...config,comObjects:comObjects.map(o=>({...o,name:"N".repeat(80),id:o.id.padEnd(48,"i"),unit:"u".repeat(32)}))};
+  const compact=JSON.stringify(near);
+  assert.ok(Buffer.byteLength(compact)<=262144 && Buffer.byteLength(JSON.stringify(near,null,2))>262144);
+  reopened.node("knxConfig").value=compact;await reopened.fire("knxSave","click");await reopened.fire("knxFormat","click");
+  assert.equal(reopened.node("knxConfig").value,compact);
 });
 test("read-only objects cannot be written; exact saved ID reaches command API",async()=>{
   const s=setup({enabled:true});await s.poll();

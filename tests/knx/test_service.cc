@@ -3,6 +3,8 @@
 // Execute the production worker deterministically; no sockets, threads or bus.
 #include "knx.h"
 #include "knx_config.h"
+#include "knx_route.h"
+#include "registry_fixture.h"
 #include "layout/knx_layout_binding.h"
 #include <fstream>
 #include "esp_knx_ip/esp_knx_ip.h"
@@ -12,7 +14,9 @@ extern "C" {
 #include "ui/ui_knx_sync.h"
 }
 #include <cassert>
+#include <algorithm>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <deque>
 #include <vector>
@@ -75,12 +79,11 @@ bool KnxLoadConfiguration(std::string& text,std::string&) { text=persisted;retur
 bool KnxSaveConfiguration(const std::string& text,std::string& error) {
     if(test_storage_failure) {error="test write failed";return false;} persisted=text;return true;
 }
-extern "C" esp_err_t esp_knx_ip_create(const esp_knx_ip_config_t* cfg,esp_knx_ip_handle_t* h) {
+extern "C" esp_err_t betta_knx_route_create(const esp_knx_ip_config_t* cfg,esp_knx_ip_telegram_callback_t listener,esp_knx_ip_handle_t* h) {
     assert(cfg->port==3672 && !strcmp(cfg->multicast_address,"224.0.23.13"));
     assert(!cfg->load_physical_address_from_nvs);
-    source=cfg->physical_address;*h=reinterpret_cast<esp_knx_ip_handle_t>(1);return ESP_OK;
+    source=cfg->physical_address;callback=listener;++registrations;*h=reinterpret_cast<esp_knx_ip_handle_t>(1);return ESP_OK;
 }
-extern "C" esp_err_t esp_knx_ip_register_callback(esp_knx_ip_handle_t,knx_address_t,esp_knx_ip_telegram_callback_t c,void*) {++registrations;callback=c;return ESP_OK;}
 extern "C" esp_err_t esp_knx_ip_start(esp_knx_ip_handle_t) {starts++;return fail_start?ESP_FAIL:ESP_OK;}
 extern "C" esp_err_t esp_knx_ip_stop(esp_knx_ip_handle_t) {stops++;return ESP_OK;}
 extern "C" esp_err_t esp_knx_ip_destroy(esp_knx_ip_handle_t) {return ESP_OK;}
@@ -593,7 +596,117 @@ static void exercise_command_fallback(const char* unbound_path, const char* boun
     cJSON_Delete(trace);
 }
 
+static size_t allocation_count, fail_at, live_allocations;
+static void* page_allocate(size_t bytes) {
+    if (++allocation_count == fail_at) return nullptr;
+    void* result = std::malloc(bytes);
+    if (result) ++live_allocations;
+    return result;
+}
+static void page_free(void* item) {
+    if (item) --live_allocations;
+    std::free(item);
+}
+
+static void check_last_page_allocations() {
+    // Fail each cJSON allocation once, including object fields, widget roles and the page cursor.
+    cJSON_Hooks hooks{page_allocate, page_free};
+    cJSON_InitHooks(&hooks);
+    allocation_count = fail_at = live_allocations = 0;
+    cJSON* complete = knx_objects(510, 20);
+    const size_t total = allocation_count;
+    assert(complete && total && cJSON_GetArraySize(cJSON_GetObjectItemCaseSensitive(complete, "objects")) == 2);
+    cJSON_Delete(complete);
+    assert(!live_allocations);
+    for (fail_at = 1; fail_at <= total; ++fail_at) {
+        allocation_count = 0;
+        assert(knx_objects(510, 20) == nullptr);
+        assert(!live_allocations);
+    }
+    cJSON_InitHooks(nullptr);
+    cJSON* retry = knx_objects(510, 20);
+    const cJSON* entries = cJSON_GetObjectItemCaseSensitive(retry, "objects");
+    assert(cJSON_GetArraySize(entries) == 2 && cJSON_GetNumberValue(cJSON_GetObjectItemCaseSensitive(retry, "next_offset")) == 512);
+    const cJSON* rgb = cJSON_GetObjectItemCaseSensitive(cJSON_GetArrayItem(entries, 0), "value");
+    assert(cJSON_GetNumberValue(cJSON_GetObjectItemCaseSensitive(rgb, "red")) == 16);
+    assert(cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(cJSON_GetArrayItem(entries, 1), "value")));
+    cJSON_Delete(retry);
+}
+
+static void exercise_registry_capacity() {
+    std::string media=kKnxDefaultConfiguration;
+    media.replace(media.find("3671"),4,"3672");
+    media.replace(media.find("224.0.23.12"),11,"224.0.23.13");
+    persisted=registry_fixture(512,media);
+    // The final page includes a composite value as well as a scalar and its command cache.
+    const auto color_dpt = persisted.rfind("DPT-1.001", persisted.find("\"id\":\"point-511\""));
+    assert(color_dpt != std::string::npos);
+    persisted.replace(color_dpt, 9, "DPT-232.600");
+    const auto saved=persisted;
+    test_enabled=1;
+    knx_init();
+    int step=0;
+    iteration=[&] {
+        char error[160];
+        if (step++==0) {
+            status_is("running");assert(registrations==1 && callback);
+            for(int i=0;i<512;i+=20) {
+                cJSON* page=knx_objects(i,20);
+                const int next=std::min(i+20,512);
+                assert(cJSON_GetArraySize(cJSON_GetObjectItemCaseSensitive(page,"objects"))==next-i);
+                assert(cJSON_GetObjectItemCaseSensitive(page,"next_offset")->valueint==next);
+                assert(!!cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(page,"has_more"))==(next<512));
+                cJSON_Delete(page);
+            }
+            knx_telegram_t t{};t.source=0x1102;t.command=KNX_COMMAND_WRITE;t.data_length=1;t.data[0]=1;
+            t.destination=0x7fff;callback(&t,nullptr);
+            cJSON* status=knx_status();assert(cJSON_GetObjectItemCaseSensitive(status,"received")->valueint==0);cJSON_Delete(status);
+            knx_telegram_t color = t;
+            color.destination = 0x09fe; color.data_length = 4;
+            color.data[0] = 0; color.data[1] = 16; color.data[2] = 32; color.data[3] = 48;
+            callback(&color, nullptr);
+            t.destination=0x09ff;callback(&t,nullptr);  // 1/1/255, object 512
+            cJSON* last=knx_object("point-511");
+            assert(cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(last,"value")));cJSON_Delete(last);
+            check_last_page_allocations();
+            assert(!knx_configure(registry_fixture(513).c_str(),error,sizeof(error)));
+            assert(persisted==saved);
+            assert(knx_command("point-511",nullptr,"off",true,error,sizeof(error)));
+        } else if (step==2) {
+            assert(writes.size()==1 && writes[0].address==0x09ff && writes[0].data.back()==0);
+            auto reduced = registry_fixture(352,media);
+            // Aliases at opposite ends of the file share the highest group address.
+            for (const char* old : {"\"1/0/0\"", "\"1/1/95\""}) {
+                reduced.replace(reduced.find(old), std::strlen(old), "\"1/7/255\"");
+            }
+            assert(knx_configure(reduced.c_str(),error,sizeof(error)));
+        } else if (step==3) {
+            status_is("running");assert(registrations==2 && !knx_object("point-511"));
+            knx_telegram_t report{};
+            report.source=0x1102; report.destination=0x0fff; report.command=KNX_COMMAND_RESPONSE;
+            report.data_length=1; report.data[0]=1;
+            callback(&report,nullptr);
+            for (int index : {0, 351}) {
+                cJSON* page = knx_objects(index, 1);
+                const cJSON* entry = cJSON_GetArrayItem(cJSON_GetObjectItemCaseSensitive(page,"objects"),0);
+                assert("point-" + std::to_string(index) == cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(entry,"id")));
+                assert(cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(entry,"value")));
+                cJSON_Delete(page);
+            }
+            assert(knx_configure(saved.c_str(),error,sizeof(error)) && persisted==saved);
+        } else {
+            status_is("running");assert(registrations==3);
+            cJSON* last=knx_object("point-511");assert(last);
+            assert(cJSON_IsFalse(cJSON_GetObjectItemCaseSensitive(last,"valid")));cJSON_Delete(last);
+            throw Done{};
+        }
+    };
+    try {test_worker(nullptr);} catch (const Done&) {}
+    assert(step==4);
+}
+
 int main(int argc, char **argv) {
+    if(argc==2 && !strcmp(argv[1],"--registry-capacity")) {exercise_registry_capacity();return 0;}
     assert(argc == 1 || argc == 3 || argc == 4);
     persisted=kKnxDefaultConfiguration;
     persisted.replace(persisted.find("3671"),4,"3672");

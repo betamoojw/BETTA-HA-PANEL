@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LicenseRef-FNCL-1.1
  * Copyright (c) 2026 andre68723 */
+const KNX_MAX_OBJECTS = 512;
+const KNX_MAX_CONFIG_BYTES = 262144;
 (() => {
   const node = id => document.getElementById(id);
   let loaded = false, dirty = false, busy = false, polling = false;
@@ -14,7 +16,8 @@
     node("knxWrite").disabled = busy || currentStatus?.state !== "running" || !o?.writable;
   }
   async function request(url, method = "GET", body, raw = false) {
-    const controller = new AbortController(), deadline = setTimeout(() => controller.abort(), 10000);
+    const controller = new AbortController();
+    const deadline = setTimeout(() => controller.abort(), url === "/api/knx/config" ? 60000 : 10000);
     try {
       const options = {method, signal: controller.signal, cache: "no-store"};
       if (body !== undefined) { options.headers = {"Content-Type":"application/json"}; options.body = body; }
@@ -44,7 +47,7 @@
     let config;
     try { config = validate(text); } catch (_) { config = null; }
     selectedObjects = config ? config.comObjects.filter(o => o && typeof o === "object") : [];
-    node("knxConfig").value = config ? JSON.stringify(config, null, 2) : text; dirty = false;
+    node("knxConfig").value = config ? formattedConfig(config, text) : text; dirty = false;
     node("knxObject").replaceChildren();
     selectedObjects.forEach((o, i) => {
       const option = document.createElement("option");
@@ -55,11 +58,15 @@
     objectInfo();
   }
   function validate(text) {
-    if (new TextEncoder().encode(text).length > 65535) throw new Error(t("knx.invalid"));
+    if (new TextEncoder().encode(text).length > KNX_MAX_CONFIG_BYTES) throw new Error(t("knx.invalid"));
     const c = JSON.parse(text);
     if (!c || Array.isArray(c) || c.media_type !== "knx_ip" || !c.media_parameters ||
-        !Array.isArray(c.comObjects) || c.comObjects.length > 128) throw new Error(t("knx.invalid"));
+        !Array.isArray(c.comObjects) || c.comObjects.length > KNX_MAX_OBJECTS) throw new Error(t("knx.invalid"));
     return c;
+  }
+  function formattedConfig(config, original) {
+    const pretty = JSON.stringify(config, null, 2);
+    return new TextEncoder().encode(pretty).length <= KNX_MAX_CONFIG_BYTES ? pretty : original;
   }
   async function action(fn) {
     if (busy || polling) return;
@@ -101,14 +108,15 @@
     setSaved(await request("/api/knx/config", "GET", undefined, true)); message("");
   }));
   node("knxFormat").addEventListener("click", () => action(async () => {
-    node("knxConfig").value = JSON.stringify(validate(node("knxConfig").value), null, 2);
+    const text = node("knxConfig").value;
+    node("knxConfig").value = formattedConfig(validate(text), text);
     dirty = true; message(t("knx.unsaved"));
   }));
   node("knxImport").addEventListener("click", () => node("knxFile").click());
   node("knxFile").addEventListener("change", () => action(async () => {
     const file = node("knxFile").files?.[0]; if (!file) return;
     try {
-      if (file.size > 65535) throw new Error(t("knx.invalid"));
+      if (file.size > KNX_MAX_CONFIG_BYTES) throw new Error(t("knx.invalid"));
       const text = await file.text(); validate(text);
       if (dirty && !window.confirm(t("knx.discard"))) return;
       node("knxConfig").value = text; dirty = true; message(t("knx.unsaved"));

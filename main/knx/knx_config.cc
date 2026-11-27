@@ -28,8 +28,10 @@ bool Multicast(const std::string& text) {
         text == std::to_string(a)+"."+std::to_string(b)+"."+std::to_string(c)+"."+std::to_string(d);
 }
 
-bool ShallowJson(const std::string& text) {
-    // Bound cJSON's recursive parser on the HTTP task's finite stack.
+bool BoundedJson(std::string_view text) {
+    // Bound cJSON tree allocation as well as recursion before parsing. A valid
+    // object has at most nine fields, plus the separators in the two headers.
+    size_t commas = 0;
     unsigned depth=0; bool quoted=false, escaped=false;
     for (char c : text) {
         if (quoted) {
@@ -37,6 +39,7 @@ bool ShallowJson(const std::string& text) {
             else if (c=='\\') escaped=true;
             else if (c=='"') quoted=false;
         } else if (c=='"') quoted=true;
+        else if (c==',' && ++commas > 9 * KNX_MAX_OBJECTS + 7) return false;
         else if (c=='{' || c=='[') { if (++depth>12) return false; }
         else if (c=='}' || c==']') { if (!depth) return false; --depth; }
     }
@@ -77,8 +80,10 @@ bool JsonString(const cJSON* object, const char* name, std::string& value, bool 
     if (!cJSON_IsString(item) || item->valuestring == nullptr) {
         return false;
     }
-    value = item->valuestring;
-    return (!required || !value.empty()) && value.size() <= maximum_length;
+    const size_t length = std::strlen(item->valuestring);
+    if ((required && !length) || length > maximum_length) return false;
+    value.assign(item->valuestring, length);
+    return true;
 }
 
 bool JsonBoolean(const cJSON* object, const char* name, bool& value) {
@@ -117,22 +122,18 @@ bool ValidateObject(const KnxCommunicationObject& object,
 
 
 
-bool KnxParseConfiguration(const std::string& json_text, size_t maximum_objects,
-                           size_t maximum_group_addresses,
+bool KnxParseConfiguration(std::string_view json_text,
                            std::vector<KnxCommunicationObject>& objects,
                            std::string& canonical_json, std::string& error,
-                           std::string* physical_address) {
+                           KnxRoutingParameters* routing) {
     objects.clear();
     canonical_json.clear();
     error.clear();
-    if (physical_address != nullptr) {
-        physical_address->clear();
-    }
-    if (json_text.empty() || json_text.size() > kKnxMaximumConfigurationLength) {
+    if (json_text.empty() || json_text.size() > KNX_MAX_CONFIG_BYTES) {
         error = "KNX configuration is empty or exceeds the size limit";
         return false;
     }
-    if (!ShallowJson(json_text)) { error = "Invalid or excessively nested JSON"; return false; }
+    if (!BoundedJson(json_text)) { error = "Invalid or excessive KNX JSON structure"; return false; }
     // cJSON strings use NUL termination: reject embedded or escaped NULs rather
     // than silently authorizing an ID truncated at that byte.
     if (json_text.find('\0') != std::string::npos ||
@@ -140,8 +141,10 @@ bool KnxParseConfiguration(const std::string& json_text, size_t maximum_objects,
         error = "NUL characters are not allowed"; return false;
     }
 
-    cJSON* root = cJSON_ParseWithLengthOpts(json_text.c_str(), json_text.size() + 1, nullptr, true);
-    if (root == nullptr) {
+    const char* end = nullptr;
+    cJSON* root = cJSON_ParseWithLengthOpts(json_text.data(), json_text.size(), &end, false);
+    if (!root || json_text.find_first_not_of(" \r\n\t", end - json_text.data()) != std::string_view::npos) {
+        cJSON_Delete(root);
         error = "Invalid JSON in KNX configuration";
         return false;
     }
@@ -184,6 +187,7 @@ bool KnxParseConfiguration(const std::string& json_text, size_t maximum_objects,
         error = "Invalid KNX root field 'media_parameters.udp_port'";
         return false;
     }
+    const auto port = static_cast<uint16_t>(udp_port->valueint);
     if (!JsonString(media_parameters, "transport_mode", transport_mode, true, 16) ||
         transport_mode != "routing") {
         cJSON_Delete(root);
@@ -216,13 +220,19 @@ bool KnxParseConfiguration(const std::string& json_text, size_t maximum_objects,
         return false;
     }
 
+    const int count = cJSON_GetArraySize(objects_array);
+    if (count > KNX_MAX_OBJECTS) {
+        cJSON_Delete(root);
+        error = "Too many KNX communication objects";
+        return false;
+    }
+    objects.reserve(count);
     bool valid = true;
     const cJSON* item = nullptr;
     size_t index = 0;
     cJSON_ArrayForEach (item, objects_array) {
-        if (objects.size() >= maximum_objects || !cJSON_IsObject(item)) {
-            error = ObjectFieldError(index, "object") +
-                    ": exceeds the configured limit or is not an object";
+        if (!cJSON_IsObject(item)) {
+            error = ObjectFieldError(index, "object") + ": expected an object";
             valid = false;
             break;
         }
@@ -285,15 +295,6 @@ bool KnxParseConfiguration(const std::string& json_text, size_t maximum_objects,
         ++index;
     }
 
-    size_t addresses = 0;
-    for (auto it = objects.begin(); it != objects.end(); ++it)
-        if (std::none_of(objects.begin(), it, [&](const auto& other) {
-                return other.parsed_group_address == it->parsed_group_address;
-            })) ++addresses;
-    if (valid && addresses > maximum_group_addresses) {
-        error = "KNX configuration exceeds component callback capacity";
-        valid = false;
-    }
     if (valid) {
         char* printed = cJSON_PrintUnformatted(root);
         if (printed == nullptr) {
@@ -302,7 +303,7 @@ bool KnxParseConfiguration(const std::string& json_text, size_t maximum_objects,
         } else {
             canonical_json = printed;
             cJSON_free(printed);
-            if (canonical_json.size() > kKnxMaximumConfigurationLength) {
+            if (canonical_json.size() > KNX_MAX_CONFIG_BYTES) {
                 error = "Canonical KNX configuration exceeds the size limit";
                 valid = false;
             }
@@ -312,8 +313,8 @@ bool KnxParseConfiguration(const std::string& json_text, size_t maximum_objects,
     if (!valid) {
         objects.clear();
         canonical_json.clear();
-    } else if (physical_address != nullptr) {
-        *physical_address = KnxFormatPhysicalAddress(parsed_physical_address_value);
+    } else if (routing) {
+        *routing = {std::move(multicast_address), port, parsed_physical_address_value};
     }
     return valid;
 }

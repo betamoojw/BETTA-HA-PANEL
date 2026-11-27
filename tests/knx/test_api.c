@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LicenseRef-FNCL-1.1
  * Copyright (c) 2026 andre68723 */
 #include "knx/knx.h"
+#include "knx/knx_limits.h"
 #include "api/http_guard.h"
 #include <assert.h>
 #include <stdlib.h>
@@ -11,6 +12,9 @@ static unsigned route_count,guard_calls,commands;
 static int status;
 static const char* incoming;
 static size_t consumed;
+static const char* offset_arg;
+static int returned_offset;
+static bool page_allocation_failed;
 static char response[1024];
 esp_err_t httpd_register_uri_handler(httpd_handle_t s,const httpd_uri_t* r) {
     (void)s; assert(route_count<6);routes[route_count++]=*r;return ESP_OK;
@@ -27,13 +31,16 @@ int httpd_req_recv(httpd_req_t* r,char* out,size_t n) {
     if (n>r->content_len-consumed) n=r->content_len-consumed;
     memcpy(out,incoming+consumed,n);consumed+=n;return (int)n;
 }
-esp_err_t httpd_req_get_url_query_str(httpd_req_t* r,char* q,size_t n) {(void)r;(void)q;(void)n;return ESP_FAIL;}
-esp_err_t httpd_query_key_value(const char* q,const char* k,char* v,size_t n) {(void)q;(void)k;(void)v;(void)n;return ESP_FAIL;}
+esp_err_t httpd_req_get_url_query_str(httpd_req_t* r,char* q,size_t n) {(void)r;if(!offset_arg)return ESP_FAIL;snprintf(q,n,"offset=%s",offset_arg);return ESP_OK;}
+esp_err_t httpd_query_key_value(const char* q,const char* k,char* v,size_t n) {(void)q;assert(!strcmp(k,"offset"));snprintf(v,n,"%s",offset_arg);return ESP_OK;}
 cJSON* knx_status(void) {return cJSON_Parse("{\"enabled\":false}");}
 char* knx_configuration(void) {return strdup("{}");}
 bool knx_enable(bool on,char* e,size_t n) {(void)on;(void)e;(void)n;return true;}
 bool knx_configure(const char* j,char* e,size_t n) {(void)j;(void)e;(void)n;return true;}
-cJSON* knx_objects(int offset,int limit) {(void)offset;(void)limit;return cJSON_CreateObject();}
+cJSON* knx_objects(int offset,int limit) {
+    assert(limit==20); returned_offset=offset;
+    return page_allocation_failed ? NULL : cJSON_CreateObject();
+}
 bool knx_command(const char* id,const char* address,const char* value,bool write,char* e,size_t n) {
     (void)e;(void)n;assert(!address);assert(!strcmp(id,"客厅灯"));
     assert(!write || !strcmp(value,"on"));commands++;return true;
@@ -55,5 +62,23 @@ int main(void) {
     for(size_t i=0;i<sizeof(bad)/sizeof(bad[0]);i++) {post(bad[i]);assert(status==400);}
     char nested[2002];memset(nested,'[',1000);memset(nested+1000,']',1000);nested[2000]=0;
     post(nested);assert(status==400 && commands==2 && guard_calls==9);
+    httpd_req_t req={0};
+    const char* offsets[]={"129","352","500","511","512","513",""};
+    for(size_t i=0;i<sizeof(offsets)/sizeof(*offsets);i++){
+        offset_arg=offsets[i];status=200;returned_offset=-1;
+        routes[4].handler(&req);
+        if(i<5){assert(status==200 && returned_offset==atoi(offset_arg));}
+        else {assert(status==400 && returned_offset==-1);}
+    }
+    offset_arg="500";page_allocation_failed=true;
+    routes[4].handler(&req);assert(status==500 && returned_offset==500);
+    page_allocation_failed=false;status=200;
+    routes[4].handler(&req);assert(status==200 && returned_offset==500);
+    char* payload=malloc(KNX_MAX_CONFIG_BYTES+1);assert(payload);
+    memset(payload,' ',KNX_MAX_CONFIG_BYTES);payload[KNX_MAX_CONFIG_BYTES]=0;
+    incoming=payload;consumed=0;status=200;req.content_len=KNX_MAX_CONFIG_BYTES;
+    routes[3].handler(&req);assert(status==200 && consumed==KNX_MAX_CONFIG_BYTES);
+    req.content_len++;consumed=0;routes[3].handler(&req);assert(status==400 && consumed==0);
+    free(payload);
     puts("Guarded KNX routes, chunked bodies, strict commands and recursion bounds passed");
 }

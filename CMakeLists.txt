@@ -85,6 +85,8 @@ project(${_PROJECT_NAME})
 # safe on a component this variant never fetches (skipped, not an error) -- see the script's own doc
 # comment. A PATCHES entry whose place cannot be found any more (a component version moved it) is a
 # real problem worth stopping the build for, not a warning to scroll past.
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_LIST_DIR}/tools/apply_component_patches.py")
 execute_process(
     COMMAND "${PYTHON}" "${CMAKE_CURRENT_LIST_DIR}/tools/apply_component_patches.py"
     WORKING_DIRECTORY "${CMAKE_CURRENT_LIST_DIR}"

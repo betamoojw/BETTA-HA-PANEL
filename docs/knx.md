@@ -24,9 +24,9 @@ configuration. Saving replaces the registry atomically and restarts Routing
 without rebooting. Invalid configuration leaves the previous file and objects intact.
 If a stored file is damaged, its text remains editable and exportable for recovery.
 
-The panel backup includes KNX configuration and enable preference.
-Older backups without KNX leave its settings unchanged. Existing local backup files
-are never rewritten by this feature.
+The panel backup includes the KNX configuration and enable preference. If the
+panel rejects the registry during restore, the editor stops before changing any
+other settings. Older backups that omit KNX preserve the panel's existing registry.
 
 ~~~json
 {
@@ -69,7 +69,9 @@ when actuators have separate group addresses. A feedback object must be
 readable and may also be writable. The nat field must be false for Routing.
 The interface_identifier is a descriptive label; the panel uses its existing Wi-Fi interface.
 
-Limits are 128 objects and 65,535 UTF-8 bytes. IDs allow 48 bytes, names 80,
+One registry can hold up to **512 communication objects**, including 512 distinct
+group addresses. The JSON file can contain up to **256 KiB (262,144 UTF-8 bytes)**,
+including whitespace. IDs allow 48 bytes, names 80,
 descriptions 192 and units 32. Group addresses use main/middle/sub with ranges
 0–31, 0–7 and 0–255. Individual addresses use area.line.member with ranges
 0–15, 0–15 and 0–255. At least one permission must be true.

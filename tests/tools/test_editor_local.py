@@ -91,6 +91,24 @@ class LocalCapacityHandlerTest(unittest.TestCase):
             self.assertFalse(page['objects'][0]['live_feedback'])
             self.assertEqual(page['state'], 'disabled')
 
+    def test_full_knx_registry_survives_rejected_replacement(self):
+        with tempfile.TemporaryDirectory() as directory:
+            handler = self.handler('panel10', directory)
+            points = [{'id': f'point-{i}', 'name': 'Lighting', 'description': 'A' * 160,
+                       'group_address': f'1/{i // 256}/{i % 256}', 'datapoint_type': 'DPT-1.001',
+                       'readable': True, 'writable': True} for i in range(512)]
+            config = {'media_type': 'knx_ip', 'comObjects': points}
+            self.assertGreater(len(json.dumps(config).encode()), 131072)
+            self.assertEqual(self.request(handler, '/api/knx/config', 'PUT', config)[0], 200)
+            page = self.request(handler, '/api/knx/objects?offset=500')[1]
+            self.assertEqual([o['id'] for o in page['objects']], [o['id'] for o in points[500:]])
+            self.assertFalse(page['has_more'])
+            self.assertEqual(self.request(handler, '/api/knx/objects?offset=512')[1]['objects'], [])
+            self.assertEqual(self.request(handler, '/api/knx/objects?offset=513')[0], 400)
+            invalid = dict(config, comObjects=points + [points[0]])
+            self.assertEqual(self.request(handler, '/api/knx/config', 'PUT', invalid)[0], 400)
+            self.assertEqual(self.request(handler, '/api/knx/config')[1], config)
+
 
 class LocalEditorTest(unittest.TestCase):
     def setUp(self):

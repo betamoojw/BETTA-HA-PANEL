@@ -3,7 +3,7 @@
 #include "knx.h"
 #include "knx_config.h"
 #include "knx_widget_model.h"
-#include "esp_knx_ip/esp_knx_ip.h"
+#include "knx_route.h"
 #include "esp_timer.h"
 #include "esp_log.h"
 #include "nvs.h"
@@ -17,13 +17,18 @@ extern "C" {
 }
 #include <algorithm>
 #include <atomic>
+#include <cstdlib>
 #include <cstring>
 #include <mutex>
+#include <numeric>
 
 cJSON* KnxObjectJson(const KnxCommunicationObject& object);
 namespace {
 std::mutex state_mutex, edit_mutex;
 std::vector<KnxCommunicationObject> objects;
+// Sorted indices keep the configured order for HTTP/MCP while routing only to matching aliases.
+std::vector<uint16_t> by_address;
+KnxRoutingParameters route;
 std::string configuration, error;
 const char* state = "disabled";
 bool enabled, valid_config, initialized;
@@ -31,7 +36,6 @@ std::atomic<uint32_t> view_revision{1};
 uint32_t registry_revision = 1;
 uint32_t generation = 1, active_generation, received_count, sent_count, rejected_count;
 uint32_t routing_epoch;
-knx_address_t physical;
 int64_t last_received;
 QueueHandle_t commands;
 TaskHandle_t worker;
@@ -80,17 +84,33 @@ KnxCommunicationObject* find(const char* id) {
     if (id && *id) for (auto& o : objects) if (o.id == id) return &o;
     return nullptr;
 }
+void install_objects(std::vector<KnxCommunicationObject>& parsed, KnxRoutingParameters& parameters) {
+    objects = std::move(parsed);
+    route = std::move(parameters);
+    by_address.resize(objects.size());
+    std::iota(by_address.begin(), by_address.end(), 0);
+    // The C library sort is already in every image; keep the routing index off the task stack.
+    if (by_address.size() > 1) {
+        std::qsort(by_address.data(), by_address.size(), sizeof(by_address[0]), [](const void* a, const void* b) {
+            return objects[*static_cast<const uint16_t*>(a)].parsed_group_address -
+                   objects[*static_cast<const uint16_t*>(b)].parsed_group_address;
+        });
+    }
+}
 void receive(const knx_telegram_t* t, void*) {
     std::lock_guard<std::mutex> guard(state_mutex);
     // Ignore our own multicast loopback: successful send is not bus feedback.
-    if (!enabled || generation != active_generation || t->source == physical ||
+    if (!enabled || generation != active_generation || t->source == route.physical_address ||
         (t->command != KNX_COMMAND_RESPONSE && t->command != KNX_COMMAND_WRITE)) return;
     KnxValue value;
     uint32_t revision = 0;
     int64_t received_ms = 0;
     bool valid_value = false;
-    for (auto& o : objects) {
-        if (o.parsed_group_address != t->destination) continue;
+    auto it = std::lower_bound(by_address.begin(), by_address.end(), t->destination,
+        [](uint16_t index, knx_address_t address) { return objects[index].parsed_group_address < address; });
+    for (; it != by_address.end(); ++it) {
+        auto& o = objects[*it];
+        if (o.parsed_group_address != t->destination) break;
         const bool observe_command = t->command == KNX_COMMAND_WRITE && cacheable_command(o);
         if (!o.readable && !observe_command) continue;
         // Configuration enforces a single DPT per address. Decode once for all aliases.
@@ -155,27 +175,12 @@ void run(void*) {
             esp_err_t result;
             {
                 std::lock_guard<std::mutex> guard(state_mutex);
-                cJSON* root = cJSON_Parse(configuration.c_str());
-                if (!root) {
-                    error = "Cannot allocate KNX configuration"; state = "error";
-                    retry_at = esp_timer_get_time() + 10000000;
-                    continue;
-                }
-                cJSON* media = cJSON_GetObjectItemCaseSensitive(root, "media_parameters");
                 esp_knx_ip_config_t cfg = ESP_KNX_IP_CONFIG_DEFAULT(netif);
-                cfg.multicast_address = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(media, "multicast_address"));
-                cfg.port = cJSON_GetObjectItemCaseSensitive(media, "udp_port")->valueint;
-                KnxParsePhysicalAddress(cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(root, "physical_address")), physical);
-                cfg.physical_address = physical; cfg.load_physical_address_from_nvs = false;
-                result = esp_knx_ip_create(&cfg, &handle);
-                cJSON_Delete(root);
-                if (result == ESP_OK) for (auto it = objects.begin(); it != objects.end(); ++it) {
-                    if (std::any_of(objects.begin(), it, [&](const auto& other) {
-                        return other.parsed_group_address == it->parsed_group_address;
-                    })) continue;
-                    result = esp_knx_ip_register_callback(handle, it->parsed_group_address, receive, nullptr);
-                    if (result != ESP_OK) break;
-                }
+                cfg.multicast_address = route.multicast_address.c_str();
+                cfg.port = route.port;
+                cfg.physical_address = route.physical_address;
+                cfg.load_physical_address_from_nvs = false;
+                result = betta_knx_route_create(&cfg, receive, &handle);
                 active_generation = generation;
             }
             if (result == ESP_OK) result = esp_knx_ip_start(handle);
@@ -230,13 +235,13 @@ extern "C" void knx_init(void) {
     if (initialized) return;
     std::string json, canonical, why;
     std::vector<KnxCommunicationObject> parsed;
-    bool ok = KnxLoadConfiguration(json, why) &&
-        KnxParseConfiguration(json, kKnxMaximumObjects, CONFIG_ESP_KNX_IP_MAX_GROUP_ADDRESSES, parsed, canonical, why);
+    KnxRoutingParameters parameters;
+    bool ok = KnxLoadConfiguration(json, why) && KnxParseConfiguration(json, parsed, canonical, why, &parameters);
     uint8_t saved = 0; nvs_handle_t h;
     if (nvs_open("knx", NVS_READONLY, &h) == ESP_OK) { nvs_get_u8(h, "enabled", &saved); nvs_close(h); }
     std::lock_guard<std::mutex> guard(state_mutex);
     configuration = ok ? std::move(canonical) : std::move(json);
-    objects = std::move(parsed); valid_config = ok; enabled = saved != 0 && CONFIG_LWIP_MAX_SOCKETS >= 24;
+    install_objects(parsed, parameters); valid_config = ok; enabled = saved != 0 && CONFIG_LWIP_MAX_SOCKETS >= 24;
     invalidate_views();
     error = why;
     commands = xQueueCreate(8, sizeof(Command));
@@ -275,11 +280,11 @@ extern "C" bool knx_configure(const char* json, char* out, size_t size) {
     std::lock_guard<std::mutex> edit(edit_mutex);
     std::vector<KnxCommunicationObject> parsed;
     std::string canonical, why;
-    if (!json || !KnxParseConfiguration(json, kKnxMaximumObjects, CONFIG_ESP_KNX_IP_MAX_GROUP_ADDRESSES,
-                                       parsed, canonical, why) || !KnxSaveConfiguration(canonical, why))
+    KnxRoutingParameters parameters;
+    if (!json || !KnxParseConfiguration(json, parsed, canonical, why, &parameters) || !KnxSaveConfiguration(canonical, why))
         return fail(out, size, why.c_str());
     std::lock_guard<std::mutex> guard(state_mutex);
-    objects = std::move(parsed); configuration = std::move(canonical);
+    install_objects(parsed, parameters); configuration = std::move(canonical);
     valid_config = true; generation++; error.clear(); set_state(enabled ? "starting" : "disabled");
     invalidate_views();
     return true;
@@ -306,21 +311,27 @@ extern "C" cJSON* knx_status(void) {
 }
 extern "C" cJSON* knx_objects(int offset, int limit) {
     std::lock_guard<std::mutex> guard(state_mutex);
-    offset = std::max(0, offset); limit = std::clamp(limit, 1, 20);
-    cJSON* j = cJSON_CreateObject(); cJSON* list = cJSON_AddArrayToObject(j, "objects");
-    int end = std::min(static_cast<int>(objects.size()), offset + limit);
-    for (int i = offset; i < end; i++) cJSON_AddItemToArray(list, KnxObjectJson(objects[i]));
-    cJSON_AddBoolToObject(j, "has_more", end < static_cast<int>(objects.size()));
-    cJSON_AddNumberToObject(j, "generation", generation);
-    cJSON_AddNumberToObject(j, "routing_epoch", routing_epoch);
-    cJSON_AddNumberToObject(j, "next_offset", end); cJSON_AddStringToObject(j, "state", state);
-    return j;
+    const int count = static_cast<int>(objects.size());
+    offset = std::clamp(offset, 0, count); limit = std::clamp(limit, 1, 20);
+    const int end = std::min(count, offset + limit);
+    cJSON* j = cJSON_CreateObject();
+    cJSON* list = j ? cJSON_AddArrayToObject(j, "objects") : nullptr;
+    if (list && cJSON_AddBoolToObject(j, "has_more", end < count) &&
+        cJSON_AddNumberToObject(j, "generation", generation) && cJSON_AddNumberToObject(j, "routing_epoch", routing_epoch) &&
+        cJSON_AddNumberToObject(j, "next_offset", end) && cJSON_AddStringToObject(j, "state", state)) {
+        for (int i = offset; i < end; ++i) {
+            if (!cJSON_AddItemToArray(list, KnxObjectJson(objects[i]))) { cJSON_Delete(j); return nullptr; }
+        }
+        return j;
+    }
+    cJSON_Delete(j);
+    return nullptr;
 }
 extern "C" cJSON* knx_object(const char* id) {
     std::lock_guard<std::mutex> guard(state_mutex);
     auto* o = find(id);
     cJSON* j = o ? KnxObjectJson(*o) : nullptr;
-    if (j) cJSON_AddStringToObject(j, "state", state);
+    if (j && !cJSON_AddStringToObject(j, "state", state)) { cJSON_Delete(j); return nullptr; }
     return j;
 }
 static bool queue_command(KnxCommunicationObject* o, const char* value, bool write, char* out, size_t size, bool toggle = false) {

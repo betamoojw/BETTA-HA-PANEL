@@ -20,6 +20,9 @@ import webbrowser
 from urllib.parse import parse_qs, urlsplit
 from zoneinfo import ZoneInfo
 
+KNX_MAX_OBJECTS = 512
+KNX_MAX_CONFIG_BYTES = 262144
+
 from generate_docs_examples import DemoHTTPServer, WWW, demo_api, fixtures
 from generate_timezones import DB, load_date_patterns
 from generate_simulator_gallery import DATA, FIXED_NOW, GEOMETRY, build_simulator, demo_page, prepare_fixture
@@ -357,7 +360,10 @@ def build_server(port=8766, variant='paneljc', fixture_path=None, state_path=Non
                     return self.reply(value)
                 if url.path == '/api/knx/objects':
                     objects = responses['/api/knx/config']['comObjects']
-                    offset = max(0, int(query.get('offset', ['0'])[0]))
+                    try: offset = int(query.get('offset', ['0'])[0])
+                    except ValueError: return self.reply({'error': 'Invalid offset'}, 400)
+                    if not 0 <= offset <= KNX_MAX_OBJECTS:
+                        return self.reply({'error': 'Invalid offset'}, 400)
                     return self.reply({'objects': [local_knx_object(o) for o in objects[offset:offset+20]],
                                        'state': responses['/api/knx']['state'], 'generation': store.knx_generation,
                                        'has_more': offset+20 < len(objects), 'next_offset': min(len(objects), offset+20),
@@ -377,11 +383,12 @@ def build_server(port=8766, variant='paneljc', fixture_path=None, state_path=Non
                 return self.reply({'error': 'Only local browser requests are accepted'}, 403)
             try: length = int(self.headers.get('Content-Length', '0'))
             except ValueError: return self.reply({'error': 'Invalid Content-Length'}, 400)
-            if not 0 <= length <= 131072: return self.reply({'error': 'Request too large'}, 413)
+            path = urlsplit(self.path).path
+            size_limit = KNX_MAX_CONFIG_BYTES if path == '/api/knx/config' else 131072
+            if not 0 <= length <= size_limit: return self.reply({'error': 'Request too large'}, 413)
             try: body = json.loads(self.rfile.read(length) or b'{}')
             except (ValueError, UnicodeError): return self.reply({'error': 'Invalid JSON'}, 400)
             if not isinstance(body, dict): return self.reply({'error': 'Expected a JSON object'}, 400)
-            path = urlsplit(self.path).path
             if path == '/api/local/simulator' and self.command == 'POST':
                 with store.lock:
                     layout = body.get('layout') if isinstance(body.get('layout'), dict) else responses['/api/layout']
@@ -414,7 +421,8 @@ def build_server(port=8766, variant='paneljc', fixture_path=None, state_path=Non
                     store.persist()
                     return self.reply(responses[path])
                 if path == '/api/knx/config' and self.command == 'PUT':
-                    if body.get('media_type') != 'knx_ip' or not isinstance(body.get('comObjects'), list):
+                    if (body.get('media_type') != 'knx_ip' or not isinstance(body.get('comObjects'), list)
+                            or len(body['comObjects']) > KNX_MAX_OBJECTS):
                         return self.reply({'error': 'Invalid local KNX configuration'}, 400)
                     responses[path] = body
                     store.knx_generation += 1

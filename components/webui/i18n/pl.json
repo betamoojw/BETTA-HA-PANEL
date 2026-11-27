@@ -2051,7 +2051,7 @@
   "knx.enable": "Włącz KNXnet/IP",
   "knx.permissions": "AI Assistant korzysta tylko ze skonfigurowanych obiektów i ich uprawnień odczytu/zapisu. Wysłanie polecenia nie potwierdza stanu urządzenia.",
   "knx.configuration": "Konfiguracja (knxConfig.json)",
-  "knx.edit_hint": "Importuj lub edytuj JSON i zapisz. Wyłączenie zachowuje konfigurację. Maksymalnie 128 obiektów i 65 535 bajtów UTF-8.",
+  "knx.edit_hint": "Importuj lub edytuj JSON i zapisz. Wyłączenie zachowuje konfigurację. Maksymalnie 512 obiektów i 262 144 bajtów UTF-8.",
   "knx.import": "Importuj JSON",
   "knx.export": "Eksportuj wersję roboczą",
   "knx.format": "Formatuj JSON",

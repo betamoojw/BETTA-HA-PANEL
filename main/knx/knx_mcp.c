@@ -2,6 +2,9 @@
  * Copyright (c) 2026 andre68723 */
 #include "knx_mcp.h"
 #include "knx.h"
+#include "knx_limits.h"
+#define KNX_STRINGIFY_(n) #n
+#define KNX_STRINGIFY(n) KNX_STRINGIFY_(n)
 #include "xiaozhi/xiaozhi_mcp_tools.h"
 #include <stdlib.h>
 #include <string.h>
@@ -36,7 +39,7 @@ static const tool_t tools[] = {
     {"self.knx.get_status", "KNX routing availability. Running means multicast is joined, not that the bus is confirmed reachable.",
      "{\"type\":\"object\",\"properties\":{},\"additionalProperties\":false}", TOOL_KNX},
     {"self.knx.list_objects", "Discover configured KNX IDs, names, descriptions, DPTs and permissions before selecting an object. Use next_offset while has_more is true.",
-     "{\"type\":\"object\",\"properties\":{\"offset\":{\"type\":\"integer\",\"minimum\":0,\"maximum\":128},\"limit\":{\"type\":\"integer\",\"minimum\":1,\"maximum\":5}},\"additionalProperties\":false}", TOOL_KNX},
+     "{\"type\":\"object\",\"properties\":{\"offset\":{\"type\":\"integer\",\"minimum\":0,\"maximum\":" KNX_STRINGIFY(KNX_MAX_OBJECTS) "},\"limit\":{\"type\":\"integer\",\"minimum\":1,\"maximum\":5}},\"additionalProperties\":false}", TOOL_KNX},
     {"self.knx.get_object", "Get KNX metadata and cached state by exact ID. valid=false means unknown. Check state and last_update_ms; never invent confirmation.",
      "{\"type\":\"object\",\"properties\":{\"object_id\":{\"type\":\"string\"}},\"required\":[\"object_id\"],\"additionalProperties\":false}", TOOL_KNX},
     {"self.knx.set_object", "Control a configured writable KNX object by exact ID. value is a string: on/off for switches, decimal for numbers, comma-separated fields for compound DPTs. Queued is not bus confirmation.",

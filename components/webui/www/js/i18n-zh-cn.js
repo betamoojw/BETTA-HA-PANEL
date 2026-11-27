@@ -2055,7 +2055,7 @@ WEB_I18N_BUILTIN["zh-cn"] = {
   "knx.enable": "启用 KNXnet/IP",
   "knx.permissions": "AI Assistant只能使用已配置的通信对象及其读写权限。命令已发送不代表执行器已确认状态。",
   "knx.configuration": "配置文件（knxConfig.json）",
-  "knx.edit_hint": "导入或编辑 JSON 后，点击保存生效。停用会保留配置。最多 128 个对象、65,535 字节 UTF-8 数据。",
+  "knx.edit_hint": "导入或编辑 JSON 后，点击保存生效。停用会保留配置。最多 512 个对象、262,144 字节 UTF-8 数据。",
   "knx.import": "导入 JSON",
   "knx.export": "导出草稿",
   "knx.format": "格式化 JSON",

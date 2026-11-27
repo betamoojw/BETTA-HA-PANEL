@@ -3,91 +3,89 @@
 #include "knx_widget_model.h"
 #include "cJSON.h"
 #include <type_traits>
-void AddValue(cJSON* json, const KnxValue& value) {
-    std::visit(
-        [json](const auto& item) {
+bool AddValue(cJSON* json, const KnxValue& value) {
+    return std::visit(
+        [json](const auto& item) -> bool {
             using Type = std::decay_t<decltype(item)>;
             if constexpr (std::is_same_v<Type, std::monostate>) {
-                cJSON_AddNullToObject(json, "value");
+                return cJSON_AddNullToObject(json, "value");
             } else if constexpr (std::is_same_v<Type, bool>) {
-                cJSON_AddBoolToObject(json, "value", item);
+                return cJSON_AddBoolToObject(json, "value", item);
             } else if constexpr (std::is_same_v<Type, int64_t>) {
-                cJSON_AddStringToObject(json, "value", std::to_string(item).c_str());
+                return cJSON_AddStringToObject(json, "value", std::to_string(item).c_str());
             } else if constexpr (std::is_arithmetic_v<Type>) {
-                cJSON_AddNumberToObject(json, "value", item);
+                return cJSON_AddNumberToObject(json, "value", item);
             } else if constexpr (std::is_same_v<Type, std::string>) {
-                cJSON_AddStringToObject(json, "value", item.c_str());
+                return cJSON_AddStringToObject(json, "value", item.c_str());
             } else {
                 cJSON* object = cJSON_AddObjectToObject(json, "value");
+                if (!object) return false;
                 if constexpr (std::is_same_v<Type, knx_dpt2_control_t>) {
-                    cJSON_AddBoolToObject(object, "control", item.control);
-                    cJSON_AddBoolToObject(object, "value", item.value);
+                    return cJSON_AddBoolToObject(object, "control", item.control) &&
+                           cJSON_AddBoolToObject(object, "value", item.value);
                 } else if constexpr (std::is_same_v<Type, knx_dpt3_control_t>) {
-                    cJSON_AddBoolToObject(object, "control", item.control);
-                    cJSON_AddNumberToObject(object, "step_code", item.step_code);
+                    return cJSON_AddBoolToObject(object, "control", item.control) &&
+                           cJSON_AddNumberToObject(object, "step_code", item.step_code);
                 } else if constexpr (std::is_same_v<Type, knx_dpt10_time_t>) {
-                    cJSON_AddNumberToObject(object, "weekday", item.weekday);
-                    cJSON_AddNumberToObject(object, "hour", item.hour);
-                    cJSON_AddNumberToObject(object, "minute", item.minute);
-                    cJSON_AddNumberToObject(object, "second", item.second);
+                    return cJSON_AddNumberToObject(object, "weekday", item.weekday) &&
+                           cJSON_AddNumberToObject(object, "hour", item.hour) &&
+                           cJSON_AddNumberToObject(object, "minute", item.minute) &&
+                           cJSON_AddNumberToObject(object, "second", item.second);
                 } else if constexpr (std::is_same_v<Type, knx_dpt11_date_t>) {
-                    cJSON_AddNumberToObject(object, "day", item.day);
-                    cJSON_AddNumberToObject(object, "month", item.month);
-                    cJSON_AddNumberToObject(object, "year", item.year);
+                    return cJSON_AddNumberToObject(object, "day", item.day) &&
+                           cJSON_AddNumberToObject(object, "month", item.month) &&
+                           cJSON_AddNumberToObject(object, "year", item.year);
                 } else if constexpr (std::is_same_v<Type, knx_dpt18_scene_control_t>) {
-                    cJSON_AddBoolToObject(object, "learn", item.learn);
-                    cJSON_AddNumberToObject(object, "scene_number", item.scene_number);
+                    return cJSON_AddBoolToObject(object, "learn", item.learn) &&
+                           cJSON_AddNumberToObject(object, "scene_number", item.scene_number);
                 } else if constexpr (std::is_same_v<Type, KnxDateTime>) {
-                    cJSON_AddNumberToObject(object, "year", item.year);
-                    cJSON_AddNumberToObject(object, "month", item.month);
-                    cJSON_AddNumberToObject(object, "day", item.day);
-                    cJSON_AddNumberToObject(object, "weekday", item.weekday);
-                    cJSON_AddNumberToObject(object, "hour", item.hour);
-                    cJSON_AddNumberToObject(object, "minute", item.minute);
-                    cJSON_AddNumberToObject(object, "second", item.second);
-                    cJSON_AddBoolToObject(object, "fault", item.fault);
-                    cJSON_AddBoolToObject(object, "working_day", item.working_day);
-                    cJSON_AddBoolToObject(object, "working_day_valid", item.working_day_valid);
-                    cJSON_AddBoolToObject(object, "date_valid", item.date_valid);
-                    cJSON_AddBoolToObject(object, "weekday_valid", item.weekday_valid);
-                    cJSON_AddBoolToObject(object, "time_valid", item.time_valid);
-                    cJSON_AddBoolToObject(object, "daylight_saving_time",
-                                          item.daylight_saving_time);
-                    cJSON_AddBoolToObject(object, "clock_quality", item.clock_quality);
-                    cJSON_AddBoolToObject(object, "year_valid", item.year_valid);
+                    return cJSON_AddNumberToObject(object, "year", item.year) &&
+                           cJSON_AddNumberToObject(object, "month", item.month) &&
+                           cJSON_AddNumberToObject(object, "day", item.day) &&
+                           cJSON_AddNumberToObject(object, "weekday", item.weekday) &&
+                           cJSON_AddNumberToObject(object, "hour", item.hour) &&
+                           cJSON_AddNumberToObject(object, "minute", item.minute) &&
+                           cJSON_AddNumberToObject(object, "second", item.second) &&
+                           cJSON_AddBoolToObject(object, "fault", item.fault) &&
+                           cJSON_AddBoolToObject(object, "working_day", item.working_day) &&
+                           cJSON_AddBoolToObject(object, "working_day_valid", item.working_day_valid) &&
+                           cJSON_AddBoolToObject(object, "date_valid", item.date_valid) &&
+                           cJSON_AddBoolToObject(object, "weekday_valid", item.weekday_valid) &&
+                           cJSON_AddBoolToObject(object, "time_valid", item.time_valid) &&
+                           cJSON_AddBoolToObject(object, "daylight_saving_time", item.daylight_saving_time) &&
+                           cJSON_AddBoolToObject(object, "clock_quality", item.clock_quality) &&
+                           cJSON_AddBoolToObject(object, "year_valid", item.year_valid);
                 } else if constexpr (std::is_same_v<Type, knx_dpt26_scene_info_t>) {
-                    cJSON_AddBoolToObject(object, "active", item.active);
-                    cJSON_AddNumberToObject(object, "scene_number", item.scene_number);
+                    return cJSON_AddBoolToObject(object, "active", item.active) &&
+                           cJSON_AddNumberToObject(object, "scene_number", item.scene_number);
                 } else if constexpr (std::is_same_v<Type, knx_dpt27_combined_status_t>) {
-                    cJSON_AddNumberToObject(object, "value", item.value);
-                    cJSON_AddNumberToObject(object, "mask", item.mask);
+                    return cJSON_AddNumberToObject(object, "value", item.value) &&
+                           cJSON_AddNumberToObject(object, "mask", item.mask);
                 } else if constexpr (std::is_same_v<Type, knx_dpt232_color_t>) {
-                    cJSON_AddNumberToObject(object, "red", item.red);
-                    cJSON_AddNumberToObject(object, "green", item.green);
-                    cJSON_AddNumberToObject(object, "blue", item.blue);
+                    return cJSON_AddNumberToObject(object, "red", item.red) &&
+                           cJSON_AddNumberToObject(object, "green", item.green) &&
+                           cJSON_AddNumberToObject(object, "blue", item.blue);
                 } else if constexpr (std::is_same_v<Type, knx_dpt251_color_t>) {
-                    cJSON_AddNumberToObject(object, "red", item.red);
-                    cJSON_AddNumberToObject(object, "green", item.green);
-                    cJSON_AddNumberToObject(object, "blue", item.blue);
-                    cJSON_AddNumberToObject(object, "white", item.white);
-                    cJSON_AddNumberToObject(object, "valid_channels", item.valid_channels);
+                    return cJSON_AddNumberToObject(object, "red", item.red) &&
+                           cJSON_AddNumberToObject(object, "green", item.green) &&
+                           cJSON_AddNumberToObject(object, "blue", item.blue) &&
+                           cJSON_AddNumberToObject(object, "white", item.white) &&
+                           cJSON_AddNumberToObject(object, "valid_channels", item.valid_channels);
                 }
             }
         },
         value);
 }
 
-cJSON* KnxObjectJson(const KnxCommunicationObject& object) {
-    cJSON* json = cJSON_CreateObject();
-    cJSON_AddStringToObject(json, "id", object.id.c_str());
-    cJSON_AddStringToObject(json, "name", object.name.c_str());
-    if (!object.description.empty()) {
-        cJSON_AddStringToObject(json, "description", object.description.c_str());
-    }
-    cJSON_AddStringToObject(json, "group_address", object.group_address.c_str());
-    cJSON_AddStringToObject(json, "datapoint_type", KnxDptName(object.datapoint_type).c_str());
-    cJSON_AddStringToObject(json, "unit", object.unit.c_str());
-    if (object.display_precision >= 0) cJSON_AddNumberToObject(json, "display_precision", object.display_precision);
+static bool WriteObjectJson(cJSON* json, const KnxCommunicationObject& object) {
+    if (!cJSON_AddStringToObject(json, "id", object.id.c_str()) ||
+        !cJSON_AddStringToObject(json, "name", object.name.c_str()) ||
+        (!object.description.empty() && !cJSON_AddStringToObject(json, "description", object.description.c_str())) ||
+        !cJSON_AddStringToObject(json, "group_address", object.group_address.c_str()) ||
+        !cJSON_AddStringToObject(json, "datapoint_type", KnxDptName(object.datapoint_type).c_str()) ||
+        !cJSON_AddStringToObject(json, "unit", object.unit.c_str()) ||
+        (object.display_precision >= 0 && !cJSON_AddNumberToObject(json, "display_precision", object.display_precision)))
+        return false;
     const char* format = "decimal integer";
     switch (object.datapoint_type.main) {
         case 1: format = "on/off or true/false"; break;
@@ -110,29 +108,35 @@ cJSON* KnxObjectJson(const KnxCommunicationObject& object) {
         case 234: format = "two-letter language/region code, per subtype"; break;
         case 251: format = "red,green,blue,white,valid_channels (channels 0..255, validity mask 0..15)"; break;
     }
-    cJSON_AddStringToObject(json, "value_format", format);
-    cJSON_AddBoolToObject(json, "readable", object.readable);
-    cJSON_AddBoolToObject(json, "writable", object.writable);
+    if (!cJSON_AddStringToObject(json, "value_format", format) ||
+        !cJSON_AddBoolToObject(json, "readable", object.readable) ||
+        !cJSON_AddBoolToObject(json, "writable", object.writable)) return false;
     cJSON* types = cJSON_AddArrayToObject(json, "widget_types");
+    if (!types) return false;
     for (const char* type : {"sensor", "gauge", "graph", "binary_tile", "contact_tile",
                              "button", "slider", "light_tile", "scene_tile"})
-        if (KnxWidgetSupports(object, knx_tile_kind(type)))
-            cJSON_AddItemToArray(types, cJSON_CreateString(type));
+        if (KnxWidgetSupports(object, knx_tile_kind(type)) &&
+            !cJSON_AddItemToArray(types, cJSON_CreateStringReference(type))) return false;
     cJSON* roles = cJSON_AddArrayToObject(json, "widget_roles");
+    if (!roles) return false;
     for (int i = 0; i < KNX_ROLE_COUNT; ++i) {
         auto role = static_cast<knx_role_t>(i);
-        if (KnxWidgetRoleSupports(object, role))
-            cJSON_AddItemToArray(roles, cJSON_CreateString(knx_role_name(role)));
+        if (KnxWidgetRoleSupports(object, role) &&
+            !cJSON_AddItemToArray(roles, cJSON_CreateStringReference(knx_role_name(role)))) return false;
     }
-    cJSON_AddBoolToObject(json, "valid", object.valid);
-    cJSON_AddBoolToObject(json, "live_feedback", object.live_feedback);
+    if (!cJSON_AddBoolToObject(json, "valid", object.valid) ||
+        !cJSON_AddBoolToObject(json, "live_feedback", object.live_feedback)) return false;
     if (object.command_revision) {
-        if (object.datapoint_type.main == 1) cJSON_AddBoolToObject(json, "last_command", object.last_command != 0);
-        else cJSON_AddNumberToObject(json, "last_command", object.last_command);
+        if (!(object.datapoint_type.main == 1 ? cJSON_AddBoolToObject(json, "last_command", object.last_command != 0)
+                                              : cJSON_AddNumberToObject(json, "last_command", object.last_command))) return false;
     }
-    if (object.valid) {
-        AddValue(json, object.current_value);
-        cJSON_AddNumberToObject(json, "last_update_ms", static_cast<double>(object.last_update_ms));
-    }
-    return json;
+    return !object.valid || (AddValue(json, object.current_value) &&
+        cJSON_AddNumberToObject(json, "last_update_ms", static_cast<double>(object.last_update_ms)));
+}
+
+cJSON* KnxObjectJson(const KnxCommunicationObject& object) {
+    cJSON* json = cJSON_CreateObject();
+    if (json && WriteObjectJson(json, object)) return json;
+    cJSON_Delete(json);
+    return nullptr;
 }

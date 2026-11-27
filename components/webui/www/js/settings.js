@@ -1719,6 +1719,14 @@ async function restoreBackup() {
     }
     if (!window.confirm(t("settings.backup.confirm"))) return;
     if (msg) msg.textContent = t("settings.backup.restoring");
+    normalizeLayoutWidgets(backup.layout);
+    if (backup.cameras && (!backup.cameras.local || !Array.isArray(backup.cameras.sources))) throw new Error("Invalid camera backup");
+    // Older backups omit KNX. Let the panel reject an invalid registry before any other write.
+    if (backup.knx) {
+      if (!backup.knx.configuration || typeof backup.knx.enabled !== "boolean") throw new Error("Invalid KNX backup");
+      await backupSend("/api/knx/config", "PUT", backup.knx.configuration);
+      await backupSend("/api/knx", "PUT", {enabled: backup.knx.enabled});
+    }
     for (const [code, texts] of Object.entries(backup.languages?.custom || {})) {
       await backupSend(`/api/i18n/custom?lang=${encodeURIComponent(code)}`, "PUT", texts);
     }
@@ -1728,16 +1736,7 @@ async function restoreBackup() {
     if (backup.themes?.active_id) {
       await backupSend("/api/themes/active", "PUT", { id: backup.themes.active_id });
     }
-    normalizeLayoutWidgets(backup.layout);
-    // Optional in older backups. Configuration is validated and committed before
-    // changing enable state; a malformed registry must not replace working data.
-    if (backup.knx) {
-      if (!backup.knx.configuration || typeof backup.knx.enabled !== "boolean") throw new Error("Invalid KNX backup");
-      await backupSend("/api/knx/config", "PUT", backup.knx.configuration);
-      await backupSend("/api/knx", "PUT", {enabled: backup.knx.enabled});
-    }
     if(backup.cameras){
-      if(!backup.cameras.local||!Array.isArray(backup.cameras.sources))throw new Error("Invalid camera backup");
       await backupSend("/api/camera/config","PUT",{local:backup.cameras.local,sources:backup.cameras.sources});
     }
     await backupSend("/api/layout", "PUT", backup.layout);

@@ -85,6 +85,8 @@ CONFIG_LWIP_TCP_RECVMBOX_SIZE=32
 CONFIG_LWIP_UDP_RECVMBOX_SIZE=32
 # HTTP clients must leave room for HA, MQTT, voice, DNS and health probes.
 CONFIG_LWIP_MAX_SOCKETS=32
+# The KNX service dispatches through its own group index, not per-address transport slots.
+CONFIG_ESP_KNX_IP_MAX_GROUP_ADDRESSES=1
 CONFIG_LWIP_TCP_MSS=1200
 CONFIG_LWIP_TCP_SND_BUF_DEFAULT=16384
 CONFIG_LWIP_TCP_WND_DEFAULT=16384

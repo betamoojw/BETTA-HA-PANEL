@@ -64,6 +64,7 @@ add_executable(knx_service_test test_service.cc "${KNX}/knx_service.cc" "${ROOT}
 target_include_directories(knx_service_test BEFORE PRIVATE stubs "${ROOT}/tests/host/stubs" "${ROOT}/main")
 target_link_libraries(knx_service_test PRIVATE knx_codec)
 add_test(NAME knx_service COMMAND knx_service_test)
+add_test(NAME knx_registry_capacity COMMAND knx_service_test --registry-capacity)
 find_program(KNX_NODE node)
 if(KNX_NODE)
   add_test(NAME knx_editor_worker COMMAND ${CMAKE_COMMAND} -E env

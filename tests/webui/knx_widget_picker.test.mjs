@@ -127,11 +127,42 @@ test("confirmed KNX text renders HA availability words as literal sensor values"
 test("closing a KNX picker rejects its late response and a changed registry cannot mix pages", async () => {
   const run = chooser();
   run('apiGet = () => new Promise(resolve => globalThis.complete = resolve); globalThis.pending = startKnxWidgetPicker()');
-  run('closeAddTileDialog(); complete({objects, state: "running", generation: 1})');
+  run('closeAddTileDialog(); complete({objects, state: "running", generation: 1, has_more:false, next_offset:objects.length})');
   await run("pending");
   assert.equal(run("knxPickerObjects.length"), 0);
   run('let generation = 0; apiGet = async () => ({objects: [], has_more: true, generation: ++generation, next_offset: 1})');
   await assert.rejects(run("fetchKnxWidgetObjects()"));
+});
+
+test("picker and preview reach the last object of a full 26-page registry", async () => {
+  const run=chooser();
+  run(`objects=Array.from({length:512},(_,i)=>({...objects[0],id:"point-"+i,group_address:"1/"+(i>>8)+"/"+(i%256),value:i}));
+    routing="running";
+    apiGet=async path=>{
+      paths.push(path);
+      const offset=Number(path.split("=")[1]), next=Math.min(offset+20,objects.length);
+      return {state:routing,generation:7,routing_epoch:2,objects:objects.slice(offset,next),has_more:next<objects.length,next_offset:next};
+    }`);
+  await run("startKnxWidgetPicker()");
+  assert.equal(run("knxPickerObjects[511].id"),"point-511");
+  assert.equal(run("paths.length"),26);assert.equal(run("paths.at(-1)"),"/api/knx/objects?offset=500");
+  await run("refreshKnxWidgetPreview()");
+  assert.equal(run('knxRegistry.get("point-511").value'),511);
+  run("objects.push({...objects[0],id:'overflow'})");
+  await assert.rejects(run("fetchKnxWidgetObjects()"));
+});
+
+test("a short final registry page cannot publish a partial snapshot; a complete retry works", async () => {
+  const run = chooser();
+  run(`let short = true;
+    apiGet = async path => {
+      const offset = Number(path.split("=")[1]);
+      return {generation:1, routing_epoch:2, state:"running", has_more:offset === 0,
+        next_offset:offset + 1, objects:offset && short ? [] : [objects[offset]]};
+    };`);
+  await assert.rejects(run("fetchKnxWidgetObjects()"));
+  run("short = false");
+  assert.equal((await run("fetchKnxWidgetObjects()")).objects.length, 2);
 });
 
 test("a reconnect between registry pages discards old commands and feedback, even if both pages say running", async () => {
@@ -143,7 +174,8 @@ test("a reconnect between registry pages discards old commands and feedback, eve
     const status = {id:"F", readable:true, widget_roles:["preset_feedback"]};
     const pages = [
       {objects:[{...cmd,last_command:3},{...status,live_feedback:true,value:3}], routing_epoch:5, has_more:true, next_offset:2},
-      {objects:[], routing_epoch:6}, {objects:[cmd,status], routing_epoch:6}
+      {objects:[], routing_epoch:6, has_more:false, next_offset:2},
+      {objects:[cmd,status], routing_epoch:6, has_more:false, next_offset:2}
     ];
     apiGet = async path => {paths.push(path); return {state:"running", generation:1, ...pages.shift()};};`);
   await run("refreshKnxWidgetPreview()");
@@ -161,10 +193,10 @@ test("an older picker response cannot overwrite a fresh zero from the reconnecte
     const object = {id:"P",writable:true,widget_roles:["preset_command"]};
     apiGet = () => new Promise(resolve => globalThis.finishPicker = resolve);
     const pendingPicker = startKnxWidgetPicker();
-    apiGet = async () => ({objects:[{...object,last_command:0}],state:"running",routing_epoch:2});`);
+    apiGet = async () => ({objects:[{...object,last_command:0}],state:"running",routing_epoch:2,has_more:false,next_offset:1});`);
   await run("refreshKnxWidgetPreview()");
   assert.match(run("tilePreviewMarkup(preset)"), /<b>Auto<\/b>/);
-  run('finishPicker({objects:[object],state:"disabled",routing_epoch:1})');
+  run('finishPicker({objects:[object],state:"disabled",routing_epoch:1,has_more:false,next_offset:1})');
   await run("pendingPicker");
   assert.match(run("tilePreviewMarkup(preset)"), /<b>Auto<\/b>/);
   assert.equal(run('knxField("knxTileStatus").textContent'), run('t("knx.state.running")'));

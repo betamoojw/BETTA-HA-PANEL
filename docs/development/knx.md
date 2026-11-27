@@ -20,6 +20,13 @@ Saving uses the shared flash gate and atomic file helper; publish the registry
 only after rename succeeds. Missing files use an empty in-memory registry.
 Unreadable or invalid files are never overwritten or formatted at boot.
 
+All boards accept up to 512 objects in a 256 KiB UTF-8 registry. The panel
+keeps the input order for exports and pagination. Each routing handle has one
+group listener installed before start. A sorted index of 16-bit object indices
+selects all matching aliases for each received group address.
+The pinned component's per-address registration API remains available to other
+handles. Reconnects reuse the validated endpoint and individual address.
+
 Configuration and enable changes increment the configuration generation. Before
 sending, the worker checks the active configuration, routing epoch and current
 object permissions. A queued request expires when its connection ends.
@@ -93,19 +100,18 @@ Every route uses the existing authentication, origin/content-type and rate guard
 | GET /api/knx | Enable preference, Routing state, counters and last error |
 | PUT /api/knx | JSON containing only boolean enabled |
 | GET /api/knx/config | Saved knxConfig.json |
-| PUT /api/knx/config | Complete replacement registry, up to 65,535 bytes |
+| PUT /api/knx/config | Complete replacement registry, up to 512 objects and 262,144 UTF-8 bytes |
 | GET /api/knx/objects?offset=0 | 20 cached objects per page |
 | POST /api/knx/command | Exact object_id, action read/write, string value for writes |
 
-Object pages carry the configuration `generation`, `routing_epoch` and routing state.
-The editor restarts a paged read once if any of these changes. Within one connection
-it uses the latest readable and writable alias observations separately. The picker
-and periodic preview share the newest completed request.
+The editor restarts a paged read once if `generation`, `routing_epoch` or routing state changes.
+The picker and preview share the newest completed request and track readable and writable aliases independently.
+Every cursor must match the number of objects read. The endpoint returns HTTP 500 if it cannot allocate a complete page.
 
 Commands return HTTP 202 with queued=true, completion=asynchronous and
 bus_confirmed=false. Queue/send rejection counts and transport errors appear in
 status. No raw APDU or arbitrary-address endpoint is exposed.
-Normal editor backups add optional knx.configuration and knx.enabled.
+Restore submits optional `knx.configuration` before `knx.enabled`, languages, themes or the dashboard.
 
 ## AI Assistant MCP {#xiaozhi-mcp}
 
@@ -138,6 +144,10 @@ temperature invalidation, reconnects, partial bindings and feedback independence
 the SDL controls suite exercises real Slider, Select, Cover, Climate and Fan event handlers with
 synthetic KNX adapters while Home Assistant is offline. Editor tests cover role changes,
 save/reload, all seven translations and real-cache previews without sample state.
+The capacity regression exercises 512 distinct groups, the last HTTP/MCP pages,
+last-object feedback and a write, and rejection of a 513th object. The 352-row
+reference in `tests/knx/KNX-Datapoint-Types.md` includes 262 subtypes accepted
+by the current codecs.
 Real Routing reception, reconnect, voice-to-actuator operation and concurrent
 audio/display stability require a separate authorized device trial.
 

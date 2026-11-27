@@ -421,9 +421,10 @@ def build_server(port=8766, variant='paneljc', fixture_path=None, state_path=Non
                     store.persist()
                     return self.reply(responses[path])
                 if path == '/api/knx/config' and self.command == 'PUT':
-                    if (body.get('media_type') != 'knx_ip' or not isinstance(body.get('comObjects'), list)
-                            or len(body['comObjects']) > KNX_MAX_OBJECTS):
+                    if body.get('media_type') != 'knx_ip' or not isinstance(body.get('comObjects'), list):
                         return self.reply({'error': 'Invalid local KNX configuration'}, 400)
+                    if len(body['comObjects']) > KNX_MAX_OBJECTS:
+                        return self.reply({'error': 'Too many KNX communication objects'}, 400)
                     responses[path] = body
                     store.knx_generation += 1
                     responses['/api/knx']['object_count'] = len(body['comObjects'])

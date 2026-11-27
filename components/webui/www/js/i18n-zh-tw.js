@@ -2068,6 +2068,7 @@ WEB_I18N_BUILTIN["zh-tw"] = {
   "knx.write": "傳送數值",
   "knx.refresh": "重新整理快取數值",
   "knx.invalid": "KNX 設定或數值無效，或超出大小限制",
+  "knx.object_limit": "KNX 登錄表最多支援 {max} 個通訊物件。",
   "knx.failed": "KNX 請求失敗",
   "knx.unsaved": "有尚未儲存的變更",
   "knx.saved": "設定已儲存",

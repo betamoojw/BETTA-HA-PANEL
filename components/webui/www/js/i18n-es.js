@@ -2068,6 +2068,7 @@ WEB_I18N_BUILTIN["es"] = {
   "knx.write": "Enviar valor",
   "knx.refresh": "Actualizar valores en caché",
   "knx.invalid": "Configuración/valor KNX no válido o demasiado grande",
+  "knx.object_limit": "Un registro KNX admite como máximo {max} objetos de comunicación.",
   "knx.failed": "Error en la solicitud KNX",
   "knx.unsaved": "Cambios sin guardar",
   "knx.saved": "Configuración guardada",

@@ -24,9 +24,11 @@ configuration. Saving replaces the registry atomically and restarts Routing
 without rebooting. Invalid configuration leaves the previous file and objects intact.
 If a stored file is damaged, its text remains editable and exportable for recovery.
 
-The panel backup includes the KNX configuration and enable preference. If the
-panel rejects the registry during restore, the editor stops before changing any
-other settings. Older backups that omit KNX preserve the panel's existing registry.
+The panel backup includes the KNX configuration and enable preference. If a
+backup contains more than 512 communication objects, the editor shows the limit
+in your current language before writing any part of the backup. If the panel rejects the
+registry for another reason, restoration also stops before changing other settings.
+Older backups that omit KNX preserve the panel's existing registry.
 
 ~~~json
 {

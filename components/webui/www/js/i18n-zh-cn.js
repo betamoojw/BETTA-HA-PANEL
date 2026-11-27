@@ -2068,6 +2068,7 @@ WEB_I18N_BUILTIN["zh-cn"] = {
   "knx.write": "发送数值",
   "knx.refresh": "刷新缓存数值",
   "knx.invalid": "KNX 配置或数值无效，或超出大小限制",
+  "knx.object_limit": "KNX 注册表最多支持 {max} 个通信对象。",
   "knx.failed": "KNX 请求失败",
   "knx.unsaved": "有未保存的修改",
   "knx.saved": "配置已保存",

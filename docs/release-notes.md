@@ -10,7 +10,9 @@ Changes since [v0.9.2-rc2](#v092-rc2); the earlier development features below re
 
 - **KNX registries** on all boards accept up to 512 communication objects with
   distinct group addresses in a 256 KiB configuration. The editor and voice assistant can
-  page through the entire registry. Existing configurations load without conversion.
+  page through the entire registry. If a backup exceeds the object count limit, the
+  editor shows the maximum in the current language before writing any part of the backup.
+  Existing configurations load without conversion.
 - **KNX widgets:** Select supports DPT 20.102 operating presets and Slider supports
   DPT 5.003 angles alongside DPT 5.001 percentages. A control with its feedback
   role unassigned shows the last successfully sent command in the panel and editor.

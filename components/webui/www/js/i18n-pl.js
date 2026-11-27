@@ -2068,6 +2068,7 @@ WEB_I18N_BUILTIN["pl"] = {
   "knx.write": "Wyślij wartość",
   "knx.refresh": "Odśwież buforowane wartości",
   "knx.invalid": "Nieprawidłowa lub zbyt duża konfiguracja/wartość KNX",
+  "knx.object_limit": "Rejestr KNX obsługuje maksymalnie {max} obiektów komunikacyjnych.",
   "knx.failed": "Żądanie KNX nie powiodło się",
   "knx.unsaved": "Niezapisane zmiany",
   "knx.saved": "Konfiguracja zapisana",

@@ -4,6 +4,7 @@ import {test} from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import vm from "node:vm";
+import {loadEditor} from "./load_editor.mjs";
 const source = fs.readFileSync(new URL("../../components/webui/www/js/knx.js",import.meta.url),"utf8");
 const config = {media_type:"knx_ip",media_parameters:{multicast_address:"224.0.23.12",udp_port:3671,transport_mode:"routing",interface_identifier:"KNX-IP-Interface",nat:false},
   physical_address:"15.15.199",comObjects:[{id:"sensor",name:"温度",description:"Living room",group_address:"1/0/1",datapoint_type:"DPT-9.001",readable:true,writable:false},
@@ -25,15 +26,22 @@ function setup(initial={}, override={}) {
       model.configuration=body;
     }
     if(url==="/api/knx" && options.method==="PUT") model.enabled=body.enabled;
+    if(url==="/api/layout" && options.method==="PUT") model.layout=body;
+    if(url.startsWith("/api/knx/objects?")) {
+      const offset=Number(new URLSearchParams(url.split("?")[1]).get("offset"));
+      const objects=model.configuration.comObjects.slice(offset,offset+20).map(o=>({...o,valid:false,...model.feedback?.[o.id]}));
+      return {ok:true,json:async()=>structuredClone({objects})};
+    }
     const data=url==="/api/knx/config"?model.configuration:url==="/api/knx"?{
       enabled:model.enabled,state:model.enabled?"running":"disabled",object_count:model.configuration.comObjects?.length || 0
-    }:url.startsWith("/api/knx/objects")?{objects:model.configuration.comObjects.map(o=>({...o,valid:false}))}:{queued:true};
+    }:{queued:true};
     return {ok:true,json:async()=>structuredClone(data),text:async()=>typeof data==="string"?data:JSON.stringify(data)};
   };
-  vm.runInNewContext(source,{document:{getElementById:node,createElement:tag=>({tag,click(){downloads.push(this.download);}}),hidden:false},
+  const ctx=vm.createContext({document:{getElementById:node,createElement:tag=>({tag,click(){downloads.push(this.download);}}),hidden:false},
     window:{confirm:()=>true},TextEncoder,AbortController,Blob,URL:{createObjectURL:()=>"/download",revokeObjectURL(){}},
     setTimeout,clearTimeout,setInterval:cb=>poll=cb,t:k=>k,fetch,...override});
-  return {node,model,requests,downloads,poll:()=>poll(),fire:async(id,type)=>node(id).listeners[type]({target:node(id)})};
+  vm.runInContext(source,ctx);
+  return {node,model,requests,downloads,run:code=>vm.runInContext(code,ctx),poll:()=>poll(),fire:async(id,type)=>node(id).listeners[type]({target:node(id)})};
 }
 test("load, edit, save, disable/re-enable and reload preserve the whole configuration",async()=>{
   const s=setup(); await s.poll();
@@ -101,6 +109,33 @@ test("read-only objects cannot be written; exact saved ID reaches command API",a
   s.node("knxValue").value="on";await s.fire("knxWrite","click");
   assert.deepEqual(JSON.parse(s.requests.at(-1).body),{object_id:"lamp",action:"write",value:"on"});
   await s.fire("knxRefresh","click");assert.match(s.node("knxCache").textContent,/"valid": false/);
+});
+test("after refusing a 513-object backup the bound 512th object still sends commands and receives independent feedback",async()=>{
+  const comObjects=Array.from({length:512},(_,i)=>({...config.comObjects[1],id:"point-"+i,
+    group_address:`1/${i>>8}/${i%256}`,datapoint_type:"DPT-5.001"}));
+  const full={...config,comObjects},last=comObjects[511].id;
+  const layout={pages:[{id:"room",widgets:[{type:"slider",binding:{source:"knx",roles:{brightness_command:last,brightness_feedback:last}}}]}]};
+  const backup={format:"betta-panel-backup",layout:{pages:[]},settings:{},knx:{enabled:false,
+    configuration:{...full,comObjects:[...comObjects,{...comObjects[0],id:"overflow",group_address:"1/2/0"}]}}};
+  const translations=loadEditor();
+  const s=setup({enabled:true,configuration:structuredClone(full),layout:structuredClone(layout)},
+    {t:translations.fn("t"),localizedRequestError:translations.fn("localizedRequestError")});
+  s.run(fs.readFileSync(new URL("../../components/webui/www/js/settings.js",import.meta.url),"utf8"));
+  await s.poll();
+  s.node("knxObject").value="511";await s.fire("knxObject","change");
+  s.node("settingsBackupFile").files=[{text:async()=>JSON.stringify(backup)}];
+  await s.run("restoreBackup()");
+  assert.match(s.node("settingsBackupMsg").textContent,/at most 512 communication objects/);
+  assert.deepEqual(s.requests.filter(r=>r.method!=="GET"),[]);
+  assert.deepEqual(s.model.configuration,full);assert.deepEqual(s.model.layout,layout);assert.equal(s.model.enabled,true);
+  assert.equal(s.node("knxObject").value,"511");
+  s.node("knxValue").value="80";await s.fire("knxWrite","click");await s.fire("knxRead","click");
+  assert.deepEqual(s.requests.filter(r=>r.method==="POST").map(r=>JSON.parse(r.body)),[
+    {object_id:last,action:"write",value:"80"},{object_id:last,action:"read"}]);
+  s.model.feedback={[last]:{valid:true,live_feedback:true,value:62}};
+  await s.fire("knxRefresh","click");
+  assert.equal(s.requests.at(-1).url,"/api/knx/objects?offset=500");
+  assert.deepEqual(JSON.parse(s.node("knxCache").textContent),{...comObjects[511],...s.model.feedback[last]});
 });
 test("polling is single-flight and leaves the draft untouched",async()=>{
   let release,calls=0;

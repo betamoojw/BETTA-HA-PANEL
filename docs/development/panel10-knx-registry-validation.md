@@ -233,3 +233,67 @@ changed in the settings export. English, Glow, Asia/Shanghai, 12-hour time,
 the flip clock and the 23:00 night start remained selected. At uptime 417 s
 the device was still on boot 268 with valid `ota_0`, idle OTA and zero
 retained crash reports. Signing out returned HTTP 401 for the protected layout.
+
+## Local verification of the backup limit message, November 27, 2026
+
+On COM24, the `8b423afc` image returned a specific HTTP 400 reason. The editor
+prefixed it with the request path and its translation filter substituted the
+generic connection error. The revised editor checks the backup before asking
+for confirmation and recognizes the panel's capacity error on the KNX registry endpoint.
+
+Chrome 158 on Windows loaded the HTML, CSS and JavaScript embedded in the new
+image against a local API with 512 synthetic objects and a slider bound to the
+last one. Restoring a modified backup with 513 objects,
+KNX disabled and an empty layout showed the 512-object limit in all seven built-in
+languages. There were zero confirmation dialogs and zero write requests. The
+registry, enable setting and bound layout matched the pre-test exports. A direct
+oversized PUT to the local API also returned HTTP 400 and preserved those exports.
+
+The web regression sent an 80% command and a read for object 512 after rejection.
+The KNX settings cache view showed independently supplied feedback of 62 (DPT 5.001).
+In a separate native test, the production KNX worker rejected 513 objects,
+sent an off telegram to `1/1/255` and accepted a fresh false response from
+the simulated peer. These checks used local transports. The following COM24
+run exercised the same revised editor on the panel.
+
+The build-time run passed 698 web tests, 13 native CTest cases and 19 local API tests.
+The pre-commit run passed 699 web tests, including refusal with a pending language
+autosave, plus the same 13 native and 19 local API tests.
+ESP-IDF 6.1.1 built `panel10` from `53f5d07e-dirty` at **21:25:04**.
+The application occupied **6,814,400 of 6,815,744 bytes**, leaving **1,344 bytes**
+in either OTA slot. The previous local image had 1,712 bytes free and the
+clean COM24 image had 1,104. The application checksum, matching ELF digest
+and embedded C6 3.1.0 adapter were verified. The application SHA-256 is
+`6c31bd63843ebc43a258f220197f6cf25f13c6dac9d4556e2e89cc4ba886f1f0`.
+
+## COM24 restore limit in English and Simplified Chinese, November 27, 2026
+
+The 62,731-byte editor backup agreed with the independent device exports. COM24
+verified the old application, metadata, crash partition and 19,529,728-byte LittleFS
+before writing only `ota_0` at `0x20000`. Its independent 6,815,744-byte readback
+matched the **21:25:04** application above plus the original 1,344 tail bytes.
+The whole-slot SHA-256 was `21e6e56d5b6e27d479d9392c9f04253003c8ee1f9fc66e05f240764780175852`.
+The inactive slot and protected regions matched their pre-write digests. Serial
+recorded the expected boot address and ELF prefix `b0f5d0657`. Boot 269 reported
+`53f5d07e-dirty`, valid `ota_0` and idle OTA. The 367.1-second capture showed one boot.
+
+Chrome loaded the editor from the panel. Both clicks on **Restore backup** used the
+same downloaded file with only object 513 appended. Each produced its localized
+message with zero confirmation dialogs and zero write requests through readback.
+An earlier trace included a language autosave. In the completed run (UTC+8), the
+Chinese `PUT /api/settings` finished at 21:48:58.547, the Chinese restore was observed
+from 21:49:00.931 to 21:49:02.988, and the return to English finished at 21:49:03.606.
+Both language saves returned HTTP 200.
+
+| Editor language | Visible restore message | Next write on object 512 | Reply to the next read |
+| --- | --- | --- | --- |
+| English | A KNX registry supports at most 512 communication objects. | 80% (raw 204) | Raw 158, shown by the API as 61.96% |
+| Simplified Chinese | KNX 注册表最多支持 512 个通信对象。 | 0% (raw 0) | Raw 64, shown by the API as 25.10% |
+
+Both refusals preserved the byte-identical layout and 512-object registry at generation 6,
+routing epoch 11. The isolated peer captured each write and read on `30/7/255` and
+the panel marked both independent replies as live feedback. The original 76-object
+registry resumed routing. All 10 pages and 61 widgets matched the pre-flash layout.
+Accounts, saved settings, cameras, languages and themes matched. Only the live clock
+advanced. Signing out returned HTTP 401 for the layout. **Light Angle** and **Power history**
+kept their bindings. The pre-flash LittleFS had no local graph files for a sample comparison.

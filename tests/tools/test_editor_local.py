@@ -105,9 +105,13 @@ class LocalCapacityHandlerTest(unittest.TestCase):
             self.assertFalse(page['has_more'])
             self.assertEqual(self.request(handler, '/api/knx/objects?offset=512')[1]['objects'], [])
             self.assertEqual(self.request(handler, '/api/knx/objects?offset=513')[0], 400)
-            invalid = dict(config, comObjects=points + [points[0]])
-            self.assertEqual(self.request(handler, '/api/knx/config', 'PUT', invalid)[0], 400)
+            extra = dict(points[0], id='point-512', group_address='1/2/0')
+            invalid = dict(config, comObjects=points + [extra])
+            rejected, error = self.request(handler, '/api/knx/config', 'PUT', invalid)
+            self.assertEqual(rejected, 400)
+            self.assertEqual(error['error'], 'Too many KNX communication objects')
             self.assertEqual(self.request(handler, '/api/knx/config')[1], config)
+            self.assertEqual(self.request(handler, '/api/knx/objects?offset=500')[1], page)
 
 
 class LocalEditorTest(unittest.TestCase):

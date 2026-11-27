@@ -1700,6 +1700,10 @@ async function backupSend(path, method, body) {
       const json = JSON.parse(detail);
       detail = (json.errors || []).join(", ") || json.error || detail;
     } catch (_) {}
+    if (path === "/api/knx/config" && response.status === 400 &&
+        typeof detail === "string" && detail.trim() === "Too many KNX communication objects") {
+      throw new Error("knx.object_limit");
+    }
     throw new Error(`${path}: ${detail}`);
   }
 }
@@ -1717,6 +1721,8 @@ async function restoreBackup() {
       if (msg) msg.textContent = t("settings.backup.invalid");
       return;
     }
+    const objects = backup.knx?.configuration?.comObjects;
+    if (Array.isArray(objects) && objects.length > KNX_MAX_OBJECTS) throw new Error("knx.object_limit");
     if (!window.confirm(t("settings.backup.confirm"))) return;
     if (msg) msg.textContent = t("settings.backup.restoring");
     normalizeLayoutWidgets(backup.layout);
@@ -1744,7 +1750,11 @@ async function restoreBackup() {
     storageSet(RESTORE_NOTICE_KEY, "1");
     if (msg) msg.textContent = t("settings.backup.restored");
   } catch (err) {
-    if (msg) msg.textContent = t("settings.backup.failed") + localizedRequestError(err);
+    if (msg) {
+      msg.textContent = err?.message === "knx.object_limit"
+        ? t("knx.object_limit", {max: KNX_MAX_OBJECTS})
+        : t("settings.backup.failed") + localizedRequestError(err);
+    }
   }
 }
 

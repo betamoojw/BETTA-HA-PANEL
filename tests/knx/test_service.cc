@@ -670,10 +670,22 @@ static void exercise_registry_capacity() {
             assert(cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(last,"value")));cJSON_Delete(last);
             check_last_page_allocations();
             assert(!knx_configure(registry_fixture(513).c_str(),error,sizeof(error)));
+            assert(std::string(error) == "Too many KNX communication objects");
             assert(persisted==saved);
             assert(knx_command("point-511",nullptr,"off",true,error,sizeof(error)));
         } else if (step==2) {
             assert(writes.size()==1 && writes[0].address==0x09ff && writes[0].data.back()==0);
+            cJSON* last=knx_object("point-511");
+            assert(cJSON_IsFalse(cJSON_GetObjectItemCaseSensitive(last,"last_command")));
+            assert(cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(last,"value")));
+            cJSON_Delete(last);
+            knx_telegram_t report{};
+            report.source=0x1102; report.destination=0x09ff; report.command=KNX_COMMAND_RESPONSE;
+            report.data_length=1; report.data[0]=0; callback(&report,nullptr);
+            last=knx_object("point-511");
+            assert(cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(last,"live_feedback")));
+            assert(cJSON_IsFalse(cJSON_GetObjectItemCaseSensitive(last,"value")));
+            cJSON_Delete(last);
             auto reduced = registry_fixture(352,media);
             // Aliases at opposite ends of the file share the highest group address.
             for (const char* old : {"\"1/0/0\"", "\"1/1/95\""}) {

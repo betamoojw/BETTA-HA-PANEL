@@ -24,9 +24,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # The groups of scripts/check.sh run as parallel jobs: the simulator regressions and the layout at all three text
-        # steps of one variant each, then the host tests and the web checks.
-        group: [web, host, sim-panel4, sim-paneljc, sim-tab5]
+        # Guition runs the square OTA layout. The other simulator jobs cover the widget layouts.
+        group: [web, host, sim-panel4, sim-paneljc, sim-tab5, sim-panels3]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
         with:

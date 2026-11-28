@@ -32,18 +32,28 @@ This avoids expensive software image transform paths on ESP32-P4 during boot spl
 
 # Boot splash logo (BETTA fish)
 
-The splash and OTA screens draw the symbol `SMART86OS_Betta`. Two sources
-exist; CMake picks the first that is available:
+Boot, Wi-Fi setup, the Wi-Fi coprocessor updater and the panel's OTA progress
+screen share `SMART86OS_Betta`. The master is
+[`docs/img/brand/BETTA-OS.jpg`](../../../docs/img/brand/BETTA-OS.jpg).
+The earlier cyan artwork came from Cpt_Kirk's upstream project and is preserved
+at [`docs/img/brand/BETTAOS.jpg`](../../../docs/img/brand/BETTAOS.jpg).
+The previous PNG matched all 125,800 pixels of the previous RGB565 array.
+Quantizing the cyan JPEG recovered the same codes, allowing either adjacent
+code at exact rounding midpoints.
 
-- `SMART86OS_Betta.png` plus the stub `SMART86OS_Betta_png.c`: the logo as an
-  embedded lossless PNG (108 KB), decoded by LVGL's PNG decoder
-  (`LV_USE_LODEPNG`) when it is drawn (about 125 ms on the ESP32-P4, image
-  cache off). Used when the PNG exists.
-- `SMART86OS_Betta.c`: the original 246 KB raw RGB565 array (370x340), kept as
-  the fallback.
+The conversion rounds the 370 × 340 JPEG to RGB565 once. The simulator and
+the firmware fallback use its little-endian bytes in `SMART86OS_Betta.c`.
+For firmware with `CONFIG_LV_USE_LODEPNG`, CMake selects
+`SMART86OS_Betta.png` and its descriptor in `SMART86OS_Betta_png.c`.
+The PNG losslessly stores those same pixels expanded to RGB888 by repeating
+the high bits. A firmware build links one representation and uses the
+checked-in files directly.
 
-The PNG was generated from the array without loss: expand each RGB565 pixel to
-RGB888 (`(v<<3)|(v>>2)` for 5-bit and `(v<<2)|(v>>4)` for 6-bit channels) and
-save it with Pillow's `optimize=True`. Decoding it on the device reproduces the
-original pixels exactly (checked with a CRC over the decoded ARGB8888 data).
-The artwork is Copyright (c) 2026 Cpt_Kirk; the PNG is the same image, re-encoded.
+The generator rewrites the pixel array inside the checked-in C descriptor
+and encodes the PNG from the same RGB565 values. Run these commands from
+the repository root to regenerate both assets and verify them against the master.
+
+```sh
+uv run --locked --only-group checks python tools/generate_brand_logo.py
+uv run --locked --only-group checks python tools/generate_brand_logo.py --check
+```

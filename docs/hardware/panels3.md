@@ -10,9 +10,9 @@ This is a different device from the ESP32-P4 Guition JC8012P4A1 (`paneljc`).
 
 ## Firmware
 
-Build this checkout's `panels3` profile. Existing P4 release images cannot run on
-this board. The S3 project name is `betta-ha-panel-s3`; OTA validation checks that
-identity. No S3 image has been published by this change.
+Build this checkout's `panels3` profile. Existing P4 release images cannot run on this board.
+OTA checks the S3 project name `betta-ha-panel-s3`. No S3 image has been published by this change.
+During an update, the 480 × 480 screen shows the status, progress bar, percentage and byte count below the BETTA OS logo.
 
 Native 2.4 GHz Wi-Fi provides the dashboard connection and setup access point;
 there is no ESP32-C6 coprocessor or C6 firmware update. Brightness, dimming and

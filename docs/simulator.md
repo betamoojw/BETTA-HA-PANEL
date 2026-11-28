@@ -76,6 +76,8 @@ A fixture is the layout's `pages` plus `states`. Get the pages from an authentic
   `entity_picture` `file:<path>` shows that PNG.
 - `tap_widget` opens a widget's read-only popup by id. `setup_screen` (`ssid`, `password`, `ip`) renders the Wi-Fi
   setup splash; use public demo values.
+- Set `open_popup` to `boot` to capture the startup logo, or to `ota` for a simulated 50% transfer.
+  The Guition `ota-progress-layout` regression checks all seven languages at all three text sizes on its 480 × 480 screen.
 - `popup_scroll_bottom: true` scrolls an overflowing detail container to its end,
   for checking fields below the fold while the action buttons remain visible.
 - A page of type `house_dashboard` (with `house.rooms`) or `energy_dashboard` (with `energy`) renders like on the panel.

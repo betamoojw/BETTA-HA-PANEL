@@ -1,5 +1,5 @@
 <!-- SPDX-License-Identifier: LicenseRef-FNCL-1.1 | Copyright (c) 2026 Cpt_Kirk | Modified 2026 by andre68723 in the andre68723/BETTA-HA-PANEL fork, see docs/release-notes.md -->
-<img src="docs/img/brand/BETTAOS.jpg" alt="BETTA OS logo" width="72" />
+<img src="docs/img/brand/BETTA-OS.jpg" alt="BETTA OS logo" width="72" />
 
 # BETTA HA Panel
 
@@ -100,5 +100,5 @@ carry corresponding notices.
 
 Source is released under [LicenseRef-FNCL-1.1](LICENSE). Vendored components and
 fonts retain their own licenses and attribution; see the license's Third-Party
-Components section and the individual file headers. The original BETTA OS logo is
-retained unchanged; see [image attribution](docs/img/brand/README.md).
+Components section and the individual file headers. The brand archive preserves
+Cpt_Kirk's original cyan logo alongside the current artwork. [Image attribution](docs/img/brand/README.md).

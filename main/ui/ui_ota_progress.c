@@ -34,6 +34,15 @@ extern const lv_image_dsc_t SMART86OS_Betta;
 /* How long the error text of a failed update stays up before the overlay goes away. */
 #define OTA_PROGRESS_ERROR_HOLD_MS 8000
 
+#if defined(CONFIG_APP_PANEL_VARIANT_S3_480)
+/* Reserve the lower half of the square display for transfer status and progress. */
+#define OTA_CONTENT_RISE 160
+#define OTA_STATUS_WIDTH 440
+#else
+#define OTA_CONTENT_RISE 0
+#define OTA_STATUS_WIDTH 560
+#endif
+
 typedef struct {
     lv_obj_t *root;
     lv_obj_t *logo;
@@ -153,6 +162,10 @@ static lv_obj_t *ota_ui_create_logo_locked(lv_obj_t *parent)
 #if APP_HAVE_SMART86OS_BETTA_IMAGE
     lv_obj_t *logo = lv_image_create(parent);
     lv_image_set_src(logo, &SMART86OS_Betta);
+#if defined(CONFIG_APP_PANEL_VARIANT_S3_480)
+    lv_obj_set_size(logo, 200, 184);
+    lv_image_set_inner_align(logo, LV_IMAGE_ALIGN_CONTAIN);
+#endif
     lv_obj_align(logo, LV_ALIGN_TOP_MID, 0, 34);
     return logo;
 #else
@@ -233,20 +246,25 @@ static void ota_ui_create_locked(const char *status_text, size_t total_bytes)
     s_ota_ui.title = lv_label_create(s_ota_ui.root);
     lv_label_set_text(s_ota_ui.title, ui_i18n_get("ota.title", "Firmware update"));
     lv_obj_set_style_text_color(s_ota_ui.title, lv_color_hex(APP_UI_COLOR_TEXT_PRIMARY), LV_PART_MAIN);
-    lv_obj_set_style_text_font(s_ota_ui.title, ui_font_role(UI_TEXT_VALUE), LV_PART_MAIN);
-    lv_obj_align(s_ota_ui.title, LV_ALIGN_TOP_MID, 0, 388);
+    const lv_font_t *title_font = ui_font_role(UI_TEXT_VALUE);
+#if defined(CONFIG_APP_PANEL_VARIANT_S3_480)
+    /* The title has 50 pixels before the transfer status starts. */
+    title_font = ui_text_fit(lv_label_get_text(s_ota_ui.title), title_font, OTA_STATUS_WIDTH, 50);
+#endif
+    lv_obj_set_style_text_font(s_ota_ui.title, title_font, LV_PART_MAIN);
+    lv_obj_align(s_ota_ui.title, LV_ALIGN_TOP_MID, 0, 388 - OTA_CONTENT_RISE);
 
     s_ota_ui.status = lv_label_create(s_ota_ui.root);
     ota_ui_set_status_locked(status_text);
-    lv_obj_set_width(s_ota_ui.status, 560);
+    lv_obj_set_width(s_ota_ui.status, OTA_STATUS_WIDTH);
     lv_obj_set_style_text_align(s_ota_ui.status, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
     lv_obj_set_style_text_color(s_ota_ui.status, lv_color_hex(APP_UI_COLOR_TEXT_SOFT), LV_PART_MAIN);
     lv_obj_set_style_text_font(s_ota_ui.status, ui_font_role(UI_TEXT_META), LV_PART_MAIN);
-    lv_obj_align(s_ota_ui.status, LV_ALIGN_TOP_MID, 0, 438);
+    lv_obj_align(s_ota_ui.status, LV_ALIGN_TOP_MID, 0, 438 - OTA_CONTENT_RISE);
 
     s_ota_ui.bar = lv_bar_create(s_ota_ui.root);
     lv_obj_set_size(s_ota_ui.bar, 440, 12);
-    lv_obj_align(s_ota_ui.bar, LV_ALIGN_TOP_MID, 0, 500);
+    lv_obj_align(s_ota_ui.bar, LV_ALIGN_TOP_MID, 0, 500 - OTA_CONTENT_RISE);
     lv_bar_set_range(s_ota_ui.bar, 0, 100);
     lv_bar_set_value(s_ota_ui.bar, 0, LV_ANIM_OFF);
     lv_obj_set_style_radius(s_ota_ui.bar, 0, LV_PART_MAIN);
@@ -262,13 +280,13 @@ static void ota_ui_create_locked(const char *status_text, size_t total_bytes)
     lv_label_set_text(s_ota_ui.percent, "0 %");
     lv_obj_set_style_text_color(s_ota_ui.percent, lv_color_hex(APP_UI_COLOR_TEXT_PRIMARY), LV_PART_MAIN);
     lv_obj_set_style_text_font(s_ota_ui.percent, ui_font_role(UI_TEXT_VALUE), LV_PART_MAIN);
-    lv_obj_align(s_ota_ui.percent, LV_ALIGN_TOP_MID, 0, 532);
+    lv_obj_align(s_ota_ui.percent, LV_ALIGN_TOP_MID, 0, 532 - OTA_CONTENT_RISE);
 
     s_ota_ui.detail = lv_label_create(s_ota_ui.root);
     lv_label_set_text(s_ota_ui.detail, "");
     lv_obj_set_style_text_color(s_ota_ui.detail, lv_color_hex(APP_UI_COLOR_TEXT_MUTED), LV_PART_MAIN);
     lv_obj_set_style_text_font(s_ota_ui.detail, ui_font_role(UI_TEXT_META), LV_PART_MAIN);
-    lv_obj_align(s_ota_ui.detail, LV_ALIGN_TOP_MID, 0, 574);
+    lv_obj_align(s_ota_ui.detail, LV_ALIGN_TOP_MID, 0, 574 - OTA_CONTENT_RISE);
 
     s_ota_ui.active = true;
     s_ota_ui.last_percent = 255U;

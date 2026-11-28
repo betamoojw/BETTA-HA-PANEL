@@ -33,6 +33,7 @@
 #include "ui/ui_history_popup.h"
 #include "ha/parqet_performance.h"
 #include "ui/ui_boot_splash.h"
+#include "ui/ui_ota_progress.h"
 #include "ui/ui_house_page.h"
 #include "ui/ui_notification_popup.h"
 #include "ui/ui_widget_factory.h"
@@ -1526,12 +1527,19 @@ int main(int argc, char **argv)
         ui_alert_center_set(UI_ALERT_ENTITY_0, "Doorbell / 门铃 / 門鈴 (demo)", "Synthetic front door alert.", 0);
         ui_alert_center_refresh(0);
     }
-    /* "open_popup": "wifi" | "ha" | "mqtt" opens the top bar's connectivity popup (data comes from pages_stubs.c). */
     const char *popup = json_string(root, "open_popup");
     if (strcmp(popup, "alerts") == 0) ui_alert_center_open();
     else if (strcmp(popup, "wifi") == 0) ui_conn_popup_show_wifi();
     else if (strcmp(popup, "ha") == 0) ui_conn_popup_show_ha();
     else if (strcmp(popup, "mqtt") == 0) ui_conn_popup_show_mqtt();
+    else if (strcmp(popup, "boot") == 0) {
+        ui_boot_splash_show(ui_i18n_get("boot.initializing_wifi", "Initializing Wi-Fi"));
+        ui_boot_splash_set_progress(50);
+    } else if (strcmp(popup, "ota") == 0) {
+        const size_t total = 4U * 1024U * 1024U;
+        ui_ota_progress_begin(false, total);
+        ui_ota_progress_update(total / 2, total);
+    }
     sim_popup_contract_check();
     /* Public demo credentials render the real boot splash, matching app_show_wifi_setup_screen(). */
     const cJSON *setup = cJSON_GetObjectItemCaseSensitive(root, "setup_screen");

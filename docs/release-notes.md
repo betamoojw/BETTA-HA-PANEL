@@ -8,6 +8,8 @@ Changes of **this fork**, compared with upstream v0.8.2. The release notes of th
 
 Changes since [v0.9.2-rc2](#v092-rc2); the earlier development features below remain available.
 
+- The boot splash, on-panel firmware update screen and documentation use the multicolor BETTA OS logo.
+  On the 480 × 480 Guition panel the update screen also shows the progress bar, percentage and transferred bytes below the logo.
 - **KNX registries** on all boards accept up to 512 communication objects with
   distinct group addresses in a 256 KiB configuration. The editor and voice assistant can
   page through the entire registry. If a backup exceeds the object count limit, the

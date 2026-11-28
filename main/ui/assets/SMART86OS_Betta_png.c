@@ -1,13 +1,9 @@
 /* SPDX-License-Identifier: LicenseRef-FNCL-1.1
  * Copyright (c) 2026 andre68723 -- file added in the andre68723/BETTA-HA-PANEL fork, see docs/release-notes.md
  *
- * Image descriptor for the BETTA splash logo, backed by the embedded PNG
- * SMART86OS_Betta.png instead of the 246 KB raw RGB565 array in
- * SMART86OS_Betta.c. The artwork is the same (Copyright (c) 2026 Cpt_Kirk),
- * re-encoded losslessly; LVGL's PNG decoder (LV_USE_LODEPNG) expands it when
- * it is drawn. main/CMakeLists.txt compiles this file instead of
- * SMART86OS_Betta.c when the PNG exists; both define the symbol
- * SMART86OS_Betta. See main/ui/assets/README.md.
+ * The boot and OTA screens share this descriptor. The embedded PNG and the
+ * RGB565 fallback contain the same pixels from docs/img/brand/BETTA-OS.jpg.
+ * main/CMakeLists.txt selects one representation. See main/ui/assets/README.md.
  */
 #ifdef __has_include
     #if __has_include("lvgl.h")

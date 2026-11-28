@@ -5,7 +5,7 @@
 set -u
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 usage() {
-  echo 'usage: scripts/check.sh [--quick|--full] [--changed] [--list] [--force] [--verbose] [--keep-going] [--build] [--group web|docs|host|sim-panel4|sim-paneljc|sim-tab5]'
+  echo 'usage: scripts/check.sh [--quick|--full] [--changed] [--list] [--force] [--verbose] [--keep-going] [--build] [--group web|docs|host|sim-panel4|sim-paneljc|sim-tab5|sim-panels3]'
 }
 build=0; full=0; quick=0; changed=0; list=0; force=0; verbose=0; keep=0; group=""
 while [ $# -gt 0 ]; do
@@ -18,7 +18,7 @@ while [ $# -gt 0 ]; do
   esac
   shift
 done
-case "$group" in ""|web|docs|host|sim-panel4|sim-paneljc|sim-tab5) ;; *) usage >&2; exit 2 ;; esac
+case "$group" in ""|web|docs|host|sim-panel4|sim-paneljc|sim-tab5|sim-panels3) ;; *) usage >&2; exit 2 ;; esac
 if ((quick && (full || build))) || { ((build)) && [ -n "$group" ]; } || { [ -n "${CI:-}" ] && ((quick || changed)); }; then usage >&2; exit 2; fi
 [ -z "${CI:-}" ] || { force=1; full=1; }
 in_group() { [ -z "$group" ] || [ "$group" = "$1" ]; }
@@ -109,7 +109,7 @@ checks() {
   if in_group web; then
     REQUIRE=node step 'editor JavaScript syntax' 'components/webui/www/js' bash -c 'for f in components/webui/www/js/*.js; do node --check "$f" || exit 1; done'
     REQUIRE=node step 'editor unit tests' 'components/webui tests/webui main tools/editor_local CMakeLists.txt docs/widgets' bash -c 'node --test tests/webui/*.test.mjs'
-    step 'tooling tests' 'tools scripts tests/tools components/webui tests/simulator tests/host/test_screenshot_jpeg_join.c tests/host/panel10_touch main/drivers/touch_init_panel10.c third_party/waveshare__esp32_p4_wifi6_touch_lcd_x/esp32_p4_wifi6_touch_lcd_x.c main/api/screenshot_jpeg_join.c main/api/screenshot_jpeg_join.h main/layout main/i18n main/app_config.h config/sdkconfig.defaults.panels3' python3 -m unittest discover -s tests/tools -p 'test_*.py'
+    step 'tooling tests' "tools scripts tests/tools components/webui tests/simulator tests/host/test_screenshot_jpeg_join.c tests/host/panel10_touch main/drivers/touch_init_panel10.c third_party/waveshare__esp32_p4_wifi6_touch_lcd_x/esp32_p4_wifi6_touch_lcd_x.c main/api/screenshot_jpeg_join.c main/api/screenshot_jpeg_join.h main/layout main/i18n main/app_config.h config/sdkconfig.defaults.panels3 $brand_inputs" python3 -m unittest discover -s tests/tools -p 'test_*.py'
     SKIP_RC=2 SKIP_WHY='fontTools not installed' step 'font subsets' 'tools/generate_widget_fonts.py main/ui/fonts components/webui/www/styles.css' python3 tools/generate_widget_fonts.py --check
     step 'translation catalog assets' 'tools/generate_i18n.py main/i18n components/webui/i18n components/webui/www/js' python3 tools/generate_i18n.py --check
     step 'time zone catalog' 'tools/generate_timezones.py tools/update_timezone_dates.mjs main/net/tzdb main/settings components/webui/www/js/timezones.js' python3 tools/generate_timezones.py --check
@@ -128,6 +128,13 @@ checks() {
     fi
     local variant s steps='0'
     ((full)) && steps='0 1 2'
+    if in_group sim-panels3; then
+      REQUIRE='cmake ctest sdl2-config' step 'Guition OTA progress layout' "$sim_inputs" bash -ec '
+        dir=build/simulator/panels3
+        cmake -S tests/simulator -B "$dir" -DSIM_VARIANT=panels3 -DCMAKE_BUILD_TYPE=Debug
+        cmake --build "$dir" --parallel --target betta-widget-sim
+        ctest --test-dir "$dir" --no-tests=error -R "^ota-progress-layout$" --output-on-failure'
+    fi
     for variant in panel4 paneljc tab5; do
       in_group "sim-$variant" || continue
       REQUIRE='cmake sdl2-config' step "simulator regressions $variant" "$sim_inputs" bash -c '
@@ -155,6 +162,7 @@ checks() {
   fi
 }
 export SDL_VIDEODRIVER="${SDL_VIDEODRIVER:-dummy}" SDL_RENDER_DRIVER="${SDL_RENDER_DRIVER:-software}"
+brand_inputs='docs/img/brand/BETTA-OS.jpg main/ui/assets/SMART86OS_Betta.c main/ui/assets/SMART86OS_Betta.png'
 sim_inputs='main tests/simulator scripts/simulator.sh tools/check_widget_layout.py tools/check_readability.py tools/ui_styles.py tools/generate_simulator_gallery.py tools/gallery_content.py tools/widget_cases.py tools/widget_catalog.json tools/test_layout_entities_demo.json tools/apply_component_patches.py tools/patch_websocket_transport.py'
 changed_files=()
 # Register inputs first without executing checks; reuse these exact lists for selection.

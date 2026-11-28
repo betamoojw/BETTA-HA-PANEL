@@ -17,6 +17,7 @@ sdkconfig.old
 .local/
 managed_components/
 tools/*
+!tools/generate_brand_logo.py
 !tools/generate_otto_assets.py
 !tools/generate_component_versions.py
 !tools/vendor_cam_sensor.py

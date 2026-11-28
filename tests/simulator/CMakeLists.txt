@@ -193,6 +193,7 @@ add_executable(betta-widget-sim
     "${REPO_ROOT}/main/ui/ui_energy_page.c"
     "${REPO_ROOT}/main/ui/ui_notification_popup.c"
     "${REPO_ROOT}/main/ui/ui_boot_splash.c"
+    "${REPO_ROOT}/main/ui/ui_ota_progress.c"
     "${REPO_ROOT}/main/ui/assets/SMART86OS_Betta.c"
     "${REPO_ROOT}/main/drivers/chime.c"
     "${REPO_ROOT}/main/util/chime_synth.c"
@@ -293,6 +294,8 @@ add_test(NAME license-warning-lifecycle-and-layout
 set_tests_properties(license-warning-lifecycle-and-layout PROPERTIES ENVIRONMENT "SDL_VIDEODRIVER=dummy;BETTA_SIM_NOW=1792233000")
 add_test(NAME weather-legacy-layout-compat
     COMMAND ${Python3_EXECUTABLE} "${CMAKE_CURRENT_LIST_DIR}/weather_legacy_regression.py" $<TARGET_FILE:betta-widget-sim>)
+add_test(NAME ota-progress-layout
+    COMMAND ${Python3_EXECUTABLE} "${CMAKE_CURRENT_LIST_DIR}/ota_layout_regression.py" $<TARGET_FILE:betta-widget-sim> "${SIM_VARIANT}")
 foreach(board 4INCH_720 10INCH_1280 10INCH_JC TAB5_1280 S3_480)
     set(target "betta-geometry-${board}")
     add_executable(${target} orientation_geometry_regression.c

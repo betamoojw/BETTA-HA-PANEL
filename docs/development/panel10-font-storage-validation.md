@@ -126,3 +126,27 @@ Real Panel10 cold-start latency, time under the display lock, minimum free
 PSRAM and largest free block alongside camera, voice and Live Display still
 require on-device measurement. Physical LCD and touch behavior for the
 five-font binary were outside this local run.
+
+## Doorbell example on the staged font baseline
+
+On November 28, 2026, two local Windows Panel10 builds used the same staged
+five-font source, ESP-IDF 6.1.1, effective configuration, dependency lock and
+partition table. The sole build-input difference among 2,079 indexed paths was
+`components/webui/www/img/doorbell-example.png`.
+
+| Bytes | A (original PNG) | B (optimized PNG) |
+| --- | ---: | ---: |
+| PNG | 35,688 | 26,328 |
+| Embedded gzip | 35,096 | 24,159 |
+| Application BIN | 6,754,048 | 6,743,120 |
+| Free in ota_0 | 61,696 | 72,624 |
+| Free in ota_1 | 61,696 | 72,624 |
+
+The embedded payload saved 10,937 bytes. Linked read-only data shrank by
+10,936 bytes. The optimized image used 8 additional bytes of checksum
+padding, giving a measured application saving of **10,928 bytes**. Both slots have a
+capacity of 6,815,744 bytes. A local Chrome 158.0.8127.38 session
+opened Settings → Alerts and the linked full-size example. Both builds served
+`/img/doorbell-example.png` with HTTP 200 and gzip encoding. All 518,400
+decoded RGB pixels matched. The browser used synthetic panel data. Physical
+device and OTA runtime behavior were outside this local test.

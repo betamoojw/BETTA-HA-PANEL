@@ -135,3 +135,89 @@ The final check still showed the same application and valid `ota_0`,
 with no rollback or new crash report. The glyph check covered the displayed
 Simplified Chinese examples. Other languages and the rest of the font's
 character repertoire were outside this physical test.
+
+## Clean commit 2a8989e on COM24
+
+On November 28, 2026, a clean, detached Windows worktree at `2a8989eb`
+produced the Panel10 v0.9.2 application stamped `Nov 28 2026 06:41:44`
+with ESP-IDF v6.1.1. Its BIN was 6,811,520 bytes. The generated partition
+table placed `ota_0` at `0x20000` and `ota_1` at `0x6a0000`, each with
+6,815,744 bytes of capacity and **4,224 bytes free**. The committed image
+was the same size as the earlier Zopfli build and 3,472 bytes smaller than
+the baseline in the Windows comparison above.
+
+The dependency lock, binary partition table and all 2,579 effective
+configuration values matched the earlier Windows build. The generated
+configuration text reordered sections. The BIN contained one copy of the
+188,752-byte compressed font, which expanded to the original TTF.
+
+Before resetting COM24, the editor exported a 62,731-byte backup. Its
+layout, KNX registry, cameras and settings agreed with independent API
+reads. The retained crash index was empty. The serial backup covered the
+active application, boot metadata and NVS, crash storage and all 19,529,728
+bytes of LittleFS. Device checksums verified each region. The mounted
+filesystem contained eight files, including the matching layout and KNX
+registry. Both chart bindings, **Light Angle** and **Power history**, were
+present. No local graph-history sample files were available to compare.
+
+The authenticated OTA status and the CRC-checked OTA selection (sequence
+23, valid) identified the active slot as `ota_0`. Only `0x020000–0x69ffff`
+was written. All 6,815,744 bytes were read back independently over COM24.
+They matched the new BIN followed by the 4,224 bytes from the original
+slot tail. The font stream at offset `0x229a48` in the readback matched the
+committed asset byte for byte.
+
+| Clean build or serial read | Bytes | SHA-256 |
+| --- | ---: | --- |
+| Application BIN and readback prefix | 6,811,520 | `fe8a0c2accb3df0edcb68c14b60bd225e040d13bef9daadfba2f623326cf3f67` |
+| ELF identified by the readback application descriptor | 48,842,372 | `d3642e4f74eae2995fbf3af7f6afe8df36c25e2d6d122b51cfe26e476506e8a5` |
+| Complete `ota_0` readback | 6,815,744 | `ff7b760652e21f3644b65ff919dd37aea8365dd9138313925929e38258a530c3` |
+
+Before releasing reset, the inactive `ota_1` and all protected data digests
+matched their pre-write values. Timed from the reset request, UART showed
+the bootloader loading `0x20000` at 1.318 s and the matching ELF prefix
+`d3642e4f7` at 2.791 s. The UI logged showing the splash at 8.988 s and
+hiding it at 21.951 s. Time sync, the HTTP listener and GT9271 touch
+initialization appeared at 19.216, 19.264 and 19.324 s respectively.
+The authenticated editor reported `2a8989eb`, `06:41:44`, `ota_0` valid,
+safe mode off and `ota_1` next with OTA idle.
+
+In Simplified Chinese, the 1280 × 800 panel PNGs showed **厨房**, **当前**,
+**目标** and **正在供暖** on Environment, and **晴夜**, **今天** and **周日**
+on Weather. The operator confirmed clear widget text and **客厅**, **天气**
+and **信息** tabs on the physical LCD, then touched **客厅** and **天气**.
+UART recorded `room_1` and `page_1` at 75.798 and 80.070 s after reset.
+
+The original 180-second idle setting brought up the Simplified Chinese
+flip clock on the Glow theme. The enabled 23:00–06:00 night schedule in
+`Asia/Shanghai` required no adjustment for this daytime test.
+Two full-screen PNGs showed **星期六, 2026/11/28**
+at **06:58:35 AM** and **06:58:39 AM**. All 2,613 changed pixels were in
+the seconds units digit. The operator confirmed clear glyphs, a centered
+clock with continuous flips and a single touch that woke the dashboard
+without activating an underlying control. The API showed the overlay
+return to `active` before any restoration request. The generic touch
+tracker counters stayed at zero on this GT9271 driver path.
+
+| Device PNG | SHA-256 |
+| --- | --- |
+| Environment | `8a5b2f2d2ed25cb34e06ddf77b7c022c29ce8b4e990e2f7f97df15bb4d688d85` |
+| Weather and navigation | `6533c6eeecb9b516f1d4104dcf38c7d7dbc6168eef0bf332ed5a4dd622a77e49` |
+| Clock at 06:58:35 AM | `fed2f984a5a6e4376c7244cd31f0d980952f9258c1a3a1aa54e0646091c0d3e2` |
+| Clock at 06:58:39 AM | `00fddb2bb2bc0058c4f2ff3998bdefe87b0d677a5885149beb512bfe994f6ecb` |
+
+After restoring English and the original Living page, a fresh editor
+backup matched the pre-flash export in every field except its creation
+time. Independent reads confirmed 10 pages, 61 widgets, 76 KNX objects,
+the same accounts and cameras, the Glow theme, 12-hour clock and original
+night settings. Only the live clock and Wi-Fi signal differed in the
+settings response. After sign-out the protected layout returned HTTP 401.
+
+The 388.644-second capture contained 431 complete UART lines. The boot
+sequence advanced once, from 272 to 273. No watchdog reset, rollback, new
+crash report or LVGL lock timeout appeared. The final font counters showed
+37 instances, zero budget hits and zero creation failures. Three Home
+Assistant camera thumbnail requests retried with the software decoder
+after six `SOS encountered before SOF0` JPEG parser errors in total.
+The previous Zopfli image logged the same retry sequence. Camera image
+quality was outside this glyph and touch test.

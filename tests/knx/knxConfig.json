@@ -871,23 +871,23 @@
     },
     {
       "id": "dpt_7_003_decisecond_period",
-      "name": "Decisecond Period",
-      "description": "Measured period in tenths of seconds",
+      "name": "Period (10 ms/count)",
+      "description": "Raw unsigned 16-bit count; one count represents 10 ms (0.01 s).",
       "group_address": "10/0/10",
       "datapoint_type": "DPT-7.003",
       "readable": true,
       "writable": true,
-      "unit": "s"
+      "unit": null
     },
     {
       "id": "dpt_7_004_hectomillisecond_period",
-      "name": "Hectomillisecond Period",
-      "description": "Measured period in hundredths of seconds",
+      "name": "Period (100 ms/count)",
+      "description": "Raw unsigned 16-bit count; one count represents 100 ms (0.10 s).",
       "group_address": "10/0/11",
       "datapoint_type": "DPT-7.004",
       "readable": true,
       "writable": true,
-      "unit": "s"
+      "unit": null
     },
     {
       "id": "dpt_7_011_length_mm",

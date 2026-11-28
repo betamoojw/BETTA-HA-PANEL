@@ -4,6 +4,12 @@ Reference source: [PROMOTIC KNX protocol data types](https://www.promotic.eu/en/
 
 The table below preserves the source page content. PROMOTIC interpretation values use the corresponding PROMOTIC data type.
 
+**Erratum (7.003 and 7.004):** The copied table reverses these two scales.
+Use [KNX System Specifications, section 3.8.2](https://support.knx.org/hc/en-us/article_attachments/15392631105682#page=35):
+7.003 is 10 ms/count (0 to 655.35 s); 7.004 is 100 ms/count (0 to 6553.5 s).
+BETTA's test fixture exposes raw U16 counts, not seconds. These types are
+restricted to parameters or diagnostics unless a KNX functional block specifies runtime use.
+
 **Notes:**
 
 1. If a coefficient k is defined, multiply the value by k for the correct interpretation.

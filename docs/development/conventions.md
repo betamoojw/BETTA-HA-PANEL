@@ -1,6 +1,16 @@
 <!-- SPDX-License-Identifier: LicenseRef-FNCL-1.1 | Copyright (c) 2026 andre68723 -- file added in the andre68723/BETTA-HA-PANEL fork, see docs/release-notes.md -->
 # Code conventions
 
+## C and C++ formatting
+
+The root `.clang-format` defines the editor and command-line policy. Its project supplement
+preserves include groups, uses two-space preprocessor nesting after `#`, keeps declarations
+inside `extern "C"` guards unindented, and recognizes ESP-IDF memory attributes and LVGL
+image declaration macros.
+
+Use `clang-format --style=file <source>` to inspect formatting without modifying the file.
+Limit formatting to the code being changed; do not reformat generated assets or third-party sources.
+
 ## Text and fonts
 
 Use semantic roles through `ui_font_role()` or `ui_text_set()` (`ui/theme/ui_typography.h`), never pixel sizes.

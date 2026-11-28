@@ -2,8 +2,6 @@
 # Keep the existing project style stable while making the policy explicit for
 # editor integrations and reproducible command-line formatting.
 BasedOnStyle: Microsoft
-Language: Cpp
-Standard: Auto
 AlignAfterOpenBracket: Align
 AlignConsecutiveMacros: true
 AlignConsecutiveAssignments: false
@@ -17,33 +15,26 @@ AllowAllParametersOfDeclarationOnNextLine: false
 AllowShortBlocksOnASingleLine: false
 AllowShortCaseLabelsOnASingleLine: false
 AllowShortFunctionsOnASingleLine: None
-AllowShortLambdasOnASingleLine: None
 AllowShortIfStatementsOnASingleLine: Never
 AllowShortLoopsOnASingleLine: false
 AlwaysBreakAfterReturnType: None
 AlwaysBreakBeforeMultilineStrings: false
 BreakBeforeBraces: Allman
-BreakConstructorInitializers: AfterColon
-ConstructorInitializerIndentWidth: 4
-PackConstructorInitializers: Never
 BreakTemplateDeclarations: Yes
 ContinuationIndentWidth: 4
 ColumnLimit: 140
 ExperimentalAutoDetectBinPacking: true
-IndentAccessModifiers: true
+IndentAccessModifiers: false
 IndentCaseLabels: true
 IndentWidth: 4
-IndentGotoLabels: true
 IndentWrappedFunctionNames: false
+InsertBraces: true
 KeepEmptyLinesAtTheStartOfBlocks: false
 Language: Cpp
 MaxEmptyLinesToKeep: 1
 PointerAlignment: Right
-DerivePointerAlignment: false
 ReflowComments: true
-SortIncludes: CaseSensitive
-IncludeBlocks: Regroup
-SortUsingDeclarations: LexicographicNumeric
+SortIncludes: true
 SpaceAfterCStyleCast: true
 SpaceAfterLogicalNot: false
 SpaceBeforeAssignmentOperators: true
@@ -56,12 +47,33 @@ SpacesInCStyleCastParentheses: false
 SpacesInContainerLiterals: false
 SpacesInParentheses: false
 SpacesInSquareBrackets: false
+SeparateDefinitionBlocks: Always
 TabWidth: 4
 UseTab: Never
+
+# Project supplement: preserve include groups and the explicit pointer policy.
+IncludeBlocks: Preserve
+DerivePointerAlignment: false
+
+# Board configuration uses two spaces after '#' per conditional level.
+IndentPPDirectives: AfterHash
+PPIndentWidth: 2
+
+# Public headers share unindented declarations inside extern "C" guards.
 IndentExternBlock: NoIndent
-Cpp11BracedListStyle: false
-BinPackArguments: false
-BinPackParameters: false
-NamespaceIndentation: None
-FixNamespaceComments: true
-InsertNewlineAtEOF: true
+
+# ESP-IDF memory placement and LVGL image attributes are declaration qualifiers.
+# Retain clang-format's built-in attribute macro alongside project additions.
+AttributeMacros:
+  - __capability
+  - IRAM_ATTR
+  - DRAM_ATTR
+  - RTC_NOINIT_ATTR
+  - LV_ATTRIBUTE_MEM_ALIGN
+  - LV_ATTRIBUTE_LARGE_CONST
+
+# Retain built-in statement macros when adding LVGL image declarations.
+StatementMacros:
+  - Q_UNUSED
+  - QT_REQUIRE_VERSION
+  - LV_IMAGE_DECLARE

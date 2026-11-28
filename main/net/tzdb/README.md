@@ -15,6 +15,12 @@ These are recurring POSIX rules, not a full historical IANA database. Update
 the snapshot when regional rules change. Multiple names intentionally share
 rules; the selected name must never be inferred from the rules alone.
 
+The hash above describes the imported snapshot before local edits.
+Five Canadian locations use forward-looking fixed offsets from
+[IANA tzdata 2026b through 2026e](https://data.iana.org/time-zones/tzdb/NEWS):
+Vancouver UTC-07; Edmonton, Inuvik and Yellowknife UTC-06; Winnipeg UTC-05.
+The recurring rules cannot represent the historical transition dates.
+
 ## Regional date formats
 
 `date_patterns.txt` groups every catalog location by territory and numeric

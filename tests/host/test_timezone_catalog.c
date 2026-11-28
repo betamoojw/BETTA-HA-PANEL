@@ -13,6 +13,13 @@ int main(void)
     assert(strcmp(timezone_catalog_rules("Asia/Shanghai"), "CST-8") == 0);
     assert(strcmp(timezone_catalog_rules("Asia/Kolkata"), "IST-5:30") == 0);
     assert(strstr(timezone_catalog_rules("Europe/Berlin"), "M3.5.0") != NULL);
+    /* Canada ended seasonal clock changes for these locations in 2026. */
+    assert(strcmp(timezone_catalog_rules("America/Edmonton"), "CST6") == 0);
+    assert(strcmp(timezone_catalog_rules("America/Inuvik"), "CST6") == 0);
+    assert(strcmp(timezone_catalog_rules("America/Vancouver"), "MST7") == 0);
+    assert(strcmp(timezone_catalog_rules("America/Winnipeg"), "EST5") == 0);
+    assert(strcmp(timezone_catalog_rules("America/Yellowknife"), "CST6") == 0);
+    assert(strcmp(timezone_catalog_rules("America/Los_Angeles"), "PST8PDT,M3.2.0,M11.1.0") == 0);
     const struct { const char *zone, *full, *month_day, *month_year; } cases[] = {
         {"America/New_York", "11/06/2026", "11/06", "11/26"},
         {"America/Toronto", "2026-11-06", "11-06", "26-11"},

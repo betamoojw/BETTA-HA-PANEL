@@ -2,6 +2,9 @@
  * Copyright (c) 2026 Cpt_Kirk
  * Modified 2026 by andre68723 in the andre68723/BETTA-HA-PANEL fork, see docs/release-notes.md
  */
+/** @file
+ * @brief Home Assistant entity discovery and editor light entity selection.
+ */
 #include "api/api_routes.h"
 
 #include <stdbool.h>
@@ -20,8 +23,8 @@
 #include "util/url_decode.h"
 
 #define API_ENTITIES_MAX_ITEMS_DEFAULT 128U
-#define API_ENTITIES_MAX_ITEMS_MIN 8U
-#define API_ENTITIES_MAX_ITEMS_MAX 128U
+#define API_ENTITIES_MAX_ITEMS_MIN     8U
+#define API_ENTITIES_MAX_ITEMS_MAX     128U
 
 static void set_json_headers(httpd_req_t *req)
 {
@@ -32,25 +35,31 @@ static void set_json_headers(httpd_req_t *req)
 static esp_err_t send_ha_availability(httpd_req_t *req)
 {
     const char *status;
-    switch (ha_auth_state_reason()) {
-    case HA_AUTH_TOKEN_REJECTED:
-        status = "token_rejected";
-        break;
-    case HA_AUTH_FORBIDDEN:
-        status = "forbidden";
-        break;
-    default:
-        if (ha_client_is_connected()) {
-            status = "ready";
-        } else {
-            runtime_settings_t *settings = calloc(1, sizeof(*settings));
-            if (settings == NULL) return httpd_resp_send_500(req);
-            esp_err_t err = runtime_settings_load(settings);
-            status = runtime_settings_has_ha(settings) ? "disconnected" : "not_configured";
-            free(settings);
-            if (err != ESP_OK) return httpd_resp_send_500(req);
-        }
-        break;
+    switch (ha_auth_state_reason())
+    {
+        case HA_AUTH_TOKEN_REJECTED:
+            status = "token_rejected";
+            break;
+        case HA_AUTH_FORBIDDEN:
+            status = "forbidden";
+            break;
+        default:
+            if (ha_client_is_connected())
+            {
+                status = "ready";
+            }
+            else
+            {
+                runtime_settings_t *settings = calloc(1, sizeof(*settings));
+                if (settings == NULL)
+                    return httpd_resp_send_500(req);
+                esp_err_t err = runtime_settings_load(settings);
+                status = runtime_settings_has_ha(settings) ? "disconnected" : "not_configured";
+                free(settings);
+                if (err != ESP_OK)
+                    return httpd_resp_send_500(req);
+            }
+            break;
     }
     char payload[48];
     snprintf(payload, sizeof(payload), "{\"status\":\"%s\"}", status);
@@ -63,29 +72,37 @@ static size_t parse_offset(const char *value)
 {
     char *end_ptr = NULL;
     long parsed = value[0] != '\0' ? strtol(value, &end_ptr, 10) : 0;
-    return (end_ptr != NULL && *end_ptr == '\0' && parsed > 0) ? (size_t)parsed : 0;
+    return (end_ptr != NULL && *end_ptr == '\0' && parsed > 0) ? (size_t) parsed : 0;
 }
 
 static size_t parse_max_items(const char *value)
 {
-    if (value == NULL || value[0] == '\0') {
+    if (value == NULL || value[0] == '\0')
+    {
         return API_ENTITIES_MAX_ITEMS_DEFAULT;
     }
 
     char *end_ptr = NULL;
     long parsed = strtol(value, &end_ptr, 10);
-    if (end_ptr == value || *end_ptr != '\0' || parsed <= 0) {
+    if (end_ptr == value || *end_ptr != '\0' || parsed <= 0)
+    {
         return API_ENTITIES_MAX_ITEMS_DEFAULT;
     }
-    if ((size_t)parsed < API_ENTITIES_MAX_ITEMS_MIN) {
+    if ((size_t) parsed < API_ENTITIES_MAX_ITEMS_MIN)
+    {
         return API_ENTITIES_MAX_ITEMS_MIN;
     }
-    if ((size_t)parsed > API_ENTITIES_MAX_ITEMS_MAX) {
+    if ((size_t) parsed > API_ENTITIES_MAX_ITEMS_MAX)
+    {
         return API_ENTITIES_MAX_ITEMS_MAX;
     }
-    return (size_t)parsed;
+    return (size_t) parsed;
 }
 
+/** @brief Return a bounded, filterable page of the local entity model.
+ *
+ * Offset and total refer to the filtered result, not the complete entity registry.
+ */
 esp_err_t api_entities_get_handler(httpd_req_t *req)
 {
     char domain[APP_MAX_NAME_LEN] = {0};
@@ -94,12 +111,15 @@ esp_err_t api_entities_get_handler(httpd_req_t *req)
     char offset_raw[12] = {0};
 
     int query_len = httpd_req_get_url_query_len(req);
-    if (query_len > 0) {
-        char *query = calloc((size_t)query_len + 1U, sizeof(char));
-        if (query == NULL) {
+    if (query_len > 0)
+    {
+        char *query = calloc((size_t) query_len + 1U, sizeof(char));
+        if (query == NULL)
+        {
             return httpd_resp_send_500(req);
         }
-        if (httpd_req_get_url_query_str(req, query, query_len + 1) == ESP_OK) {
+        if (httpd_req_get_url_query_str(req, query, query_len + 1) == ESP_OK)
+        {
             httpd_query_key_value(query, "domain", domain, sizeof(domain));
             httpd_query_key_value(query, "search", search, sizeof(search));
             url_decode_in_place(search);
@@ -111,24 +131,26 @@ esp_err_t api_entities_get_handler(httpd_req_t *req)
 
     const size_t max_items = parse_max_items(limit_raw);
     ha_entity_info_t *items = calloc(max_items, sizeof(ha_entity_info_t));
-    if (items == NULL) {
+    if (items == NULL)
+    {
         return httpd_resp_send_500(req);
     }
     const size_t offset = parse_offset(offset_raw);
     size_t total = 0;
-    size_t count = ha_model_list_entities_page(
-        domain[0] ? domain : NULL, search[0] ? search : NULL, offset, items, max_items, &total);
+    size_t count = ha_model_list_entities_page(domain[0] ? domain : NULL, search[0] ? search : NULL, offset, items, max_items, &total);
 
     cJSON *root = cJSON_CreateObject();
     cJSON *arr = cJSON_CreateArray();
-    if (root == NULL || arr == NULL) {
+    if (root == NULL || arr == NULL)
+    {
         free(items);
         cJSON_Delete(root);
         cJSON_Delete(arr);
         return httpd_resp_send_500(req);
     }
 
-    for (size_t i = 0; i < count; i++) {
+    for (size_t i = 0; i < count; i++)
+    {
         cJSON *it = cJSON_CreateObject();
         cJSON_AddStringToObject(it, "id", items[i].id);
         cJSON_AddStringToObject(it, "name", items[i].name);
@@ -138,9 +160,10 @@ esp_err_t api_entities_get_handler(httpd_req_t *req)
         cJSON_AddStringToObject(it, "state_class", items[i].state_class);
         cJSON_AddBoolToObject(it, "has_price_series", items[i].has_price_series);
         cJSON_AddBoolToObject(it, "has_solar_forecast", items[i].has_solar_forecast);
-        cJSON_AddNumberToObject(it, "supported_features", (double)items[i].supported_features);
+        cJSON_AddNumberToObject(it, "supported_features", (double) items[i].supported_features);
         cJSON *capabilities = cJSON_CreateObject();
-        if (capabilities != NULL) {
+        if (capabilities != NULL)
+        {
             cJSON_AddBoolToObject(capabilities, "dimming", items[i].supports_dimming);
             cJSON_AddBoolToObject(capabilities, "color", items[i].supports_color);
             cJSON_AddBoolToObject(capabilities, "color_temp", items[i].supports_color_temp);
@@ -152,12 +175,13 @@ esp_err_t api_entities_get_handler(httpd_req_t *req)
     free(items);
 
     cJSON_AddItemToObject(root, "items", arr);
-    cJSON_AddNumberToObject(root, "count", (double)count);
-    cJSON_AddNumberToObject(root, "offset", (double)offset);
-    cJSON_AddNumberToObject(root, "total", (double)total);
+    cJSON_AddNumberToObject(root, "count", (double) count);
+    cJSON_AddNumberToObject(root, "offset", (double) offset);
+    cJSON_AddNumberToObject(root, "total", (double) total);
     char *payload = cJSON_PrintUnformatted(root);
     cJSON_Delete(root);
-    if (payload == NULL) {
+    if (payload == NULL)
+    {
         return httpd_resp_send_500(req);
     }
 
@@ -167,6 +191,11 @@ esp_err_t api_entities_get_handler(httpd_req_t *req)
     return err;
 }
 
+/** @brief Return domain discovery results; the legacy light route also supports other domains.
+ *
+ * A status-only request reads availability without starting discovery.
+ * The room area-only mode reads area/floor data instead of entity results.
+ */
 esp_err_t api_light_entities_get_handler(httpd_req_t *req)
 {
     char refresh_raw[8] = {0};
@@ -178,38 +207,42 @@ esp_err_t api_light_entities_get_handler(httpd_req_t *req)
     char status_only_raw[2] = {0};
 
     int query_len = httpd_req_get_url_query_len(req);
-    if (query_len > 0) {
-        char *query = calloc((size_t)query_len + 1U, sizeof(char));
-        if (query == NULL) {
+    if (query_len > 0)
+    {
+        char *query = calloc((size_t) query_len + 1U, sizeof(char));
+        if (query == NULL)
+        {
             return httpd_resp_send_500(req);
         }
         bool valid = httpd_req_get_url_query_str(req, query, query_len + 1) == ESP_OK;
-        if (valid) {
+        if (valid)
+        {
             esp_err_t gen_err = httpd_query_key_value(query, "generation", generation_raw, sizeof(generation_raw));
-            valid = gen_err == ESP_ERR_NOT_FOUND || (gen_err == ESP_OK && generation_raw[0] &&
-                ha_discovery_parse_generation(generation_raw, &generation));
+            valid = gen_err == ESP_ERR_NOT_FOUND ||
+                    (gen_err == ESP_OK && generation_raw[0] && ha_discovery_parse_generation(generation_raw, &generation));
             httpd_query_key_value(query, "refresh", refresh_raw, sizeof(refresh_raw));
             httpd_query_key_value(query, "areas_only", areas_only_raw, sizeof(areas_only_raw));
             esp_err_t status_err = httpd_query_key_value(query, "status_only", status_only_raw, sizeof(status_only_raw));
-            valid = valid && (status_err == ESP_ERR_NOT_FOUND ||
-                (status_err == ESP_OK && strcmp(status_only_raw, "1") == 0));
+            valid = valid && (status_err == ESP_ERR_NOT_FOUND || (status_err == ESP_OK && strcmp(status_only_raw, "1") == 0));
             httpd_query_key_value(query, "domain", domain, sizeof(domain));
             httpd_query_key_value(query, "search", search, sizeof(search));
             url_decode_in_place(search);
         }
         free(query);
-        if (!valid) return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid discovery query");
+        if (!valid)
+            return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid discovery query");
     }
 
-    if (strcmp(status_only_raw, "1") == 0) return send_ha_availability(req);
+    if (strcmp(status_only_raw, "1") == 0)
+        return send_ha_availability(req);
     bool refresh = strcmp(refresh_raw, "1") == 0 || strcmp(refresh_raw, "true") == 0;
     /* domain=room&areas_only=1: just the area/floor registry, no entity discovery. */
-    bool areas_only = strcmp(domain, "room") == 0 &&
-        (strcmp(areas_only_raw, "1") == 0 || strcmp(areas_only_raw, "true") == 0);
+    bool areas_only = strcmp(domain, "room") == 0 && (strcmp(areas_only_raw, "1") == 0 || strcmp(areas_only_raw, "true") == 0);
     char *payload = NULL;
     esp_err_t err = areas_only ? ha_client_get_room_areas_json(refresh, &payload)
                                : ha_client_get_domain_entities_json(domain, search, refresh, generation, &payload);
-    if (err != ESP_OK || payload == NULL) {
+    if (err != ESP_OK || payload == NULL)
+    {
         return httpd_resp_send_500(req);
     }
 
@@ -219,6 +252,7 @@ esp_err_t api_light_entities_get_handler(httpd_req_t *req)
     return err;
 }
 
+/** @brief Cancel the selected discovery request, not the underlying Home Assistant entities. */
 esp_err_t api_light_entities_delete_handler(httpd_req_t *req)
 {
     char generation_raw[11] = {0};
@@ -227,26 +261,31 @@ esp_err_t api_light_entities_delete_handler(httpd_req_t *req)
     char search[APP_HA_DISCOVERY_SEARCH_MAX_LEN] = {0};
 
     int query_len = httpd_req_get_url_query_len(req);
-    if (query_len > 0) {
-        char *query = calloc((size_t)query_len + 1U, sizeof(char));
-        if (query == NULL) {
+    if (query_len > 0)
+    {
+        char *query = calloc((size_t) query_len + 1U, sizeof(char));
+        if (query == NULL)
+        {
             return httpd_resp_send_500(req);
         }
         bool valid = httpd_req_get_url_query_str(req, query, query_len + 1) == ESP_OK;
-        if (valid) {
+        if (valid)
+        {
             esp_err_t gen_err = httpd_query_key_value(query, "generation", generation_raw, sizeof(generation_raw));
-            valid = gen_err == ESP_ERR_NOT_FOUND || (gen_err == ESP_OK && generation_raw[0] &&
-                ha_discovery_parse_generation(generation_raw, &generation));
+            valid = gen_err == ESP_ERR_NOT_FOUND ||
+                    (gen_err == ESP_OK && generation_raw[0] && ha_discovery_parse_generation(generation_raw, &generation));
             httpd_query_key_value(query, "domain", domain, sizeof(domain));
             httpd_query_key_value(query, "search", search, sizeof(search));
             url_decode_in_place(search);
         }
         free(query);
-        if (!valid) return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid discovery query");
+        if (!valid)
+            return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid discovery query");
     }
 
     esp_err_t err = ha_client_cancel_domain_entities(domain, search, generation);
-    if (err != ESP_OK) {
+    if (err != ESP_OK)
+    {
         return httpd_resp_send_500(req);
     }
 

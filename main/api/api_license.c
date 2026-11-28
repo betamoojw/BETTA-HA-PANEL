@@ -1,4 +1,7 @@
 /* SPDX-License-Identifier: LicenseRef-FNCL-1.1 | Copyright (c) 2026 andre68723 */
+/** @file
+ * @brief Device license status and management endpoints.
+ */
 #include "api/api_license.h"
 #include "api/http_guard.h"
 #include "settings/license_manager.h"
@@ -8,12 +11,18 @@
 
 static const char *license_state_name(license_key_state_t state)
 {
-    switch (state) {
-    case LICENSE_MISSING: return "missing";
-    case LICENSE_VALID: return "valid";
-    case LICENSE_INVALID: return "invalid";
-    case LICENSE_UNCONFIGURED: return "unconfigured";
-    default: return "error";
+    switch (state)
+    {
+        case LICENSE_MISSING:
+            return "missing";
+        case LICENSE_VALID:
+            return "valid";
+        case LICENSE_INVALID:
+            return "invalid";
+        case LICENSE_UNCONFIGURED:
+            return "unconfigured";
+        default:
+            return "error";
     }
 }
 
@@ -30,13 +39,14 @@ static esp_err_t license_get(httpd_req_t *req)
     license_status_t s;
     license_manager_status(&s);
     char body[256];
-    snprintf(body, sizeof(body), "{\"device_id\":\"%s\",\"key_state\":\"%s\","
-        "\"trial_seconds\":%lu,\"status_only\":true,\"trial_per_boot\":true}",
-        s.device_id, license_state_name(s.key_state), (unsigned long)s.trial_seconds);
+    snprintf(body, sizeof(body),
+             "{\"device_id\":\"%s\",\"key_state\":\"%s\","
+             "\"trial_seconds\":%lu,\"status_only\":true,\"trial_per_boot\":true}",
+             s.device_id, license_state_name(s.key_state), (unsigned long) s.trial_seconds);
     return license_reply(req, "200 OK", body);
 }
 
-/* Login and setup need only the state: never publish device identity or key material. */
+/** @brief Return only the license state needed by login and setup, with no device ID or key material. */
 static esp_err_t license_status_get(httpd_req_t *req)
 {
     license_status_t s;
@@ -46,17 +56,25 @@ static esp_err_t license_status_get(httpd_req_t *req)
     return license_reply(req, "200 OK", body);
 }
 
+/** @brief Import a bounded binary license and clear the request buffer before returning. */
 static esp_err_t license_post(httpd_req_t *req)
 {
-    if (req->content_len < LICENSE_FILE_LENGTH || req->content_len > LICENSE_FILE_MAX) {
+    if (req->content_len < LICENSE_FILE_LENGTH || req->content_len > LICENSE_FILE_MAX)
+    {
         httpd_resp_set_hdr(req, "Connection", "close");
         return license_reply(req, "400 Bad Request", "{\"error\":\"invalid_license\"}");
     }
-    char key[LICENSE_FILE_MAX]; size_t used = 0, length = (size_t)req->content_len;
-    while (used < length) {
+    char key[LICENSE_FILE_MAX];
+    size_t used = 0, length = (size_t) req->content_len;
+    while (used < length)
+    {
         int n = httpd_req_recv(req, key + used, length - used);
-        if (n <= 0) { user_password_wipe(key, sizeof(key)); return ESP_FAIL; }
-        used += (size_t)n;
+        if (n <= 0)
+        {
+            user_password_wipe(key, sizeof(key));
+            return ESP_FAIL;
+        }
+        used += (size_t) n;
     }
     esp_err_t err = license_manager_import(key, used);
     user_password_wipe(key, sizeof(key));
@@ -74,10 +92,25 @@ static esp_err_t license_delete(httpd_req_t *req)
     return license_get(req);
 }
 
-static esp_err_t guarded_license_get(httpd_req_t *req) { return http_guard_handle(req, license_get); }
-static esp_err_t guarded_license_status_get(httpd_req_t *req) { return http_guard_handle(req, license_status_get); }
-static esp_err_t guarded_license_post(httpd_req_t *req) { return http_guard_handle(req, license_post); }
-static esp_err_t guarded_license_delete(httpd_req_t *req) { return http_guard_handle(req, license_delete); }
+static esp_err_t guarded_license_get(httpd_req_t *req)
+{
+    return http_guard_handle(req, license_get);
+}
+
+static esp_err_t guarded_license_status_get(httpd_req_t *req)
+{
+    return http_guard_handle(req, license_status_get);
+}
+
+static esp_err_t guarded_license_post(httpd_req_t *req)
+{
+    return http_guard_handle(req, license_post);
+}
+
+static esp_err_t guarded_license_delete(httpd_req_t *req)
+{
+    return http_guard_handle(req, license_delete);
+}
 
 esp_err_t api_license_register(httpd_handle_t server)
 {
@@ -87,9 +120,11 @@ esp_err_t api_license_register(httpd_handle_t server)
         {.uri = "/api/license", .method = HTTP_POST, .handler = guarded_license_post},
         {.uri = "/api/license", .method = HTTP_DELETE, .handler = guarded_license_delete},
     };
-    for (unsigned i = 0; i < sizeof(routes) / sizeof(*routes); ++i) {
+    for (unsigned i = 0; i < sizeof(routes) / sizeof(*routes); ++i)
+    {
         esp_err_t err = httpd_register_uri_handler(server, &routes[i]);
-        if (err != ESP_OK) return err;
+        if (err != ESP_OK)
+            return err;
     }
     return ESP_OK;
 }

@@ -1,4 +1,7 @@
 /* SPDX-License-Identifier: LicenseRef-FNCL-1.1 | Copyright (c) 2026 andre68723 */
+/** @file
+ * @brief Retrieve JPEG snapshots from the built-in camera or a saved source.
+ */
 #include "camera/camera_source_fetch.h"
 
 #include "camera/camera_output.h"
@@ -13,46 +16,68 @@
 #include <stdlib.h>
 #include <string.h>
 
+/** @brief Maximum bytes accepted even if the server does not advertise an image length. */
 #define MAX_JPEG (1024U * 1024U)
+
+/** @brief PSRAM request scratch for a single fetch.
+ *
+ * Keep request data alive through client cleanup, then clear the scratch buffer.
+ */
 typedef struct
 {
-        camera_source_t source;
-        ha_client_http_ctx_t ha;
-        char url[640], auth[600];
+    camera_source_t source;  /**< Copied destination settings, including any direct source login. */
+    ha_client_http_ctx_t ha; /**< Configured proxy context used only for Home Assistant sources. */
+    char url[640],           /**< Resolved request URL, held until client cleanup. */
+        auth[600];           /**< Authorization header value built only for the HA proxy. */
 } fetch_context_t;
+
 int camera_source_refresh_ms(const char *id)
 {
     if (id && !strcmp(id, "local"))
+    {
         return 500;
+    }
     camera_source_t source;
     return camera_store_source(id, &source) ? source.refresh_ms : 10000;
 }
+
 esp_err_t camera_source_fetch(const char *id, uint8_t **jpeg, size_t *length)
 {
     if (!id || !jpeg || !length)
+    {
         return ESP_ERR_INVALID_ARG;
+    }
     *jpeg = NULL;
     *length = 0;
     if (!strcmp(id, "local"))
+    {
         return camera_output_snapshot(jpeg, length);
-    if (ha_client_heavy_gate_is_busy() ||
-        heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT) < 20U * 1024U ||
+    }
+    if (ha_client_heavy_gate_is_busy() || heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT) < 20U * 1024U ||
         heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT) < 12U * 1024U)
+    {
         return ESP_ERR_NO_MEM;
+    }
     fetch_context_t *c = heap_caps_calloc(1, sizeof(*c), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     if (!c)
+    {
         return ESP_ERR_NO_MEM;
+    }
     esp_err_t err = ESP_ERR_INVALID_STATE;
     esp_http_client_handle_t client = NULL;
     uint8_t *data = NULL;
     uint32_t generation = camera_store_generation();
     if (!camera_store_source(id, &c->source) || !c->source.enabled)
+    {
         goto done;
+    }
     bool ha = !strcmp(c->source.source, "ha");
     if (ha)
     {
         if (!ha_client_is_connected() || !ha_client_get_http_context(&c->ha) || !c->ha.bearer_token[0])
+        {
             goto done;
+        }
         int n = snprintf(c->url, sizeof(c->url), "%s/api/camera_proxy/%s", c->ha.base_url, c->source.entity_id);
         if (n < 0 || (size_t) n >= sizeof(c->url))
         {
@@ -62,7 +87,9 @@ esp_err_t camera_source_fetch(const char *id, uint8_t **jpeg, size_t *length)
         snprintf(c->auth, sizeof(c->auth), "Bearer %s", c->ha.bearer_token);
     }
     else
+    {
         snprintf(c->url, sizeof(c->url), "%s", c->source.snapshot_url);
+    }
     esp_http_client_config_t cfg = {
         .url = c->url,
         .timeout_ms = 3000,
@@ -76,7 +103,9 @@ esp_err_t camera_source_fetch(const char *id, uint8_t **jpeg, size_t *length)
 #endif
     };
     if (ha && c->ha.cert_common_name[0])
+    {
         cfg.common_name = c->ha.cert_common_name;
+    }
     if (!ha && c->source.username[0])
     {
         cfg.username = c->source.username;
@@ -93,14 +122,18 @@ esp_err_t camera_source_fetch(const char *id, uint8_t **jpeg, size_t *length)
     {
         esp_http_client_set_header(client, "Authorization", c->auth);
         if (c->ha.host_header[0])
+        {
             esp_http_client_set_header(client, "Host", c->ha.host_header);
+        }
     }
     esp_http_client_set_header(client, "Accept", "image/jpeg");
     esp_http_client_set_header(client, "Connection", "close");
     int64_t deadline = esp_timer_get_time() + 10000000;
     err = esp_http_client_open(client, 0);
     if (err != ESP_OK)
+    {
         goto done;
+    }
     int64_t expected = esp_http_client_fetch_headers(client);
     if (expected < 0 || expected > MAX_JPEG || esp_http_client_get_status_code(client) != 200)
     {
@@ -125,7 +158,9 @@ esp_err_t camera_source_fetch(const char *id, uint8_t **jpeg, size_t *length)
         }
         used += (size_t) n;
         if (esp_http_client_is_complete_data_received(client))
+        {
             break;
+        }
         if (n == 0)
         {
             err = ESP_ERR_TIMEOUT;

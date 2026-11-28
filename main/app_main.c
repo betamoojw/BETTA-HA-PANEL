@@ -2,6 +2,9 @@
  * Copyright (c) 2026 Cpt_Kirk
  * Modified 2026 by andre68723 in the andre68723/BETTA-HA-PANEL fork, see docs/release-notes.md
  */
+/** @file
+ * @brief Firmware startup and selection of dashboard or Wi-Fi provisioning mode.
+ */
 
 #include "ui/ui_transition.h"
 #include "settings/license_manager.h"
@@ -69,21 +72,25 @@
 #include "util/ui_watchdog_esp.h"
 
 #if CONFIG_IDF_TARGET_ESP32P4 && CONFIG_ESP32P4_SELECTS_REV_LESS_V3 && (CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ > 360)
-#error "ESP32-P4 rev<3 supports up to 360 MHz in this IDF; lower CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ."
+#  error "ESP32-P4 rev<3 supports up to 360 MHz in this IDF; lower CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ."
 #endif
 
+/** @brief Startup settings kept off the main task's stack. */
 static runtime_settings_t s_runtime_settings = {0};
 
+/** @brief Show provisioning details while keeping reconnect guidance distinct from first-time setup. */
 static void app_show_wifi_setup_screen(const char *saved_ssid)
 {
     ui_boot_splash_set_setup();
     char ap_ip[16] = "192.168.4.1";
-    if (wifi_mgr_get_ap_ip(ap_ip, sizeof(ap_ip)) != ESP_OK) {
+    if (wifi_mgr_get_ap_ip(ap_ip, sizeof(ap_ip)) != ESP_OK)
+    {
         strlcpy(ap_ip, "192.168.4.1", sizeof(ap_ip));
     }
 
     const char *ap_ssid = wifi_mgr_get_setup_ap_ssid();
-    if (ap_ssid == NULL || ap_ssid[0] == '\0') {
+    if (ap_ssid == NULL || ap_ssid[0] == '\0')
+    {
         ap_ssid = APP_SETUP_AP_SSID_PREFIX;
     }
 
@@ -99,7 +106,8 @@ static void app_show_wifi_setup_screen(const char *saved_ssid)
     ui_boot_splash_set_status_layout(true, 520, 0);
     ui_boot_splash_clear_status();
     ui_boot_splash_set_progress(100);
-    if (saved_ssid != NULL && saved_ssid[0] != '\0') {
+    if (saved_ssid != NULL && saved_ssid[0] != '\0')
+    {
         /* A saved network that does not answer: say so, and name both ways out (the panel keeps trying by itself). */
         char saved_line[64] = {0};
         char setup_line[64] = {0};
@@ -119,16 +127,19 @@ static void app_show_wifi_setup_screen(const char *saved_ssid)
     ui_boot_splash_set_status(url_line);
 }
 
+/** @brief Open NVS and retry after erasure only for the two recoverable initialization errors. */
 static esp_err_t init_nvs(void)
 {
     esp_err_t err = nvs_flash_init();
-    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND)
+    {
         ESP_ERROR_CHECK(nvs_flash_erase());
         err = nvs_flash_init();
     }
     return err;
 }
 
+/** @brief Mount the settings filesystem with the configured format-on-mount-failure policy. */
 static esp_err_t init_littlefs(void)
 {
     esp_vfs_littlefs_conf_t conf = {
@@ -140,28 +151,39 @@ static esp_err_t init_littlefs(void)
     return esp_vfs_littlefs_register(&conf);
 }
 
+/** @brief Initialize ESP-NETIF and the default event loop, accepting already-initialized state. */
 static esp_err_t init_net_stack(void)
 {
     esp_err_t err = esp_netif_init();
-    if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
+    if (err != ESP_OK && err != ESP_ERR_INVALID_STATE)
+    {
         return err;
     }
 
     err = esp_event_loop_create_default();
-    if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
+    if (err != ESP_OK && err != ESP_ERR_INVALID_STATE)
+    {
         return err;
     }
     return ESP_OK;
 }
 
+/** @brief Supply license status and uptime, suppressing the overlay while display protection is active. */
 static ui_license_warning_status_t app_license_warning_status(void)
 {
     license_status_t status;
     license_manager_status(&status);
-    return (ui_license_warning_status_t){.state = status.key_state,
-        .uptime_us = esp_timer_get_time(), .suppressed = ui_display_protection_is_active()};
+    return (ui_license_warning_status_t) {.state = status.key_state,
+                                          .uptime_us = esp_timer_get_time(),
+                                          .suppressed = ui_display_protection_is_active()};
 }
 
+/** @brief Start the firmware on the ESP-IDF main task.
+ *
+ * Initialize storage and preserve crash diagnostics before starting network and
+ * UI services. Start HTTP in both dashboard and provisioning mode; start OTA
+ * health validation only after the selected startup path is ready.
+ */
 void app_main(void)
 {
     const esp_app_desc_t *app_desc = esp_app_get_description();
@@ -169,7 +191,8 @@ void app_main(void)
 
     log_buffer_init();
     ESP_LOGI(TAG_APP, "Booting %s", APP_NAME);
-    ESP_LOGI(TAG_APP, "Last reset reason: %d (1 power on, 3 software, 4 panic, 5 interrupt wdt, 6 task wdt, 7 other wdt, 9 brownout)", (int)esp_reset_reason());
+    ESP_LOGI(TAG_APP, "Last reset reason: %d (1 power on, 3 software, 4 panic, 5 interrupt wdt, 6 task wdt, 7 other wdt, 9 brownout)",
+             (int) esp_reset_reason());
     coredump_report_log_at_boot();
     boot_guard_init();
     ESP_LOGI("app_init", "App version: %s", app_version);
@@ -189,45 +212,52 @@ void app_main(void)
     ESP_ERROR_CHECK(ha_model_init());
     ESP_ERROR_CHECK(ha_energy_model_init());
     esp_err_t camera_init_err = camera_store_init();
-    if (camera_init_err != ESP_OK) ESP_LOGW(TAG_APP, "Camera settings unavailable; retained on disk");
+    if (camera_init_err != ESP_OK)
+    {
+        ESP_LOGW(TAG_APP, "Camera settings unavailable; retained on disk");
+    }
     esp_err_t settings_init_err = runtime_settings_init();
-    if (settings_init_err != ESP_OK) ESP_LOGW(TAG_APP, "Settings initialization deferred: %s", esp_err_to_name(settings_init_err));
+    if (settings_init_err != ESP_OK)
+    {
+        ESP_LOGW(TAG_APP, "Settings initialization deferred: %s", esp_err_to_name(settings_init_err));
+    }
     ESP_ERROR_CHECK(admin_auth_init());
 
     esp_err_t settings_err = runtime_settings_load(&s_runtime_settings);
-    if (settings_err != ESP_OK) {
+    if (settings_err != ESP_OK)
+    {
         ESP_LOGW(TAG_APP, "Failed to load runtime settings (%s), continuing with defaults", esp_err_to_name(settings_err));
         runtime_settings_set_defaults(&s_runtime_settings);
         s_runtime_settings.wifi_password[0] = s_runtime_settings.ha_access_token[0] = s_runtime_settings.mqtt_password[0] = '\0';
     }
-    (void)ui_i18n_init(s_runtime_settings.ui_language);
+    (void) ui_i18n_init(s_runtime_settings.ui_language);
     ui_style_set(ui_style_from_name(s_runtime_settings.ui_style));
     ui_transition_configure(s_runtime_settings.ui_page_animations);
     ui_fonts_set_user_step(s_runtime_settings.ui_text_step);
-    (void)time_sync_set_timezone(s_runtime_settings.time_tz);
+    (void) time_sync_set_timezone(s_runtime_settings.time_tz);
     display_orientation_configure(s_runtime_settings.hardware_auto_rotation, s_runtime_settings.hardware_rotation);
     ESP_ERROR_CHECK(display_init());
-    display_configure_brightness(
-        s_runtime_settings.hardware_active_brightness_percent,
-        s_runtime_settings.hardware_dim_brightness_percent,
-        s_runtime_settings.hardware_dim_timeout_seconds);
+    display_configure_brightness(s_runtime_settings.hardware_active_brightness_percent,
+                                 s_runtime_settings.hardware_dim_brightness_percent,
+                                 s_runtime_settings.hardware_dim_timeout_seconds);
     night_mode_configure(s_runtime_settings.hardware_night_enabled, s_runtime_settings.hardware_night_start_min,
-        s_runtime_settings.hardware_night_end_min, s_runtime_settings.hardware_night_brightness_percent);
+                         s_runtime_settings.hardware_night_end_min, s_runtime_settings.hardware_night_brightness_percent);
     chime_configure(s_runtime_settings.sound_enabled, s_runtime_settings.sound_volume, s_runtime_settings.sound_night_mute);
     device_identity_set_room(s_runtime_settings.device_room);
     ambient_camera_configure(s_runtime_settings.hardware_auto_brightness, s_runtime_settings.hardware_presence_wake,
-        s_runtime_settings.hardware_presence_sensitivity, s_runtime_settings.hardware_night_presence_wake);
+                             s_runtime_settings.hardware_presence_sensitivity, s_runtime_settings.hardware_night_presence_wake);
     ambient_camera_start();
-    (void)ui_boot_splash_show(ui_i18n_get("boot.initializing_wifi", "Initializing Wi-Fi"));
+    (void) ui_boot_splash_show(ui_i18n_get("boot.initializing_wifi", "Initializing Wi-Fi"));
 
     bool has_wifi_credentials = false;
     /* Start the wired path before the radio so both can acquire a lease. */
-    (void)eth_mgr_init();
-    (void)eth_mgr_wait_for_ip(2500);
+    (void) eth_mgr_init();
+    (void) eth_mgr_wait_for_ip(2500);
 
 #if SOC_WIFI_SUPPORTED || CONFIG_ESP_HOSTED
     has_wifi_credentials = runtime_settings_has_wifi(&s_runtime_settings);
-    if (has_wifi_credentials) {
+    if (has_wifi_credentials)
+    {
         wifi_mgr_config_t wifi_cfg = {
             .ssid = s_runtime_settings.wifi_ssid,
             .password = s_runtime_settings.wifi_password,
@@ -238,11 +268,14 @@ void app_main(void)
             .max_retries = APP_WIFI_MAX_RETRIES,
         };
         esp_err_t wifi_err = wifi_mgr_init(&wifi_cfg);
-        if (wifi_err != ESP_OK) {
+        if (wifi_err != ESP_OK)
+        {
             ESP_LOGW(TAG_WIFI, "Wi-Fi init failed: %s", esp_err_to_name(wifi_err));
             ui_boot_splash_set_status(ui_i18n_get("boot.wifi_connect_failed", "Wi-Fi connect failed"));
         }
-    } else {
+    }
+    else
+    {
         ESP_LOGW(TAG_WIFI, "No Wi-Fi credentials configured, starting setup AP");
     }
 
@@ -254,12 +287,15 @@ void app_main(void)
     const bool ha_configured = runtime_settings_has_ha(&s_runtime_settings);
     /* Also retry SNTP when a late wired lease arrives after boot's bounded wait. */
     time_sync_start(s_runtime_settings.ntp_server);
-    if (network_ready) {
+    if (network_ready)
+    {
         time_sync_wait_for_sync(8000);
-        ui_boot_splash_set_status(eth_mgr_has_ip() ? ui_i18n_get("network.ethernet", "Ethernet") : ui_i18n_get("boot.wifi_connected", "Wi-Fi connected"));
+        ui_boot_splash_set_status(eth_mgr_has_ip() ? ui_i18n_get("network.ethernet", "Ethernet")
+                                                   : ui_i18n_get("boot.wifi_connected", "Wi-Fi connected"));
     }
 #if SOC_WIFI_SUPPORTED || CONFIG_ESP_HOSTED
-    if (!network_ready) {
+    if (!network_ready)
+    {
         wifi_mgr_ap_config_t ap_cfg = {
             .ssid = NULL,
             .password = NULL, /* a random password, shown on the setup screen */
@@ -268,20 +304,19 @@ void app_main(void)
             .max_connection = APP_SETUP_AP_MAX_CONNECTIONS,
         };
         esp_err_t ap_err = wifi_mgr_start_setup_ap(&ap_cfg);
-        if (ap_err == ESP_OK) {
+        if (ap_err == ESP_OK)
+        {
             char ap_status[64] = {0};
-            snprintf(
-                ap_status,
-                sizeof(ap_status),
-                "%s: %s",
-                ui_i18n_get("boot.setup_ap_prefix", "Setup AP"),
-                wifi_mgr_get_setup_ap_ssid());
+            snprintf(ap_status, sizeof(ap_status), "%s: %s", ui_i18n_get("boot.setup_ap_prefix", "Setup AP"), wifi_mgr_get_setup_ap_ssid());
             ui_boot_splash_set_status(ap_status);
             ESP_LOGW(TAG_WIFI, "Setup AP started: %s", wifi_mgr_get_setup_ap_ssid());
-            if (has_wifi_credentials && wifi_mgr_start_recovery() != ESP_OK) {
+            if (has_wifi_credentials && wifi_mgr_start_recovery() != ESP_OK)
+            {
                 ESP_LOGW(TAG_WIFI, "Wi-Fi recovery task not started");
             }
-        } else {
+        }
+        else
+        {
             ESP_LOGW(TAG_WIFI, "Failed to start setup AP: %s", esp_err_to_name(ap_err));
             ui_boot_splash_set_status(ui_i18n_get("boot.offline_mode", "Offline mode"));
         }
@@ -289,16 +324,26 @@ void app_main(void)
 #endif
 
     esp_err_t layout_init_err = layout_store_init();
-    if (layout_init_err != ESP_OK) ESP_LOGW(TAG_APP, "Layout initialization deferred: %s", esp_err_to_name(layout_init_err));
+    if (layout_init_err != ESP_OK)
+    {
+        ESP_LOGW(TAG_APP, "Layout initialization deferred: %s", esp_err_to_name(layout_init_err));
+    }
     ESP_ERROR_CHECK(theme_store_init());
     esp_err_t chip_temp_err = chip_temperature_init();
-    if (chip_temp_err != ESP_OK) ESP_LOGW(TAG_APP, "Chip temperature unavailable: %s", esp_err_to_name(chip_temp_err));
-    if (network_ready) ui_remote_display_prepare_dashboard();
+    if (chip_temp_err != ESP_OK)
+    {
+        ESP_LOGW(TAG_APP, "Chip temperature unavailable: %s", esp_err_to_name(chip_temp_err));
+    }
+    if (network_ready)
+    {
+        ui_remote_display_prepare_dashboard();
+    }
     ESP_ERROR_CHECK(http_server_start());
-    if (network_ready) {
-        esp_err_t update_err =
-            update_check_start(s_runtime_settings.ota_update_check, s_runtime_settings.ota_include_prereleases);
-        if (update_err != ESP_OK) {
+    if (network_ready)
+    {
+        esp_err_t update_err = update_check_start(s_runtime_settings.ota_update_check, s_runtime_settings.ota_include_prereleases);
+        if (update_err != ESP_OK)
+        {
             ESP_LOGW(TAG_APP, "Update check not started: %s", esp_err_to_name(update_err));
         }
         auto_update_task_start(s_runtime_settings.ota_auto_install);
@@ -307,50 +352,60 @@ void app_main(void)
 #if CONFIG_APP_PANEL_VARIANT_S3_480
     /* Keep GT911 active so a touch can wake the S3 Wi-Fi setup screen. */
     esp_err_t setup_touch_err = touch_init();
-    if (setup_touch_err != ESP_OK) {
+    if (setup_touch_err != ESP_OK)
+    {
         ESP_LOGW(TAG_TOUCH, "Setup touch init failed: %s", esp_err_to_name(setup_touch_err));
     }
 #endif
 
-    if (network_ready) {
+    if (network_ready)
+    {
         ui_boot_splash_set_status(ui_i18n_get("boot.initializing_touch", "Initializing touch"));
         esp_err_t touch_err = touch_init();
-        if (touch_err != ESP_OK) {
+        if (touch_err != ESP_OK)
+        {
             ESP_LOGW(TAG_TOUCH, "Touch init failed, continuing without touch input: %s", esp_err_to_name(touch_err));
         }
 
         esp_err_t remote_err = ui_remote_display_init();
         if (remote_err != ESP_OK && remote_err != ESP_ERR_NOT_SUPPORTED)
+        {
             ESP_LOGW(TAG_DISPLAY, "Live display initialization deferred: %s", esp_err_to_name(remote_err));
+        }
         ui_boot_splash_set_status(ui_i18n_get("boot.loading_dashboard", "Loading dashboard"));
         ESP_ERROR_CHECK(ui_runtime_init());
         esp_err_t reload_err = ui_runtime_reload_layout();
-        if (reload_err != ESP_OK) {
+        if (reload_err != ESP_OK)
+        {
             ESP_LOGW(TAG_APP, "Initial layout reload deferred: %s", esp_err_to_name(reload_err));
             app_event_t reload = {.type = EV_LAYOUT_UPDATED};
-            (void)app_events_publish(&reload, 0);
+            (void) app_events_publish(&reload, 0);
         }
         ESP_ERROR_CHECK(ui_runtime_start());
         ui_boot_splash_request_hide();
         ESP_ERROR_CHECK(display_orientation_start());
 
-        if (ha_configured) {
+        if (ha_configured)
+        {
             ha_client_config_t ha_cfg = {
                 .ws_url = s_runtime_settings.ha_ws_url,
                 .access_token = s_runtime_settings.ha_access_token,
                 .rest_enabled = s_runtime_settings.ha_rest_enabled,
             };
             esp_err_t ha_err = ha_client_start(&ha_cfg);
-            if (ha_err != ESP_OK) {
+            if (ha_err != ESP_OK)
+            {
                 ESP_LOGW(TAG_HA_CLIENT, "HA client start failed: %s", esp_err_to_name(ha_err));
             }
         }
         esp_err_t cover_err = ha_cover_fetcher_init();
-        if (cover_err != ESP_OK) {
+        if (cover_err != ESP_OK)
+        {
             ESP_LOGW(TAG_HA_CLIENT, "HA cover fetcher init failed: %s", esp_err_to_name(cover_err));
         }
 
-        if (runtime_settings_has_mqtt(&s_runtime_settings)) {
+        if (runtime_settings_has_mqtt(&s_runtime_settings))
+        {
             mqtt_mgr_config_t mqtt_cfg = {
                 .broker_host = s_runtime_settings.mqtt_broker_host,
                 .broker_port = s_runtime_settings.mqtt_broker_port,
@@ -361,11 +416,14 @@ void app_main(void)
                 .device_name = s_runtime_settings.mqtt_device_name,
             };
             esp_err_t mqtt_err = mqtt_mgr_start(&mqtt_cfg);
-            if (mqtt_err != ESP_OK) {
+            if (mqtt_err != ESP_OK)
+            {
                 ESP_LOGW(TAG_MQTT, "MQTT client start failed: %s", esp_err_to_name(mqtt_err));
             }
         }
-    } else {
+    }
+    else
+    {
         app_show_wifi_setup_screen(has_wifi_credentials ? s_runtime_settings.wifi_ssid : NULL);
         ESP_LOGW(TAG_APP, "Provisioning screen active: Wi-Fi setup required");
     }

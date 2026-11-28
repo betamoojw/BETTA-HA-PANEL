@@ -3,19 +3,30 @@
  *
  * Starting an OTA install from inside the firmware (the automatic update, net/auto_update_task.c); the editor uses the HTTP handlers.
  */
+/** @file
+ * @brief Shared firmware update phase and URL install interface.
+ */
 #pragma once
 
 #include "esp_err.h"
 
-typedef enum {
-    API_OTA_PHASE_IDLE = 0,
-    API_OTA_PHASE_RUNNING,   /* downloading or writing */
-    API_OTA_PHASE_REBOOTING, /* written and verified, the panel restarts in a moment */
-    API_OTA_PHASE_FAILED     /* the last install ended with an error (api_ota status "error") */
+/** @brief Coarse installation phase shared with the automatic-update worker. */
+typedef enum
+{
+    API_OTA_PHASE_IDLE = 0,  /**< No installation is in progress or awaiting reboot. */
+    API_OTA_PHASE_RUNNING,   /**< Download or flash write is in progress. */
+    API_OTA_PHASE_REBOOTING, /**< The validated image was selected and a reboot is pending. */
+    API_OTA_PHASE_FAILED     /**< The most recent installation ended with an error. */
 } api_ota_phase_t;
 
-/* Installs the image at `url` like POST /api/ota/url (same URL rules, project check and SHA-256 check against the update check's
- * release). ESP_OK: started in its own task. ESP_ERR_INVALID_ARG: not an accepted URL; ESP_ERR_NOT_FOUND: no OTA partition;
- * ESP_ERR_INVALID_STATE: another install is running or a restart is pending; otherwise a start failure. */
+/** @brief Start a URL install using the same validation as the HTTP endpoint.
+ * @param url Image URL; project identity and any matching release digest are checked.
+ * @retval ESP_OK A worker was started; installation has not completed yet.
+ * @retval ESP_ERR_INVALID_ARG The URL was not accepted.
+ * @retval ESP_ERR_NOT_FOUND No OTA partition is available.
+ * @retval ESP_ERR_INVALID_STATE Another install is running or a restart is pending.
+ * @return Other errors indicate failure to start the worker.
+ */
 esp_err_t api_ota_start_url(const char *url);
+/** @brief Read the current installation phase without starting a download or update check. */
 api_ota_phase_t api_ota_phase(void);

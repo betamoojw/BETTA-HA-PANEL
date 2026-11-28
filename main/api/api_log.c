@@ -3,23 +3,30 @@
  *
  * GET /api/log: the most recent log lines of the device as plain text.
  */
+/** @file
+ * @brief HTTP download of the bounded runtime log.
+ */
 #include "api/api_routes.h"
 
 #include "esp_http_server.h"
 #include "util/log_buffer.h"
 
+/** @brief Stream the retained runtime log as uncached text without allocating a full copy. */
 esp_err_t api_log_get_handler(httpd_req_t *req)
 {
     httpd_resp_set_type(req, "text/plain; charset=utf-8");
     httpd_resp_set_hdr(req, "Cache-Control", "no-store");
     char chunk[512];
     size_t offset = 0;
-    for (;;) {
+    for (;;)
+    {
         size_t n = log_buffer_read(offset, chunk, sizeof(chunk));
-        if (n == 0) {
+        if (n == 0)
+        {
             break;
         }
-        if (httpd_resp_send_chunk(req, chunk, (ssize_t)n) != ESP_OK) {
+        if (httpd_resp_send_chunk(req, chunk, (ssize_t) n) != ESP_OK)
+        {
             return ESP_FAIL;
         }
         offset += n;

@@ -2,6 +2,12 @@
  * Copyright (c) 2026 Cpt_Kirk
  * Modified 2026 by andre68723 in the andre68723/BETTA-HA-PANEL fork, see docs/release-notes.md
  */
+/** @file
+ * @brief Shared request validation, admission limits and guarded dispatch.
+ *
+ * The accounting mutex is released before invoking a handler. The request
+ * still owns its admission slot until the synchronous handler returns.
+ */
 #include "api/http_guard.h"
 #include "api/http_user_auth.h"
 
@@ -22,14 +28,15 @@
 #include "util/log_tags.h"
 #include "util/user_activity.h"
 
-#define HTTP_GUARD_MAX_ACTIVE_REQUESTS 4
-#define HTTP_GUARD_MAX_CLIENTS 16
-#define HTTP_GUARD_RATE_PER_SEC 12
-#define HTTP_GUARD_BURST 24
-#define HTTP_GUARD_MAX_INFLIGHT_PER_CLIENT_GET 3
+#define HTTP_GUARD_MAX_ACTIVE_REQUESTS             4
+#define HTTP_GUARD_MAX_CLIENTS                     16
+#define HTTP_GUARD_RATE_PER_SEC                    12
+#define HTTP_GUARD_BURST                           24
+#define HTTP_GUARD_MAX_INFLIGHT_PER_CLIENT_GET     3
 #define HTTP_GUARD_MAX_INFLIGHT_PER_CLIENT_NON_GET 1
 
-typedef struct {
+typedef struct
+{
     bool used;
     uint32_t key;
     int32_t tokens_milli;
@@ -37,7 +44,8 @@ typedef struct {
     int64_t last_seen_ms;
 } http_guard_bucket_t;
 
-typedef struct {
+typedef struct
+{
     bool used;
     uint32_t key;
     uint8_t in_flight;
@@ -57,32 +65,38 @@ static int64_t now_ms(void)
 
 static uint32_t req_client_key(httpd_req_t *req)
 {
-    if (req == NULL) {
+    if (req == NULL)
+    {
         return 0;
     }
 
     int sockfd = httpd_req_to_sockfd(req);
-    if (sockfd < 0) {
+    if (sockfd < 0)
+    {
         return 0;
     }
 
     struct sockaddr_storage addr = {0};
     socklen_t addr_len = sizeof(addr);
-    if (getpeername(sockfd, (struct sockaddr *)&addr, &addr_len) != 0) {
+    if (getpeername(sockfd, (struct sockaddr *) &addr, &addr_len) != 0)
+    {
         return 0;
     }
 
-    if (addr.ss_family == AF_INET && addr_len >= sizeof(struct sockaddr_in)) {
-        const struct sockaddr_in *sa = (const struct sockaddr_in *)&addr;
+    if (addr.ss_family == AF_INET && addr_len >= sizeof(struct sockaddr_in))
+    {
+        const struct sockaddr_in *sa = (const struct sockaddr_in *) &addr;
         return sa->sin_addr.s_addr;
     }
 
 #if LWIP_IPV6
-    if (addr.ss_family == AF_INET6 && addr_len >= sizeof(struct sockaddr_in6)) {
-        const struct sockaddr_in6 *sa6 = (const struct sockaddr_in6 *)&addr;
-        const uint8_t *a = (const uint8_t *)&sa6->sin6_addr;
+    if (addr.ss_family == AF_INET6 && addr_len >= sizeof(struct sockaddr_in6))
+    {
+        const struct sockaddr_in6 *sa6 = (const struct sockaddr_in6 *) &addr;
+        const uint8_t *a = (const uint8_t *) &sa6->sin6_addr;
         uint32_t h = 2166136261u;
-        for (size_t i = 0; i < 16; i++) {
+        for (size_t i = 0; i < 16; i++)
+        {
             h ^= a[i];
             h *= 16777619u;
         }
@@ -95,7 +109,8 @@ static uint32_t req_client_key(httpd_req_t *req)
 
 static bool is_api_request(const httpd_req_t *req)
 {
-    if (req == NULL || req->uri[0] == '\0') {
+    if (req == NULL || req->uri[0] == '\0')
+    {
         return false;
     }
     return strncmp(req->uri, "/api/", 5) == 0;
@@ -110,24 +125,32 @@ static bool rate_limit_allow(uint32_t client_key)
     int oldest_idx = -1;
     int64_t oldest_seen = INT64_MAX;
 
-    for (int i = 0; i < HTTP_GUARD_MAX_CLIENTS; i++) {
-        if (s_buckets[i].used) {
-            if (s_buckets[i].key == client_key) {
+    for (int i = 0; i < HTTP_GUARD_MAX_CLIENTS; i++)
+    {
+        if (s_buckets[i].used)
+        {
+            if (s_buckets[i].key == client_key)
+            {
                 idx = i;
                 break;
             }
-            if (s_buckets[i].last_seen_ms < oldest_seen) {
+            if (s_buckets[i].last_seen_ms < oldest_seen)
+            {
                 oldest_seen = s_buckets[i].last_seen_ms;
                 oldest_idx = i;
             }
-        } else if (free_idx < 0) {
+        }
+        else if (free_idx < 0)
+        {
             free_idx = i;
         }
     }
 
-    if (idx < 0) {
+    if (idx < 0)
+    {
         idx = (free_idx >= 0) ? free_idx : oldest_idx;
-        if (idx < 0) {
+        if (idx < 0)
+        {
             return false;
         }
         s_buckets[idx].used = true;
@@ -139,18 +162,21 @@ static bool rate_limit_allow(uint32_t client_key)
 
     http_guard_bucket_t *b = &s_buckets[idx];
     int64_t elapsed_ms = t_now - b->last_refill_ms;
-    if (elapsed_ms > 0) {
+    if (elapsed_ms > 0)
+    {
         int64_t refill_milli = elapsed_ms * HTTP_GUARD_RATE_PER_SEC;
-        int64_t tokens = (int64_t)b->tokens_milli + refill_milli;
-        if (tokens > burst_milli) {
+        int64_t tokens = (int64_t) b->tokens_milli + refill_milli;
+        if (tokens > burst_milli)
+        {
             tokens = burst_milli;
         }
-        b->tokens_milli = (int32_t)tokens;
+        b->tokens_milli = (int32_t) tokens;
         b->last_refill_ms = t_now;
     }
     b->last_seen_ms = t_now;
 
-    if (b->tokens_milli < 1000) {
+    if (b->tokens_milli < 1000)
+    {
         return false;
     }
 
@@ -166,24 +192,32 @@ static bool active_try_acquire(uint32_t client_key, uint8_t in_flight_limit)
     int oldest_idx = -1;
     int64_t oldest_seen = INT64_MAX;
 
-    for (int i = 0; i < HTTP_GUARD_MAX_CLIENTS; i++) {
-        if (s_active_clients[i].used) {
-            if (s_active_clients[i].key == client_key) {
+    for (int i = 0; i < HTTP_GUARD_MAX_CLIENTS; i++)
+    {
+        if (s_active_clients[i].used)
+        {
+            if (s_active_clients[i].key == client_key)
+            {
                 idx = i;
                 break;
             }
-            if (s_active_clients[i].in_flight == 0 && s_active_clients[i].last_seen_ms < oldest_seen) {
+            if (s_active_clients[i].in_flight == 0 && s_active_clients[i].last_seen_ms < oldest_seen)
+            {
                 oldest_seen = s_active_clients[i].last_seen_ms;
                 oldest_idx = i;
             }
-        } else if (free_idx < 0) {
+        }
+        else if (free_idx < 0)
+        {
             free_idx = i;
         }
     }
 
-    if (idx < 0) {
+    if (idx < 0)
+    {
         idx = (free_idx >= 0) ? free_idx : oldest_idx;
-        if (idx < 0) {
+        if (idx < 0)
+        {
             return false;
         }
         s_active_clients[idx].used = true;
@@ -191,7 +225,8 @@ static bool active_try_acquire(uint32_t client_key, uint8_t in_flight_limit)
         s_active_clients[idx].in_flight = 0;
     }
 
-    if (s_active_clients[idx].in_flight >= in_flight_limit) {
+    if (s_active_clients[idx].in_flight >= in_flight_limit)
+    {
         s_active_clients[idx].last_seen_ms = t_now;
         return false;
     }
@@ -204,11 +239,14 @@ static bool active_try_acquire(uint32_t client_key, uint8_t in_flight_limit)
 static void active_release(uint32_t client_key)
 {
     const int64_t t_now = now_ms();
-    for (int i = 0; i < HTTP_GUARD_MAX_CLIENTS; i++) {
-        if (!s_active_clients[i].used || s_active_clients[i].key != client_key) {
+    for (int i = 0; i < HTTP_GUARD_MAX_CLIENTS; i++)
+    {
+        if (!s_active_clients[i].used || s_active_clients[i].key != client_key)
+        {
             continue;
         }
-        if (s_active_clients[i].in_flight > 0) {
+        if (s_active_clients[i].in_flight > 0)
+        {
             s_active_clients[i].in_flight--;
         }
         s_active_clients[i].last_seen_ms = t_now;
@@ -227,27 +265,34 @@ static esp_err_t send_busy(httpd_req_t *req, const char *status, const char *mes
 
 esp_err_t http_guard_init(void)
 {
-    if (s_inited) {
+    if (s_inited)
+    {
         return ESP_OK;
     }
 
-    if (s_guard_lock == NULL) {
+    if (s_guard_lock == NULL)
+    {
         s_guard_lock = xSemaphoreCreateMutex();
     }
-    if (s_guard_lock == NULL) {
+    if (s_guard_lock == NULL)
+    {
         return ESP_ERR_NO_MEM;
     }
 
     xSemaphoreTake(s_guard_lock, portMAX_DELAY);
-    if (!s_inited) {
-        if (s_active_sem == NULL) {
+    if (!s_inited)
+    {
+        if (s_active_sem == NULL)
+        {
             s_active_sem = xSemaphoreCreateCounting(HTTP_GUARD_MAX_ACTIVE_REQUESTS, HTTP_GUARD_MAX_ACTIVE_REQUESTS);
         }
-        if (s_active_sem == NULL) {
+        if (s_active_sem == NULL)
+        {
             xSemaphoreGive(s_guard_lock);
             return ESP_ERR_NO_MEM;
         }
-        for (int i = 0; i < HTTP_GUARD_MAX_CLIENTS; i++) {
+        for (int i = 0; i < HTTP_GUARD_MAX_CLIENTS; i++)
+        {
             s_buckets[i].used = false;
             s_active_clients[i].used = false;
         }
@@ -257,31 +302,36 @@ esp_err_t http_guard_init(void)
     return ESP_OK;
 }
 
+/** @brief Select the required media type by route for POST and PUT, including empty requests. */
 static bool request_content_type_ok(httpd_req_t *req)
 {
-    if (req->method != HTTP_POST && req->method != HTTP_PUT) {
+    if (req->method != HTTP_POST && req->method != HTTP_PUT)
+    {
         return true;
     }
-    /* Empty POSTs also need a non-simple media type: /api/coredump/erase and
-     * /api/camera/test have no body, but still change device state. */
     char type[64] = {0};
-    if (httpd_req_get_hdr_value_str(req, "Content-Type", type, sizeof(type)) != ESP_OK) {
+    if (httpd_req_get_hdr_value_str(req, "Content-Type", type, sizeof(type)) != ESP_OK)
+    {
         return false;
     }
-    const char *want = (strcmp(req->uri, "/api/license") == 0 || strcmp(req->uri, "/api/ota/upload") == 0 || strcmp(req->uri, "/api/xiaozhi/font") == 0 || strcmp(req->uri, "/api/xiaozhi/wake-model") == 0)
-        ? "application/octet-stream" : "application/json";
+    const char *want = (strcmp(req->uri, "/api/license") == 0 || strcmp(req->uri, "/api/ota/upload") == 0 ||
+                        strcmp(req->uri, "/api/xiaozhi/font") == 0 || strcmp(req->uri, "/api/xiaozhi/wake-model") == 0)
+                           ? "application/octet-stream"
+                           : "application/json";
     size_t want_len = strlen(want);
     return strncasecmp(type, want, want_len) == 0 && (type[want_len] == '\0' || type[want_len] == ';');
 }
 
 esp_err_t http_guard_handle(httpd_req_t *req, http_guard_handler_t next_handler)
 {
-    if (req == NULL || next_handler == NULL) {
+    if (req == NULL || next_handler == NULL)
+    {
         return ESP_ERR_INVALID_ARG;
     }
 
     esp_err_t init_err = http_guard_init();
-    if (init_err != ESP_OK) {
+    if (init_err != ESP_OK)
+    {
         ESP_LOGW(TAG_HTTP, "HTTP guard init failed: %s", esp_err_to_name(init_err));
         return send_busy(req, "503 Service Unavailable", "Service unavailable");
     }
@@ -291,32 +341,40 @@ esp_err_t http_guard_handle(httpd_req_t *req, http_guard_handler_t next_handler)
     bool allow_concurrency = true;
     bool enforce_api_limits = is_api_request(req);
     /* Status polling (monitors, the editor's device page) is not somebody using the panel. */
-    if (strncmp(req->uri, "/api/version", 12) != 0) {
-        user_activity_note((uint32_t)(esp_timer_get_time() / 1000000));
+    if (strncmp(req->uri, "/api/version", 12) != 0)
+    {
+        user_activity_note((uint32_t) (esp_timer_get_time() / 1000000));
     }
     uint8_t in_flight_limit = HTTP_GUARD_MAX_INFLIGHT_PER_CLIENT_NON_GET;
-    if (req->method == HTTP_GET) {
+    if (req->method == HTTP_GET)
+    {
         in_flight_limit = HTTP_GUARD_MAX_INFLIGHT_PER_CLIENT_GET;
     }
 
     xSemaphoreTake(s_guard_lock, portMAX_DELAY);
-    if (enforce_api_limits) {
+    if (enforce_api_limits)
+    {
         allow_rate = rate_limit_allow(key);
-        if (allow_rate) {
+        if (allow_rate)
+        {
             allow_concurrency = active_try_acquire(key, in_flight_limit);
         }
     }
     xSemaphoreGive(s_guard_lock);
 
-    if (!allow_rate) {
+    if (!allow_rate)
+    {
         return send_busy(req, "429 Too Many Requests", "Too many requests");
     }
-    if (!allow_concurrency) {
+    if (!allow_concurrency)
+    {
         return send_busy(req, "429 Too Many Requests", "Too many concurrent requests");
     }
 
-    if (xSemaphoreTake(s_active_sem, 0) != pdTRUE) {
-        if (enforce_api_limits) {
+    if (xSemaphoreTake(s_active_sem, 0) != pdTRUE)
+    {
+        if (enforce_api_limits)
+        {
             xSemaphoreTake(s_guard_lock, portMAX_DELAY);
             active_release(key);
             xSemaphoreGive(s_guard_lock);
@@ -331,15 +389,19 @@ esp_err_t http_guard_handle(httpd_req_t *req, http_guard_handler_t next_handler)
 
     esp_err_t err;
     bool content_ok = request_content_type_ok(req);
-    if (!content_ok) {
+    if (!content_ok)
+    {
         httpd_resp_set_status(req, "415 Unsupported Media Type");
         httpd_resp_set_type(req, "text/plain");
         err = httpd_resp_sendstr(req, "Unsupported content type");
-    } else {
+    }
+    else
+    {
         err = http_user_auth_handle(req, next_handler);
     }
     xSemaphoreGive(s_active_sem);
-    if (enforce_api_limits) {
+    if (enforce_api_limits)
+    {
         xSemaphoreTake(s_guard_lock, portMAX_DELAY);
         active_release(key);
         xSemaphoreGive(s_guard_lock);

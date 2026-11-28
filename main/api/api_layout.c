@@ -2,6 +2,9 @@
  * Copyright (c) 2026 Cpt_Kirk
  * Modified 2026 by andre68723 in the andre68723/BETTA-HA-PANEL fork, see docs/release-notes.md
  */
+/** @file
+ * @brief Layout retrieval, validation, persistence and orientation-dependent limits.
+ */
 #include "api/api_routes.h"
 #include "api/api_layout.h"
 
@@ -40,17 +43,25 @@ void api_layout_add_limits(cJSON *root)
     cJSON_AddNumberToObject(root, "full_nav_pages", nav_layout_full_pages(width, 90));
 }
 
+/** @brief Return a normalized layout projected to the current display orientation.
+ *
+ * Use default layout JSON only when the stored file is absent. A limits-only
+ * request returns the layout budget without opening the stored layout.
+ */
 esp_err_t api_layout_get_handler(httpd_req_t *req)
 {
     char query[32], limits[4];
     if (httpd_req_get_url_query_str(req, query, sizeof(query)) == ESP_OK &&
-        httpd_query_key_value(query, "limits", limits, sizeof(limits)) == ESP_OK && !strcmp(limits, "1")) {
+        httpd_query_key_value(query, "limits", limits, sizeof(limits)) == ESP_OK && !strcmp(limits, "1"))
+    {
         cJSON *root = cJSON_CreateObject();
-        if (!root) return httpd_resp_send_500(req);
+        if (!root)
+            return httpd_resp_send_500(req);
         api_layout_add_limits(root);
         char *payload = cJSON_PrintUnformatted(root);
         cJSON_Delete(root);
-        if (!payload) return httpd_resp_send_500(req);
+        if (!payload)
+            return httpd_resp_send_500(req);
         set_json_headers(req);
         esp_err_t err = httpd_resp_sendstr(req, payload);
         cJSON_free(payload);
@@ -58,23 +69,28 @@ esp_err_t api_layout_get_handler(httpd_req_t *req)
     }
     char *json = NULL;
     esp_err_t err = layout_store_load(&json);
-    if (err != ESP_OK && err != ESP_ERR_NOT_FOUND) return httpd_resp_send_500(req);
-    if (err == ESP_ERR_NOT_FOUND) {
+    if (err != ESP_OK && err != ESP_ERR_NOT_FOUND)
+        return httpd_resp_send_500(req);
+    if (err == ESP_ERR_NOT_FOUND)
+    {
         json = strdup(layout_store_default_json());
-        if (json == NULL) {
+        if (json == NULL)
+        {
             return httpd_resp_send_500(req);
         }
     }
 
     cJSON *root = cJSON_Parse(json);
     free(json);
-    if (!root || !widget_types_normalize_layout(root) || !layout_orientation_project(root, display_geometry_portrait())) {
+    if (!root || !widget_types_normalize_layout(root) || !layout_orientation_project(root, display_geometry_portrait()))
+    {
         cJSON_Delete(root);
         return httpd_resp_send_500(req);
     }
     json = cJSON_PrintUnformatted(root);
     cJSON_Delete(root);
-    if (!json) return httpd_resp_send_500(req);
+    if (!json)
+        return httpd_resp_send_500(req);
     set_json_headers(req);
     esp_err_t send_err = httpd_resp_sendstr(req, json);
     free(json);
@@ -85,19 +101,22 @@ static esp_err_t api_layout_send_validation_error(httpd_req_t *req, const layout
 {
     cJSON *root = cJSON_CreateObject();
     cJSON *errors = cJSON_CreateArray();
-    if (root == NULL || errors == NULL) {
+    if (root == NULL || errors == NULL)
+    {
         cJSON_Delete(root);
         cJSON_Delete(errors);
         return httpd_resp_send_500(req);
     }
     cJSON_AddBoolToObject(root, "ok", false);
-    for (uint16_t i = 0; i < validation->count; i++) {
+    for (uint16_t i = 0; i < validation->count; i++)
+    {
         cJSON_AddItemToArray(errors, cJSON_CreateString(validation->messages[i]));
     }
     cJSON_AddItemToObject(root, "errors", errors);
     char *payload = cJSON_PrintUnformatted(root);
     cJSON_Delete(root);
-    if (payload == NULL) {
+    if (payload == NULL)
+    {
         return httpd_resp_send_500(req);
     }
 
@@ -108,24 +127,32 @@ static esp_err_t api_layout_send_validation_error(httpd_req_t *req, const layout
     return err;
 }
 
+/** @brief Canonicalize and validate an edited layout before replacing the stored layout.
+ *
+ * Reject stale orientation data with HTTP 409 so the editor reloads before
+ * saving. Notify the UI and Home Assistant only after persistence succeeds.
+ */
 esp_err_t api_layout_put_handler(httpd_req_t *req)
 {
-    const int wire_limit = APP_LAYOUT_MAX_JSON_LEN
-        * 2 /* transient landscape aliases; stored JSON still has the same limit */
+    const int wire_limit = APP_LAYOUT_MAX_JSON_LEN * 2 /* transient landscape aliases; stored JSON still has the same limit */
         ;
-    if (req->content_len <= 0 || req->content_len > wire_limit) {
+    if (req->content_len <= 0 || req->content_len > wire_limit)
+    {
         return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid payload size");
     }
 
-    char *buf = calloc((size_t)req->content_len + 1U, sizeof(char));
-    if (buf == NULL) {
+    char *buf = calloc((size_t) req->content_len + 1U, sizeof(char));
+    if (buf == NULL)
+    {
         return httpd_resp_send_500(req);
     }
 
     int received = 0;
-    while (received < req->content_len) {
+    while (received < req->content_len)
+    {
         int r = httpd_req_recv(req, buf + received, req->content_len - received);
-        if (r <= 0) {
+        if (r <= 0)
+        {
             free(buf);
             return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Failed to read body");
         }
@@ -136,32 +163,41 @@ esp_err_t api_layout_put_handler(httpd_req_t *req)
     const cJSON *orientation = cJSON_GetObjectItemCaseSensitive(edited, "orientation");
     const char *current = display_geometry_portrait() ? "portrait" : "landscape";
     if ((orientation && (!cJSON_IsString(orientation) || strcmp(orientation->valuestring, current))) ||
-        (!orientation && display_geometry_portrait())) {
-        cJSON_Delete(edited); free(buf);
+        (!orientation && display_geometry_portrait()))
+    {
+        cJSON_Delete(edited);
+        free(buf);
         httpd_resp_set_status(req, "409 Conflict");
         set_json_headers(req);
         return httpd_resp_sendstr(req, "{\"ok\":false,\"errors\":[\"Display rotated. Reload the layout before saving.\"]}");
     }
-    if (!edited || !layout_orientation_canonicalize(edited)) {
-        cJSON_Delete(edited); free(buf);
+    if (!edited || !layout_orientation_canonicalize(edited))
+    {
+        cJSON_Delete(edited);
+        free(buf);
         return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid orientation layout");
     }
-    if (cJSON_GetArraySize(cJSON_GetObjectItemCaseSensitive(edited, "pages")) > layout_max_pages_for_width(APP_VIEW_WIDTH)) {
-        cJSON_Delete(edited); free(buf);
+    if (cJSON_GetArraySize(cJSON_GetObjectItemCaseSensitive(edited, "pages")) > layout_max_pages_for_width(APP_VIEW_WIDTH))
+    {
+        cJSON_Delete(edited);
+        free(buf);
         return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST,
-            "Too many pages for the current display width. Reduce pages or rotate back before saving.");
+                                   "Too many pages for the current display width. Reduce pages or rotate back before saving.");
     }
     free(buf);
     buf = cJSON_PrintUnformatted(edited);
     cJSON_Delete(edited);
-    if (!buf) return httpd_resp_send_500(req);
-    if (strlen(buf) > APP_LAYOUT_MAX_JSON_LEN) {
+    if (!buf)
+        return httpd_resp_send_500(req);
+    if (strlen(buf) > APP_LAYOUT_MAX_JSON_LEN)
+    {
         free(buf);
         return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Stored layout exceeds 32 KB");
     }
     layout_validation_result_t validation;
     bool valid = layout_validate_json(buf, &validation);
-    if (!valid) {
+    if (!valid)
+    {
         ESP_LOGW(TAG_LAYOUT, "Layout validation failed with %u errors", validation.count);
         esp_err_t err = api_layout_send_validation_error(req, &validation);
         free(buf);
@@ -170,14 +206,16 @@ esp_err_t api_layout_put_handler(httpd_req_t *req)
 
     esp_err_t err = layout_store_save(buf);
     free(buf);
-    if (err != ESP_OK) {
+    if (err != ESP_OK)
+    {
         return httpd_resp_send_500(req);
     }
 
     app_event_t event = {.type = EV_LAYOUT_UPDATED};
     app_events_publish(&event, pdMS_TO_TICKS(20));
     esp_err_t ha_notify_err = ha_client_notify_layout_updated();
-    if (ha_notify_err != ESP_OK) {
+    if (ha_notify_err != ESP_OK)
+    {
         ESP_LOGW(TAG_LAYOUT, "Failed to notify HA client about layout update: %s", esp_err_to_name(ha_notify_err));
     }
 
@@ -185,7 +223,8 @@ esp_err_t api_layout_put_handler(httpd_req_t *req)
     cJSON_AddBoolToObject(root, "ok", true);
     char *payload = cJSON_PrintUnformatted(root);
     cJSON_Delete(root);
-    if (payload == NULL) {
+    if (payload == NULL)
+    {
         return httpd_resp_send_500(req);
     }
     set_json_headers(req);

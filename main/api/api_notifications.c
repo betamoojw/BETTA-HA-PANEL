@@ -6,6 +6,9 @@
  * the UI task as an EV_NOTIFICATION_SHOW event. The payload is heap
  * allocated; ownership transfers to the UI task once the event is queued.
  */
+/** @file
+ * @brief Validate HTTP notifications before submitting them to the panel.
+ */
 #include <stdlib.h>
 
 #include "esp_http_server.h"
@@ -23,13 +26,15 @@ static esp_err_t send_json_error(httpd_req_t *req, const char *status, const cha
     httpd_resp_set_status(req, status);
     httpd_resp_set_type(req, "application/json");
     cJSON *root = cJSON_CreateObject();
-    if (root == NULL) {
+    if (root == NULL)
+    {
         return httpd_resp_send_500(req);
     }
     cJSON_AddStringToObject(root, "error", message);
     char *json = cJSON_PrintUnformatted(root);
     cJSON_Delete(root);
-    if (json == NULL) {
+    if (json == NULL)
+    {
         return httpd_resp_send_500(req);
     }
     esp_err_t err = httpd_resp_sendstr(req, json);
@@ -37,21 +42,29 @@ static esp_err_t send_json_error(httpd_req_t *req, const char *status, const cha
     return err;
 }
 
+/** @brief Validate a bounded notification payload and queue it for the UI task.
+ *
+ * The UI owns the notification after enqueue; the handler frees it on rejection.
+ */
 esp_err_t api_notifications_post_handler(httpd_req_t *req)
 {
-    if (req->content_len <= 0 || req->content_len > APP_NOTIFICATION_MAX_JSON_LEN) {
+    if (req->content_len <= 0 || req->content_len > APP_NOTIFICATION_MAX_JSON_LEN)
+    {
         return send_json_error(req, "400 Bad Request", "Invalid payload size");
     }
 
-    char *buf = calloc((size_t)req->content_len + 1U, sizeof(char));
-    if (buf == NULL) {
+    char *buf = calloc((size_t) req->content_len + 1U, sizeof(char));
+    if (buf == NULL)
+    {
         return httpd_resp_send_500(req);
     }
 
     int received = 0;
-    while (received < req->content_len) {
+    while (received < req->content_len)
+    {
         int r = httpd_req_recv(req, buf + received, req->content_len - received);
-        if (r <= 0) {
+        if (r <= 0)
+        {
             free(buf);
             return send_json_error(req, "400 Bad Request", "Failed to read request body");
         }
@@ -60,18 +73,19 @@ esp_err_t api_notifications_post_handler(httpd_req_t *req)
 
     app_notification_t *notification = NULL;
     const char *err_msg = NULL;
-    bool parsed = notification_parse_json(buf, (size_t)received, &notification, &err_msg);
+    bool parsed = notification_parse_json(buf, (size_t) received, &notification, &err_msg);
     free(buf);
-    if (!parsed) {
-        if (err_msg != NULL) {
+    if (!parsed)
+    {
+        if (err_msg != NULL)
+        {
             return send_json_error(req, "400 Bad Request", err_msg);
         }
         return httpd_resp_send_500(req);
     }
 
-    ESP_LOGI(TAG_HTTP, "notification accepted: id=%s timeout=%us",
-             notification->message_id[0] != '\0' ? notification->message_id : "-",
-             (unsigned)notification->timeout_sec);
+    ESP_LOGI(TAG_HTTP, "notification accepted: id=%s timeout=%us", notification->message_id[0] != '\0' ? notification->message_id : "-",
+             (unsigned) notification->timeout_sec);
 
     /* Ownership of `notification` transfers to the UI task on success; do not
      * touch it after a successful publish. */
@@ -79,7 +93,8 @@ esp_err_t api_notifications_post_handler(httpd_req_t *req)
         .type = EV_NOTIFICATION_SHOW,
         .data.notification.notification = notification,
     };
-    if (!app_events_publish(&event, pdMS_TO_TICKS(100))) {
+    if (!app_events_publish(&event, pdMS_TO_TICKS(100)))
+    {
         free(notification);
         return send_json_error(req, "503 Service Unavailable", "Event queue full");
     }

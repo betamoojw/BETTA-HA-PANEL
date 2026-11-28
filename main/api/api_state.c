@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: LicenseRef-FNCL-1.1
  * Copyright (c) 2026 Cpt_Kirk
  */
+/** @file
+ * @brief Cached entity state for the editor.
+ */
 #include "api/api_routes.h"
 
 #include <stdlib.h>
@@ -22,7 +25,7 @@ static cJSON *state_to_json(const ha_state_t *state)
     cJSON_AddStringToObject(obj, "entity_id", state->entity_id);
     cJSON_AddStringToObject(obj, "state", state->state);
     cJSON_AddStringToObject(obj, "attributes_json", state->attributes_json);
-    cJSON_AddNumberToObject(obj, "last_changed_unix_ms", (double)state->last_changed_unix_ms);
+    cJSON_AddNumberToObject(obj, "last_changed_unix_ms", (double) state->last_changed_unix_ms);
     return obj;
 }
 
@@ -31,20 +34,27 @@ static size_t parse_offset(const char *value)
 {
     char *end_ptr = NULL;
     long parsed = value[0] != '\0' ? strtol(value, &end_ptr, 10) : 0;
-    return (end_ptr != NULL && *end_ptr == '\0' && parsed > 0) ? (size_t)parsed : 0;
+    return (end_ptr != NULL && *end_ptr == '\0' && parsed > 0) ? (size_t) parsed : 0;
 }
 
+/** @brief Return a single entity or a bounded page of cached states.
+ *
+ * Attributes remain a serialized JSON string in each item. No HA request is made.
+ */
 esp_err_t api_state_get_handler(httpd_req_t *req)
 {
     char entity_id[APP_MAX_ENTITY_ID_LEN] = {0};
     char offset_raw[12] = {0};
     int query_len = httpd_req_get_url_query_len(req);
-    if (query_len > 0) {
-        char *query = calloc((size_t)query_len + 1U, sizeof(char));
-        if (query == NULL) {
+    if (query_len > 0)
+    {
+        char *query = calloc((size_t) query_len + 1U, sizeof(char));
+        if (query == NULL)
+        {
             return httpd_resp_send_500(req);
         }
-        if (httpd_req_get_url_query_str(req, query, query_len + 1) == ESP_OK) {
+        if (httpd_req_get_url_query_str(req, query, query_len + 1) == ESP_OK)
+        {
             httpd_query_key_value(query, "entity_id", entity_id, sizeof(entity_id));
             httpd_query_key_value(query, "offset", offset_raw, sizeof(offset_raw));
         }
@@ -53,7 +63,8 @@ esp_err_t api_state_get_handler(httpd_req_t *req)
 
     cJSON *root = cJSON_CreateObject();
     cJSON *items = cJSON_CreateArray();
-    if (root == NULL || items == NULL) {
+    if (root == NULL || items == NULL)
+    {
         cJSON_Delete(root);
         cJSON_Delete(items);
         return httpd_resp_send_500(req);
@@ -62,36 +73,43 @@ esp_err_t api_state_get_handler(httpd_req_t *req)
     size_t count = 0;
     size_t total = 0;
     const size_t offset = parse_offset(offset_raw);
-    if (entity_id[0] != '\0') {
+    if (entity_id[0] != '\0')
+    {
         ha_state_t state = {0};
-        if (ha_model_get_state(entity_id, &state)) {
+        if (ha_model_get_state(entity_id, &state))
+        {
             cJSON_AddItemToArray(items, state_to_json(&state));
             count = 1;
             total = 1;
         }
-    } else {
+    }
+    else
+    {
         const size_t max_items = 128;
         ha_state_t *states = calloc(max_items, sizeof(ha_state_t));
-        if (states == NULL) {
+        if (states == NULL)
+        {
             cJSON_Delete(root);
             cJSON_Delete(items);
             return httpd_resp_send_500(req);
         }
         count = ha_model_list_states_page(offset, states, max_items, &total);
-        for (size_t i = 0; i < count; i++) {
+        for (size_t i = 0; i < count; i++)
+        {
             cJSON_AddItemToArray(items, state_to_json(&states[i]));
         }
         free(states);
     }
 
     cJSON_AddItemToObject(root, "items", items);
-    cJSON_AddNumberToObject(root, "count", (double)count);
-    cJSON_AddNumberToObject(root, "offset", (double)offset);
-    cJSON_AddNumberToObject(root, "total", (double)total);
+    cJSON_AddNumberToObject(root, "count", (double) count);
+    cJSON_AddNumberToObject(root, "offset", (double) offset);
+    cJSON_AddNumberToObject(root, "total", (double) total);
 
     char *payload = cJSON_PrintUnformatted(root);
     cJSON_Delete(root);
-    if (payload == NULL) {
+    if (payload == NULL)
+    {
         return httpd_resp_send_500(req);
     }
 

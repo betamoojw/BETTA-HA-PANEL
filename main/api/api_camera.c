@@ -6,19 +6,24 @@
  * sensitivity is being tried out (ambient_camera.c normally only samples once the display is
  * already dimmed, to wake it). No body. Unsupported variants return an error.
  */
+/** @file
+ * @brief HTTP control for the temporary camera motion test.
+ */
 #include "esp_http_server.h"
 
 #include "drivers/ambient_camera.h"
 
 #define API_CAMERA_TEST_DURATION_MS 30000
 
+/** @brief Start a temporary presence-sampling test without enabling picture output or saving settings. */
 esp_err_t api_camera_test_post_handler(httpd_req_t *req)
 {
     httpd_resp_set_type(req, "application/json");
     httpd_resp_set_hdr(req, "Cache-Control", "no-store");
     ambient_camera_reading_t reading = {0};
-    (void)ambient_camera_get(&reading);
-    if (!ambient_camera_available() || (!reading.ready && reading.failed)) {
+    (void) ambient_camera_get(&reading);
+    if (!ambient_camera_available() || (!reading.ready && reading.failed))
+    {
         httpd_resp_set_status(req, "503 Service Unavailable");
         return httpd_resp_sendstr(req, "{\"ok\":false,\"error\":\"Camera unavailable\"}");
     }

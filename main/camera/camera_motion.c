@@ -3,6 +3,17 @@
  * Motion controls follow the JC reference's feature set; this implementation
  * uses overlapping zone membership and rejects lighting changes globally.
  */
+/** @file
+ * @brief Motion detection from luma samples with zone, timing and lighting filters.
+ *
+ * Each cell contributes once to the aggregate over all selected zones. Overlapping
+ * zones retain individual measurements, and lighting rejection uses the whole grid.
+ * A difference of at least 12 luma levels counts as a changed cell. The first
+ * sample, a backward timestamp, or a gap over four seconds establishes a new
+ * baseline without triggering motion.
+ * Lighting suppression requires at least 60 percent of all cells to change,
+ * with at least 90 percent of the changed cells moving in the same direction.
+ */
 #include "camera/camera_motion.h"
 
 #include <stdlib.h>
@@ -18,6 +29,7 @@ void camera_motion_reset(camera_motion_state_t *s, int64_t now)
     s->status.trigger_count = count;
     s->status.last_trigger_ms = last;
 }
+
 bool camera_motion_sample(camera_motion_state_t *s, const camera_motion_config_t *c, const uint8_t *grid, int64_t now)
 {
     uint32_t count = s->status.trigger_count;
@@ -27,8 +39,9 @@ bool camera_motion_sample(camera_motion_state_t *s, const camera_motion_config_t
     s->status.last_trigger_ms = last;
     bool valid = s->have_previous && now >= s->previous_ms && now - s->previous_ms <= 4000;
     int total = 0, changed = 0, sum = 0, global_changed = 0, pos = 0, neg = 0;
-    int cells[CAMERA_MAX_ZONES] = { 0 }, diff[CAMERA_MAX_ZONES] = { 0 }, changes[CAMERA_MAX_ZONES] = { 0 };
+    int cells[CAMERA_MAX_ZONES] = {0}, diff[CAMERA_MAX_ZONES] = {0}, changes[CAMERA_MAX_ZONES] = {0};
     for (int y = 0; y < CAMERA_MOTION_GRID; y++)
+    {
         for (int x = 0; x < CAMERA_MOTION_GRID; x++)
         {
             int i = y * CAMERA_MOTION_GRID + x, d = (int) grid[i] - s->previous[i], ad = abs(d);
@@ -36,9 +49,13 @@ bool camera_motion_sample(camera_motion_state_t *s, const camera_motion_config_t
             {
                 global_changed++;
                 if (d > 0)
+                {
                     pos++;
+                }
                 else
+                {
                     neg++;
+                }
             }
             int px = (2 * x + 1) * 100 / (2 * CAMERA_MOTION_GRID), py = (2 * y + 1) * 100 / (2 * CAMERA_MOTION_GRID);
             bool included = c->zone_count == 0;
@@ -46,21 +63,28 @@ bool camera_motion_sample(camera_motion_state_t *s, const camera_motion_config_t
             {
                 const camera_zone_t *r = &c->zones[z];
                 if (px < r->x || px >= r->x + r->w || py < r->y || py >= r->y + r->h)
+                {
                     continue;
+                }
                 included = true;
                 cells[z]++;
                 diff[z] += ad;
                 if (ad >= 12)
+                {
                     changes[z]++;
+                }
             }
             if (included)
             {
                 total++;
                 sum += ad;
                 if (ad >= 12)
+                {
                     changed++;
+                }
             }
         }
+    }
     memcpy(s->previous, grid, sizeof(s->previous));
     s->have_previous = true;
     s->previous_ms = now;
@@ -87,9 +111,13 @@ bool camera_motion_sample(camera_motion_state_t *s, const camera_motion_config_t
         return false;
     }
     if (s->active_since_ms < 0)
+    {
         s->active_since_ms = now;
+    }
     if (now - s->active_since_ms < c->min_duration_ms || (count && now - last < c->cooldown_ms))
+    {
         return false;
+    }
     s->status.trigger_count++;
     s->status.last_trigger_ms = now;
     return true;

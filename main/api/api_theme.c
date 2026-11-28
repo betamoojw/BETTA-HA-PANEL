@@ -2,6 +2,9 @@
  * Copyright (c) 2026 Cpt_Kirk
  * Modified 2026 by andre68723 in the andre68723/BETTA-HA-PANEL fork, see docs/release-notes.md
  */
+/** @file
+ * @brief Theme listing, selection and custom theme persistence over HTTP.
+ */
 #include "api/api_routes.h"
 
 #include <stdio.h>
@@ -26,18 +29,21 @@ static void api_theme_set_headers(httpd_req_t *req)
 static esp_err_t api_theme_send_error(httpd_req_t *req, const char *status, const char *message)
 {
     cJSON *root = cJSON_CreateObject();
-    if (root == NULL) {
+    if (root == NULL)
+    {
         return httpd_resp_send_500(req);
     }
     cJSON_AddBoolToObject(root, "ok", false);
     cJSON_AddStringToObject(root, "error", (message != NULL) ? message : "error");
     char *payload = cJSON_PrintUnformatted(root);
     cJSON_Delete(root);
-    if (payload == NULL) {
+    if (payload == NULL)
+    {
         return httpd_resp_send_500(req);
     }
     api_theme_set_headers(req);
-    if (status != NULL) {
+    if (status != NULL)
+    {
         httpd_resp_set_status(req, status);
     }
     esp_err_t err = httpd_resp_sendstr(req, payload);
@@ -47,18 +53,22 @@ static esp_err_t api_theme_send_error(httpd_req_t *req, const char *status, cons
 
 static bool api_theme_query_get_id(httpd_req_t *req, char *out, size_t out_len)
 {
-    if (out == NULL || out_len == 0) {
+    if (out == NULL || out_len == 0)
+    {
         return false;
     }
     size_t qlen = httpd_req_get_url_query_len(req);
-    if (qlen == 0) {
+    if (qlen == 0)
+    {
         return false;
     }
     char *qbuf = calloc(qlen + 1U, sizeof(char));
-    if (qbuf == NULL) {
+    if (qbuf == NULL)
+    {
         return false;
     }
-    if (httpd_req_get_url_query_str(req, qbuf, qlen + 1U) != ESP_OK) {
+    if (httpd_req_get_url_query_str(req, qbuf, qlen + 1U) != ESP_OK)
+    {
         free(qbuf);
         return false;
     }
@@ -69,21 +79,25 @@ static bool api_theme_query_get_id(httpd_req_t *req, char *out, size_t out_len)
 
 static char *api_theme_read_body(httpd_req_t *req, size_t max_len)
 {
-    if (req->content_len == 0 || req->content_len > max_len) {
+    if (req->content_len == 0 || req->content_len > max_len)
+    {
         return NULL;
     }
     char *buf = calloc(req->content_len + 1U, sizeof(char));
-    if (buf == NULL) {
+    if (buf == NULL)
+    {
         return NULL;
     }
     size_t total = 0;
-    while (total < req->content_len) {
+    while (total < req->content_len)
+    {
         int r = httpd_req_recv(req, buf + total, req->content_len - total);
-        if (r <= 0) {
+        if (r <= 0)
+        {
             free(buf);
             return NULL;
         }
-        total += (size_t)r;
+        total += (size_t) r;
     }
     buf[total] = '\0';
     return buf;
@@ -92,7 +106,8 @@ static char *api_theme_read_body(httpd_req_t *req, size_t max_len)
 static cJSON *api_theme_entry_to_summary(const theme_entry_t *entry)
 {
     cJSON *item = cJSON_CreateObject();
-    if (item == NULL) {
+    if (item == NULL)
+    {
         return NULL;
     }
     cJSON_AddStringToObject(item, "id", entry->id);
@@ -110,37 +125,48 @@ static esp_err_t api_themes_list_get(httpd_req_t *req)
 
     char custom_ids[APP_MAX_CUSTOM_THEMES][APP_MAX_THEME_ID_LEN];
     size_t ncustom = 0;
-    (void)theme_store_list_custom(custom_ids, APP_MAX_CUSTOM_THEMES, &ncustom);
+    (void) theme_store_list_custom(custom_ids, APP_MAX_CUSTOM_THEMES, &ncustom);
 
     cJSON *root = cJSON_CreateObject();
-    if (root == NULL) {
+    if (root == NULL)
+    {
         return httpd_resp_send_500(req);
     }
     cJSON *arr = cJSON_AddArrayToObject(root, "themes");
-    for (size_t i = 0; i < nbuilt; i++) {
+    for (size_t i = 0; i < nbuilt; i++)
+    {
         cJSON *item = api_theme_entry_to_summary(builtins[i]);
-        if (item != NULL) {
+        if (item != NULL)
+        {
             cJSON_AddItemToArray(arr, item);
         }
     }
-    for (size_t i = 0; i < ncustom; i++) {
+    for (size_t i = 0; i < ncustom; i++)
+    {
         theme_entry_t entry = {0};
-        if (theme_store_load_custom(custom_ids[i], &entry) != ESP_OK) {
+        if (theme_store_load_custom(custom_ids[i], &entry) != ESP_OK)
+        {
             continue;
         }
         cJSON *item = api_theme_entry_to_summary(&entry);
-        if (item != NULL) {
+        if (item != NULL)
+        {
             cJSON_AddItemToArray(arr, item);
         }
     }
     theme_entry_t active;
-    if (theme_store_load_active(&active) != ESP_OK) { cJSON_Delete(root); return httpd_resp_send_500(req); }
+    if (theme_store_load_active(&active) != ESP_OK)
+    {
+        cJSON_Delete(root);
+        return httpd_resp_send_500(req);
+    }
     cJSON_AddStringToObject(root, "active_id", active.id);
     cJSON_AddStringToObject(root, "active_name", active.name);
 
     char *payload = cJSON_PrintUnformatted(root);
     cJSON_Delete(root);
-    if (payload == NULL) {
+    if (payload == NULL)
+    {
         return httpd_resp_send_500(req);
     }
     api_theme_set_headers(req);
@@ -153,9 +179,11 @@ static esp_err_t api_themes_list_get(httpd_req_t *req)
 static esp_err_t api_themes_active_get(httpd_req_t *req)
 {
     theme_entry_t entry = {0};
-    if (theme_store_load_active(&entry) != ESP_OK) return httpd_resp_send_500(req);
+    if (theme_store_load_active(&entry) != ESP_OK)
+        return httpd_resp_send_500(req);
     char *json = theme_palette_to_json(&entry);
-    if (json == NULL) {
+    if (json == NULL)
+    {
         return httpd_resp_send_500(req);
     }
     api_theme_set_headers(req);
@@ -168,16 +196,19 @@ static esp_err_t api_themes_active_get(httpd_req_t *req)
 static esp_err_t api_themes_active_put(httpd_req_t *req)
 {
     char *body = api_theme_read_body(req, APP_THEME_MAX_JSON_LEN);
-    if (body == NULL) {
+    if (body == NULL)
+    {
         return api_theme_send_error(req, "400 Bad Request", "invalid body");
     }
     cJSON *root = cJSON_Parse(body);
     free(body);
-    if (root == NULL) {
+    if (root == NULL)
+    {
         return api_theme_send_error(req, "400 Bad Request", "invalid JSON");
     }
     cJSON *id = cJSON_GetObjectItemCaseSensitive(root, "id");
-    if (!cJSON_IsString(id) || id->valuestring == NULL || id->valuestring[0] == '\0') {
+    if (!cJSON_IsString(id) || id->valuestring == NULL || id->valuestring[0] == '\0')
+    {
         cJSON_Delete(root);
         return api_theme_send_error(req, "400 Bad Request", "id required");
     }
@@ -187,13 +218,15 @@ static esp_err_t api_themes_active_put(httpd_req_t *req)
 
     theme_entry_t selected;
     esp_err_t err = theme_palette_resolve_by_id(id_copy, &selected);
-    if (err != ESP_OK) {
+    if (err != ESP_OK)
+    {
         return api_theme_send_error(req, "404 Not Found", "theme not found");
     }
-    if (theme_store_set_active_id(id_copy) != ESP_OK) return api_theme_send_error(req, "500 Internal Server Error", "save failed");
+    if (theme_store_set_active_id(id_copy) != ESP_OK)
+        return api_theme_send_error(req, "500 Internal Server Error", "save failed");
     {
         app_event_t event = {.type = EV_LAYOUT_UPDATED};
-        (void)app_events_publish(&event, pdMS_TO_TICKS(20));
+        (void) app_events_publish(&event, pdMS_TO_TICKS(20));
     }
     ESP_LOGI(TAG, "active theme set to %s", id_copy);
 
@@ -204,7 +237,8 @@ static esp_err_t api_themes_active_put(httpd_req_t *req)
     cJSON_Delete(resp);
     api_theme_set_headers(req);
     esp_err_t send_err = httpd_resp_sendstr(req, payload != NULL ? payload : "{\"ok\":true}");
-    if (payload != NULL) {
+    if (payload != NULL)
+    {
         cJSON_free(payload);
     }
     return send_err;
@@ -214,18 +248,23 @@ static esp_err_t api_themes_active_put(httpd_req_t *req)
 static esp_err_t api_themes_get(httpd_req_t *req)
 {
     char id[APP_MAX_THEME_ID_LEN] = {0};
-    if (!api_theme_query_get_id(req, id, sizeof(id))) {
+    if (!api_theme_query_get_id(req, id, sizeof(id)))
+    {
         return api_theme_send_error(req, "400 Bad Request", "id query required");
     }
     const theme_entry_t *builtin = theme_palette_find_builtin(id);
     theme_entry_t entry = {0};
-    if (builtin != NULL) {
+    if (builtin != NULL)
+    {
         entry = *builtin;
-    } else if (theme_store_load_custom(id, &entry) != ESP_OK) {
+    }
+    else if (theme_store_load_custom(id, &entry) != ESP_OK)
+    {
         return api_theme_send_error(req, "404 Not Found", "theme not found");
     }
     char *json = theme_palette_to_json(&entry);
-    if (json == NULL) {
+    if (json == NULL)
+    {
         return httpd_resp_send_500(req);
     }
     api_theme_set_headers(req);
@@ -239,31 +278,36 @@ static esp_err_t api_themes_get(httpd_req_t *req)
 static esp_err_t api_themes_custom_put(httpd_req_t *req)
 {
     char *body = api_theme_read_body(req, APP_THEME_MAX_JSON_LEN);
-    if (body == NULL) {
+    if (body == NULL)
+    {
         return api_theme_send_error(req, "400 Bad Request", "invalid body");
     }
     theme_entry_t entry = {0};
     bool ok = theme_palette_from_json(body, &entry);
     free(body);
-    if (!ok) {
+    if (!ok)
+    {
         return api_theme_send_error(req, "400 Bad Request", "invalid theme JSON");
     }
-    if (theme_palette_find_builtin(entry.id) != NULL) {
+    if (theme_palette_find_builtin(entry.id) != NULL)
+    {
         return api_theme_send_error(req, "409 Conflict", "id collides with builtin");
     }
     esp_err_t err = theme_store_save_custom(&entry);
-    if (err != ESP_OK) {
+    if (err != ESP_OK)
+    {
         return api_theme_send_error(req,
-            (err == ESP_ERR_NO_MEM) ? "507 Insufficient Storage" : "400 Bad Request",
-            (err == ESP_ERR_NO_MEM) ? "too many custom themes" : "save failed");
+                                    (err == ESP_ERR_NO_MEM) ? "507 Insufficient Storage" : "400 Bad Request",
+                                    (err == ESP_ERR_NO_MEM) ? "too many custom themes" : "save failed");
     }
     ESP_LOGI(TAG, "custom theme saved: %s", entry.id);
 
     /* If the active theme is being updated, re-apply it. */
     theme_entry_t active;
-    if (theme_store_load_active(&active) == ESP_OK && strcmp(entry.id, active.id) == 0) {
+    if (theme_store_load_active(&active) == ESP_OK && strcmp(entry.id, active.id) == 0)
+    {
         app_event_t event = {.type = EV_LAYOUT_UPDATED};
-        (void)app_events_publish(&event, pdMS_TO_TICKS(20));
+        (void) app_events_publish(&event, pdMS_TO_TICKS(20));
     }
 
     cJSON *resp = cJSON_CreateObject();
@@ -273,7 +317,8 @@ static esp_err_t api_themes_custom_put(httpd_req_t *req)
     cJSON_Delete(resp);
     api_theme_set_headers(req);
     esp_err_t send_err = httpd_resp_sendstr(req, payload != NULL ? payload : "{\"ok\":true}");
-    if (payload != NULL) {
+    if (payload != NULL)
+    {
         cJSON_free(payload);
     }
     return send_err;
@@ -283,51 +328,66 @@ static esp_err_t api_themes_custom_put(httpd_req_t *req)
 static esp_err_t api_themes_custom_delete(httpd_req_t *req)
 {
     char id[APP_MAX_THEME_ID_LEN] = {0};
-    if (!api_theme_query_get_id(req, id, sizeof(id))) {
+    if (!api_theme_query_get_id(req, id, sizeof(id)))
+    {
         return api_theme_send_error(req, "400 Bad Request", "id query required");
     }
-    if (theme_palette_find_builtin(id) != NULL) {
+    if (theme_palette_find_builtin(id) != NULL)
+    {
         return api_theme_send_error(req, "409 Conflict", "cannot delete builtin");
     }
     theme_entry_t active;
-    if (theme_store_load_active(&active) != ESP_OK) return httpd_resp_send_500(req);
+    if (theme_store_load_active(&active) != ESP_OK)
+        return httpd_resp_send_500(req);
     bool was_active = strcmp(id, active.id) == 0;
-    if (was_active && theme_store_set_active_id("dark_v2") != ESP_OK) return httpd_resp_send_500(req);
+    if (was_active && theme_store_set_active_id("dark_v2") != ESP_OK)
+        return httpd_resp_send_500(req);
     esp_err_t err = theme_store_delete_custom(id);
-    if (was_active) {
+    if (was_active)
+    {
         app_event_t event = {.type = EV_LAYOUT_UPDATED};
-        (void)app_events_publish(&event, 0);
+        (void) app_events_publish(&event, 0);
     }
-    if (err == ESP_ERR_NOT_FOUND) return api_theme_send_error(req, "404 Not Found", "theme not found");
-    if (err != ESP_OK) return api_theme_send_error(req, "500 Internal Server Error", "delete failed");
+    if (err == ESP_ERR_NOT_FOUND)
+        return api_theme_send_error(req, "404 Not Found", "theme not found");
+    if (err != ESP_OK)
+        return api_theme_send_error(req, "500 Internal Server Error", "delete failed");
 
     api_theme_set_headers(req);
     return httpd_resp_sendstr(req, "{\"ok\":true}");
 }
 
-/* Single dispatcher for /api/themes/custom so we can serve PUT + DELETE
- * through the same registered URI (httpd registers one handler per
- * method; we expose both). */
+/** @brief Return built-in and custom theme summaries together with the active selection. */
 esp_err_t api_themes_list_get_handler(httpd_req_t *req)
 {
     return api_themes_list_get(req);
 }
+
+/** @brief Export the full active palette, not just its ID. */
 esp_err_t api_themes_active_get_handler(httpd_req_t *req)
 {
     return api_themes_active_get(req);
 }
+
+/** @brief Persist the selected theme ID before requesting a UI reload. */
 esp_err_t api_themes_active_put_handler(httpd_req_t *req)
 {
     return api_themes_active_put(req);
 }
+
+/** @brief Export the full palette for an exact built-in or custom theme ID. */
 esp_err_t api_themes_get_handler(httpd_req_t *req)
 {
     return api_themes_get(req);
 }
+
+/** @brief Save a validated custom palette without allowing it to replace a built-in ID. */
 esp_err_t api_themes_custom_put_handler(httpd_req_t *req)
 {
     return api_themes_custom_put(req);
 }
+
+/** @brief Delete a custom theme; select the built-in fallback before deleting an active theme. */
 esp_err_t api_themes_custom_delete_handler(httpd_req_t *req)
 {
     return api_themes_custom_delete(req);

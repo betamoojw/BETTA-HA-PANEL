@@ -1,4 +1,7 @@
 /* SPDX-License-Identifier: LicenseRef-FNCL-1.1 | Copyright (c) 2026 andre68723 */
+/** @file
+ * @brief Camera settings and asynchronous JPEG and MJPEG responses.
+ */
 #include "api/api_camera_local.h"
 
 #include "api/http_guard.h"
@@ -18,6 +21,7 @@
 #include <string.h>
 
 static _Atomic bool s_image_busy;
+
 static esp_err_t json_send(httpd_req_t *req, cJSON *root)
 {
     char *text = root ? cJSON_PrintUnformatted(root) : NULL;
@@ -30,6 +34,7 @@ static esp_err_t json_send(httpd_req_t *req, cJSON *root)
     free(text);
     return err;
 }
+
 static esp_err_t error(httpd_req_t *req, const char *status, const char *reason)
 {
     httpd_resp_set_status(req, status);
@@ -37,6 +42,8 @@ static esp_err_t error(httpd_req_t *req, const char *status, const char *reason)
     cJSON_AddStringToObject(root, "error", reason);
     return json_send(req, root);
 }
+
+/** @brief Return saved settings with passwords redacted and defaults in a separate object. */
 static esp_err_t config_get(httpd_req_t *req)
 {
     camera_settings_t *s = heap_caps_malloc(sizeof(*s), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
@@ -60,6 +67,8 @@ static esp_err_t config_get(httpd_req_t *req)
     cJSON_AddItemToObject(root, "defaults", defaults);
     return json_send(req, root);
 }
+
+/** @brief Persist a bounded camera settings update before invalidating cached output. */
 static esp_err_t config_put(httpd_req_t *req)
 {
     if (req->content_len <= 0 || req->content_len > CAMERA_CONFIG_MAX_JSON)
@@ -97,13 +106,14 @@ static esp_err_t config_put(httpd_req_t *req)
     camera_output_invalidate();
     return config_get(req);
 }
+
 static esp_err_t status_get(httpd_req_t *req)
 {
-    ambient_camera_reading_t r = { 0 };
+    ambient_camera_reading_t r = {0};
     ambient_camera_get(&r);
-    camera_motion_status_t m = { 0 };
+    camera_motion_status_t m = {0};
     ambient_camera_motion_status(&m);
-    camera_config_t c = { 0 };
+    camera_config_t c = {0};
     camera_store_local(&c);
     cJSON *root = cJSON_CreateObject();
     if (!root)
@@ -139,18 +149,26 @@ static esp_err_t status_get(httpd_req_t *req)
     }
     return json_send(req, root);
 }
+
 typedef struct
 {
-        httpd_req_t *req;
-        bool stream;
-        user_auth_lease_t auth_lease;
-        char id[CAMERA_SOURCE_ID_LEN];
+    httpd_req_t *req;
+    bool stream;
+    user_auth_lease_t auth_lease;
+    char id[CAMERA_SOURCE_ID_LEN];
 } image_request_t;
+
 static bool output_enabled(bool stream)
 {
     camera_config_t c;
     return camera_store_local(&c) && c.enabled && (!stream || c.stream_enabled);
 }
+
+/** @brief Own the asynchronous request and its job until the response is completed.
+ *
+ * Recheck the authorization lease and local opt-in before sending each fetched
+ * frame. Release the single image-worker slot on every exit.
+ */
 static void image_task(void *arg)
 {
     image_request_t *job = arg;
@@ -159,8 +177,10 @@ static void image_task(void *arg)
     unsigned failures = 0;
     do
     {
-        if (!user_auth_lease_valid(&job->auth_lease)) {
-            if (!sent) error(req, "401 Unauthorized", "Session expired");
+        if (!user_auth_lease_valid(&job->auth_lease))
+        {
+            if (!sent)
+                error(req, "401 Unauthorized", "Session expired");
             break;
         }
         if (!strcmp(job->id, "local") && !output_enabled(job->stream))
@@ -228,6 +248,11 @@ static void image_task(void *arg)
     atomic_store(&s_image_busy, false);
     vTaskDelete(NULL);
 }
+
+/** @brief Reserve the single image-worker slot and hand off a copied HTTP request.
+ *
+ * Saved sources can provide snapshots; multipart output is built-in camera only.
+ */
 static esp_err_t image_get(httpd_req_t *req)
 {
     bool stream = strncmp(req->uri, "/api/camera/stream", 18) == 0;
@@ -252,7 +277,8 @@ static esp_err_t image_get(httpd_req_t *req)
         return httpd_resp_send_500(req);
     }
     job->stream = stream;
-    if (!user_auth_lease_capture(http_user_auth_token(), &job->auth_lease)) {
+    if (!user_auth_lease_capture(http_user_auth_token(), &job->auth_lease))
+    {
         free(job);
         atomic_store(&s_image_busy, false);
         return error(req, "401 Unauthorized", "Session expired");
@@ -273,33 +299,38 @@ static esp_err_t image_get(httpd_req_t *req)
     }
     return ESP_OK;
 }
+
 static esp_err_t guarded_config_get(httpd_req_t *r)
 {
     return http_guard_handle(r, config_get);
 }
+
 static esp_err_t guarded_config_put(httpd_req_t *r)
 {
     return http_guard_handle(r, config_put);
 }
+
 static esp_err_t guarded_status_get(httpd_req_t *r)
 {
     return http_guard_handle(r, status_get);
 }
+
 static esp_err_t guarded_image_get(httpd_req_t *r)
 {
     return http_guard_handle(r, image_get);
 }
+
 esp_err_t api_camera_local_register(httpd_handle_t server)
 {
     const httpd_uri_t routes[] = {
-        { .uri = "/api/camera/config", .method = HTTP_GET, .handler = guarded_config_get },
-        { .uri = "/api/camera/config", .method = HTTP_PUT, .handler = guarded_config_put },
-        { .uri = "/api/cameras", .method = HTTP_GET, .handler = guarded_config_get },
-        { .uri = "/api/cameras", .method = HTTP_PUT, .handler = guarded_config_put },
-        { .uri = "/api/camera/status", .method = HTTP_GET, .handler = guarded_status_get },
-        { .uri = "/api/camera/motion", .method = HTTP_GET, .handler = guarded_status_get },
-        { .uri = "/api/camera/snapshot", .method = HTTP_GET, .handler = guarded_image_get },
-        { .uri = "/api/camera/stream", .method = HTTP_GET, .handler = guarded_image_get },
+        {.uri = "/api/camera/config", .method = HTTP_GET, .handler = guarded_config_get},
+        {.uri = "/api/camera/config", .method = HTTP_PUT, .handler = guarded_config_put},
+        {.uri = "/api/cameras", .method = HTTP_GET, .handler = guarded_config_get},
+        {.uri = "/api/cameras", .method = HTTP_PUT, .handler = guarded_config_put},
+        {.uri = "/api/camera/status", .method = HTTP_GET, .handler = guarded_status_get},
+        {.uri = "/api/camera/motion", .method = HTTP_GET, .handler = guarded_status_get},
+        {.uri = "/api/camera/snapshot", .method = HTTP_GET, .handler = guarded_image_get},
+        {.uri = "/api/camera/stream", .method = HTTP_GET, .handler = guarded_image_get},
     };
     for (size_t i = 0; i < sizeof(routes) / sizeof(routes[0]); i++)
     {

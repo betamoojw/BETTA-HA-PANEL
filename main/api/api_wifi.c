@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: LicenseRef-FNCL-1.1
  * Copyright (c) 2026 Cpt_Kirk
  */
+/** @file
+ * @brief HTTP interface for a panel-managed Wi-Fi scan.
+ */
 #include "api/api_routes.h"
 
 #include <stdbool.h>
@@ -17,19 +20,11 @@
 
 static void format_bssid(const uint8_t bssid[6], char *out, size_t out_len)
 {
-    if (bssid == NULL || out == NULL || out_len < 18U) {
+    if (bssid == NULL || out == NULL || out_len < 18U)
+    {
         return;
     }
-    snprintf(
-        out,
-        out_len,
-        "%02X:%02X:%02X:%02X:%02X:%02X",
-        bssid[0],
-        bssid[1],
-        bssid[2],
-        bssid[3],
-        bssid[4],
-        bssid[5]);
+    snprintf(out, out_len, "%02X:%02X:%02X:%02X:%02X:%02X", bssid[0], bssid[1], bssid[2], bssid[3], bssid[4], bssid[5]);
 }
 
 static void set_json_headers(httpd_req_t *req)
@@ -40,93 +35,97 @@ static void set_json_headers(httpd_req_t *req)
 
 static const char *authmode_to_string(uint8_t authmode)
 {
-    switch ((wifi_auth_mode_t)authmode) {
-    case WIFI_AUTH_OPEN:
-        return "open";
-    case WIFI_AUTH_WEP:
-        return "wep";
-    case WIFI_AUTH_WPA_PSK:
-        return "wpa_psk";
-    case WIFI_AUTH_WPA2_PSK:
-        return "wpa2_psk";
-    case WIFI_AUTH_WPA_WPA2_PSK:
-        return "wpa_wpa2_psk";
-    case WIFI_AUTH_WPA2_ENTERPRISE:
-        return "wpa2_enterprise";
-    case WIFI_AUTH_WPA3_PSK:
-        return "wpa3_psk";
-    case WIFI_AUTH_WPA2_WPA3_PSK:
-        return "wpa2_wpa3_psk";
+    switch ((wifi_auth_mode_t) authmode)
+    {
+        case WIFI_AUTH_OPEN:
+            return "open";
+        case WIFI_AUTH_WEP:
+            return "wep";
+        case WIFI_AUTH_WPA_PSK:
+            return "wpa_psk";
+        case WIFI_AUTH_WPA2_PSK:
+            return "wpa2_psk";
+        case WIFI_AUTH_WPA_WPA2_PSK:
+            return "wpa_wpa2_psk";
+        case WIFI_AUTH_WPA2_ENTERPRISE:
+            return "wpa2_enterprise";
+        case WIFI_AUTH_WPA3_PSK:
+            return "wpa3_psk";
+        case WIFI_AUTH_WPA2_WPA3_PSK:
+            return "wpa2_wpa3_psk";
 #if defined(WIFI_AUTH_WPA3_ENTERPRISE)
-    case WIFI_AUTH_WPA3_ENTERPRISE:
-        return "wpa3_enterprise";
+        case WIFI_AUTH_WPA3_ENTERPRISE:
+            return "wpa3_enterprise";
 #endif
 #if defined(WIFI_AUTH_WPA2_WPA3_ENTERPRISE)
-    case WIFI_AUTH_WPA2_WPA3_ENTERPRISE:
-        return "wpa2_wpa3_enterprise";
+        case WIFI_AUTH_WPA2_WPA3_ENTERPRISE:
+            return "wpa2_wpa3_enterprise";
 #endif
 #if defined(WIFI_AUTH_WPA3_ENT_192)
-    case WIFI_AUTH_WPA3_ENT_192:
-        return "wpa3_enterprise_192";
+        case WIFI_AUTH_WPA3_ENT_192:
+            return "wpa3_enterprise_192";
 #endif
 #if defined(WIFI_AUTH_OWE)
-    case WIFI_AUTH_OWE:
-        return "owe";
+        case WIFI_AUTH_OWE:
+            return "owe";
 #endif
 #if defined(WIFI_AUTH_OWE_TRANSITION)
-    case WIFI_AUTH_OWE_TRANSITION:
-        return "owe_transition";
+        case WIFI_AUTH_OWE_TRANSITION:
+            return "owe_transition";
 #endif
 #if defined(WIFI_AUTH_WAPI_PSK)
-    case WIFI_AUTH_WAPI_PSK:
-        return "wapi_psk";
+        case WIFI_AUTH_WAPI_PSK:
+            return "wapi_psk";
 #endif
-    default:
-        return "unknown";
+        default:
+            return "unknown";
     }
 }
 
 static bool authmode_is_secure(uint8_t authmode)
 {
-    return (wifi_auth_mode_t)authmode != WIFI_AUTH_OPEN;
+    return (wifi_auth_mode_t) authmode != WIFI_AUTH_OPEN;
 }
 
 static const char *scan_error_http_status(esp_err_t scan_err)
 {
-    switch (scan_err) {
-    case ESP_ERR_TIMEOUT:
-        return "504 Gateway Timeout";
-    case ESP_ERR_INVALID_STATE:
-        return "503 Service Unavailable";
-    case ESP_ERR_NO_MEM:
-        return "503 Service Unavailable";
-    case ESP_ERR_NOT_SUPPORTED:
-        return "501 Not Implemented";
-    default:
-        return "500 Internal Server Error";
+    switch (scan_err)
+    {
+        case ESP_ERR_TIMEOUT:
+            return "504 Gateway Timeout";
+        case ESP_ERR_INVALID_STATE:
+            return "503 Service Unavailable";
+        case ESP_ERR_NO_MEM:
+            return "503 Service Unavailable";
+        case ESP_ERR_NOT_SUPPORTED:
+            return "501 Not Implemented";
+        default:
+            return "500 Internal Server Error";
     }
 }
 
 static const char *scan_error_message(esp_err_t scan_err)
 {
-    switch (scan_err) {
-    case ESP_ERR_TIMEOUT:
-        return "Wi-Fi scan timed out";
-    case ESP_ERR_INVALID_STATE:
-        return "Wi-Fi scan currently unavailable";
-    case ESP_ERR_NO_MEM:
-        return "Device is temporarily busy";
-    case ESP_ERR_NOT_SUPPORTED:
-        return "Wi-Fi scan is unavailable in setup AP mode on this hardware";
-    default:
-        return "Wi-Fi scan failed";
+    switch (scan_err)
+    {
+        case ESP_ERR_TIMEOUT:
+            return "Wi-Fi scan timed out";
+        case ESP_ERR_INVALID_STATE:
+            return "Wi-Fi scan currently unavailable";
+        case ESP_ERR_NO_MEM:
+            return "Device is temporarily busy";
+        case ESP_ERR_NOT_SUPPORTED:
+            return "Wi-Fi scan is unavailable in setup AP mode on this hardware";
+        default:
+            return "Wi-Fi scan failed";
     }
 }
 
 static esp_err_t send_scan_error(httpd_req_t *req, esp_err_t scan_err)
 {
     cJSON *root = cJSON_CreateObject();
-    if (root == NULL) {
+    if (root == NULL)
+    {
         return httpd_resp_send_500(req);
     }
     cJSON_AddBoolToObject(root, "ok", false);
@@ -134,7 +133,8 @@ static esp_err_t send_scan_error(httpd_req_t *req, esp_err_t scan_err)
     cJSON_AddStringToObject(root, "message", scan_error_message(scan_err));
     char *payload = cJSON_PrintUnformatted(root);
     cJSON_Delete(root);
-    if (payload == NULL) {
+    if (payload == NULL)
+    {
         return httpd_resp_send_500(req);
     }
 
@@ -145,35 +145,43 @@ static esp_err_t send_scan_error(httpd_req_t *req, esp_err_t scan_err)
     return err;
 }
 
+/** @brief Report a bounded Wi-Fi manager scan with signal, channel, and authentication metadata.
+ *
+ * A scan failure is returned as an error rather than an empty success.
+ */
 esp_err_t api_wifi_scan_get_handler(httpd_req_t *req)
 {
     wifi_mgr_scan_result_t results[WIFI_SCAN_MAX_RESULTS] = {0};
     size_t count = 0;
     esp_err_t scan_err = wifi_mgr_scan(results, WIFI_SCAN_MAX_RESULTS, &count);
-    if (scan_err != ESP_OK) {
+    if (scan_err != ESP_OK)
+    {
         return send_scan_error(req, scan_err);
     }
 
     cJSON *root = cJSON_CreateObject();
     cJSON *items = cJSON_CreateArray();
-    if (root == NULL || items == NULL) {
+    if (root == NULL || items == NULL)
+    {
         cJSON_Delete(root);
         cJSON_Delete(items);
         return httpd_resp_send_500(req);
     }
 
-    for (size_t i = 0; i < count; i++) {
+    for (size_t i = 0; i < count; i++)
+    {
         cJSON *entry = cJSON_CreateObject();
-        if (entry == NULL) {
+        if (entry == NULL)
+        {
             cJSON_Delete(root);
             cJSON_Delete(items);
             return httpd_resp_send_500(req);
         }
 
         cJSON_AddStringToObject(entry, "ssid", results[i].ssid);
-        cJSON_AddNumberToObject(entry, "rssi", (double)results[i].rssi);
+        cJSON_AddNumberToObject(entry, "rssi", (double) results[i].rssi);
         cJSON_AddStringToObject(entry, "authmode", authmode_to_string(results[i].authmode));
-        cJSON_AddNumberToObject(entry, "channel", (double)results[i].channel);
+        cJSON_AddNumberToObject(entry, "channel", (double) results[i].channel);
         char bssid[18] = {0};
         format_bssid(results[i].bssid, bssid, sizeof(bssid));
         cJSON_AddStringToObject(entry, "bssid", bssid);
@@ -183,12 +191,13 @@ esp_err_t api_wifi_scan_get_handler(httpd_req_t *req)
     }
 
     cJSON_AddBoolToObject(root, "ok", true);
-    cJSON_AddNumberToObject(root, "count", (double)count);
+    cJSON_AddNumberToObject(root, "count", (double) count);
     cJSON_AddItemToObject(root, "items", items);
 
     char *payload = cJSON_PrintUnformatted(root);
     cJSON_Delete(root);
-    if (payload == NULL) {
+    if (payload == NULL)
+    {
         return httpd_resp_send_500(req);
     }
 

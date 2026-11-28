@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: LicenseRef-FNCL-1.1
  * Copyright (c) 2026 andre68723
  */
+/** @file
+ * @brief Validate and persist the pinned custom wake model.
+ */
 #include "xiaozhi_custom_model_store.h"
 #include "xiaozhi_custom_resource.h"
 #include "util/sha256_soft.h"
@@ -11,8 +14,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #ifdef _WIN32
-#include <io.h>
-#define fsync _commit
+#  include <io.h>
+#  define fsync _commit
 #endif
 
 static atomic_bool ready;
@@ -21,60 +24,130 @@ static const char *path = XIAOZHI_CUSTOM_PATH;
 static size_t size = XIAOZHI_CUSTOM_BYTES;
 static const char *sha = XIAOZHI_CUSTOM_SHA256;
 
+/** @brief Require the pinned byte count and SHA-256 digest before exposing model data. */
 static bool verified(const char *name)
 {
     struct stat st;
-    if (stat(name, &st) || (size_t)st.st_size != size) return false;
+    if (stat(name, &st) || (size_t) st.st_size != size)
+    {
+        return false;
+    }
     FILE *f = fopen(name, "rb");
-    if (!f) return false;
+    if (!f)
+    {
+        return false;
+    }
     unsigned char *buf = malloc(4096), digest[32];
-    sha256_soft_t hash; sha256_soft_init(&hash);
+    sha256_soft_t hash;
+    sha256_soft_init(&hash);
     size_t count = 0, n;
-    if (buf) while ((n = fread(buf, 1, 4096, f))) {
-        sha256_soft_update(&hash, buf, n); count += n;
+    if (buf)
+    {
+        while ((n = fread(buf, 1, 4096, f)))
+        {
+            sha256_soft_update(&hash, buf, n);
+            count += n;
+        }
     }
     bool ok = buf && !ferror(f) && count == size;
-    free(buf); fclose(f);
-    if (!ok) return false;
+    free(buf);
+    fclose(f);
+    if (!ok)
+    {
+        return false;
+    }
     sha256_soft_final(&hash, digest);
     char hex[65];
-    for (unsigned i = 0; i < 32; i++) snprintf(hex + i * 2, 3, "%02x", digest[i]);
+    for (unsigned i = 0; i < 32; i++)
+    {
+        snprintf(hex + i * 2, 3, "%02x", digest[i]);
+    }
     return strcmp(hex, sha) == 0;
 }
 
 void xiaozhi_custom_model_store_init(void)
 {
-    atomic_store(&ready, verified(path)); received = 0;
+    atomic_store(&ready, verified(path));
+    received = 0;
 }
-bool xiaozhi_custom_model_available(void) { return atomic_load(&ready); }
-const char *xiaozhi_custom_model_path(void) { return path; }
-size_t xiaozhi_custom_model_received(void) { return received; }
+
+bool xiaozhi_custom_model_available(void)
+{
+    return atomic_load(&ready);
+}
+
+const char *xiaozhi_custom_model_path(void)
+{
+    return path;
+}
+
+size_t xiaozhi_custom_model_received(void)
+{
+    return received;
+}
+
 size_t xiaozhi_custom_model_pending_bytes(void)
 {
-    char tmp[160]; struct stat st;
-    if (snprintf(tmp, sizeof(tmp), "%s.part", path) >= (int)sizeof(tmp) || stat(tmp, &st) || st.st_size < 0) return 0;
-    return (size_t)st.st_size <= size ? (size_t)st.st_size : 0;
+    char tmp[160];
+    struct stat st;
+    if (snprintf(tmp, sizeof(tmp), "%s.part", path) >= (int) sizeof(tmp) || stat(tmp, &st) || st.st_size < 0)
+    {
+        return 0;
+    }
+    return (size_t) st.st_size <= size ? (size_t) st.st_size : 0;
 }
 
 bool xiaozhi_custom_model_append(size_t offset, const void *data, size_t len)
 {
-    if (xiaozhi_custom_model_available() || !data || !len || len > 32768 || offset > size || len > size - offset) return false;
+    if (xiaozhi_custom_model_available() || !data || !len || len > 32768 || offset > size || len > size - offset)
+    {
+        return false;
+    }
     char tmp[160];
-    if (snprintf(tmp, sizeof(tmp), "%s.part", path) >= (int)sizeof(tmp)) return false;
-    if (offset == 0) received = 0;
-    if (offset != received) return false;
+    if (snprintf(tmp, sizeof(tmp), "%s.part", path) >= (int) sizeof(tmp))
+    {
+        return false;
+    }
+    if (offset == 0)
+    {
+        received = 0;
+    }
+    if (offset != received)
+    {
+        return false;
+    }
     FILE *f = fopen(tmp, offset ? "r+b" : "wb");
-    if (!f) return false;
-    bool ok = fseek(f, (long)offset, SEEK_SET) == 0 && fwrite(data, 1, len, f) == len && fflush(f) == 0 && fsync(fileno(f)) == 0;
-    if (fclose(f)) ok = false;
-    if (!ok) return false;
+    if (!f)
+    {
+        return false;
+    }
+    bool ok = fseek(f, (long) offset, SEEK_SET) == 0 && fwrite(data, 1, len, f) == len && fflush(f) == 0 && fsync(fileno(f)) == 0;
+    if (fclose(f))
+    {
+        ok = false;
+    }
+    if (!ok)
+    {
+        return false;
+    }
     received += len;
-    if (received != size) return true;
-    if (!verified(tmp)) { remove(tmp); received = 0; return false; }
+    if (received != size)
+    {
+        return true;
+    }
+    if (!verified(tmp))
+    {
+        remove(tmp);
+        received = 0;
+        return false;
+    }
     /* Never replace even a corrupt previous resource. The immutable versioned
      * path may be open in a model instance; retain it for diagnosis/recovery. */
     struct stat st;
-    if (stat(path, &st) == 0 || rename(tmp, path)) return false;
+    if (stat(path, &st) == 0 || rename(tmp, path))
+    {
+        return false;
+    }
     atomic_store(&ready, true);
     return true;
 }
@@ -82,6 +155,10 @@ bool xiaozhi_custom_model_append(size_t offset, const void *data, size_t len)
 #ifdef XIAOZHI_CUSTOM_MODEL_TEST
 void xiaozhi_custom_model_test_paths(const char *p, size_t n, const char *s)
 {
-    path = p; size = n; sha = s; received = 0; atomic_store(&ready, false);
+    path = p;
+    size = n;
+    sha = s;
+    received = 0;
+    atomic_store(&ready, false);
 }
 #endif

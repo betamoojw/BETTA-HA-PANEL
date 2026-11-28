@@ -2,11 +2,20 @@
  * Copyright (c) 2026 Cpt_Kirk
  * Modified 2026 by andre68723 in the andre68723/BETTA-HA-PANEL fork, see docs/release-notes.md
  */
+/** @file
+ * @brief Registration and handler declarations for the panel HTTP API.
+ *
+ * These raw callbacks borrow their request for the handler call. Register
+ * them through the wrappers in api_routes.c to retain the shared request policy.
+ */
 #pragma once
 
 #include "esp_err.h"
 #include "esp_http_server.h"
 
+/** @brief Install the panel API on an already started HTTP server.
+ * @return ESP_OK on success or the first error; earlier registrations are not rolled back.
+ */
 esp_err_t api_routes_register(httpd_handle_t server);
 
 esp_err_t api_layout_get_handler(httpd_req_t *req);

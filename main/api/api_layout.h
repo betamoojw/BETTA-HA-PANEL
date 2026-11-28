@@ -1,8 +1,14 @@
 /* SPDX-License-Identifier: LicenseRef-FNCL-1.1
  * Copyright (c) 2026 andre68723
  */
+/** @file
+ * @brief Layout limit metadata shared by the layout and version endpoints.
+ */
 #pragma once
 #include "cJSON.h"
 
-/* The same current-orientation budget in /api/version and /api/layout?limits=1. */
+/** @brief Append current-orientation geometry and layout budgets to a caller-owned JSON object.
+ *
+ * Report the current page limit separately from the total storage capacity.
+ */
 void api_layout_add_limits(cJSON *root);

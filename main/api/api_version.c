@@ -2,6 +2,9 @@
  * Copyright (c) 2026 Cpt_Kirk
  * Modified 2026 by andre68723 in the andre68723/BETTA-HA-PANEL fork, see docs/release-notes.md
  */
+/** @file
+ * @brief Firmware identity, board capabilities and runtime diagnostics for the editor.
+ */
 #include "api/api_routes.h"
 #include "api/api_layout.h"
 
@@ -59,7 +62,8 @@
  * rather than reported misleadingly as an empty string. */
 static void add_version_if_present(cJSON *obj, const char *key, const char *value)
 {
-    if (value != NULL && value[0] != '\0') {
+    if (value != NULL && value[0] != '\0')
+    {
         cJSON_AddStringToObject(obj, key, value);
     }
 }
@@ -76,31 +80,38 @@ static void sample_cpu_load(void)
     static uint32_t s_prev_total;
     static int64_t s_prev_us;
     const int64_t now_us = esp_timer_get_time();
-    if (s_prev_us != 0 && now_us - s_prev_us < 500000) {
+    if (s_prev_us != 0 && now_us - s_prev_us < 500000)
+    {
         return;
     }
     UBaseType_t n = uxTaskGetNumberOfTasks() + 4;
     TaskStatus_t *tasks = malloc(n * sizeof(TaskStatus_t));
-    if (tasks == NULL) {
+    if (tasks == NULL)
+    {
         return;
     }
     uint32_t total = 0;
     n = uxTaskGetSystemState(tasks, n, &total);
     uint32_t idle[CPU_CORES] = {0, 0};
-    for (UBaseType_t i = 0; i < n; i++) {
-        if (strncmp(tasks[i].pcTaskName, "IDLE", 4) == 0) {
+    for (UBaseType_t i = 0; i < n; i++)
+    {
+        if (strncmp(tasks[i].pcTaskName, "IDLE", 4) == 0)
+        {
             int core = tasks[i].pcTaskName[4] - '0';
-            if (core >= 0 && core < CPU_CORES) {
+            if (core >= 0 && core < CPU_CORES)
+            {
                 idle[core] = tasks[i].ulRunTimeCounter;
             }
         }
     }
     free(tasks);
-    if (s_prev_us != 0 && total > s_prev_total) {
+    if (s_prev_us != 0 && total > s_prev_total)
+    {
         const uint32_t elapsed = total - s_prev_total;
-        for (int c = 0; c < CPU_CORES; c++) {
+        for (int c = 0; c < CPU_CORES; c++)
+        {
             uint32_t idle_delta = idle[c] - s_prev_idle[c];
-            int busy = 100 - (int)((uint64_t)idle_delta * 100 / elapsed);
+            int busy = 100 - (int) ((uint64_t) idle_delta * 100 / elapsed);
             s_cpu_load[c] = busy < 0 ? 0 : (busy > 100 ? 100 : busy);
         }
     }
@@ -113,38 +124,56 @@ static void sample_cpu_load(void)
 /* Why the panel last (re)started: tells a crash or watchdog from a power cycle or a requested restart. */
 static const char *reset_reason_name(esp_reset_reason_t reason)
 {
-    switch (reason) {
-    case ESP_RST_POWERON: return "power_on";
-    case ESP_RST_EXT: return "external";
-    case ESP_RST_SW: return "software";
-    case ESP_RST_PANIC: return "panic";
-    case ESP_RST_INT_WDT: return "interrupt_watchdog";
-    case ESP_RST_TASK_WDT: return "task_watchdog";
-    case ESP_RST_WDT: return "watchdog";
-    case ESP_RST_DEEPSLEEP: return "deep_sleep";
-    case ESP_RST_BROWNOUT: return "brownout";
-    case ESP_RST_SDIO: return "sdio";
-    case ESP_RST_USB: return "usb";
-    case ESP_RST_JTAG: return "jtag";
-    case ESP_RST_EFUSE: return "efuse";
-    case ESP_RST_PWR_GLITCH: return "power_glitch";
-    case ESP_RST_CPU_LOCKUP: return "cpu_lockup";
-    default: return "unknown";
+    switch (reason)
+    {
+        case ESP_RST_POWERON:
+            return "power_on";
+        case ESP_RST_EXT:
+            return "external";
+        case ESP_RST_SW:
+            return "software";
+        case ESP_RST_PANIC:
+            return "panic";
+        case ESP_RST_INT_WDT:
+            return "interrupt_watchdog";
+        case ESP_RST_TASK_WDT:
+            return "task_watchdog";
+        case ESP_RST_WDT:
+            return "watchdog";
+        case ESP_RST_DEEPSLEEP:
+            return "deep_sleep";
+        case ESP_RST_BROWNOUT:
+            return "brownout";
+        case ESP_RST_SDIO:
+            return "sdio";
+        case ESP_RST_USB:
+            return "usb";
+        case ESP_RST_JTAG:
+            return "jtag";
+        case ESP_RST_EFUSE:
+            return "efuse";
+        case ESP_RST_PWR_GLITCH:
+            return "power_glitch";
+        case ESP_RST_CPU_LOCKUP:
+            return "cpu_lockup";
+        default:
+            return "unknown";
     }
 }
 
 static void api_version_add_wifi_diag(cJSON *obj, const wifi_mgr_diag_t *diag)
 {
-    if (obj == NULL || diag == NULL) {
+    if (obj == NULL || diag == NULL)
+    {
         return;
     }
-    cJSON_AddNumberToObject(obj, "disconnect_count", (double)diag->disconnect_count);
-    cJSON_AddNumberToObject(obj, "last_disconnect_reason", (double)diag->last_disconnect_reason);
-    cJSON_AddNumberToObject(obj, "last_disconnect_uptime_ms", (double)diag->last_disconnect_uptime_ms);
-    cJSON_AddNumberToObject(obj, "reconnect_attempts", (double)diag->reconnect_attempts);
-    cJSON_AddNumberToObject(obj, "hard_recover_count", (double)diag->hard_recover_count);
-    cJSON_AddNumberToObject(obj, "last_hard_recover_err", (double)diag->last_hard_recover_err);
-    cJSON_AddNumberToObject(obj, "last_hard_recover_uptime_ms", (double)diag->last_hard_recover_uptime_ms);
+    cJSON_AddNumberToObject(obj, "disconnect_count", (double) diag->disconnect_count);
+    cJSON_AddNumberToObject(obj, "last_disconnect_reason", (double) diag->last_disconnect_reason);
+    cJSON_AddNumberToObject(obj, "last_disconnect_uptime_ms", (double) diag->last_disconnect_uptime_ms);
+    cJSON_AddNumberToObject(obj, "reconnect_attempts", (double) diag->reconnect_attempts);
+    cJSON_AddNumberToObject(obj, "hard_recover_count", (double) diag->hard_recover_count);
+    cJSON_AddNumberToObject(obj, "last_hard_recover_err", (double) diag->last_hard_recover_err);
+    cJSON_AddNumberToObject(obj, "last_hard_recover_uptime_ms", (double) diag->last_hard_recover_uptime_ms);
 }
 
 static void set_json_headers(httpd_req_t *req)
@@ -153,40 +182,49 @@ static void set_json_headers(httpd_req_t *req)
     httpd_resp_set_hdr(req, "Cache-Control", "no-store");
 }
 
-/* One entry per FreeRTOS task with its stack: where it lives (internal RAM or PSRAM), its allocated size and how
- * little of it was ever free (bytes). "run_time" and "total_time" are the cumulative run-time counters (same unit): the difference
- * of two reads gives each task's share of the time and "core" says where it ran (-1 = unpinned). Read with
- * GET /api/version?tasks=1 to size stacks and find what loads a core. */
+/** @brief Append task stack diagnostics and cumulative FreeRTOS runtime counters.
+ *
+ * Stack sizes and minimum free stack are bytes. A core value of -1 means
+ * unpinned. Compare two samples to compute runtime shares over an interval.
+ */
 static void add_task_stacks(cJSON *root)
 {
     const UBaseType_t capacity = uxTaskGetNumberOfTasks() + 4U;
     TaskStatus_t *tasks = heap_caps_calloc(capacity, sizeof(*tasks), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     cJSON *list = cJSON_AddArrayToObject(root, "tasks");
-    if (tasks == NULL || list == NULL) {
+    if (tasks == NULL || list == NULL)
+    {
         heap_caps_free(tasks);
         return;
     }
     uint32_t total_time = 0;
     const UBaseType_t count = uxTaskGetSystemState(tasks, capacity, &total_time);
-    cJSON_AddNumberToObject(root, "total_time", (double)total_time);
-    for (UBaseType_t i = 0; i < count; i++) {
+    cJSON_AddNumberToObject(root, "total_time", (double) total_time);
+    for (UBaseType_t i = 0; i < count; i++)
+    {
         cJSON *item = cJSON_CreateObject();
-        if (item == NULL) {
+        if (item == NULL)
+        {
             break;
         }
         cJSON_AddStringToObject(item, "name", tasks[i].pcTaskName);
-        cJSON_AddNumberToObject(item, "priority", (double)tasks[i].uxCurrentPriority);
+        cJSON_AddNumberToObject(item, "priority", (double) tasks[i].uxCurrentPriority);
         cJSON_AddBoolToObject(item, "stack_internal", esp_ptr_internal(tasks[i].pxStackBase));
-        cJSON_AddNumberToObject(item, "stack_size", (double)heap_caps_get_allocated_size(tasks[i].pxStackBase));
-        cJSON_AddNumberToObject(item, "stack_free_min", (double)tasks[i].usStackHighWaterMark);
+        cJSON_AddNumberToObject(item, "stack_size", (double) heap_caps_get_allocated_size(tasks[i].pxStackBase));
+        cJSON_AddNumberToObject(item, "stack_free_min", (double) tasks[i].usStackHighWaterMark);
         const BaseType_t core = xTaskGetCoreID(tasks[i].xHandle);
-        cJSON_AddNumberToObject(item, "core", core == tskNO_AFFINITY ? -1 : (double)core);
-        cJSON_AddNumberToObject(item, "run_time", (double)tasks[i].ulRunTimeCounter);
+        cJSON_AddNumberToObject(item, "core", core == tskNO_AFFINITY ? -1 : (double) core);
+        cJSON_AddNumberToObject(item, "run_time", (double) tasks[i].ulRunTimeCounter);
         cJSON_AddItemToArray(list, item);
     }
     heap_caps_free(tasks);
 }
 
+/** @brief Return firmware identity and runtime capabilities for the current orientation.
+ *
+ * Task stack diagnostics are opt-in and are not included in the ordinary
+ * version response.
+ */
 esp_err_t api_version_get_handler(httpd_req_t *req)
 {
     const esp_app_desc_t *desc = esp_app_get_description();
@@ -194,7 +232,8 @@ esp_err_t api_version_get_handler(httpd_req_t *req)
     const char *project_name = (desc != NULL && desc->project_name[0] != '\0') ? desc->project_name : APP_NAME;
 
     cJSON *root = cJSON_CreateObject();
-    if (root == NULL) {
+    if (root == NULL)
+    {
         return httpd_resp_send_500(req);
     }
 
@@ -214,7 +253,8 @@ esp_err_t api_version_get_handler(httpd_req_t *req)
     {
         const ui_fonts_stats_t stats = ui_fonts_stats();
         cJSON *fonts = cJSON_AddObjectToObject(root, "fonts");
-        if (fonts != NULL) {
+        if (fonts != NULL)
+        {
             cJSON_AddNumberToObject(fonts, "instances", stats.instances);
             cJSON_AddNumberToObject(fonts, "max_instances", UI_FONT_MAX_INSTANCES);
             cJSON_AddNumberToObject(fonts, "budget_hits", stats.budget_hits);
@@ -229,20 +269,25 @@ esp_err_t api_version_get_handler(httpd_req_t *req)
         cJSON *text = cJSON_AddObjectToObject(root, "text");
         cJSON *roles = text != NULL ? cJSON_AddArrayToObject(text, "roles") : NULL;
         cJSON *sizes = text != NULL ? cJSON_AddArrayToObject(text, "sizes") : NULL;
-        if (text != NULL && roles != NULL && sizes != NULL) {
+        if (text != NULL && roles != NULL && sizes != NULL)
+        {
             const text_board_t board = text_scale_build_board();
             cJSON_AddNumberToObject(text, "step", ui_fonts_user_step());
             cJSON_AddNumberToObject(text, "floor", text_scale_floor_px(board));
             cJSON_AddBoolToObject(text, "adaptive", UI_TEXT_ADAPTIVE);
-            for (size_t r = 0; r < sizeof(role_names) / sizeof(role_names[0]); r++) {
+            for (size_t r = 0; r < sizeof(role_names) / sizeof(role_names[0]); r++)
+            {
                 cJSON_AddItemToArray(roles, cJSON_CreateString(role_names[r]));
             }
-            for (int step = 0; step <= TEXT_USER_STEP_MAX; step++) {
+            for (int step = 0; step <= TEXT_USER_STEP_MAX; step++)
+            {
                 cJSON *row = cJSON_CreateArray();
-                for (int r = UI_TEXT_META; r <= UI_TEXT_HERO && row != NULL; r++) {
-                    cJSON_AddItemToArray(row, cJSON_CreateNumber(text_scale_px(board, (ui_text_role_t)r, step)));
+                for (int r = UI_TEXT_META; r <= UI_TEXT_HERO && row != NULL; r++)
+                {
+                    cJSON_AddItemToArray(row, cJSON_CreateNumber(text_scale_px(board, (ui_text_role_t) r, step)));
                 }
-                if (row != NULL) cJSON_AddItemToArray(sizes, row);
+                if (row != NULL)
+                    cJSON_AddItemToArray(sizes, row);
             }
         }
     }
@@ -253,12 +298,13 @@ esp_err_t api_version_get_handler(httpd_req_t *req)
     /* "Sep 20 2026 10:42:11": date is the first 11 characters. */
     char build_date_buf[16] = {0};
     const char *build_time = "";
-    if (strlen(app_build_stamp) > 12) {
+    if (strlen(app_build_stamp) > 12)
+    {
         memcpy(build_date_buf, app_build_stamp, 11);
         build_time = app_build_stamp + 12;
     }
     const char *build_date = build_date_buf;
-    (void)desc;
+    (void) desc;
     add_version_if_present(root, "build_date", build_date);
     add_version_if_present(root, "build_time", build_time);
     add_version_if_present(root, "git_commit", APP_GIT_COMMIT_SHA);
@@ -269,7 +315,8 @@ esp_err_t api_version_get_handler(httpd_req_t *req)
      * descriptor; the rest are baked in at configure time from this
      * variant's dependencies.lock - see tools/generate_component_versions.py. */
     cJSON *components = cJSON_AddObjectToObject(root, "components");
-    if (components != NULL) {
+    if (components != NULL)
+    {
         const char *idf_ver = (desc != NULL && desc->idf_ver[0] != '\0') ? desc->idf_ver : "";
         add_version_if_present(components, "esp_idf", idf_ver);
         add_version_if_present(components, "lvgl", APP_COMPONENT_VERSION_LVGL);
@@ -299,7 +346,8 @@ esp_err_t api_version_get_handler(httpd_req_t *req)
 #endif
         /* What the C6 itself reported over ESP-Hosted this boot; differs from the embedded image until the host has updated it. */
         char c6_running[16];
-        if (wifi_mgr_get_c6_version(c6_running, sizeof(c6_running))) {
+        if (wifi_mgr_get_c6_version(c6_running, sizeof(c6_running)))
+        {
             add_version_if_present(components, "esp32_c6_running", c6_running);
         }
     }
@@ -314,17 +362,17 @@ esp_err_t api_version_get_handler(httpd_req_t *req)
      * when the PSRAM figure is actually a subset of the combined one.
      * PSRAM fields are omitted on variants without PSRAM (total size 0). */
     cJSON *memory = cJSON_AddObjectToObject(root, "memory");
-    if (memory != NULL) {
-        cJSON_AddNumberToObject(memory, "internal_total", (double)heap_caps_get_total_size(MALLOC_CAP_INTERNAL));
-        cJSON_AddNumberToObject(memory, "free_heap_internal", (double)heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
-        cJSON_AddNumberToObject(
-            memory, "min_free_heap_internal", (double)heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL));
-        cJSON_AddNumberToObject(
-            memory, "largest_free_block_internal", (double)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL));
+    if (memory != NULL)
+    {
+        cJSON_AddNumberToObject(memory, "internal_total", (double) heap_caps_get_total_size(MALLOC_CAP_INTERNAL));
+        cJSON_AddNumberToObject(memory, "free_heap_internal", (double) heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
+        cJSON_AddNumberToObject(memory, "min_free_heap_internal", (double) heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL));
+        cJSON_AddNumberToObject(memory, "largest_free_block_internal", (double) heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL));
         size_t psram_total = heap_caps_get_total_size(MALLOC_CAP_SPIRAM);
-        if (psram_total > 0) {
-            cJSON_AddNumberToObject(memory, "psram_total", (double)psram_total);
-            cJSON_AddNumberToObject(memory, "free_psram", (double)heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
+        if (psram_total > 0)
+        {
+            cJSON_AddNumberToObject(memory, "psram_total", (double) psram_total);
+            cJSON_AddNumberToObject(memory, "free_psram", (double) heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
         }
     }
 
@@ -333,18 +381,23 @@ esp_err_t api_version_get_handler(httpd_req_t *req)
 #endif
 
     char query[24] = {0};
-    if (httpd_req_get_url_query_str(req, query, sizeof(query)) == ESP_OK) {
+    if (httpd_req_get_url_query_str(req, query, sizeof(query)) == ESP_OK)
+    {
         char flag[4] = {0};
-        if (httpd_query_key_value(query, "backlight", flag, sizeof(flag)) == ESP_OK && flag[0] == '1') {
+        if (httpd_query_key_value(query, "backlight", flag, sizeof(flag)) == ESP_OK && flag[0] == '1')
+        {
             const bool locked = display_lock(100);
             display_backlight_diagnostics_t sample = {0};
             const bool available = locked && display_backlight_diagnostics(&sample);
-            if (locked) display_unlock();
+            if (locked)
+                display_unlock();
             cJSON *backlight = cJSON_AddObjectToObject(root, "backlight");
-            if (backlight != NULL) {
+            if (backlight != NULL)
+            {
                 cJSON_AddBoolToObject(backlight, "available", available);
                 cJSON_AddBoolToObject(backlight, "busy", !locked);
-                if (available) {
+                if (available)
+                {
                     cJSON_AddNumberToObject(backlight, "gpio", sample.gpio_pin);
                     cJSON_AddNumberToObject(backlight, "requested_percent", sample.requested_percent);
                     cJSON_AddNumberToObject(backlight, "frequency_hz", sample.frequency_hz);
@@ -363,21 +416,23 @@ esp_err_t api_version_get_handler(httpd_req_t *req)
                 }
             }
         }
-        if (httpd_query_key_value(query, "tasks", flag, sizeof(flag)) == ESP_OK && flag[0] == '1') {
+        if (httpd_query_key_value(query, "tasks", flag, sizeof(flag)) == ESP_OK && flag[0] == '1')
+        {
             add_task_stacks(root);
             lvgl_alloc_stats_t lvgl;
             lvgl_alloc_get_stats(&lvgl);
             cJSON *lvgl_mem = cJSON_AddObjectToObject(root, "lvgl_mem");
-            if (lvgl_mem != NULL) {
+            if (lvgl_mem != NULL)
+            {
                 cJSON_AddBoolToObject(lvgl_mem, "counting", lvgl.active);
                 cJSON_AddBoolToObject(lvgl_mem, "psram_first", lvgl.psram_first);
-                cJSON_AddNumberToObject(lvgl_mem, "internal_bytes", (double)lvgl.internal_bytes);
-                cJSON_AddNumberToObject(lvgl_mem, "psram_bytes", (double)lvgl.psram_bytes);
-                cJSON_AddNumberToObject(lvgl_mem, "internal_peak", (double)lvgl.internal_peak);
-                cJSON_AddNumberToObject(lvgl_mem, "psram_peak", (double)lvgl.psram_peak);
-                cJSON_AddNumberToObject(lvgl_mem, "live_allocations", (double)lvgl.live_allocations);
-                cJSON_AddNumberToObject(lvgl_mem, "internal_allocations_total", (double)lvgl.internal_allocations);
-                cJSON_AddNumberToObject(lvgl_mem, "psram_allocations_total", (double)lvgl.psram_allocations);
+                cJSON_AddNumberToObject(lvgl_mem, "internal_bytes", (double) lvgl.internal_bytes);
+                cJSON_AddNumberToObject(lvgl_mem, "psram_bytes", (double) lvgl.psram_bytes);
+                cJSON_AddNumberToObject(lvgl_mem, "internal_peak", (double) lvgl.internal_peak);
+                cJSON_AddNumberToObject(lvgl_mem, "psram_peak", (double) lvgl.psram_peak);
+                cJSON_AddNumberToObject(lvgl_mem, "live_allocations", (double) lvgl.live_allocations);
+                cJSON_AddNumberToObject(lvgl_mem, "internal_allocations_total", (double) lvgl.internal_allocations);
+                cJSON_AddNumberToObject(lvgl_mem, "psram_allocations_total", (double) lvgl.psram_allocations);
             }
         }
     }
@@ -386,28 +441,32 @@ esp_err_t api_version_get_handler(httpd_req_t *req)
      * camera factor (100 = no scaling). */
     cJSON *disp = cJSON_AddObjectToObject(root, "display");
     cJSON_AddNumberToObject(disp, "brightness_percent", display_get_brightness_percent());
-    cJSON_AddStringToObject(disp, "state", ui_display_brightness_test_percent() >= 0 ? "test" : ui_display_protection_is_active()
-        ? (ui_display_protection_is_off() ? "off" :
-            (ui_display_protection_is_pages() ? "pages" : "weather"))
-        : (night_mode_active() ? "night" : (display_is_dimmed() ? "dimmed" : "active")));
+    cJSON_AddStringToObject(disp, "state",
+                            ui_display_brightness_test_percent() >= 0 ? "test"
+                            : ui_display_protection_is_active()
+                                ? (ui_display_protection_is_off() ? "off" : (ui_display_protection_is_pages() ? "pages" : "weather"))
+                                : (night_mode_active() ? "night" : (display_is_dimmed() ? "dimmed" : "active")));
     cJSON_AddNumberToObject(disp, "room_light_percent", display_get_ambient_limit_percent());
 
     /* Presence sensor status (Settings > Display > Camera): absent on variants without the
      * built-in camera. motion_pct only updates while the display is dimmed or a test is
      * running (POST /api/camera/test), see ambient_camera.c. */
-    if (ambient_camera_available()) {
+    if (ambient_camera_available())
+    {
         ambient_camera_reading_t reading = {0};
-        (void)ambient_camera_get(&reading);
+        (void) ambient_camera_get(&reading);
         int test_remaining_s = 0;
         bool test_active = ambient_camera_test_active(&test_remaining_s);
         int threshold_pct = ambient_camera_get_presence_threshold_pct();
         cJSON *camera = cJSON_AddObjectToObject(root, "camera");
-        if (camera != NULL) {
+        if (camera != NULL)
+        {
             cJSON_AddBoolToObject(camera, "ready", reading.ready);
             cJSON_AddBoolToObject(camera, "failed", reading.failed);
             cJSON_AddBoolToObject(camera, "motion_valid", reading.motion_valid);
             cJSON_AddBoolToObject(camera, "light_valid", reading.valid);
-            if (reading.valid) {
+            if (reading.valid)
+            {
                 cJSON_AddNumberToObject(camera, "luma", reading.luma);
                 cJSON_AddNumberToObject(camera, "exposure", reading.exposure);
                 cJSON_AddNumberToObject(camera, "gain", reading.gain);
@@ -415,14 +474,15 @@ esp_err_t api_version_get_handler(httpd_req_t *req)
             }
             cJSON_AddNumberToObject(camera, "presence_motion_pct", reading.motion_pct);
             cJSON_AddNumberToObject(camera, "presence_threshold_pct", threshold_pct);
-            cJSON_AddBoolToObject(camera, "presence_detected", reading.motion_valid && !reading.failed &&
-                reading.motion_pct >= threshold_pct);
+            cJSON_AddBoolToObject(camera, "presence_detected",
+                                  reading.motion_valid && !reading.failed && reading.motion_pct >= threshold_pct);
             cJSON_AddBoolToObject(camera, "test_active", test_active);
             cJSON_AddNumberToObject(camera, "test_remaining_s", test_remaining_s);
         }
     }
 
-    if (display_orientation_supported()) {
+    if (display_orientation_supported())
+    {
         display_orientation_status_t status;
         display_orientation_get_status(&status);
         cJSON *rotation = cJSON_AddObjectToObject(root, "rotation");
@@ -443,25 +503,27 @@ esp_err_t api_version_get_handler(httpd_req_t *req)
     esp_chip_info_t chip_info;
     esp_chip_info(&chip_info);
     cJSON *silicon = cJSON_AddObjectToObject(root, "silicon");
-    if (silicon != NULL) {
+    if (silicon != NULL)
+    {
         char rev_text[12];
-        (void)ota_rev_format(chip_info.revision, rev_text, sizeof(rev_text));
-        cJSON_AddNumberToObject(silicon, "chip_revision", (double)chip_info.revision);
+        (void) ota_rev_format(chip_info.revision, rev_text, sizeof(rev_text));
+        cJSON_AddNumberToObject(silicon, "chip_revision", (double) chip_info.revision);
         cJSON_AddStringToObject(silicon, "chip_revision_text", rev_text);
-        cJSON_AddNumberToObject(silicon, "image_min_revision", (double)CONFIG_ESP_REV_MIN_FULL);
-        cJSON_AddNumberToObject(silicon, "image_max_revision", (double)CONFIG_ESP_REV_MAX_FULL);
+        cJSON_AddNumberToObject(silicon, "image_min_revision", (double) CONFIG_ESP_REV_MIN_FULL);
+        cJSON_AddNumberToObject(silicon, "image_max_revision", (double) CONFIG_ESP_REV_MAX_FULL);
     }
     net_watchdog_add_json(root);
     ui_watchdog_add_json(root);
     api_layout_add_limits(root);
-    cJSON_AddNumberToObject(root, "layout_max_bytes", (double)APP_LAYOUT_MAX_JSON_LEN); /* the editor checks its size against it */
-    cJSON_AddStringToObject(root, "last_reboot", reboot_log_last_label()); /* how the previous run ended, see GET /api/reboot-log */
+    cJSON_AddNumberToObject(root, "layout_max_bytes", (double) APP_LAYOUT_MAX_JSON_LEN); /* the editor checks its size against it */
+    cJSON_AddStringToObject(root, "last_reboot", reboot_log_last_label());        /* how the previous run ended, see GET /api/reboot-log */
     cJSON_AddStringToObject(root, "ota_image_state", ota_validate_image_state()); /* "pending_verify" until the rollback is cancelled */
     uint32_t bootloader_version = 0;
-    char bootloader_built[sizeof(((esp_bootloader_desc_t *)0)->date_time) + 1] = {0};
+    char bootloader_built[sizeof(((esp_bootloader_desc_t *) 0)->date_time) + 1] = {0};
     cJSON *bootloader = cJSON_AddObjectToObject(root, "bootloader"); /* the one in flash: only USB updates it, see docs/development.md */
-    if (bootloader != NULL && ota_validate_bootloader_info(&bootloader_version, bootloader_built, sizeof(bootloader_built))) {
-        cJSON_AddNumberToObject(bootloader, "version", (double)bootloader_version);
+    if (bootloader != NULL && ota_validate_bootloader_info(&bootloader_version, bootloader_built, sizeof(bootloader_built)))
+    {
+        cJSON_AddNumberToObject(bootloader, "version", (double) bootloader_version);
         cJSON_AddStringToObject(bootloader, "built", bootloader_built);
         cJSON_AddBoolToObject(bootloader, "rollback", ota_bootloader_has_rollback(bootloader_version));
     }
@@ -482,7 +544,8 @@ esp_err_t api_version_get_handler(httpd_req_t *req)
     wifi_mgr_get_diag(&wifi_diag_current);
     api_version_add_wifi_diag(cJSON_AddObjectToObject(wifi_diag_obj, "current"), &wifi_diag_current);
     wifi_mgr_diag_t wifi_diag_prev;
-    if (wifi_diag_store_load(&wifi_diag_prev)) {
+    if (wifi_diag_store_load(&wifi_diag_prev))
+    {
         api_version_add_wifi_diag(cJSON_AddObjectToObject(wifi_diag_obj, "prev_boot"), &wifi_diag_prev);
     }
     c6_memory_add_json(root, wifi_diag_obj);
@@ -492,48 +555,54 @@ esp_err_t api_version_get_handler(httpd_req_t *req)
      * ended before they were reported, "flagged" points carried the controller's weak-signal flag. */
     const touch_track_stats_t *touch = touch_track_stats();
     cJSON *touch_obj = cJSON_AddObjectToObject(root, "touch");
-    cJSON_AddNumberToObject(touch_obj, "frames", (double)touch->frames);
-    cJSON_AddNumberToObject(touch_obj, "flagged", (double)touch->flagged);
-    cJSON_AddNumberToObject(touch_obj, "invalid", (double)touch->invalid);
-    cJSON_AddNumberToObject(touch_obj, "contacts", (double)touch->contacts);
-    cJSON_AddNumberToObject(touch_obj, "confirmed", (double)touch->confirmed);
-    cJSON_AddNumberToObject(touch_obj, "lost", (double)touch->lost);
-    cJSON_AddNumberToObject(touch_obj, "held", (double)touch->held);
-    cJSON_AddNumberToObject(touch_obj, "reads", (double)touch->reads);
-    cJSON_AddNumberToObject(touch_obj, "empty", (double)touch->empty);
-    cJSON_AddNumberToObject(touch_obj, "i2c_errors", (double)touch->i2c_errors);
-    cJSON_AddNumberToObject(touch_obj, "late", (double)touch->late);
-    cJSON_AddNumberToObject(touch_obj, "max_gap_ms", (double)touch->max_gap_ms);
-    cJSON_AddNumberToObject(touch_obj, "ui_pressed", (double)touch->ui_pressed);
-    cJSON_AddNumberToObject(touch_obj, "ui_released", (double)touch->ui_released);
-    cJSON_AddNumberToObject(touch_obj, "ui_clicked", (double)touch->ui_clicked);
-    cJSON_AddNumberToObject(touch_obj, "ui_scrolled", (double)touch->ui_scrolled);
-    cJSON_AddNumberToObject(touch_obj, "ui_long", (double)touch->ui_long);
-    cJSON_AddNumberToObject(touch_obj, "ui_lost", (double)touch->ui_lost);
+    cJSON_AddNumberToObject(touch_obj, "frames", (double) touch->frames);
+    cJSON_AddNumberToObject(touch_obj, "flagged", (double) touch->flagged);
+    cJSON_AddNumberToObject(touch_obj, "invalid", (double) touch->invalid);
+    cJSON_AddNumberToObject(touch_obj, "contacts", (double) touch->contacts);
+    cJSON_AddNumberToObject(touch_obj, "confirmed", (double) touch->confirmed);
+    cJSON_AddNumberToObject(touch_obj, "lost", (double) touch->lost);
+    cJSON_AddNumberToObject(touch_obj, "held", (double) touch->held);
+    cJSON_AddNumberToObject(touch_obj, "reads", (double) touch->reads);
+    cJSON_AddNumberToObject(touch_obj, "empty", (double) touch->empty);
+    cJSON_AddNumberToObject(touch_obj, "i2c_errors", (double) touch->i2c_errors);
+    cJSON_AddNumberToObject(touch_obj, "late", (double) touch->late);
+    cJSON_AddNumberToObject(touch_obj, "max_gap_ms", (double) touch->max_gap_ms);
+    cJSON_AddNumberToObject(touch_obj, "ui_pressed", (double) touch->ui_pressed);
+    cJSON_AddNumberToObject(touch_obj, "ui_released", (double) touch->ui_released);
+    cJSON_AddNumberToObject(touch_obj, "ui_clicked", (double) touch->ui_clicked);
+    cJSON_AddNumberToObject(touch_obj, "ui_scrolled", (double) touch->ui_scrolled);
+    cJSON_AddNumberToObject(touch_obj, "ui_long", (double) touch->ui_long);
+    cJSON_AddNumberToObject(touch_obj, "ui_lost", (double) touch->ui_lost);
 
-    cJSON_AddNumberToObject(root, "uptime_s", (double)(esp_timer_get_time() / 1000000));
+    cJSON_AddNumberToObject(root, "uptime_s", (double) (esp_timer_get_time() / 1000000));
     const chip_temperature_snapshot_t temperature = chip_temperature_snapshot();
     cJSON *chip_temp = cJSON_AddObjectToObject(root, "chip_temperature");
-    if (chip_temp) {
+    if (chip_temp)
+    {
         cJSON_AddBoolToObject(chip_temp, "available", temperature.available);
-        if (temperature.available) cJSON_AddNumberToObject(chip_temp, "celsius", temperature.celsius);
-        else cJSON_AddNullToObject(chip_temp, "celsius");
-        cJSON_AddNumberToObject(chip_temp, "sample_age_ms", temperature.sampled_us ?
-            (double)(esp_timer_get_time() - temperature.sampled_us) / 1000 : -1);
+        if (temperature.available)
+            cJSON_AddNumberToObject(chip_temp, "celsius", temperature.celsius);
+        else
+            cJSON_AddNullToObject(chip_temp, "celsius");
+        cJSON_AddNumberToObject(chip_temp, "sample_age_ms",
+                                temperature.sampled_us ? (double) (esp_timer_get_time() - temperature.sampled_us) / 1000 : -1);
         cJSON_AddStringToObject(chip_temp, "error", esp_err_to_name(temperature.error));
     }
     sample_cpu_load();
-    if (s_cpu_load[0] >= 0) {
+    if (s_cpu_load[0] >= 0)
+    {
         cJSON *cpu = cJSON_AddObjectToObject(root, "cpu");
         cJSON *load = cJSON_AddArrayToObject(cpu, "load_percent");
-        for (int c = 0; c < CPU_CORES; c++) {
+        for (int c = 0; c < CPU_CORES; c++)
+        {
             cJSON_AddItemToArray(load, cJSON_CreateNumber(s_cpu_load[c]));
         }
     }
 
     char *payload = cJSON_PrintUnformatted(root);
     cJSON_Delete(root);
-    if (payload == NULL) {
+    if (payload == NULL)
+    {
         return httpd_resp_send_500(req);
     }
 

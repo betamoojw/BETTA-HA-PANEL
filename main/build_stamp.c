@@ -5,6 +5,12 @@
  * touches this file before every build so that it is recompiled each time; the date in
  * ESP-IDF's application descriptor only changes when the project configuration does.
  */
+/** @file
+ * @brief Compiler build time and panel-date formatting for diagnostics.
+ *
+ * The build target touches this translation unit so incremental builds can
+ * refresh the stamp without recompiling other sources.
+ */
 #include "build_stamp.h"
 #include "util/panel_date.h"
 
@@ -22,14 +28,16 @@ void app_build_stamp_format(char *out, size_t out_len)
     int hour = 0;
     int minute = 0;
     const char *found = NULL;
-    if (sscanf(app_build_stamp, "%3s %d %d %d:%d", month, &day, &year, &hour, &minute) == 5 && strlen(month) == 3) {
+    if (sscanf(app_build_stamp, "%3s %d %d %d:%d", month, &day, &year, &hour, &minute) == 5 && strlen(month) == 3)
+    {
         found = strstr(months, month);
     }
-    if (found == NULL) {
+    if (found == NULL)
+    {
         snprintf(out, out_len, "%s", app_build_stamp);
         return;
     }
     char date[16];
-    panel_date_format(date, sizeof(date), year, (int)((found - months) / 3) + 1, day, PANEL_DATE_FULL);
+    panel_date_format(date, sizeof(date), year, (int) ((found - months) / 3) + 1, day, PANEL_DATE_FULL);
     snprintf(out, out_len, "%s %02d:%02d", date, hour, minute);
 }

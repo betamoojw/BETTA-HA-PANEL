@@ -5,6 +5,9 @@
  * lifted an IP ban or accepted a token again: the panel does not retry by itself once Home Assistant rejected it, and saving the settings
  * unchanged does not restart it. The restart is logged as a manual one in the restart history.
  */
+/** @file
+ * @brief HTTP-requested restart with a recorded reboot cause.
+ */
 #include "esp_http_server.h"
 #include "esp_log.h"
 #include "esp_system.h"
@@ -18,15 +21,17 @@ static const char *TAG_RESTART = "restart";
 
 static void restart_task(void *arg)
 {
-    (void)arg;
+    (void) arg;
     vTaskDelay(pdMS_TO_TICKS(800)); /* let the HTTP response leave first */
     reboot_log_mark(REBOOT_CAUSE_MANUAL);
     esp_restart();
 }
 
+/** @brief Schedule a manual reboot after allowing the reply to leave; do not erase stored settings. */
 esp_err_t api_restart_post_handler(httpd_req_t *req)
 {
-    if (xTaskCreate(restart_task, "manual_restart", 3072, NULL, 5, NULL) != pdPASS) {
+    if (xTaskCreate(restart_task, "manual_restart", 3072, NULL, 5, NULL) != pdPASS)
+    {
         return httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Could not start the restart");
     }
     ESP_LOGW(TAG_RESTART, "restart requested from the editor");

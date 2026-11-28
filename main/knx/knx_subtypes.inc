@@ -60,7 +60,7 @@
     {7, 5, Rule::kValue, 0},  // DPT_TimePeriodSec
     {7, 6, Rule::kValue, 0},  // DPT_TimePeriodMin
     {7, 7, Rule::kValue, 0},  // DPT_TimePeriodHrs
-    {7, 10, Rule::kUnsupported, 0},  // DPT_PropDataType
+    {7, 10, Rule::kValue, 0},  // DPT_PropDataType
     {7, 11, Rule::kValue, 0},  // DPT_Length_mm
     {7, 12, Rule::kValue, 0},  // DPT_UElCurrentmA
     {7, 13, Rule::kValue, 0},  // DPT_Brightness
@@ -259,7 +259,7 @@
     {20, 802, Rule::kEnum, 50},  // DPT_SABBehaviour_Lock_Unlock
     {20, 803, Rule::kEnum, 51},  // DPT_SSSBMode
     {20, 804, Rule::kEnum, 52},  // DPT_BlindsControlMode
-    {20, 1000, Rule::kUnsupported, 0},  // DPT_CommMode
+    {20, 1000, Rule::kValue, 0},  // DPT_CommMode
     {20, 1001, Rule::kEnum, 53},  // DPT_AddInfoTypes
     {20, 1002, Rule::kEnum, 54},  // DPT_RF_ModeSelect
     {20, 1003, Rule::kEnum, 55},  // DPT_RF_FilterSelect

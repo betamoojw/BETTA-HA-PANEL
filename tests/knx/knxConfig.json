@@ -1288,6 +1288,1746 @@
       "readable": true,
       "writable": true,
       "unit": null
+    },
+    {
+      "id": "dpt_1_004",
+      "name": "Ramp",
+      "description": "Read-only feedback for building automation: Ramp (KNX DPT-1.004).",
+      "group_address": "11/7/1",
+      "datapoint_type": "DPT-1.004",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_1_006",
+      "name": "Binary Value",
+      "description": "Read-only feedback for building automation: Binary Value (KNX DPT-1.006).",
+      "group_address": "11/7/2",
+      "datapoint_type": "DPT-1.006",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_1_007",
+      "name": "Step",
+      "description": "Read-only feedback for building automation: Step (KNX DPT-1.007).",
+      "group_address": "11/7/3",
+      "datapoint_type": "DPT-1.007",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_1_009",
+      "name": "Open Close",
+      "description": "Writable command for building automation: Open Close (KNX DPT-1.009).",
+      "group_address": "11/7/4",
+      "datapoint_type": "DPT-1.009",
+      "readable": false,
+      "writable": true,
+      "unit": null
+    },
+    {
+      "id": "dpt_1_011",
+      "name": "State",
+      "description": "Read-only feedback for building automation: State (KNX DPT-1.011).",
+      "group_address": "11/7/5",
+      "datapoint_type": "DPT-1.011",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_1_012",
+      "name": "Invert",
+      "description": "Read-only feedback for building automation: Invert (KNX DPT-1.012).",
+      "group_address": "11/7/6",
+      "datapoint_type": "DPT-1.012",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_1_013",
+      "name": "Dim Send Style",
+      "description": "Read-only feedback for building automation: Dim Send Style (KNX DPT-1.013).",
+      "group_address": "11/7/7",
+      "datapoint_type": "DPT-1.013",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_1_014",
+      "name": "Input Source",
+      "description": "Read-only feedback for building automation: Input Source (KNX DPT-1.014).",
+      "group_address": "11/7/8",
+      "datapoint_type": "DPT-1.014",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_1_015",
+      "name": "Reset",
+      "description": "Writable command for building automation: Reset (KNX DPT-1.015).",
+      "group_address": "11/7/9",
+      "datapoint_type": "DPT-1.015",
+      "readable": false,
+      "writable": true,
+      "unit": null
+    },
+    {
+      "id": "dpt_1_016",
+      "name": "Ack",
+      "description": "Read-only feedback for building safety or device status: Ack (KNX DPT-1.016).",
+      "group_address": "11/5/1",
+      "datapoint_type": "DPT-1.016",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_1_017",
+      "name": "Trigger",
+      "description": "Writable command for building safety or device status: Trigger (KNX DPT-1.017).",
+      "group_address": "11/5/2",
+      "datapoint_type": "DPT-1.017",
+      "readable": false,
+      "writable": true,
+      "unit": null
+    },
+    {
+      "id": "dpt_1_021",
+      "name": "Logical Function",
+      "description": "Read/write mode or state for building automation: Logical Function (KNX DPT-1.021).",
+      "group_address": "11/7/10",
+      "datapoint_type": "DPT-1.021",
+      "readable": true,
+      "writable": true,
+      "unit": null
+    },
+    {
+      "id": "dpt_1_022",
+      "name": "Scene AB",
+      "description": "Writable command for lighting: Scene AB (KNX DPT-1.022).",
+      "group_address": "11/1/1",
+      "datapoint_type": "DPT-1.022",
+      "readable": false,
+      "writable": true,
+      "unit": null
+    },
+    {
+      "id": "dpt_1_023",
+      "name": "Shutter Blinds Mode",
+      "description": "Read/write mode or state for shading: Shutter Blinds Mode (KNX DPT-1.023).",
+      "group_address": "11/2/1",
+      "datapoint_type": "DPT-1.023",
+      "readable": true,
+      "writable": true,
+      "unit": null
+    },
+    {
+      "id": "dpt_2_002",
+      "name": "Bool Control",
+      "description": "Writable command for building automation: Bool Control (KNX DPT-2.002).",
+      "group_address": "11/7/11",
+      "datapoint_type": "DPT-2.002",
+      "readable": false,
+      "writable": true,
+      "unit": null
+    },
+    {
+      "id": "dpt_2_003",
+      "name": "Enable Control",
+      "description": "Writable command for building automation: Enable Control (KNX DPT-2.003).",
+      "group_address": "11/7/12",
+      "datapoint_type": "DPT-2.003",
+      "readable": false,
+      "writable": true,
+      "unit": null
+    },
+    {
+      "id": "dpt_2_004",
+      "name": "Ramp Control",
+      "description": "Writable command for building automation: Ramp Control (KNX DPT-2.004).",
+      "group_address": "11/7/13",
+      "datapoint_type": "DPT-2.004",
+      "readable": false,
+      "writable": true,
+      "unit": null
+    },
+    {
+      "id": "dpt_2_005",
+      "name": "Alarm Control",
+      "description": "Writable command for building safety or device status: Alarm Control (KNX DPT-2.005).",
+      "group_address": "11/5/3",
+      "datapoint_type": "DPT-2.005",
+      "readable": false,
+      "writable": true,
+      "unit": null
+    },
+    {
+      "id": "dpt_2_006",
+      "name": "Binary Value Control",
+      "description": "Read-only feedback for building automation: Binary Value Control (KNX DPT-2.006).",
+      "group_address": "11/7/14",
+      "datapoint_type": "DPT-2.006",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_2_007",
+      "name": "Step Control",
+      "description": "Writable command for building automation: Step Control (KNX DPT-2.007).",
+      "group_address": "11/7/15",
+      "datapoint_type": "DPT-2.007",
+      "readable": false,
+      "writable": true,
+      "unit": null
+    },
+    {
+      "id": "dpt_2_008",
+      "name": "Direction1 Control",
+      "description": "Writable command for building automation: Direction1 Control (KNX DPT-2.008).",
+      "group_address": "11/7/16",
+      "datapoint_type": "DPT-2.008",
+      "readable": false,
+      "writable": true,
+      "unit": null
+    },
+    {
+      "id": "dpt_2_009",
+      "name": "Direction2 Control",
+      "description": "Writable command for building automation: Direction2 Control (KNX DPT-2.009).",
+      "group_address": "11/7/17",
+      "datapoint_type": "DPT-2.009",
+      "readable": false,
+      "writable": true,
+      "unit": null
+    },
+    {
+      "id": "dpt_2_010",
+      "name": "Start Control",
+      "description": "Writable command for building automation: Start Control (KNX DPT-2.010).",
+      "group_address": "11/7/18",
+      "datapoint_type": "DPT-2.010",
+      "readable": false,
+      "writable": true,
+      "unit": null
+    },
+    {
+      "id": "dpt_2_011",
+      "name": "State Control",
+      "description": "Writable command for building automation: State Control (KNX DPT-2.011).",
+      "group_address": "11/7/19",
+      "datapoint_type": "DPT-2.011",
+      "readable": false,
+      "writable": true,
+      "unit": null
+    },
+    {
+      "id": "dpt_2_012",
+      "name": "Invert Control",
+      "description": "Writable command for building automation: Invert Control (KNX DPT-2.012).",
+      "group_address": "11/7/20",
+      "datapoint_type": "DPT-2.012",
+      "readable": false,
+      "writable": true,
+      "unit": null
+    },
+    {
+      "id": "dpt_7_007",
+      "name": "Time Period Hrs",
+      "description": "Read-only feedback for building scheduling or time services: Time Period Hrs (KNX DPT-7.007).",
+      "group_address": "11/6/1",
+      "datapoint_type": "DPT-7.007",
+      "readable": true,
+      "writable": false,
+      "unit": "h"
+    },
+    {
+      "id": "dpt_7_010",
+      "name": "Property Data Type",
+      "description": "Read-only feedback for building automation: Property Data Type (KNX DPT-7.010).",
+      "group_address": "11/7/21",
+      "datapoint_type": "DPT-7.010",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_8_003",
+      "name": "Delta Time10 Msec",
+      "description": "Read-only feedback for building scheduling or time services: Delta Time10 Msec (KNX DPT-8.003).",
+      "group_address": "11/6/2",
+      "datapoint_type": "DPT-8.003",
+      "readable": true,
+      "writable": false,
+      "unit": "s"
+    },
+    {
+      "id": "dpt_8_004",
+      "name": "Delta Time100 Msec",
+      "description": "Read-only feedback for building scheduling or time services: Delta Time100 Msec (KNX DPT-8.004).",
+      "group_address": "11/6/3",
+      "datapoint_type": "DPT-8.004",
+      "readable": true,
+      "writable": false,
+      "unit": "s"
+    },
+    {
+      "id": "dpt_8_005",
+      "name": "Delta Time Sec",
+      "description": "Read-only feedback for building scheduling or time services: Delta Time Sec (KNX DPT-8.005).",
+      "group_address": "11/6/4",
+      "datapoint_type": "DPT-8.005",
+      "readable": true,
+      "writable": false,
+      "unit": "s"
+    },
+    {
+      "id": "dpt_8_006",
+      "name": "Delta Time Min",
+      "description": "Read-only feedback for building scheduling or time services: Delta Time Min (KNX DPT-8.006).",
+      "group_address": "11/6/5",
+      "datapoint_type": "DPT-8.006",
+      "readable": true,
+      "writable": false,
+      "unit": "min"
+    },
+    {
+      "id": "dpt_8_007",
+      "name": "Delta Time Hrs",
+      "description": "Read-only feedback for building scheduling or time services: Delta Time Hrs (KNX DPT-8.007).",
+      "group_address": "11/6/6",
+      "datapoint_type": "DPT-8.007",
+      "readable": true,
+      "writable": false,
+      "unit": "h"
+    },
+    {
+      "id": "dpt_9_011",
+      "name": "Value Time2",
+      "description": "Read-only feedback for building scheduling or time services: Value Time2 (KNX DPT-9.011).",
+      "group_address": "11/6/7",
+      "datapoint_type": "DPT-9.011",
+      "readable": true,
+      "writable": false,
+      "unit": "ms"
+    },
+    {
+      "id": "dpt_9_022",
+      "name": "Power Density",
+      "description": "Read-only feedback for building utility or energy monitoring: Power Density (KNX DPT-9.022).",
+      "group_address": "11/4/1",
+      "datapoint_type": "DPT-9.022",
+      "readable": true,
+      "writable": false,
+      "unit": "W/m2"
+    },
+    {
+      "id": "dpt_9_023",
+      "name": "Kelvin per Percent",
+      "description": "Read-only feedback for building automation: Kelvin per Percent (KNX DPT-9.023).",
+      "group_address": "11/7/22",
+      "datapoint_type": "DPT-9.023",
+      "readable": true,
+      "writable": false,
+      "unit": "K/%"
+    },
+    {
+      "id": "dpt_9_027",
+      "name": "Temperature (Fahrenheit)",
+      "description": "Read-only feedback for HVAC or ventilation: Temperature (Fahrenheit) (KNX DPT-9.027).",
+      "group_address": "11/3/1",
+      "datapoint_type": "DPT-9.027",
+      "readable": true,
+      "writable": false,
+      "unit": "°F"
+    },
+    {
+      "id": "dpt_13_100",
+      "name": "Long Delta Time Sec",
+      "description": "Read-only feedback for building scheduling or time services: Long Delta Time Sec (KNX DPT-13.100).",
+      "group_address": "11/6/8",
+      "datapoint_type": "DPT-13.100",
+      "readable": true,
+      "writable": false,
+      "unit": "s"
+    },
+    {
+      "id": "dpt_14_000",
+      "name": "Value Acceleration",
+      "description": "Read-only acceleration measurement for building-services or plant monitoring (KNX DPT-14.000).",
+      "group_address": "11/7/23",
+      "datapoint_type": "DPT-14.000",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_001",
+      "name": "Value Acceleration Angular",
+      "description": "Read-only acceleration angular measurement for building-services or plant monitoring (KNX DPT-14.001).",
+      "group_address": "11/7/24",
+      "datapoint_type": "DPT-14.001",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_002",
+      "name": "Value Activation Energy",
+      "description": "Read-only activation energy measurement for building-services or plant monitoring (KNX DPT-14.002).",
+      "group_address": "11/4/2",
+      "datapoint_type": "DPT-14.002",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_003",
+      "name": "Value Activity",
+      "description": "Read-only activity measurement for building-services or plant monitoring (KNX DPT-14.003).",
+      "group_address": "11/7/25",
+      "datapoint_type": "DPT-14.003",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_004",
+      "name": "Value Mol",
+      "description": "Read-only mol measurement for building-services or plant monitoring (KNX DPT-14.004).",
+      "group_address": "11/7/26",
+      "datapoint_type": "DPT-14.004",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_005",
+      "name": "Value Amplitude",
+      "description": "Read-only amplitude measurement for building-services or plant monitoring (KNX DPT-14.005).",
+      "group_address": "11/7/27",
+      "datapoint_type": "DPT-14.005",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_006",
+      "name": "Value Angle Rad",
+      "description": "Read-only angle rad measurement for building-services or plant monitoring (KNX DPT-14.006).",
+      "group_address": "11/7/28",
+      "datapoint_type": "DPT-14.006",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_007",
+      "name": "Value Angle Deg",
+      "description": "Read-only angle deg measurement for building-services or plant monitoring (KNX DPT-14.007).",
+      "group_address": "11/7/29",
+      "datapoint_type": "DPT-14.007",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_008",
+      "name": "Value Angular Momentum",
+      "description": "Read-only angular momentum measurement for building-services or plant monitoring (KNX DPT-14.008).",
+      "group_address": "11/7/30",
+      "datapoint_type": "DPT-14.008",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_009",
+      "name": "Value Angular Velocity",
+      "description": "Read-only angular velocity measurement for building-services or plant monitoring (KNX DPT-14.009).",
+      "group_address": "11/7/31",
+      "datapoint_type": "DPT-14.009",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_010",
+      "name": "Value Area",
+      "description": "Read-only area measurement for building-services or plant monitoring (KNX DPT-14.010).",
+      "group_address": "11/7/32",
+      "datapoint_type": "DPT-14.010",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_011",
+      "name": "Value Capacitance",
+      "description": "Read-only capacitance measurement for building-services or plant monitoring (KNX DPT-14.011).",
+      "group_address": "11/7/33",
+      "datapoint_type": "DPT-14.011",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_012",
+      "name": "Value Charge Density Surface",
+      "description": "Read-only charge density surface measurement for building-services or plant monitoring (KNX DPT-14.012).",
+      "group_address": "11/7/34",
+      "datapoint_type": "DPT-14.012",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_013",
+      "name": "Value Charge Density Volume",
+      "description": "Read-only charge density volume measurement for building-services or plant monitoring (KNX DPT-14.013).",
+      "group_address": "11/4/3",
+      "datapoint_type": "DPT-14.013",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_014",
+      "name": "Value Compressibility",
+      "description": "Read-only compressibility measurement for building-services or plant monitoring (KNX DPT-14.014).",
+      "group_address": "11/7/35",
+      "datapoint_type": "DPT-14.014",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_015",
+      "name": "Value Conductance",
+      "description": "Read-only conductance measurement for building-services or plant monitoring (KNX DPT-14.015).",
+      "group_address": "11/7/36",
+      "datapoint_type": "DPT-14.015",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_016",
+      "name": "Value Electrical Conductivity",
+      "description": "Read-only electrical conductivity measurement for building-services or plant monitoring (KNX DPT-14.016).",
+      "group_address": "11/4/4",
+      "datapoint_type": "DPT-14.016",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_017",
+      "name": "Value Density",
+      "description": "Read-only density measurement for building-services or plant monitoring (KNX DPT-14.017).",
+      "group_address": "11/7/37",
+      "datapoint_type": "DPT-14.017",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_018",
+      "name": "Value Electric Charge",
+      "description": "Read-only electric charge measurement for building-services or plant monitoring (KNX DPT-14.018).",
+      "group_address": "11/4/5",
+      "datapoint_type": "DPT-14.018",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_020",
+      "name": "Value Electric Current Density",
+      "description": "Read-only electric current density measurement for building-services or plant monitoring (KNX DPT-14.020).",
+      "group_address": "11/4/6",
+      "datapoint_type": "DPT-14.020",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_021",
+      "name": "Value Electric Dipole Moment",
+      "description": "Read-only electric dipole moment measurement for building-services or plant monitoring (KNX DPT-14.021).",
+      "group_address": "11/4/7",
+      "datapoint_type": "DPT-14.021",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_022",
+      "name": "Value Electric Displacement",
+      "description": "Read-only electric displacement measurement for building-services or plant monitoring (KNX DPT-14.022).",
+      "group_address": "11/4/8",
+      "datapoint_type": "DPT-14.022",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_023",
+      "name": "Value Electric Field Strength",
+      "description": "Read-only electric field strength measurement for building-services or plant monitoring (KNX DPT-14.023).",
+      "group_address": "11/4/9",
+      "datapoint_type": "DPT-14.023",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_024",
+      "name": "Value Electric Flux",
+      "description": "Read-only electric flux measurement for building-services or plant monitoring (KNX DPT-14.024).",
+      "group_address": "11/4/10",
+      "datapoint_type": "DPT-14.024",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_025",
+      "name": "Value Electric Flux Density",
+      "description": "Read-only electric flux density measurement for building-services or plant monitoring (KNX DPT-14.025).",
+      "group_address": "11/4/11",
+      "datapoint_type": "DPT-14.025",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_026",
+      "name": "Value Electric Polarization",
+      "description": "Read-only electric polarization measurement for building-services or plant monitoring (KNX DPT-14.026).",
+      "group_address": "11/4/12",
+      "datapoint_type": "DPT-14.026",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_028",
+      "name": "Value Electric Potential Difference",
+      "description": "Read-only electric potential difference measurement for building-services or plant monitoring (KNX DPT-14.028).",
+      "group_address": "11/4/13",
+      "datapoint_type": "DPT-14.028",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_029",
+      "name": "Value Electromagnetic Moment",
+      "description": "Read-only electromagnetic moment measurement for building-services or plant monitoring (KNX DPT-14.029).",
+      "group_address": "11/7/38",
+      "datapoint_type": "DPT-14.029",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_030",
+      "name": "Value Electromotive Force",
+      "description": "Read-only electromotive force measurement for building-services or plant monitoring (KNX DPT-14.030).",
+      "group_address": "11/7/39",
+      "datapoint_type": "DPT-14.030",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_032",
+      "name": "Value Force",
+      "description": "Read-only force measurement for building-services or plant monitoring (KNX DPT-14.032).",
+      "group_address": "11/7/40",
+      "datapoint_type": "DPT-14.032",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_033",
+      "name": "Value Frequency",
+      "description": "Read-only frequency measurement for building-services or plant monitoring (KNX DPT-14.033).",
+      "group_address": "11/7/41",
+      "datapoint_type": "DPT-14.033",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_034",
+      "name": "Value Angular Frequency",
+      "description": "Read-only angular frequency measurement for building-services or plant monitoring (KNX DPT-14.034).",
+      "group_address": "11/7/42",
+      "datapoint_type": "DPT-14.034",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_035",
+      "name": "Value Heat Capacity",
+      "description": "Read-only heat capacity measurement for building-services or plant monitoring (KNX DPT-14.035).",
+      "group_address": "11/3/2",
+      "datapoint_type": "DPT-14.035",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_036",
+      "name": "Value Heat Flow Rate",
+      "description": "Read-only heat flow rate measurement for building-services or plant monitoring (KNX DPT-14.036).",
+      "group_address": "11/3/3",
+      "datapoint_type": "DPT-14.036",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_037",
+      "name": "Value Heat Quantity",
+      "description": "Read-only heat quantity measurement for building-services or plant monitoring (KNX DPT-14.037).",
+      "group_address": "11/3/4",
+      "datapoint_type": "DPT-14.037",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_038",
+      "name": "Value Impedance",
+      "description": "Read-only impedance measurement for building-services or plant monitoring (KNX DPT-14.038).",
+      "group_address": "11/7/43",
+      "datapoint_type": "DPT-14.038",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_039",
+      "name": "Value Length",
+      "description": "Read-only length measurement for building-services or plant monitoring (KNX DPT-14.039).",
+      "group_address": "11/7/44",
+      "datapoint_type": "DPT-14.039",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_040",
+      "name": "Value Light Quantity",
+      "description": "Read-only light quantity measurement for building-services or plant monitoring (KNX DPT-14.040).",
+      "group_address": "11/1/2",
+      "datapoint_type": "DPT-14.040",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_041",
+      "name": "Value Luminance",
+      "description": "Read-only luminance measurement for building-services or plant monitoring (KNX DPT-14.041).",
+      "group_address": "11/7/45",
+      "datapoint_type": "DPT-14.041",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_042",
+      "name": "Value Luminous Flux",
+      "description": "Read-only luminous flux measurement for building-services or plant monitoring (KNX DPT-14.042).",
+      "group_address": "11/7/46",
+      "datapoint_type": "DPT-14.042",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_043",
+      "name": "Value Luminous Intensity",
+      "description": "Read-only luminous intensity measurement for building-services or plant monitoring (KNX DPT-14.043).",
+      "group_address": "11/7/47",
+      "datapoint_type": "DPT-14.043",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_044",
+      "name": "Value Magnetic Field Strength",
+      "description": "Read-only magnetic field strength measurement for building-services or plant monitoring (KNX DPT-14.044).",
+      "group_address": "11/7/48",
+      "datapoint_type": "DPT-14.044",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_045",
+      "name": "Value Magnetic Flux",
+      "description": "Read-only magnetic flux measurement for building-services or plant monitoring (KNX DPT-14.045).",
+      "group_address": "11/7/49",
+      "datapoint_type": "DPT-14.045",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_046",
+      "name": "Value Magnetic Flux Density",
+      "description": "Read-only magnetic flux density measurement for building-services or plant monitoring (KNX DPT-14.046).",
+      "group_address": "11/7/50",
+      "datapoint_type": "DPT-14.046",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_047",
+      "name": "Value Magnetic Moment",
+      "description": "Read-only magnetic moment measurement for building-services or plant monitoring (KNX DPT-14.047).",
+      "group_address": "11/7/51",
+      "datapoint_type": "DPT-14.047",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_048",
+      "name": "Value Magnetic Polarization",
+      "description": "Read-only magnetic polarization measurement for building-services or plant monitoring (KNX DPT-14.048).",
+      "group_address": "11/7/52",
+      "datapoint_type": "DPT-14.048",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_049",
+      "name": "Value Magnetization",
+      "description": "Read-only magnetization measurement for building-services or plant monitoring (KNX DPT-14.049).",
+      "group_address": "11/7/53",
+      "datapoint_type": "DPT-14.049",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_050",
+      "name": "Value Magnetomotive Force",
+      "description": "Read-only magnetomotive force measurement for building-services or plant monitoring (KNX DPT-14.050).",
+      "group_address": "11/7/54",
+      "datapoint_type": "DPT-14.050",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_051",
+      "name": "Value Mass",
+      "description": "Read-only mass measurement for building-services or plant monitoring (KNX DPT-14.051).",
+      "group_address": "11/7/55",
+      "datapoint_type": "DPT-14.051",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_052",
+      "name": "Value Mass Flux",
+      "description": "Read-only mass flux measurement for building-services or plant monitoring (KNX DPT-14.052).",
+      "group_address": "11/7/56",
+      "datapoint_type": "DPT-14.052",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_053",
+      "name": "Value Momentum",
+      "description": "Read-only momentum measurement for building-services or plant monitoring (KNX DPT-14.053).",
+      "group_address": "11/7/57",
+      "datapoint_type": "DPT-14.053",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_054",
+      "name": "Value Phase Angle Rad",
+      "description": "Read-only phase angle rad measurement for building-services or plant monitoring (KNX DPT-14.054).",
+      "group_address": "11/7/58",
+      "datapoint_type": "DPT-14.054",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_055",
+      "name": "Value Phase Angle Deg",
+      "description": "Read-only phase angle deg measurement for building-services or plant monitoring (KNX DPT-14.055).",
+      "group_address": "11/7/59",
+      "datapoint_type": "DPT-14.055",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_057",
+      "name": "Value Power Factor",
+      "description": "Read-only power factor measurement for building-services or plant monitoring (KNX DPT-14.057).",
+      "group_address": "11/4/14",
+      "datapoint_type": "DPT-14.057",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_059",
+      "name": "Value Reactance",
+      "description": "Read-only reactance measurement for building-services or plant monitoring (KNX DPT-14.059).",
+      "group_address": "11/7/60",
+      "datapoint_type": "DPT-14.059",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_060",
+      "name": "Value Resistance",
+      "description": "Read-only resistance measurement for building-services or plant monitoring (KNX DPT-14.060).",
+      "group_address": "11/7/61",
+      "datapoint_type": "DPT-14.060",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_061",
+      "name": "Value Resistivity",
+      "description": "Read-only resistivity measurement for building-services or plant monitoring (KNX DPT-14.061).",
+      "group_address": "11/7/62",
+      "datapoint_type": "DPT-14.061",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_062",
+      "name": "Value Self Inductance",
+      "description": "Read-only self inductance measurement for building-services or plant monitoring (KNX DPT-14.062).",
+      "group_address": "11/7/63",
+      "datapoint_type": "DPT-14.062",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_063",
+      "name": "Value Solid Angle",
+      "description": "Read-only solid angle measurement for building-services or plant monitoring (KNX DPT-14.063).",
+      "group_address": "11/7/64",
+      "datapoint_type": "DPT-14.063",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_064",
+      "name": "Value Sound Intensity",
+      "description": "Read-only sound intensity measurement for building-services or plant monitoring (KNX DPT-14.064).",
+      "group_address": "11/7/65",
+      "datapoint_type": "DPT-14.064",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_066",
+      "name": "Value Stress",
+      "description": "Read-only stress measurement for building-services or plant monitoring (KNX DPT-14.066).",
+      "group_address": "11/7/66",
+      "datapoint_type": "DPT-14.066",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_067",
+      "name": "Value Surface Tension",
+      "description": "Read-only surface tension measurement for building-services or plant monitoring (KNX DPT-14.067).",
+      "group_address": "11/7/67",
+      "datapoint_type": "DPT-14.067",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_068",
+      "name": "Value Common Temperature",
+      "description": "Read-only common temperature measurement for building-services or plant monitoring (KNX DPT-14.068).",
+      "group_address": "11/3/5",
+      "datapoint_type": "DPT-14.068",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_069",
+      "name": "Value Absolute Temperature",
+      "description": "Read-only absolute temperature measurement for building-services or plant monitoring (KNX DPT-14.069).",
+      "group_address": "11/3/6",
+      "datapoint_type": "DPT-14.069",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_070",
+      "name": "Value Temperature Difference",
+      "description": "Read-only temperature difference measurement for building-services or plant monitoring (KNX DPT-14.070).",
+      "group_address": "11/3/7",
+      "datapoint_type": "DPT-14.070",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_071",
+      "name": "Value Thermal Capacity",
+      "description": "Read-only thermal capacity measurement for building-services or plant monitoring (KNX DPT-14.071).",
+      "group_address": "11/7/68",
+      "datapoint_type": "DPT-14.071",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_072",
+      "name": "Value Thermal Conductivity",
+      "description": "Read-only thermal conductivity measurement for building-services or plant monitoring (KNX DPT-14.072).",
+      "group_address": "11/7/69",
+      "datapoint_type": "DPT-14.072",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_073",
+      "name": "Value Thermoelectric Power",
+      "description": "Read-only thermoelectric power measurement for building-services or plant monitoring (KNX DPT-14.073).",
+      "group_address": "11/4/15",
+      "datapoint_type": "DPT-14.073",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_074",
+      "name": "Value Time",
+      "description": "Read-only time measurement for building-services or plant monitoring (KNX DPT-14.074).",
+      "group_address": "11/6/9",
+      "datapoint_type": "DPT-14.074",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_075",
+      "name": "Value Torque",
+      "description": "Read-only torque measurement for building-services or plant monitoring (KNX DPT-14.075).",
+      "group_address": "11/7/70",
+      "datapoint_type": "DPT-14.075",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_076",
+      "name": "Value Volume",
+      "description": "Read-only volume measurement for building-services or plant monitoring (KNX DPT-14.076).",
+      "group_address": "11/4/16",
+      "datapoint_type": "DPT-14.076",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_077",
+      "name": "Value Volume Flux",
+      "description": "Read-only volume flux measurement for building-services or plant monitoring (KNX DPT-14.077).",
+      "group_address": "11/4/17",
+      "datapoint_type": "DPT-14.077",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_078",
+      "name": "Value Weight",
+      "description": "Read-only weight measurement for building-services or plant monitoring (KNX DPT-14.078).",
+      "group_address": "11/7/71",
+      "datapoint_type": "DPT-14.078",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_14_079",
+      "name": "Value Work",
+      "description": "Read-only work measurement for building-services or plant monitoring (KNX DPT-14.079).",
+      "group_address": "11/7/72",
+      "datapoint_type": "DPT-14.079",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_20_001",
+      "name": "SCLO Mode",
+      "description": "Read/write mode or state for building automation: SCLO Mode (KNX DPT-20.001).",
+      "group_address": "11/7/73",
+      "datapoint_type": "DPT-20.001",
+      "readable": true,
+      "writable": true,
+      "unit": null
+    },
+    {
+      "id": "dpt_20_002",
+      "name": "Building Mode",
+      "description": "Read/write mode or state for building automation: Building Mode (KNX DPT-20.002).",
+      "group_address": "11/7/74",
+      "datapoint_type": "DPT-20.002",
+      "readable": true,
+      "writable": true,
+      "unit": null
+    },
+    {
+      "id": "dpt_20_004",
+      "name": "Priority",
+      "description": "Read/write mode or state for building automation: Priority (KNX DPT-20.004).",
+      "group_address": "11/7/75",
+      "datapoint_type": "DPT-20.004",
+      "readable": true,
+      "writable": true,
+      "unit": null
+    },
+    {
+      "id": "dpt_20_005",
+      "name": "Light Application Mode",
+      "description": "Read/write mode or state for lighting: Light Application Mode (KNX DPT-20.005).",
+      "group_address": "11/1/3",
+      "datapoint_type": "DPT-20.005",
+      "readable": true,
+      "writable": true,
+      "unit": null
+    },
+    {
+      "id": "dpt_20_006",
+      "name": "Application Area",
+      "description": "Read/write mode or state for building automation: Application Area (KNX DPT-20.006).",
+      "group_address": "11/7/76",
+      "datapoint_type": "DPT-20.006",
+      "readable": true,
+      "writable": true,
+      "unit": null
+    },
+    {
+      "id": "dpt_20_008",
+      "name": "PSU Mode",
+      "description": "Read/write mode or state for building automation: PSU Mode (KNX DPT-20.008).",
+      "group_address": "11/7/77",
+      "datapoint_type": "DPT-20.008",
+      "readable": true,
+      "writable": true,
+      "unit": null
+    },
+    {
+      "id": "dpt_20_013",
+      "name": "Time Delay",
+      "description": "Read-only feedback for building scheduling or time services: Time Delay (KNX DPT-20.013).",
+      "group_address": "11/6/10",
+      "datapoint_type": "DPT-20.013",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_20_014",
+      "name": "Beaufort Wind Force Scale",
+      "description": "Read-only feedback for building automation: Beaufort Wind Force Scale (KNX DPT-20.014).",
+      "group_address": "11/7/78",
+      "datapoint_type": "DPT-20.014",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_20_017",
+      "name": "Sensor Select",
+      "description": "Writable command for building automation: Sensor Select (KNX DPT-20.017).",
+      "group_address": "11/7/79",
+      "datapoint_type": "DPT-20.017",
+      "readable": false,
+      "writable": true,
+      "unit": null
+    },
+    {
+      "id": "dpt_20_020",
+      "name": "Actuator Connect Type",
+      "description": "Read-only feedback for building automation: Actuator Connect Type (KNX DPT-20.020).",
+      "group_address": "11/7/80",
+      "datapoint_type": "DPT-20.020",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_20_100",
+      "name": "Fuel Type",
+      "description": "Read-only feedback for building utility or energy monitoring: Fuel Type (KNX DPT-20.100).",
+      "group_address": "11/4/18",
+      "datapoint_type": "DPT-20.100",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_20_101",
+      "name": "Burner Type",
+      "description": "Read-only feedback for HVAC or ventilation: Burner Type (KNX DPT-20.101).",
+      "group_address": "11/3/8",
+      "datapoint_type": "DPT-20.101",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_20_103",
+      "name": "DHW Mode",
+      "description": "Read/write mode or state for HVAC or ventilation: DHW Mode (KNX DPT-20.103).",
+      "group_address": "11/3/9",
+      "datapoint_type": "DPT-20.103",
+      "readable": true,
+      "writable": true,
+      "unit": null
+    },
+    {
+      "id": "dpt_20_104",
+      "name": "Load Priority",
+      "description": "Read/write mode or state for building automation: Load Priority (KNX DPT-20.104).",
+      "group_address": "11/7/81",
+      "datapoint_type": "DPT-20.104",
+      "readable": true,
+      "writable": true,
+      "unit": null
+    },
+    {
+      "id": "dpt_20_106",
+      "name": "HVAC Emerg Mode",
+      "description": "Read/write mode or state for HVAC or ventilation: HVAC Emerg Mode (KNX DPT-20.106).",
+      "group_address": "11/3/10",
+      "datapoint_type": "DPT-20.106",
+      "readable": true,
+      "writable": true,
+      "unit": null
+    },
+    {
+      "id": "dpt_20_107",
+      "name": "Changeover Mode",
+      "description": "Read/write mode or state for building automation: Changeover Mode (KNX DPT-20.107).",
+      "group_address": "11/7/82",
+      "datapoint_type": "DPT-20.107",
+      "readable": true,
+      "writable": true,
+      "unit": null
+    },
+    {
+      "id": "dpt_20_108",
+      "name": "Valve Mode",
+      "description": "Read/write mode or state for HVAC or ventilation: Valve Mode (KNX DPT-20.108).",
+      "group_address": "11/3/11",
+      "datapoint_type": "DPT-20.108",
+      "readable": true,
+      "writable": true,
+      "unit": null
+    },
+    {
+      "id": "dpt_20_109",
+      "name": "Damper Mode",
+      "description": "Read/write mode or state for HVAC or ventilation: Damper Mode (KNX DPT-20.109).",
+      "group_address": "11/3/12",
+      "datapoint_type": "DPT-20.109",
+      "readable": true,
+      "writable": true,
+      "unit": null
+    },
+    {
+      "id": "dpt_20_110",
+      "name": "Heater Mode",
+      "description": "Read/write mode or state for HVAC or ventilation: Heater Mode (KNX DPT-20.110).",
+      "group_address": "11/3/13",
+      "datapoint_type": "DPT-20.110",
+      "readable": true,
+      "writable": true,
+      "unit": null
+    },
+    {
+      "id": "dpt_20_111",
+      "name": "Fan Mode",
+      "description": "Read/write mode or state for HVAC or ventilation: Fan Mode (KNX DPT-20.111).",
+      "group_address": "11/3/14",
+      "datapoint_type": "DPT-20.111",
+      "readable": true,
+      "writable": true,
+      "unit": null
+    },
+    {
+      "id": "dpt_20_112",
+      "name": "Master Slave Mode",
+      "description": "Read/write mode or state for building automation: Master Slave Mode (KNX DPT-20.112).",
+      "group_address": "11/7/83",
+      "datapoint_type": "DPT-20.112",
+      "readable": true,
+      "writable": true,
+      "unit": null
+    },
+    {
+      "id": "dpt_20_113",
+      "name": "Status Room Setp",
+      "description": "Read-only feedback for building safety or device status: Status Room Setp (KNX DPT-20.113).",
+      "group_address": "11/5/4",
+      "datapoint_type": "DPT-20.113",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_20_120",
+      "name": "ADA Type",
+      "description": "Read-only feedback for building automation: ADA Type (KNX DPT-20.120).",
+      "group_address": "11/7/84",
+      "datapoint_type": "DPT-20.120",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_20_121",
+      "name": "Backup Mode",
+      "description": "Read/write mode or state for building safety or device status: Backup Mode (KNX DPT-20.121).",
+      "group_address": "11/5/5",
+      "datapoint_type": "DPT-20.121",
+      "readable": true,
+      "writable": true,
+      "unit": null
+    },
+    {
+      "id": "dpt_20_122",
+      "name": "Start Synchronization",
+      "description": "Read-only feedback for building scheduling or time services: Start Synchronization (KNX DPT-20.122).",
+      "group_address": "11/6/11",
+      "datapoint_type": "DPT-20.122",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_20_600",
+      "name": "Behaviour Lock Unlock",
+      "description": "Read-only feedback for building safety or device status: Behaviour Lock Unlock (KNX DPT-20.600).",
+      "group_address": "11/5/6",
+      "datapoint_type": "DPT-20.600",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_20_601",
+      "name": "Behaviour Bus Power Up Down",
+      "description": "Read-only feedback for building utility or energy monitoring: Behaviour Bus Power Up Down (KNX DPT-20.601).",
+      "group_address": "11/4/19",
+      "datapoint_type": "DPT-20.601",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_20_602",
+      "name": "DALI Fade Time",
+      "description": "Read-only feedback for lighting: DALI Fade Time (KNX DPT-20.602).",
+      "group_address": "11/1/4",
+      "datapoint_type": "DPT-20.602",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_20_603",
+      "name": "Blinking Mode",
+      "description": "Read/write mode or state for building automation: Blinking Mode (KNX DPT-20.603).",
+      "group_address": "11/7/85",
+      "datapoint_type": "DPT-20.603",
+      "readable": true,
+      "writable": true,
+      "unit": null
+    },
+    {
+      "id": "dpt_20_604",
+      "name": "Light Control Mode",
+      "description": "Writable command for lighting: Light Control Mode (KNX DPT-20.604).",
+      "group_address": "11/1/5",
+      "datapoint_type": "DPT-20.604",
+      "readable": false,
+      "writable": true,
+      "unit": null
+    },
+    {
+      "id": "dpt_20_605",
+      "name": "Switch PB Model",
+      "description": "Read/write mode or state for building automation: Switch PB Model (KNX DPT-20.605).",
+      "group_address": "11/7/86",
+      "datapoint_type": "DPT-20.605",
+      "readable": true,
+      "writable": true,
+      "unit": null
+    },
+    {
+      "id": "dpt_20_606",
+      "name": "PB Action",
+      "description": "Read-only feedback for building automation: PB Action (KNX DPT-20.606).",
+      "group_address": "11/7/87",
+      "datapoint_type": "DPT-20.606",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_20_607",
+      "name": "Dimm PB Model",
+      "description": "Read/write mode or state for lighting: Dimm PB Model (KNX DPT-20.607).",
+      "group_address": "11/1/6",
+      "datapoint_type": "DPT-20.607",
+      "readable": true,
+      "writable": true,
+      "unit": null
+    },
+    {
+      "id": "dpt_20_608",
+      "name": "Switch On Mode",
+      "description": "Read/write mode or state for building automation: Switch On Mode (KNX DPT-20.608).",
+      "group_address": "11/7/88",
+      "datapoint_type": "DPT-20.608",
+      "readable": true,
+      "writable": true,
+      "unit": null
+    },
+    {
+      "id": "dpt_20_609",
+      "name": "Load Type Set",
+      "description": "Read-only feedback for building automation: Load Type Set (KNX DPT-20.609).",
+      "group_address": "11/7/89",
+      "datapoint_type": "DPT-20.609",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_20_610",
+      "name": "Load Type Detected",
+      "description": "Read-only feedback for building automation: Load Type Detected (KNX DPT-20.610).",
+      "group_address": "11/7/90",
+      "datapoint_type": "DPT-20.610",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_20_801",
+      "name": "1 DPT SAB Except Behaviour",
+      "description": "Read-only feedback for building automation: 1 DPT SAB Except Behaviour (KNX DPT-20.801).",
+      "group_address": "11/7/91",
+      "datapoint_type": "DPT-20.801",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_20_802",
+      "name": "SAB Behaviour Lock Unlock",
+      "description": "Read-only feedback for building safety or device status: SAB Behaviour Lock Unlock (KNX DPT-20.802).",
+      "group_address": "11/5/7",
+      "datapoint_type": "DPT-20.802",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_20_803",
+      "name": "SSSB Mode",
+      "description": "Read/write mode or state for building automation: SSSB Mode (KNX DPT-20.803).",
+      "group_address": "11/7/92",
+      "datapoint_type": "DPT-20.803",
+      "readable": true,
+      "writable": true,
+      "unit": null
+    },
+    {
+      "id": "dpt_20_804",
+      "name": "Blinds Control Mode",
+      "description": "Writable command for shading: Blinds Control Mode (KNX DPT-20.804).",
+      "group_address": "11/2/2",
+      "datapoint_type": "DPT-20.804",
+      "readable": false,
+      "writable": true,
+      "unit": null
+    },
+    {
+      "id": "dpt_20_1000",
+      "name": "Communication Mode",
+      "description": "Read/write mode or state for building automation: Communication Mode (KNX DPT-20.1000).",
+      "group_address": "11/7/93",
+      "datapoint_type": "DPT-20.1000",
+      "readable": true,
+      "writable": true,
+      "unit": null
+    },
+    {
+      "id": "dpt_20_1001",
+      "name": "Add Info Types",
+      "description": "Read-only feedback for building automation: Add Info Types (KNX DPT-20.1001).",
+      "group_address": "11/7/94",
+      "datapoint_type": "DPT-20.1001",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_20_1002",
+      "name": "RF Mode Select",
+      "description": "Writable command for building automation: RF Mode Select (KNX DPT-20.1002).",
+      "group_address": "11/7/95",
+      "datapoint_type": "DPT-20.1002",
+      "readable": false,
+      "writable": true,
+      "unit": null
+    },
+    {
+      "id": "dpt_20_1003",
+      "name": "RF Filter Select",
+      "description": "Writable command for building automation: RF Filter Select (KNX DPT-20.1003).",
+      "group_address": "11/7/96",
+      "datapoint_type": "DPT-20.1003",
+      "readable": false,
+      "writable": true,
+      "unit": null
+    },
+    {
+      "id": "dpt_21_002",
+      "name": "Device Control",
+      "description": "Writable command for building automation: Device Control (KNX DPT-21.002).",
+      "group_address": "11/7/97",
+      "datapoint_type": "DPT-21.002",
+      "readable": false,
+      "writable": true,
+      "unit": null
+    },
+    {
+      "id": "dpt_21_100",
+      "name": "Force Sign",
+      "description": "Read-only feedback for building automation: Force Sign (KNX DPT-21.100).",
+      "group_address": "11/7/98",
+      "datapoint_type": "DPT-21.100",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_21_101",
+      "name": "Force Sign Cool",
+      "description": "Read-only feedback for HVAC or ventilation: Force Sign Cool (KNX DPT-21.101).",
+      "group_address": "11/3/15",
+      "datapoint_type": "DPT-21.101",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_21_102",
+      "name": "Status RHC",
+      "description": "Read-only feedback for building safety or device status: Status RHC (KNX DPT-21.102).",
+      "group_address": "11/5/8",
+      "datapoint_type": "DPT-21.102",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_21_103",
+      "name": "Status SDHWC",
+      "description": "Read-only feedback for HVAC or ventilation: Status SDHWC (KNX DPT-21.103).",
+      "group_address": "11/3/16",
+      "datapoint_type": "DPT-21.103",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_21_104",
+      "name": "Fuel Type Set",
+      "description": "Read-only feedback for building utility or energy monitoring: Fuel Type Set (KNX DPT-21.104).",
+      "group_address": "11/4/20",
+      "datapoint_type": "DPT-21.104",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_21_105",
+      "name": "Status RCC",
+      "description": "Read-only feedback for building safety or device status: Status RCC (KNX DPT-21.105).",
+      "group_address": "11/5/9",
+      "datapoint_type": "DPT-21.105",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_21_106",
+      "name": "Status AHU",
+      "description": "Read-only feedback for building safety or device status: Status AHU (KNX DPT-21.106).",
+      "group_address": "11/5/10",
+      "datapoint_type": "DPT-21.106",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_21_601",
+      "name": "Light Actuator Error Info",
+      "description": "Read-only feedback for lighting: Light Actuator Error Info (KNX DPT-21.601).",
+      "group_address": "11/1/7",
+      "datapoint_type": "DPT-21.601",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_21_1000",
+      "name": "RF Mode Info",
+      "description": "Read/write mode or state for building automation: RF Mode Info (KNX DPT-21.1000).",
+      "group_address": "11/7/99",
+      "datapoint_type": "DPT-21.1000",
+      "readable": true,
+      "writable": true,
+      "unit": null
+    },
+    {
+      "id": "dpt_21_1001",
+      "name": "RF Filter Info",
+      "description": "Read-only feedback for building automation: RF Filter Info (KNX DPT-21.1001).",
+      "group_address": "11/7/100",
+      "datapoint_type": "DPT-21.1001",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_21_1010",
+      "name": "Channel Activation 8",
+      "description": "Read-only feedback for building automation: Channel Activation 8 (KNX DPT-21.1010).",
+      "group_address": "11/7/101",
+      "datapoint_type": "DPT-21.1010",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_22_1000",
+      "name": "Media",
+      "description": "Read-only feedback for building automation: Media (KNX DPT-22.1000).",
+      "group_address": "11/7/102",
+      "datapoint_type": "DPT-22.1000",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_22_1010",
+      "name": "Channel Activation 16",
+      "description": "Read-only feedback for building automation: Channel Activation 16 (KNX DPT-22.1010).",
+      "group_address": "11/7/103",
+      "datapoint_type": "DPT-22.1010",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_23_003",
+      "name": "Up Down Action",
+      "description": "Writable command for building automation: Up Down Action (KNX DPT-23.003).",
+      "group_address": "11/7/104",
+      "datapoint_type": "DPT-23.003",
+      "readable": false,
+      "writable": true,
+      "unit": null
+    },
+    {
+      "id": "dpt_23_102",
+      "name": "HVAC PB Action",
+      "description": "Read-only feedback for HVAC or ventilation: HVAC PB Action (KNX DPT-23.102).",
+      "group_address": "11/3/17",
+      "datapoint_type": "DPT-23.102",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_29_011",
+      "name": "Apparent Energy V64",
+      "description": "Read-only feedback for building utility or energy monitoring: Apparent Energy V64 (KNX DPT-29.011).",
+      "group_address": "11/4/21",
+      "datapoint_type": "DPT-29.011",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_29_012",
+      "name": "Reactive Energy V64",
+      "description": "Read-only feedback for building utility or energy monitoring: Reactive Energy V64 (KNX DPT-29.012).",
+      "group_address": "11/4/22",
+      "datapoint_type": "DPT-29.012",
+      "readable": true,
+      "writable": false,
+      "unit": null
+    },
+    {
+      "id": "dpt_31_101",
+      "name": "PB Action HVAC Extended",
+      "description": "Read-only feedback for HVAC or ventilation: PB Action HVAC Extended (KNX DPT-31.101).",
+      "group_address": "11/3/18",
+      "datapoint_type": "DPT-31.101",
+      "readable": true,
+      "writable": false,
+      "unit": null
     }
   ]
 }

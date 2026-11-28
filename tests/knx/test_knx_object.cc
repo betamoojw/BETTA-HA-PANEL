@@ -32,6 +32,8 @@ void TestDptSelectionAndValues() {
     assert((datapoint_type == KnxDpt{9, 0, false}));
     assert(KnxParseDpt("DPT-17.001", datapoint_type));
     assert(KnxParseDpt("DPT-20.102", datapoint_type));
+    assert(KnxParseDpt("DPT-7.010", datapoint_type));
+    assert(KnxParseDpt("DPT-20.1000", datapoint_type));
     assert(KnxParseDpt("DPT-251.600", datapoint_type));
     assert(!KnxParseDpt("DPT-32.001", datapoint_type));
     assert(!KnxParseDpt("DPT-5.", datapoint_type));
@@ -81,6 +83,7 @@ void TestRoundTrips() {
     CheckRoundTrip(KnxDpt{5, 3, true}, KnxValue(180.0f), 1.5f);
     CheckRoundTrip(KnxDpt{6}, KnxValue(int8_t{-100}));
     CheckRoundTrip(KnxDpt{7}, KnxValue(uint16_t{50000}));
+    CheckRoundTrip(KnxDpt{7, 10, true}, KnxValue(uint16_t{65535}));
     CheckRoundTrip(KnxDpt{8}, KnxValue(int16_t{-20000}));
     CheckRoundTrip(KnxDpt{9}, KnxValue(21.5f), 0.02f);
     CheckRoundTrip(KnxDpt{10}, KnxValue(knx_dpt10_time_t{3, 12, 34, 56}));
@@ -95,6 +98,7 @@ void TestRoundTrips() {
     CheckRoundTrip(KnxDpt{19}, KnxValue(KnxDateTime{126, 9, 12, 6, 14, 30, 15, false, true,
                                                              true, true, true, true, false, true}));
     CheckRoundTrip(KnxDpt{20}, KnxValue(uint8_t{7}));
+    CheckRoundTrip(KnxDpt{20, 1000, true}, KnxValue(uint8_t{255}));
     CheckRoundTrip(KnxDpt{21}, KnxValue(uint8_t{0xa5}));
     CheckRoundTrip(KnxDpt{22}, KnxValue(uint16_t{0xa55a}));
     CheckRoundTrip(KnxDpt{23}, KnxValue(uint8_t{3}));

@@ -413,6 +413,10 @@ add_executable(betta-panel10-lock-test panel10_lock_regression.c "${PANEL10_LOCK
 target_include_directories(betta-panel10-lock-test PRIVATE "${REPO_ROOT}/main"
     "${CMAKE_CURRENT_LIST_DIR}/stubs" "${CMAKE_CURRENT_BINARY_DIR}")
 target_compile_definitions(betta-panel10-lock-test PRIVATE CONFIG_APP_PANEL_VARIANT_10INCH_1280=1)
+if(MINGW)
+    # The generated top-bar refresh code uses localtime_r from MinGW's time.h.
+    target_compile_definitions(betta-panel10-lock-test PRIVATE _POSIX_C_SOURCE=200809L)
+endif()
 target_compile_options(betta-panel10-lock-test PRIVATE -Wall -Wextra -Werror -UNDEBUG)
 target_link_libraries(betta-panel10-lock-test PRIVATE lvgl SDL2::SDL2 sim_cjson m)
 add_test(NAME panel10-lock-recovery COMMAND betta-panel10-lock-test)

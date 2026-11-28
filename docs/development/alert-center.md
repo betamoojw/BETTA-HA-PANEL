@@ -81,5 +81,17 @@ with an unavailable owner snapshot. After release, LVGL ran the pending timer
 and completed a frame flush. The existing model-change host check and the
 alert-center, boot-splash and 1280 × 800 clock CTests also passed.
 
+The November 28, 2026 Windows x64 retest at baseline `de62c38` reproduced
+the old assertion that a 20 ms poll should log a warning. The adapter already
+suppressed diagnostics for waits up to and including 20 ms. The corrected
+CTest held the recursive lock until each waiter returned. In both the known
+and unavailable holder cases, 0 and 20 ms returned `ESP_ERR_TIMEOUT` silently.
+The 21 and 100 ms waits returned the same error and logged exactly once each.
+The test checked the waiter name and caller address. The holder field reported
+the worker name and its first acquisition address, or `unavailable` and a null
+address. After the final unlock the pending refresh ran and a frame was flushed.
+The HA busy-state checks and all five adapter patch tests passed. The MinGW
+lock-test target privately enables `localtime_r` for the generated top-bar code.
+
 HA contention alerts, actual FreeRTOS wait timing and on-device caller and holder
 addresses still require device evidence. See the [COM24 retest record](../hardware/panel10.md#clean-022efa0-com24-retest-2026-11-20).

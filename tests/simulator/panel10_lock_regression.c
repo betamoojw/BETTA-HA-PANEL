@@ -40,7 +40,7 @@ static struct {
 } s_client;
 
 static _Thread_local TaskHandle_t s_task;
-static _Thread_local TickType_t s_wait_ticks;
+static _Thread_local TickType_t s_wait_ticks = portMAX_DELAY;
 static portMUX_TYPE s_mutex_state_lock;
 static TaskHandle_t s_holder;
 static unsigned s_depth;
@@ -226,33 +226,51 @@ static void check_ha_busy_refresh(lv_display_t *display)
     puts("HA busy status and existing alert preserved. Fresh disconnect, reconnect and sync applied.");
 }
 
-enum { WAIT_MS = 20 };
+static const char s_waiter_name[] = "ui_runtime";
 static const uintptr_t s_waiter_pc = 0x2000;
 static const uintptr_t s_holder_pc = 0x1000;
 
 static int timed_waiter(void *arg)
 {
-    s_task = arg;
-    int result = betta_lv_adapter_lock_at(WAIT_MS, s_waiter_pc);
-    assert(s_wait_ticks == WAIT_MS);
+    const int32_t timeout_ms = *(const int32_t *)arg;
+    s_task = s_waiter_name;
+    int result = betta_lv_adapter_lock_at(timeout_ms, s_waiter_pc);
+    assert(s_wait_ticks == pdMS_TO_TICKS(timeout_ms));
     return result;
 }
 
-static void expect_timeout(const char *holder, uintptr_t holder_pc)
+static void wait_for_timeout(int32_t timeout_ms)
 {
-    char waiter[] = "ui_runtime";
-    char expected[sizeof(s_warning)];
-    snprintf(expected, sizeof(expected),
-        "Failed to acquire LVGL lock (timeout_ms=%d waiter=%s caller=%p holder=%s holder_pc=%p)",
-        WAIT_MS, waiter, (void *)s_waiter_pc, holder, (void *)holder_pc);
-    const unsigned before = s_warnings;
-    SDL_Thread *thread = SDL_CreateThread(timed_waiter, waiter, waiter);
+    SDL_Thread *thread = SDL_CreateThread(timed_waiter, s_waiter_name, &timeout_ms);
     assert(thread);
     int result = ESP_OK;
     SDL_WaitThread(thread, &result);
-    assert(result == ESP_ERR_TIMEOUT && s_warnings == before + 1);
+    assert(result == ESP_ERR_TIMEOUT);
+}
+
+static void expect_logged_timeout(int32_t timeout_ms, const char *holder, uintptr_t holder_pc)
+{
+    const unsigned before = s_warnings;
+    wait_for_timeout(timeout_ms);
+    assert(s_warnings == before + 1);
+    char expected[sizeof(s_warning)];
+    snprintf(expected, sizeof(expected),
+        "Failed to acquire LVGL lock (timeout_ms=%" PRId32 " waiter=%s caller=%p holder=%s holder_pc=%p)",
+        timeout_ms, s_waiter_name, (void *)s_waiter_pc, holder, (void *)holder_pc);
     assert(strcmp(s_warning, expected) == 0);
     puts(s_warning);
+}
+
+static void check_contended_timeouts(const char *holder, uintptr_t holder_pc)
+{
+    const unsigned before = s_warnings;
+    wait_for_timeout(0);
+    assert(s_warnings == before);
+    wait_for_timeout(20);
+    assert(s_warnings == before);
+    puts("LVGL waits of 0 and 20 ms timed out without a warning.");
+    expect_logged_timeout(21, holder, holder_pc);
+    expect_logged_timeout(100, holder, holder_pc);
 }
 
 static void check_lvgl_lock_recovery(lv_display_t *display)
@@ -261,18 +279,21 @@ static void check_lvgl_lock_recovery(lv_display_t *display)
     assert(betta_lv_adapter_lock_at(-1, s_holder_pc) == ESP_OK);
     assert(betta_lv_adapter_lock_at(-1, 0x1500) == ESP_OK);
     make_refresh_due();
-    expect_timeout("lvgl_worker", s_holder_pc);
+    /* Join all waiters before releasing each level of the recursive lock. */
+    check_contended_timeouts("lvgl_worker", s_holder_pc);
     esp_lv_adapter_unlock();
     s_report_holder = false;
-    expect_timeout("unavailable", 0);
+    check_contended_timeouts("unavailable", 0);
     esp_lv_adapter_unlock();
     s_report_holder = true;
 
+    assert(SDL_SemValue(s_ctx.lvgl_mutex) == 1);
     assert(s_refreshes == refreshes && s_frames == frames);
     const unsigned warnings = s_warnings;
     run_refresh(display);
     assert(s_frames > frames && s_warnings == warnings);
-    puts("Periodic LVGL timer and frame flush resumed after the lock was released.");
+    printf("After the final unlock, periodic refresh callbacks increased by %u and completed frames by %u.\n",
+           s_refreshes - refreshes, s_frames - frames);
 }
 
 static void flush(lv_display_t *display, const lv_area_t *area, uint8_t *pixels)

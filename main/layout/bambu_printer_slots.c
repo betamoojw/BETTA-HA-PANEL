@@ -1,6 +1,11 @@
 /* SPDX-License-Identifier: LicenseRef-FNCL-1.1
  * Copyright (c) 2026 andre68723 -- file added in the andre68723/BETTA-HA-PANEL fork, see docs/release-notes.md
  */
+/** @file
+ * @brief Map Bambu printer bindings into the shared widget slots.
+ *
+ * The table also drives validation, entity discovery and subscriptions.
+ */
 #include "layout/bambu_printer_slots.h"
 
 #include <string.h>
@@ -23,26 +28,37 @@ const size_t k_bambu_printer_binding_count = sizeof(k_bambu_printer_bindings) / 
 void bambu_printer_slots_from_json(const cJSON *widget, char *primary, char *secondary, char *tertiary,
                                    char (*extra)[APP_MAX_ENTITY_ID_LEN], size_t extra_count)
 {
-    if (widget == NULL) {
+    if (widget == NULL)
+    {
         return;
     }
-    for (size_t i = 0; i < k_bambu_printer_binding_count; i++) {
+    for (size_t i = 0; i < k_bambu_printer_binding_count; i++)
+    {
         const bambu_printer_binding_t *binding = &k_bambu_printer_bindings[i];
         const cJSON *item = cJSON_GetObjectItemCaseSensitive(widget, binding->key);
-        if (!cJSON_IsString(item) || item->valuestring == NULL || strlen(item->valuestring) >= APP_MAX_ENTITY_ID_LEN) {
+        if (!cJSON_IsString(item) || item->valuestring == NULL || strlen(item->valuestring) >= APP_MAX_ENTITY_ID_LEN)
+        {
             continue;
         }
         char *dst = NULL;
-        if (binding->slot == BAMBU_SLOT_PRIMARY) {
+        if (binding->slot == BAMBU_SLOT_PRIMARY)
+        {
             dst = primary;
-        } else if (binding->slot == BAMBU_SLOT_SECONDARY) {
+        }
+        else if (binding->slot == BAMBU_SLOT_SECONDARY)
+        {
             dst = secondary;
-        } else if (binding->slot == BAMBU_SLOT_TERTIARY) {
+        }
+        else if (binding->slot == BAMBU_SLOT_TERTIARY)
+        {
             dst = tertiary;
-        } else if (binding->slot >= 0 && (size_t)binding->slot < extra_count && extra != NULL) {
+        }
+        else if (binding->slot >= 0 && (size_t) binding->slot < extra_count && extra != NULL)
+        {
             dst = extra[binding->slot];
         }
-        if (dst != NULL) {
+        if (dst != NULL)
+        {
             memcpy(dst, item->valuestring, strlen(item->valuestring) + 1U);
         }
     }

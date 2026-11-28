@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LicenseRef-FNCL-1.1
  * Copyright (c) 2026 andre68723
- * Cached P4 die temperature; no LVGL, network or persistent writes.
+ */
+/** @file
+ * @brief Sample the P4 die temperature on a timer and publish it without network or display access.
  */
 #include "util/chip_temperature.h"
 #include <math.h>
@@ -13,17 +15,22 @@ static temperature_sensor_handle_t s_sensor;
 static esp_timer_handle_t s_timer;
 static chip_temperature_snapshot_t s_sample = {.error = ESP_ERR_INVALID_STATE};
 
+/** @brief Publish the latest read status while retaining the last successful value and timestamp. */
 static void sample(void *arg)
 {
-    (void)arg;
+    (void) arg;
     float celsius = 0;
     esp_err_t err = temperature_sensor_get_celsius(s_sensor, &celsius);
-    if (err == ESP_OK && !isfinite(celsius)) err = ESP_FAIL;
+    if (err == ESP_OK && !isfinite(celsius))
+    {
+        err = ESP_FAIL;
+    }
     int64_t now = esp_timer_get_time();
     portENTER_CRITICAL(&s_lock);
     s_sample.available = err == ESP_OK;
     s_sample.error = err;
-    if (err == ESP_OK) {
+    if (err == ESP_OK)
+    {
         s_sample.celsius = celsius;
         s_sample.sampled_us = now;
     }
@@ -32,23 +39,43 @@ static void sample(void *arg)
 
 esp_err_t chip_temperature_init(void)
 {
-    if (s_sensor) return ESP_ERR_INVALID_STATE;
+    if (s_sensor)
+    {
+        return ESP_ERR_INVALID_STATE;
+    }
     const temperature_sensor_config_t config = TEMPERATURE_SENSOR_CONFIG_DEFAULT(20, 100);
     esp_err_t err = temperature_sensor_install(&config, &s_sensor);
     bool enabled = false;
-    if (err == ESP_OK) {
+    if (err == ESP_OK)
+    {
         err = temperature_sensor_enable(s_sensor);
         enabled = err == ESP_OK;
     }
-    if (err == ESP_OK) {
+    if (err == ESP_OK)
+    {
         const esp_timer_create_args_t timer = {.callback = sample, .name = "chip_temp", .skip_unhandled_events = true};
         err = esp_timer_create(&timer, &s_timer);
     }
-    if (err == ESP_OK) err = esp_timer_start_periodic(s_timer, 10000000);
-    if (err != ESP_OK) {
-        if (s_timer) { esp_timer_delete(s_timer); s_timer = NULL; }
-        if (enabled) temperature_sensor_disable(s_sensor);
-        if (s_sensor) { temperature_sensor_uninstall(s_sensor); s_sensor = NULL; }
+    if (err == ESP_OK)
+    {
+        err = esp_timer_start_periodic(s_timer, 10000000);
+    }
+    if (err != ESP_OK)
+    {
+        if (s_timer)
+        {
+            esp_timer_delete(s_timer);
+            s_timer = NULL;
+        }
+        if (enabled)
+        {
+            temperature_sensor_disable(s_sensor);
+        }
+        if (s_sensor)
+        {
+            temperature_sensor_uninstall(s_sensor);
+            s_sensor = NULL;
+        }
         portENTER_CRITICAL(&s_lock);
         s_sample.error = err;
         portEXIT_CRITICAL(&s_lock);

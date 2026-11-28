@@ -6,20 +6,24 @@
  * discovery and the editor header use. Without a room the id stays the
  * MAC-based "panel-XXXX".
  */
+/** @file
+ * @brief Shared room-based or MAC-based panel identity.
+ */
 #pragma once
 
 #include <stdbool.h>
 #include <stddef.h>
 
-#define DEVICE_ROOM_MAX_LEN 32
+#define DEVICE_ROOM_MAX_LEN 32 /**< Room name storage capacity in bytes, including the NUL. */
 
+/** @brief Copy the configured room into module storage; NULL clears it. */
 void device_identity_set_room(const char *room);
 
-/* "betta_ha_panel_<slug>"; false while no room is set. */
+/** @return True when a nonempty room slug is available; false leaves out unchanged. */
 bool device_identity_room_id(char *out, size_t out_len);
 
-/* "BETTA <Room>", or "BETTA HA Panel" without a room. */
+/** @brief Write the room-based display name, or the generic panel name if no room is set. */
 void device_identity_display_name(char *out, size_t out_len);
 
-/* The id in use: the room id, else the MAC-based one. */
+/** @brief Write the effective ID, preferring the room slug and otherwise using the station MAC. */
 void device_identity_effective_id(char *out, size_t out_len);

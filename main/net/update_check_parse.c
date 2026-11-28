@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: LicenseRef-FNCL-1.1
  * Copyright (c) 2026 andre68723 -- file added in the andre68723/BETTA-HA-PANEL fork, see docs/release-notes.md
  */
+/** @file
+ * @brief Select variant-specific OTA assets and compare release metadata with the running build.
+ */
 #include "net/update_check_parse.h"
 
 #include <ctype.h>
@@ -14,29 +17,31 @@
 
 const char *update_check_variant_for_project(const char *project_name)
 {
-    static const struct {
+    static const struct
+    {
         const char *project;
         const char *variant;
     } k_variants[] = {
-        {"betta-ha-panel", "panel4"},
-        {"betta-ha-panel-s3", "panels3"},
-        {"betta-ha-panel-10.1", "panel10"},
-        {"betta-ha-panel-jc", "paneljc"},
-        {"betta-ha-panel-tab5", "tab5"},
-        {"betta-ha-panel-jc-v2", "paneljc-v2"},
+        {"betta-ha-panel", "panel4"},     {"betta-ha-panel-s3", "panels3"}, {"betta-ha-panel-10.1", "panel10"},
+        {"betta-ha-panel-jc", "paneljc"}, {"betta-ha-panel-tab5", "tab5"},  {"betta-ha-panel-jc-v2", "paneljc-v2"},
     };
-    if (project_name == NULL) {
+
+    if (project_name == NULL)
+    {
         return NULL;
     }
-    for (size_t i = 0; i < sizeof(k_variants) / sizeof(k_variants[0]); i++) {
-        if (strcmp(project_name, k_variants[i].project) == 0) {
+    for (size_t i = 0; i < sizeof(k_variants) / sizeof(k_variants[0]); i++)
+    {
+        if (strcmp(project_name, k_variants[i].project) == 0)
+        {
             return k_variants[i].variant;
         }
     }
     return NULL;
 }
 
-typedef struct {
+typedef struct
+{
     long core[3];
     const char *pre; /* points after '-', NULL for a release */
     size_t pre_len;
@@ -45,31 +50,39 @@ typedef struct {
 static void parse_version(const char *text, version_t *out)
 {
     memset(out, 0, sizeof(*out));
-    if (text == NULL) {
+    if (text == NULL)
+    {
         return;
     }
     const char *p = text;
-    if (*p == 'v' || *p == 'V') {
+    if (*p == 'v' || *p == 'V')
+    {
         p++;
     }
-    for (int i = 0; i < 3; i++) {
-        if (!isdigit((unsigned char)*p)) {
+    for (int i = 0; i < 3; i++)
+    {
+        if (!isdigit((unsigned char) *p))
+        {
             return;
         }
         char *end = NULL;
         out->core[i] = strtol(p, &end, 10);
         p = end;
-        if (i < 2) {
-            if (*p != '.') {
+        if (i < 2)
+        {
+            if (*p != '.')
+            {
                 return;
             }
             p++;
         }
     }
-    if (*p == '-') {
+    if (*p == '-')
+    {
         p++;
         size_t len = strcspn(p, "+");
-        if (len > 0) {
+        if (len > 0)
+        {
             out->pre = p;
             out->pre_len = len;
         }
@@ -82,18 +95,22 @@ static int compare_identifier(const char *a, size_t a_len, const char *b, size_t
 {
     size_t a_alpha = 0;
     size_t b_alpha = 0;
-    while (a_alpha < a_len && !isdigit((unsigned char)a[a_alpha])) {
+    while (a_alpha < a_len && !isdigit((unsigned char) a[a_alpha]))
+    {
         a_alpha++;
     }
-    while (b_alpha < b_len && !isdigit((unsigned char)b[b_alpha])) {
+    while (b_alpha < b_len && !isdigit((unsigned char) b[b_alpha]))
+    {
         b_alpha++;
     }
     size_t common = a_alpha < b_alpha ? a_alpha : b_alpha;
     int c = strncmp(a, b, common);
-    if (c != 0) {
+    if (c != 0)
+    {
         return c;
     }
-    if (a_alpha != b_alpha) {
+    if (a_alpha != b_alpha)
+    {
         return a_alpha < b_alpha ? -1 : 1;
     }
     long a_num = a_alpha < a_len ? strtol(a + a_alpha, NULL, 10) : -1;
@@ -103,20 +120,23 @@ static int compare_identifier(const char *a, size_t a_len, const char *b, size_t
 
 static int compare_prerelease(const version_t *a, const version_t *b)
 {
-    if (a->pre == NULL || b->pre == NULL) {
+    if (a->pre == NULL || b->pre == NULL)
+    {
         return (a->pre == NULL) - (b->pre == NULL);
     }
     const char *pa = a->pre;
     const char *pb = b->pre;
     const char *ea = a->pre + a->pre_len;
     const char *eb = b->pre + b->pre_len;
-    while (pa < ea && pb < eb) {
-        const char *da = memchr(pa, '.', (size_t)(ea - pa));
-        const char *db = memchr(pb, '.', (size_t)(eb - pb));
-        size_t la = (size_t)((da != NULL ? da : ea) - pa);
-        size_t lb = (size_t)((db != NULL ? db : eb) - pb);
+    while (pa < ea && pb < eb)
+    {
+        const char *da = memchr(pa, '.', (size_t) (ea - pa));
+        const char *db = memchr(pb, '.', (size_t) (eb - pb));
+        size_t la = (size_t) ((da != NULL ? da : ea) - pa);
+        size_t lb = (size_t) ((db != NULL ? db : eb) - pb);
         int c = compare_identifier(pa, la, pb, lb);
-        if (c != 0) {
+        if (c != 0)
+        {
             return c;
         }
         pa += la + (da != NULL ? 1 : 0);
@@ -131,8 +151,10 @@ int update_check_compare_versions(const char *a, const char *b, bool core_only)
     version_t vb;
     parse_version(a, &va);
     parse_version(b, &vb);
-    for (int i = 0; i < 3; i++) {
-        if (va.core[i] != vb.core[i]) {
+    for (int i = 0; i < 3; i++)
+    {
+        if (va.core[i] != vb.core[i])
+        {
             return va.core[i] < vb.core[i] ? -1 : 1;
         }
     }
@@ -159,15 +181,16 @@ bool update_check_parse_iso8601_utc(const char *text, int64_t *out_epoch)
     int mi = 0;
     int s = 0;
     char z = 0;
-    if (text == NULL || out_epoch == NULL ||
-        sscanf(text, "%4d-%2d-%2dT%2d:%2d:%2d%c", &y, &mo, &d, &h, &mi, &s, &z) != 7 || z != 'Z' || mo < 1 ||
-        mo > 12 || d < 1 || d > 31 || h > 23 || mi > 59 || s > 60) {
+    if (text == NULL || out_epoch == NULL || sscanf(text, "%4d-%2d-%2dT%2d:%2d:%2d%c", &y, &mo, &d, &h, &mi, &s, &z) != 7 || z != 'Z' ||
+        mo < 1 || mo > 12 || d < 1 || d > 31 || h > 23 || mi > 59 || s > 60)
+    {
         return false;
     }
     *out_epoch = days_from_civil(y, mo, d) * 86400 + h * 3600 + mi * 60 + s;
     return true;
 }
 
+/** @return Borrowed matching HTTPS OTA asset object, or NULL if the release has no variant match. */
 static const cJSON *find_variant_asset(const cJSON *release, const char *variant)
 {
     char suffix[40];
@@ -179,15 +202,16 @@ static const cJSON *find_variant_asset(const cJSON *release, const char *variant
     {
         const cJSON *name = cJSON_GetObjectItemCaseSensitive(asset, "name");
         const cJSON *url = cJSON_GetObjectItemCaseSensitive(asset, "browser_download_url");
-        if (!cJSON_IsString(name) || !cJSON_IsString(url)) {
+        if (!cJSON_IsString(name) || !cJSON_IsString(url))
+        {
             continue;
         }
         const size_t len = strlen(name->valuestring);
         /* "-paneljc.ota.bin" must not match "...-paneljc-v2.ota.bin" and the other way round: the
          * suffix starts at the variant's own dash. */
         if (len > strlen(ASSET_PREFIX) + suffix_len && strncmp(name->valuestring, ASSET_PREFIX, strlen(ASSET_PREFIX)) == 0 &&
-            strcmp(name->valuestring + len - suffix_len, suffix) == 0 &&
-            strncmp(url->valuestring, "https://", 8) == 0) {
+            strcmp(name->valuestring + len - suffix_len, suffix) == 0 && strncmp(url->valuestring, "https://", 8) == 0)
+        {
             return asset;
         }
     }
@@ -196,13 +220,15 @@ static const cJSON *find_variant_asset(const cJSON *release, const char *variant
 
 bool update_check_sha256_matches(const char *hex, const uint8_t digest[32])
 {
-    if (hex == NULL || digest == NULL || strlen(hex) != 64) {
+    if (hex == NULL || digest == NULL || strlen(hex) != 64)
+    {
         return false;
     }
-    for (int i = 0; i < 32; i++) {
+    for (int i = 0; i < 32; i++)
+    {
         char pair[3] = {hex[2 * i], hex[2 * i + 1], '\0'};
-        if (!isxdigit((unsigned char)pair[0]) || !isxdigit((unsigned char)pair[1]) ||
-            (uint8_t)strtoul(pair, NULL, 16) != digest[i]) {
+        if (!isxdigit((unsigned char) pair[0]) || !isxdigit((unsigned char) pair[1]) || (uint8_t) strtoul(pair, NULL, 16) != digest[i])
+        {
             return false;
         }
     }
@@ -210,14 +236,16 @@ bool update_check_sha256_matches(const char *hex, const uint8_t digest[32])
 }
 
 bool update_check_parse_releases(const char *json, size_t json_len, const char *variant, bool include_prereleases,
-    const char *running_version, int64_t build_epoch, update_check_release_t *out)
+                                 const char *running_version, int64_t build_epoch, update_check_release_t *out)
 {
-    if (json == NULL || variant == NULL || out == NULL) {
+    if (json == NULL || variant == NULL || out == NULL)
+    {
         return false;
     }
     memset(out, 0, sizeof(*out));
     cJSON *root = cJSON_ParseWithLength(json, json_len);
-    if (root == NULL || (!cJSON_IsArray(root) && !cJSON_IsObject(root))) {
+    if (root == NULL || (!cJSON_IsArray(root) && !cJSON_IsObject(root)))
+    {
         cJSON_Delete(root);
         return false;
     }
@@ -226,46 +254,54 @@ bool update_check_parse_releases(const char *json, size_t json_len, const char *
     const cJSON *best_asset = NULL;
     const cJSON *best_tag = NULL;
     const int count = cJSON_IsArray(root) ? cJSON_GetArraySize(root) : 1;
-    for (int i = 0; i < count; i++) {
+    for (int i = 0; i < count; i++)
+    {
         const cJSON *release = cJSON_IsArray(root) ? cJSON_GetArrayItem(root, i) : root;
         const cJSON *tag = cJSON_GetObjectItemCaseSensitive(release, "tag_name");
-        if (!cJSON_IsString(tag) || cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(release, "draft"))) {
+        if (!cJSON_IsString(tag) || cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(release, "draft")))
+        {
             continue;
         }
         const bool prerelease = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(release, "prerelease"));
-        if (prerelease && !include_prereleases) {
+        if (prerelease && !include_prereleases)
+        {
             continue;
         }
         const cJSON *asset = find_variant_asset(release, variant);
-        if (asset == NULL) {
+        if (asset == NULL)
+        {
             continue;
         }
-        if (best == NULL || update_check_compare_versions(tag->valuestring, best_tag->valuestring, false) > 0) {
+        if (best == NULL || update_check_compare_versions(tag->valuestring, best_tag->valuestring, false) > 0)
+        {
             best = release;
             best_asset = asset;
             best_tag = tag;
         }
     }
 
-    if (best != NULL) {
+    if (best != NULL)
+    {
         out->found = true;
         out->prerelease = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(best, "prerelease"));
         snprintf(out->tag, sizeof(out->tag), "%s", best_tag->valuestring);
         const cJSON *url = cJSON_GetObjectItemCaseSensitive(best_asset, "browser_download_url");
         snprintf(out->asset_url, sizeof(out->asset_url), "%s", url->valuestring);
         const cJSON *digest = cJSON_GetObjectItemCaseSensitive(best_asset, "digest");
-        if (cJSON_IsString(digest) && strncmp(digest->valuestring, "sha256:", 7) == 0 &&
-            strlen(digest->valuestring + 7) == 64) {
+        if (cJSON_IsString(digest) && strncmp(digest->valuestring, "sha256:", 7) == 0 && strlen(digest->valuestring + 7) == 64)
+        {
             const char *hex = digest->valuestring + 7;
             bool valid = true;
-            for (int i = 0; i < 64; i++) {
-                valid = valid && isxdigit((unsigned char)hex[i]);
-                out->asset_sha256[i] = (char)tolower((unsigned char)hex[i]);
+            for (int i = 0; i < 64; i++)
+            {
+                valid = valid && isxdigit((unsigned char) hex[i]);
+                out->asset_sha256[i] = (char) tolower((unsigned char) hex[i]);
             }
             out->asset_sha256[valid ? 64 : 0] = '\0';
         }
         const cJSON *updated = cJSON_GetObjectItemCaseSensitive(best_asset, "updated_at");
-        if (!cJSON_IsString(updated) || !update_check_parse_iso8601_utc(updated->valuestring, &out->published)) {
+        if (!cJSON_IsString(updated) || !update_check_parse_iso8601_utc(updated->valuestring, &out->published))
+        {
             out->published = 0;
         }
         /* A running pre-release names itself ("v0.9.0-rc2"), so the whole version decides: rc3 and the final release are
@@ -273,9 +309,12 @@ bool update_check_parse_releases(const char *json, size_t json_len, const char *
          * and the upload time breaks the tie. */
         const bool running_prerelease = strchr(running_version, '-') != NULL;
         const int core = update_check_compare_versions(out->tag, running_version, !running_prerelease);
-        if (core > 0) {
+        if (core > 0)
+        {
             out->newer = true;
-        } else if (core == 0 && build_epoch > 0 && out->published > 0) {
+        }
+        else if (core == 0 && build_epoch > 0 && out->published > 0)
+        {
             out->newer = out->published > build_epoch + UPDATE_CHECK_SAME_VERSION_MARGIN_S;
         }
     }

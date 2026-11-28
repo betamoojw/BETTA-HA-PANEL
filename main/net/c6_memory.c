@@ -1,6 +1,12 @@
 /* SPDX-License-Identifier: LicenseRef-FNCL-1.1
  * Copyright (c) 2026 andre68723 -- added in the BETTA-HA-PANEL fork
  */
+/** @file
+ * @brief Collect C6 heap diagnostics and retain incident evidence on an internal-stack worker.
+ *
+ * Copy state while holding the spinlock; release it before RPC and flash
+ * operations so callbacks and status readers do not wait on I/O.
+ */
 #include "net/c6_memory.h"
 
 #include <string.h>
@@ -19,19 +25,27 @@ static bool s_initialized, s_pending, s_urgent;
 static TaskHandle_t s_worker;
 static c6_memory_configure_fn s_configure;
 
-static int64_t now_ms(void) { return esp_timer_get_time() / 1000; }
+static int64_t now_ms(void)
+{
+    return esp_timer_get_time() / 1000;
+}
 
 static void worker(void *arg)
 {
-    (void)arg;
+    (void) arg;
     c6_memory_incident_t retained;
-    if (wifi_diag_store_load_c6(&retained)) {
+    if (wifi_diag_store_load_c6(&retained))
+    {
         portENTER_CRITICAL(&s_lock);
-        if (!s_pending) s_incident = retained;
+        if (!s_pending)
+        {
+            s_incident = retained;
+        }
         portEXIT_CRITICAL(&s_lock);
     }
     int64_t last_save = -5000;
-    for (;;) {
+    for (;;)
+    {
         const int64_t now = now_ms();
         portENTER_CRITICAL(&s_lock);
         const bool due = c6_memory_state_due(&s_state, now);
@@ -40,28 +54,45 @@ static void worker(void *arg)
         retained = s_incident;
         const uint32_t revision = s_incident_revision;
         portEXIT_CRITICAL(&s_lock);
-        if (save) {
+        if (save)
+        {
             const bool ok = wifi_diag_store_save_c6(&retained);
-            if (!ok) ESP_LOGW("c6_memory", "Could not retain C6 incident snapshot");
+            if (!ok)
+            {
+                ESP_LOGW("c6_memory", "Could not retain C6 incident snapshot");
+            }
             last_save = now_ms();
             portENTER_CRITICAL(&s_lock);
-            if (revision == s_incident_revision) {
-                if (ok) s_pending = false;
+            if (revision == s_incident_revision)
+            {
+                if (ok)
+                {
+                    s_pending = false;
+                }
                 s_urgent = false; /* a failed write retries at the regular, bounded interval */
             }
-            if (ok) s_saved_revision = revision;
+            if (ok)
+            {
+                s_saved_revision = revision;
+            }
             portEXIT_CRITICAL(&s_lock);
         }
-        if (due) {
+        if (due)
+        {
             c6_memory_values_t values = {0};
             bool busy = false;
             esp_err_t err = s_configure(&values, &busy);
-            if (err == ESP_OK && !c6_memory_values_valid(&values)) err = ESP_ERR_INVALID_RESPONSE;
+            if (err == ESP_OK && !c6_memory_values_valid(&values))
+            {
+                err = ESP_ERR_INVALID_RESPONSE;
+            }
             portENTER_CRITICAL(&s_lock);
-            c6_memory_state_result(&s_state, generation, now_ms(), err, busy,
-                err == ESP_ERR_NOT_SUPPORTED, &values);
+            c6_memory_state_result(&s_state, generation, now_ms(), err, busy, err == ESP_ERR_NOT_SUPPORTED, &values);
             portEXIT_CRITICAL(&s_lock);
-            if (err != ESP_OK && !busy) ESP_LOGW("c6_memory", "Memory monitor: %s", esp_err_to_name(err));
+            if (err != ESP_OK && !busy)
+            {
+                ESP_LOGW("c6_memory", "Memory monitor: %s", esp_err_to_name(err));
+            }
         }
         ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(1000)); /* a restart wakes the worker early */
     }
@@ -69,13 +100,17 @@ static void worker(void *arg)
 
 void c6_memory_init(c6_memory_configure_fn configure)
 {
-    if (s_initialized) return;
+    if (s_initialized)
+    {
+        return;
+    }
     s_initialized = true;
     s_configure = configure;
     s_boot_id = esp_random();
     c6_memory_state_init(&s_state, configure != NULL);
     /* This task writes incident records to flash: keep its modest stack internal. */
-    if (xTaskCreate(worker, "c6_memory", 6144, NULL, 2, &s_worker) != pdPASS) {
+    if (xTaskCreate(worker, "c6_memory", 6144, NULL, 2, &s_worker) != pdPASS)
+    {
         s_state.last_error = ESP_ERR_NO_MEM;
         ESP_LOGW("c6_memory", "Could not start memory diagnostics");
     }
@@ -99,7 +134,8 @@ bool c6_memory_can_configure(void)
 void c6_memory_note_incident(void)
 {
     portENTER_CRITICAL(&s_lock);
-    if (c6_memory_incident_capture(&s_state, s_boot_id, now_ms(), &s_incident)) {
+    if (c6_memory_incident_capture(&s_state, s_boot_id, now_ms(), &s_incident))
+    {
         s_incident_revision++;
         s_pending = true;
     }
@@ -110,7 +146,8 @@ bool c6_memory_retain_for_restart(uint8_t cause, uint32_t timeout_ms)
 {
     portENTER_CRITICAL(&s_lock);
     const bool captured = c6_memory_incident_capture(&s_state, s_boot_id, now_ms(), &s_incident);
-    if (captured) {
+    if (captured)
+    {
         s_incident.restart_cause = cause;
         s_incident_revision++;
         s_pending = true;
@@ -120,13 +157,20 @@ bool c6_memory_retain_for_restart(uint8_t cause, uint32_t timeout_ms)
     const uint32_t revision = s_incident_revision;
     const bool wanted = s_pending;
     portEXIT_CRITICAL(&s_lock);
-    if (!wanted || s_worker == NULL) return false;
+    if (!wanted || s_worker == NULL)
+    {
+        return false;
+    }
     xTaskNotifyGive(s_worker);
-    for (uint32_t waited = 0; waited < timeout_ms; waited += 20) {
+    for (uint32_t waited = 0; waited < timeout_ms; waited += 20)
+    {
         portENTER_CRITICAL(&s_lock);
         const bool saved = s_saved_revision == revision;
         portEXIT_CRITICAL(&s_lock);
-        if (saved) return true;
+        if (saved)
+        {
+            return true;
+        }
         vTaskDelay(pdMS_TO_TICKS(20));
     }
     return false;
@@ -134,9 +178,15 @@ bool c6_memory_retain_for_restart(uint8_t cause, uint32_t timeout_ms)
 
 void c6_memory_transport(bool up)
 {
-    if (!up) c6_memory_note_incident();
+    if (!up)
+    {
+        c6_memory_note_incident();
+    }
     portENTER_CRITICAL(&s_lock);
-    if (!up) c6_memory_state_reset(&s_state, now_ms());
+    if (!up)
+    {
+        c6_memory_state_reset(&s_state, now_ms());
+    }
     s_state.link_up = up;
     portEXIT_CRITICAL(&s_lock);
 }
@@ -169,5 +219,8 @@ void c6_memory_add_json(cJSON *root, cJSON *wifi_diag)
     const int64_t now = now_ms();
     c6_memory_state_json(root, &state, now, boot);
     /* A co-processor image without the memory monitor never reports: an incident retained from an earlier image is not shown beside it. */
-    if (strcmp(c6_memory_state_name(&state, now), "unsupported") != 0) c6_memory_incident_json(wifi_diag, &incident, boot);
+    if (strcmp(c6_memory_state_name(&state, now), "unsupported") != 0)
+    {
+        c6_memory_incident_json(wifi_diag, &incident, boot);
+    }
 }

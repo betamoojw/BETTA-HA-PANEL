@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: LicenseRef-FNCL-1.1
  * Copyright (c) 2026 andre68723 -- file added in the andre68723/BETTA-HA-PANEL fork, see docs/release-notes.md
  */
+/** @file
+ * @brief Evaluate bootloader rollback support and the running image's health snapshot.
+ */
 #include "util/ota_health.h"
 
 bool ota_bootloader_has_rollback(uint32_t bootloader_version)
@@ -10,6 +13,6 @@ bool ota_bootloader_has_rollback(uint32_t bootloader_version)
 
 bool ota_health_ok(const ota_health_t *health)
 {
-    return health != NULL && health->uptime_s >= OTA_HEALTH_MIN_UPTIME_S && health->boot_completed &&
-           health->http_answers && health->network_ok;
+    return health != NULL && health->uptime_s >= OTA_HEALTH_MIN_UPTIME_S && health->boot_completed && health->http_answers &&
+           health->network_ok;
 }

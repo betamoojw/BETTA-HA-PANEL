@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: LicenseRef-FNCL-1.1
  * Copyright (c) 2026 andre68723 -- file added in the andre68723/BETTA-HA-PANEL fork, see docs/release-notes.md
  */
+/** @file
+ * @brief Record automatic update attempts and classify their result across a reboot.
+ */
 #include "util/auto_update_state.h"
 
 #include <stdio.h>
@@ -34,18 +37,24 @@ void auto_update_state_failed(auto_update_state_t *state, int64_t epoch)
 
 bool auto_update_state_resolve_boot(auto_update_state_t *state, const char *running_version, bool previous_run_failed, int64_t epoch)
 {
-    if (state->attempt_tag[0] == '\0') {
+    if (state->attempt_tag[0] == '\0')
+    {
         return false;
     }
     copy_tag(state->result_tag, state->attempt_tag);
     state->result_epoch = epoch;
-    if (running_version != NULL && strcmp(running_version, state->attempt_tag) == 0) {
+    if (running_version != NULL && strcmp(running_version, state->attempt_tag) == 0)
+    {
         state->result = AUTO_UPDATE_RESULT_INSTALLED;
-    } else if (previous_run_failed) {
+    }
+    else if (previous_run_failed)
+    {
         state->result = AUTO_UPDATE_RESULT_ROLLED_BACK;
         copy_tag(state->blocked_tag, state->attempt_tag);
         state->notice_pending = 1;
-    } else {
+    }
+    else
+    {
         state->result = AUTO_UPDATE_RESULT_FAILED;
     }
     state->attempt_tag[0] = '\0';
@@ -59,10 +68,15 @@ void auto_update_state_ack_notice(auto_update_state_t *state)
 
 const char *auto_update_result_name(auto_update_result_t result)
 {
-    switch (result) {
-    case AUTO_UPDATE_RESULT_INSTALLED: return "installed";
-    case AUTO_UPDATE_RESULT_ROLLED_BACK: return "rolled_back";
-    case AUTO_UPDATE_RESULT_FAILED: return "failed";
-    default: return "";
+    switch (result)
+    {
+        case AUTO_UPDATE_RESULT_INSTALLED:
+            return "installed";
+        case AUTO_UPDATE_RESULT_ROLLED_BACK:
+            return "rolled_back";
+        case AUTO_UPDATE_RESULT_FAILED:
+            return "failed";
+        default:
+            return "";
     }
 }

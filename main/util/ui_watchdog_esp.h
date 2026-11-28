@@ -1,15 +1,20 @@
 /* SPDX-License-Identifier: LicenseRef-FNCL-1.1
  * Copyright (c) 2026 andre68723 -- file added in the andre68723/BETTA-HA-PANEL fork, see docs/release-notes.md
  */
+/** @file
+ * @brief Device-side LVGL and runtime heartbeat monitoring.
+ */
 #pragma once
 
 #include "cJSON.h"
 
-/* Starts the watchdog task (util/ui_watchdog.h). Call after the UI runtime is up. */
+/** @brief Start the watchdog task after the UI runtime has started. */
 void ui_watchdog_start(void);
-/* The ui_runtime loop ran (any task may call it; it only stores a timestamp). */
+/** @brief Record a UI runtime heartbeat by storing a timestamp; callable from any task. */
 void ui_watchdog_beat_runtime(void);
-/* Creates the LVGL timer that proves the LVGL task still runs. Call with the display lock held. */
+/** @brief Start the heartbeat timer in LVGL.
+ * @pre The caller holds the display lock.
+ */
 void ui_watchdog_attach_lvgl(void);
-/* Adds the "ui_watchdog" object to /api/version. */
+/** @brief Add the `ui_watchdog` diagnostics object to the version response. */
 void ui_watchdog_add_json(cJSON *root);

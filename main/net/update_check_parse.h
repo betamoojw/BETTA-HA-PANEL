@@ -5,49 +5,64 @@
  * response and decides whether it holds a newer build for this panel. No ESP-IDF dependencies, so
  * the host tests cover it.
  */
+/** @file
+ * @brief Host-testable release parsing, variant mapping and digest comparison.
+ */
 #pragma once
 
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
-/* A running firmware that reports a plain version (v0.9.0) cannot say which candidate or release it
+/** @brief Minimum asset age relative to build time for a version tie, in seconds.
+ *
+ * A running firmware that reports a plain version (v0.9.0) cannot say which candidate or release it
  * is: a release on the same core (v0.9.0-rc3, v0.9.0, or a re-upload) then counts as newer only when
  * its asset was uploaded this long after the firmware was built. A firmware that reports its
  * pre-release (v0.9.0-rc2, set in CMakeLists.txt or by BETTA_VERSION) is compared as a whole: rc3 and
  * v0.9.0 are newer at once, the same version only by this margin (a re-upload). The margin also covers
- * a build time read in the panel's time zone that differs from the build machine's. */
+ * a build time read in the panel's time zone that differs from the build machine's.
+ */
 #define UPDATE_CHECK_SAME_VERSION_MARGIN_S (12 * 3600)
 
-typedef struct {
-    bool found;          /* a release with an OTA asset for this variant */
-    bool newer;          /* ... that is newer than the running firmware */
-    bool prerelease;
-    char tag[32];        /* "v0.9.0-rc2" */
-    char asset_url[256]; /* browser_download_url of the variant's .ota.bin */
-    char asset_sha256[65]; /* the asset's "digest" ("sha256:<hex>") in lowercase hex, "" when GitHub reports none */
-    int64_t published;   /* asset upload time, seconds since the epoch (UTC) */
+/** @brief Owned copy of the selected release metadata; no fields borrow from the parsed JSON. */
+typedef struct
+{
+    bool found;            /**< A release carries an OTA asset for this variant. */
+    bool newer;            /**< The selected build is newer than the running firmware. */
+    bool prerelease;       /**< Release channel reported by the selected entry. */
+    char tag[32];          /**< Selected release tag. */
+    char asset_url[256];   /**< Download URL of the variant's OTA binary. */
+    char asset_sha256[65]; /**< Lowercase asset digest, or empty when no valid digest was supplied. */
+    int64_t published;     /**< Asset update time in Unix seconds, or zero when unknown. */
 } update_check_release_t;
 
-/* Release asset variant ("panel4", "paneljc", ...) for an ESP app project name ("betta-ha-panel-jc"),
- * or NULL for an unknown project. The names match the project() names in the root CMakeLists.txt. */
+/** @return Borrowed release suffix for the exact ESP app project name, or NULL if unknown. */
 const char *update_check_variant_for_project(const char *project_name);
 
-/* Semantic version order of two tags with an optional leading "v": <0, 0 or >0. A pre-release sorts
- * before its release; "rc10" sorts after "rc2". Unparsable tags compare as 0.0.0. With core_only,
- * the pre-release parts are ignored. */
+/** @brief Compare two release tags, with or without the leading v.
+ *
+ * A pre-release sorts before its release; "rc10" sorts after "rc2".
+ * Unparsable tags compare as 0.0.0. With core_only, pre-release parts are ignored.
+ * @return Negative, zero or positive as a sorts before, equal to or after b.
+ */
 int update_check_compare_versions(const char *a, const char *b, bool core_only);
 
-/* "2026-09-26T16:46:25Z" -> seconds since the epoch. */
+/** @brief Parse a Z-suffixed release timestamp into Unix seconds. */
 bool update_check_parse_iso8601_utc(const char *text, int64_t *out_epoch);
 
-/* True when `hex` (64 hex digits, any case) is the SHA-256 `digest` of 32 bytes. */
+/** @return True when all 64 case-insensitive hex digits encode the supplied 32-byte digest. */
 bool update_check_sha256_matches(const char *hex, const uint8_t digest[32]);
 
-/* Reads a GitHub API response: one release object (/releases/latest) or an array (/releases).
- * Drafts are skipped, pre-releases unless include_prereleases. Of the remaining releases that carry a
- * "betta86-ha-panel-*-<variant>.ota.bin" asset, the highest version is chosen; out->newer compares it
- * with running_version and the firmware build time (0 = unknown). Returns false for JSON it cannot
- * read; a readable response without a matching release returns true with out->found false. */
+/** @brief Select the highest eligible release carrying an OTA asset for this variant.
+ * @param json Borrowed release object or array returned by the release API.
+ * @param json_len Available JSON bytes.
+ * @param variant Exact release asset variant suffix.
+ * @param include_prereleases Whether to consider pre-releases in addition to releases; drafts are skipped.
+ * @param running_version Non-NULL version string for comparison.
+ * @param build_epoch Running image build time in Unix seconds, or zero if unknown.
+ * @param[out] out Caller-owned metadata and comparison result.
+ * @return True for a readable response, including when no matching release was found.
+ */
 bool update_check_parse_releases(const char *json, size_t json_len, const char *variant, bool include_prereleases,
-    const char *running_version, int64_t build_epoch, update_check_release_t *out);
+                                 const char *running_version, int64_t build_epoch, update_check_release_t *out);

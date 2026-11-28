@@ -7,6 +7,9 @@
  * panel came up on the new firmware or the bootloader returned to the old one; a rolled-back version is not tried again and the panel
  * shows a notice.
  */
+/** @file
+ * @brief Automatic firmware update lifecycle and status reporting.
+ */
 #pragma once
 
 #include <stdbool.h>
@@ -14,15 +17,19 @@
 #include "cJSON.h"
 #include "sdkconfig.h"
 
-/* Once after boot, after the reboot log and the update check: resolves the attempt a restart interrupted and starts the task. */
+/** @brief Resolve any retained attempt and start the automatic-update worker.
+ * @pre Call once at startup after the reboot log and release checker are initialized.
+ */
 void auto_update_task_start(bool enabled);
-/* The setting changed without a restart. */
+/** @brief Apply the new install preference and wake the worker without restarting firmware. */
 void auto_update_task_configure(bool enabled);
 #if CONFIG_APP_AUTO_UPDATE_TEST_HOOK
-/* Test builds only. `force` (when >= 0): 1 treats the panel as quiet and inside its window at its start minute and ignores "tried today" for
- * the next install, 0 switches that off. `reset`: forget the stored state. `attempt` (not NULL): store an install attempt of that tag as if
- * the task had just started one, for rollback tests. Wakes the task. */
+/** @brief Change test-only update policy or seed a retained attempt, then wake the worker.
+ * @param force Negative leaves the override alone; zero clears it; positive enables it.
+ * @param reset Clear retained test state.
+ * @param attempt Optional tag to persist as an in-progress attempt for rollback tests.
+ */
 void auto_update_test_hook(int force, bool reset, const char *attempt);
 #endif
-/* Adds the "auto_update" object to /api/ota/status: the setting, why the panel waits (or "go"), the last result and the blocked version. */
+/** @brief Append current policy, progress and retained result to caller-owned OTA status JSON. */
 void auto_update_add_status_json(cJSON *root);

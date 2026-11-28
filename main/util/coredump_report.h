@@ -1,12 +1,11 @@
 /* SPDX-License-Identifier: LicenseRef-FNCL-1.1
  * Copyright (c) 2026 andre68723 -- file added in the andre68723/BETTA-HA-PANEL fork, see docs/release-notes.md
+ */
+/** @file
+ * @brief Summary of a panic dump in the device's dedicated flash partition.
  *
- * Crash diagnostics: a panic (not a plain reboot or a watchdog reset without one) writes an ELF core
- * dump to a dedicated flash partition (CONFIG_ESP_COREDUMP_ENABLE_TO_FLASH, see config/sdkconfig.defaults).
- * It survives the reboot that follows, unlike the serial log, and is only overwritten by the next panic
- * -- there is no rush to read it. This module reads back the summary (no esp-coredump tool needed for
- * that much) so it reaches GET /api/log on every boot and GET /api/version without a USB connection.
- * A full symbolised backtrace still needs the matching .elf and the esp-coredump tool; see docs/coredump.md.
+ * A summary does not require the original ELF. A symbolized backtrace
+ * still needs the exact matching ELF and the tools described in `docs/coredump.md`.
  */
 #pragma once
 
@@ -14,34 +13,35 @@
 #include <stddef.h>
 #include <stdint.h>
 
-typedef struct {
-    bool present;      /* a checksum-valid dump is stored; the fields below are only meaningful then */
-    char task[16];      /* name of the task that crashed */
+/** @brief Fields reported by ESP-IDF for one raw dump, meaningful only when present. */
+typedef struct
+{
+    bool present;        /**< A checksum-valid dump was summarized. */
+    char task[16];       /* name of the task that crashed */
     uint32_t pc;         /* program counter at the crash */
-    uint32_t mcause;     /* RISC-V mcause / Xtensa EXCCAUSE (legacy API/archive key) */
-    uint32_t mtval;      /* RISC-V mtval / Xtensa EXCVADDR */
+    uint32_t mcause;     /**< RISC-V mcause or Xtensa EXCCAUSE under the stable archive key. */
+    uint32_t mtval;      /**< RISC-V mtval or Xtensa EXCVADDR. */
     uint32_t ra;         /* return address */
     uint32_t sp;         /* stack pointer */
-    size_t size;        /* bytes of the stored dump in flash, including its checksum */
-    char elf_sha256[65]; /* crashing application's ELF SHA256 prefix from the dump */
+    size_t size;         /**< Size in bytes of the raw dump including its checksum. */
+    char elf_sha256[65]; /**< Crashing application's ELF SHA-256 prefix from the dump. */
 } coredump_report_t;
 
-/* Fills *out from the coredump partition. Safe on every boot and every variant, including one without
- * a coredump partition in its table (out->present stays false, nothing logged as an error): this is
- * exactly esp_core_dump's own behaviour when esp_partition_find_first() comes back empty. */
+/** @brief Clear the destination and read a summary when a valid dump is available.
+ * @return True with present false if no checksum-valid dump is available, or
+ *         with present true on success. False on invalid output or summary failure.
+ */
 bool coredump_report_read(coredump_report_t *out);
 
-/* True iff this device's actual flash has a coredump partition right now. False either for a variant
- * whose partition table never has one, or for a panel4/panel10/paneljc that has the
- * partition in its current source tree but was only ever updated over OTA, which never writes a
- * partition table -- see docs/coredump.md. The editor uses this to tell "nothing to report" (present
- * but empty) apart from "cannot report anything here" (not present at all). */
+/** @return True if the actual flashed partition table contains a core dump partition.
+ *
+ * The application image alone does not determine this because OTA does
+ * not update the partition table.
+ */
 bool coredump_report_supported(void);
 
-/* One ESP_LOGW line if a dump is stored, nothing otherwise. Call once early in app_main, after the
- * reset-reason line: a dump only means something next to knowing this boot followed a panic. */
+/** @brief Log one stored dump summary, normally just after the boot reset-reason line. */
 void coredump_report_log_at_boot(void);
 
-/* A short architecture-specific exception name for the log and the API, or NULL for a value
- * this table does not name (still shown as the raw number). */
+/** @return A static exception name for this target architecture, or NULL for an unknown value. */
 const char *coredump_report_mcause_name(uint32_t mcause);

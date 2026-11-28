@@ -1,26 +1,25 @@
 /* SPDX-License-Identifier: LicenseRef-FNCL-1.1
  * Copyright (c) 2026 andre68723 -- file added in the andre68723/BETTA-HA-PANEL fork, see docs/release-notes.md
- *
- * The ESP side of the reboot history (util/reboot_log.h): the RTC breadcrumb, the NVS ring and the refresh timer.
+ */
+/** @file
+ * @brief Device-side reboot history, backed by an RTC breadcrumb and an NVS ring.
  */
 #pragma once
 
 #include "cJSON.h"
 #include "util/reboot_log.h"
 
-/* Once per boot, early in app_main after NVS is up: turns the previous run's breadcrumb and this boot's reset reason into a
- * history entry and starts the breadcrumb for this run. */
+/** @brief Record the previous run and start the new breadcrumb once per boot, after NVS is ready. */
 void reboot_log_init(void);
-/* Call just before a deliberate esp_restart() (any task): the next boot reports why. */
+/** @brief Mark the deliberate cause immediately before calling `esp_restart()`. */
 void reboot_log_mark(reboot_cause_t cause);
-/* Adds "boot_seq" and "entries" (newest first) to `root` (GET /api/reboot-log). */
+/** @brief Add `boot_seq` and newest-first `entries` to the caller's JSON object. */
 void reboot_log_add_json(cJSON *root);
-/* Label of the newest history entry (how the previous run ended), "" before the log is initialised. */
+/** @return A borrowed label for the last run, empty before initialization. */
 const char *reboot_log_last_label(void);
-/* The deliberate-restart cause of the previous run (a reboot_cause_t), REBOOT_CAUSE_NONE after a crash, a power cut or an
- * untagged restart, and before the log is initialised. */
+/** @return The last deliberate restart cause, or REBOOT_CAUSE_NONE if not recorded. */
 reboot_cause_t reboot_log_last_cause(void);
-/* Whether the previous run ended in a failure (reboot_entry_is_failure); false before the log is initialised. */
+/** @return The last run's failure classification; false before initialization. */
 bool reboot_log_last_run_failed(void);
-/* Latest retained panic breadcrumb, for importing a raw dump which has no timestamp of its own. */
+/** @return True when the newest retained panic entry was copied for raw core dump import. */
 bool reboot_log_latest_panic(reboot_entry_t *out);

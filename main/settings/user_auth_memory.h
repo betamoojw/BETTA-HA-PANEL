@@ -1,15 +1,19 @@
 /* SPDX-License-Identifier: LicenseRef-FNCL-1.1 | Copyright (c) 2026 andre68723 */
+/** @file
+ * @brief Account/session allocation policy for memory-constrained boards.
+ */
 #pragma once
 #include <stdlib.h>
 #ifdef ESP_PLATFORM
-#include "sdkconfig.h"
+#  include "sdkconfig.h"
 #endif
 #if defined(CONFIG_APP_PANEL_VARIANT_S3_480)
-#include "esp_heap_caps.h"
+#  include "esp_heap_caps.h"
 #endif
 
-/* HTTP-task-owned records may live in PSRAM. Never consume the S3 network
- * reserve as a fallback; callers must fail closed and allow a later retry. */
+/** @brief Allocate account storage without consuming the S3 internal network reserve.
+ * @return Caller-owned allocation, or NULL; on S3 there is no internal-RAM fallback.
+ */
 static inline void *user_auth_memory_alloc(size_t bytes)
 {
 #if defined(CONFIG_APP_PANEL_VARIANT_S3_480)
@@ -19,6 +23,7 @@ static inline void *user_auth_memory_alloc(size_t bytes)
 #endif
 }
 
+/** @brief Release storage using the allocator paired with user_auth_memory_alloc(). */
 static inline void user_auth_memory_free(void *ptr)
 {
 #if defined(CONFIG_APP_PANEL_VARIANT_S3_480)

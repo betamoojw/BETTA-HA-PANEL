@@ -2,6 +2,12 @@
  * Copyright (c) 2026 Cpt_Kirk
  * Modified 2026 by andre68723 in the andre68723/BETTA-HA-PANEL fork, see docs/release-notes.md
  */
+/** @file
+ * @brief Built-in translation catalogs and LittleFS language overrides.
+ *
+ * Keep the built-in string literals available to offline catalog tooling.
+ * Custom files are stored under validated, normalized language codes.
+ */
 #include "settings/i18n_store.h"
 #include "util/atomic_file.h"
 
@@ -14,67 +20,67 @@
 #include <sys/stat.h>
 
 #ifdef APP_I18N_COMPRESSED
-#include "settings/i18n_packed.h"
-#include "i18n_packed_catalogs.h"
+#  include "settings/i18n_packed.h"
+#  include "i18n_packed_catalogs.h"
 #else
-#include "i18n/es.inc"
-#include "i18n/fr.inc"
-#include "i18n/pl.inc"
-#include "i18n/zh-cn.inc"
-#include "i18n/zh-tw.inc"
+#  include "i18n/es.inc"
+#  include "i18n/fr.inc"
+#  include "i18n/pl.inc"
+#  include "i18n/zh-cn.inc"
+#  include "i18n/zh-tw.inc"
 #endif
 
-static const char *I18N_BUILTIN_DE =
-    "{\"lvgl\":{"
-    "\"license_lcd\":{\"missing\":\"Keine Lizenz\",\"invalid\":\"Ungültige Lizenz\",\"unconfigured\":\"Aussteller nicht eingerichtet\",\"error\":\"Lizenzstatus nicht verfügbar\",\"compact\":\"Lizenzwarnung\"},"
-    "\"alerts\":{\"title\":\"Warnungen\",\"empty\":\"Keine Warnungen\",\"unknown\":\"Unbekannt\",\"crash\":\"Gespeicherter Absturzbericht\",\"ppa\":\"Zeitüberschreitung der Grafikbeschleunigung\",\"lvgl\":\"Display-Task blockiert\",\"runtime\":\"UI-Task blockiert\",\"time\":\"Zeit\",\"task\":\"Task\",\"reason\":\"Ursache\",\"version\":\"Version\",\"build\":\"Build\",\"retained\":\"Historischer Bericht, nicht unbedingt ein aktueller Fehler. Unter Web-Einstellungen > Gerät herunterladen oder löschen.\",\"wifi\":\"WLAN getrennt\",\"wifi_detail\":\"Das Panel erreicht das WLAN nicht. Zugangspunkt und Netzwerkeinstellungen prüfen. Die Verbindung wird automatisch wiederhergestellt.\",\"ha\":\"Home Assistant getrennt\",\"ha_detail\":\"Dashboard-Daten können veraltet sein. Home Assistant und die Verbindung in den Web-Einstellungen prüfen.\",\"mqtt\":\"MQTT getrennt\",\"mqtt_detail\":\"MQTT-Mitteilungen sind nicht verfügbar. Broker und MQTT-Einstellungen prüfen. Die Verbindung wird automatisch wiederhergestellt.\",\"entity\":\"Entität\",\"state\":\"Zustand\",\"sensor\":\"Sensor- / Türklingelwarnung\"},"
-    "\"screen\":{\"title\":\"Systemeinstellungen\",\"active\":\"Helligkeit\",\"dim\":\"Gedimmte Helligkeit\",\"dim_seconds\":\"Dimmen nach (Sekunden)\",\"mode\":\"Bei Inaktivität\",\"start_minutes\":\"Start nach (Minuten)\",\"clock_start\":\"Uhr starten nach (Sekunden)\",\"clock_brightness\":\"Uhrhelligkeit\",\"clock_off\":\"Nach der Uhr ausschalten\",\"clock_off_seconds\":\"Uhr anzeigen für (Sekunden)\",\"clock_24h\":\"24-Stunden-Uhr\",\"clock_seconds\":\"Sekunden anzeigen\",\"rotation\":\"Display drehen\",\"auto_rotation\":\"Automatisch drehen\",\"clock_analog\":\"Analoge Uhr\",\"clock_style\":\"Uhrenstil\",\"clock_digital\":\"Digitale Uhr\",\"clock_flip\":\"Klappzahlen-Uhr\",\"clock_date\":\"Datum anzeigen\",\"disabled\":\"Deaktiviert\",\"clock\":\"Uhr\",\"off\":\"Bildschirm aus\",\"weather\":\"Wetter\",\"pages\":\"Seitenwechsel\",\"cancel\":\"Abbrechen\",\"save\":\"Speichern\",\"hint\":\"Änderungen werden beim Speichern übernommen.\",\"saving\":\"Speichern...\",\"failed\":\"Speichern fehlgeschlagen. Erneut versuchen.\",\"load_failed\":\"Einstellungen nicht verfügbar. Schließen und erneut versuchen.\",\"preview\":\"Vorschau (30 s)\",\"xiaozhi_emoji\":\"KI-Emotionsstil\"},"
-    "\"system\":{\"language\":\"Sprache\",\"timezone\":\"Zeitzone\",\"appearance\":\"Darstellung\",\"theme\":\"Farbthema\",\"page_animations\":\"Seitenanimationen\",\"on\":\"Ein\",\"off\":\"Aus\",\"flat\":\"Flach\",\"glow\":\"Leuchtend\",\"glass\":\"Glas\",\"matte\":\"Matt\",\"dark_v2\":\"Dunkel\",\"classic_v1\":\"Klassisch\",\"light\":\"Hell\",\"ocean\":\"Ozean\",\"contrast\":\"Hoher Kontrast\",\"black\":\"Reines Schwarz\"},"
-    "\"ota\":{\"title\":\"Firmware-Update\",\"preparing\":\"Update wird vorbereitet\",\"downloading\":\"Firmware wird heruntergeladen ...\",\"receiving\":\"Firmware wird empfangen ...\",\"writing\":\"Firmware wird geschrieben\",\"success\":\"Update geschrieben. Neustart ...\",\"failed\":\"Update fehlgeschlagen\",\"writing_version\":\"Firmware %s wird geschrieben\",\"unknown_size\":\"%s / unbekannt\"},"
-    "\"titles\":{\"car\":\"Auto\",\"solar\":\"Solarprognose\",\"sonos\":\"Sonos-Favoriten\",\"printer\":\"Bambu-Drucker\"},"
-    "\"xiaozhi\":{\"title\":\"AI Assistant\",\"talk\":\"Zum Sprechen halten\",\"state\":{\"disabled\":\"Deaktiviert\",\"ready\":\"Bereit\",\"connecting\":\"Verbindung wird aufgebaut\",\"listening\":\"Hört zu\",\"waiting\":\"Warten auf Antwort\",\"speaking\":\"Spricht\",\"speaking_listening\":\"Spricht und hört zu\",\"pairing\":\"Code auf xiaozhi.me eingeben\",\"pairing_retry\":\"Kopplungsdienst nicht erreichbar; neuer Versuch\",\"pairing_error\":\"Kopplung fehlgeschlagen\",\"pairing_expired\":\"Kopplung abgelaufen\",\"pair_first\":\"Gerät zuerst koppeln\",\"connection_error\":\"Verbindung unterbrochen\",\"audio_or_connection_error\":\"Audio oder Verbindung nicht verfügbar\",\"storage_error\":\"Einstellungen konnten nicht gespeichert werden\",\"memory_error\":\"Nicht genügend Speicher\",\"unsupported\":\"Sprachaudio auf diesem Board nicht unterstützt\",\"wake_error\":\"Sprachaktivierung nicht verfügbar; Sprechtaste verwenden\"},\"wake\":\"Sprachaktivierung\",\"wake_hint\":\"Zum Start „Ni hao Xiao Zhi“ sagen. Das Aktivierungswort wird lokal erkannt.\",\"timeout\":\"Gespräche enden nach einer Verabschiedung oder 30 Sekunden ohne Sprache oder Wiedergabe.\",\"recognized\":\"Erkannte Sprache\",\"reply\":\"KI-Antwort\",\"privacy\":\"Standardmäßig aus. Die optionale Aktivierungsworterkennung läuft lokal. Nach Aktivierung oder Sprechtaste wird Gesprächsaudio an den gekoppelten Sprachdienst gesendet. Die Kopplung teilt die Gerätekennung.\",\"emoji_style\":\"KI-Emotionsstil\",\"emoji_otto\":\"Otto-Roboter\",\"emoji_classic\":\"Klassische Emojis\",\"you\":\"Du\",\"assistant\":\"AI Assistant\",\"hint_duplex\":\"Ich spreche und höre zu\",\"hint_listening\":\"Sprich weiter, ich höre zu\",\"hint_thinking\":\"Einen Moment\",\"hint_ready\":\"Starte ein Gespräch mit dem Aktivierungswort\",\"hint_error\":\"Aktiviere mich erneut, um es noch einmal zu versuchen\",\"hint_timeout\":\"In %u s zur Startseite · Zum Fortsetzen sprechen\",\"hint_manual_error\":\"Zum erneuten Sprechen gedrückt halten\",\"hint_timeout_manual\":\"In %u s zur Startseite · Zum Fortsetzen gedrückt halten\"},"
-    "\"air\":{\"title\":\"Luftqualität\",\"humidity\":\"Luftfeuchte\",\"temperature\":\"Temperatur\",\"humidity_short\":\"Feuchte\",\"temperature_short\":\"Temp.\",\"co2\":\"CO₂\",\"pm25\":\"PM2.5\",\"voc\":\"VOC\",\"out_temperature\":\"Außentemperatur\",\"out_temperature_short\":\"Außentemp.\",\"out_humidity\":\"Außenfeuchte\",\"window\":\"Fensterkontakt\",\"rating\":\"Gerätebewertung\",\"good\":\"Gut\",\"fair\":\"Mäßig\",\"poor\":\"Schlecht\",\"not_evaluated\":\"Nicht bewertet\",\"partial\":\"Teildaten\",\"dry\":\"Luftfeuchte niedrig\",\"humid\":\"Luftfeuchte hoch · Lüften prüfen\",\"fresh_air\":\"Luftaustausch · CO₂ erhöht\",\"particles\":\"Partikel erhöht · Quellen reduzieren / filtern; Außenluftqualität unbekannt\",\"drying\":\"Referenzluft kann beim Trocknen helfen\",\"no_drying\":\"Referenzluft bietet zu wenig Trocknungsvorteil\",\"conflict\":\"Luftaustausch nötig; Referenzluft würde Feuchte eintragen\",\"conflict_short\":\"Lüften · Feuchtekonflikt\",\"co2_short\":\"Jetzt lüften · CO₂ erhöht\",\"humid_short\":\"Luftfeuchte hoch\",\"pm_short\":\"Partikel erhöht\",\"humidity_scope\":\"Nur Luftfeuchte\",\"no_advice\":\"Zu wenige bewertete Daten für einen Hinweis\",\"absolute\":\"Absolute Feuchte: innen / außen\",\"weather_reference\":\"Wetterdienst als Referenz; keine lokale Außenmessung. Messalter unbekannt.\",\"open\":\"Offen\",\"closed\":\"Geschlossen\",\"enum_extremely_poor\":\"Äußerst schlecht\",\"enum_very_poor\":\"Sehr schlecht\",\"enum_poor\":\"Schlecht\",\"enum_fair\":\"Mäßig\",\"enum_good\":\"Gut\",\"enum_moderate\":\"Mittelmäßig\",\"choose_humidity\":\"Feuchtesensor wählen\",\"blank\":\"Leeres Raumklima-Widget\",\"outdoor_enabled\":\"Außenvergleich verwenden\",\"sources_hint\":\"Luftfeuchte ist erforderlich. Weitere Rollen gezielt zuweisen. VOC wird nur angezeigt; Gerätebewertungen ändern den BETTA-Status nie. Außenquellen bewusst als Paar wählen.\",\"invalid_binding\":\"Ungültige Entität für {role}.\"},"
-    "\"common\":{\"on\":\"AN\",\"off\":\"AUS\",\"unavailable\":\"nicht verfügbar\",\"paused\":\"pausiert\",\"playing\":\"spielt\",\"start\":\"Start\",\"pause\":\"Pause\",\"unknown\":\"Unbekannt\"},"
-    "\"cover\":{\"open\":\"Offen\",\"closed\":\"Geschlossen\",\"opening\":\"Öffnet\",\"closing\":\"Schließt\",\"moving\":\"Fährt\"},"
-    "\"datetime\":{\"date\":\"Datum\",\"time\":\"Uhrzeit\",\"save\":\"Speichern\",\"cancel\":\"Abbrechen\",\"invalid\":\"Ungültiges Datum oder Uhrzeit\",\"failed\":\"Speichern fehlgeschlagen\"},"
-    "\"history\":{\"loading\":\"Verlauf wird geladen ...\",\"empty\":\"Kein Verlauf aufgezeichnet\",\"shortened\":\"Verlauf gekürzt\",\"error\":\"Verlauf konnte nicht geladen werden\",\"min\":\"Min\",\"max\":\"Max\",\"range_day\":\"24 Std\",\"range_week\":\"7 Tage\",\"range_30d\":\"30 T\",\"range_12m\":\"12 M\",\"daily_mean\":\"Tagesmittel\",\"weekly_mean\":\"Wochenmittel\",\"range_empty_30d\":\"Noch keine Statistik für 30 Tage\",\"range_empty_12m\":\"Noch keine Statistik für 12 Monate\",\"hourly_mean\":\"Stundenmittel\",\"week_empty\":\"Keine Statistik für die letzten 7 Tage\",\"week_error\":\"Statistik konnte nicht geladen werden\",\"days_total\":\"Letzte 7 Tage\",\"days_title\":\"Tagesverbrauch\",\"days_production\":\"Tagesproduktion\",\"days_partial\":\"Hellere Balken: Tag unvollständig\",\"days_sources\":\"Einige Quellen fehlen\",\"days_unsupported\":\"Keine Statistik für diese Quelle\"},"
-    "\"energytl\":{\"home\":\"Verbrauch\",\"solar\":\"Aus Solar\",\"grid\":\"Aus Netz\",\"export\":\"Einspeisung\",\"battery\":\"Aus Batterie\",\"home_s\":\"Haus\",\"export_s\":\"Einspeis.\",\"solar_s\":\"Solar\",\"battery_s\":\"Batterie\",\"c_solar\":\"Solar\",\"c_battery\":\"Batterie\",\"c_grid\":\"Netz\",\"c_export\":\"Einspeisung\",\"c_charge\":\"Laden\",\"c_forecast\":\"Prognose\",\"loading\":\"Lädt ...\",\"stale\":\"Veraltet\",\"nostats\":\"Keine Statistik\",\"nostats_hint\":\"Home Assistant hat keine Langzeitstatistik für den Netzbezug-Zähler. Er braucht eine state_class total oder total_increasing.\",\"updated\":\"Stand %s\",\"partial\":\"%d von %d Zeitfenstern unvollständig\",\"measured\":\"Gemessen, letzte 24 Stunden\",\"import\":\"Netzbezug\",\"export_meter\":\"Netzeinspeisung\",\"solar_meter\":\"Solarerzeugung\",\"charge\":\"Batterie laden\",\"discharge\":\"Batterie entladen\",\"soc\":\"Batteriestand\",\"forecast\":\"Solarprognose\",\"mix_estimated\":\"Aufteilung (geschätzt)\",\"mix\":\"Aufteilung\",\"home_from_solar\":\"  aus Solar\",\"home_from_battery\":\"  aus Batterie\",\"home_from_grid\":\"  aus Netz\",\"export_from_solar\":\"  aus Solar\",\"export_from_battery\":\"  aus Batterie\",\"charge_from_solar\":\"  aus Solar\",\"charge_from_grid\":\"  aus Netz\",\"estimate_note\":\"Geschätzt: Summenzähler zeigen nicht, ob Netzstrom die Batterie geladen oder das Haus versorgt hat. Solar versorgt zuerst das Haus, dann die Batterie, dann das Netz; die Batterie deckt, was das Haus noch braucht. Die gemessenen Werte oben sind exakt.\"},"
-    "\"room\":{\"switches_off\":\"Schalter aus\",\"switch_on\":\"Schalter an\",\"switches_on_n\":\"%d Schalter an\",\"idle\":\"Bereit\",\"closed\":\"Zu\",\"open_n\":\"%d offen\",\"lights_off\":\"Licht aus\",\"light_on\":\"Licht an\",\"lights_on_n\":\"%d Lichter an\",\"present\":\"Anwesend\",\"empty\":\"Niemand\",\"battery_n\":\"Schwache Batterien: %d\"},"
-    "\"binary\":{\"just_now\":\"gerade eben\",\"ringing\":\"Ausgelöst\",\"last\":\"Zuletzt\",\"no_event\":\"Kein Ereignis\",\"home\":\"Zuhause\",\"away\":\"Unterwegs\",\"motion\":\"Bewegung\",\"clear\":\"Ruhig\",\"unlocked\":\"Entriegelt\",\"locked\":\"Verriegelt\",\"wet\":\"Nass\",\"dry\":\"Trocken\",\"alarm\":\"Alarm\",\"ok\":\"OK\",\"low\":\"Schwach\",\"connected\":\"Verbunden\",\"disconnected\":\"Getrennt\",\"on\":\"An\",\"off\":\"Aus\"},"
-    "\"scene\":{\"scene\":\"Szene\",\"script\":\"Skript\",\"button\":\"Taste\",\"lock\":\"Entriegeln\"},"
-    "\"lock\":{\"state\":{\"locked\":\"Verriegelt\",\"unlocked\":\"Entriegelt\",\"locking\":\"Verriegelt ...\",\"unlocking\":\"Entriegelt ...\",\"open\":\"Offen\",\"opening\":\"Öffnet ...\",\"jammed\":\"Blockiert\"},\"lock\":\"Verriegeln\",\"unlock\":\"Entriegeln\",\"open\":\"Öffnen\",\"confirm_unlock\":\"%s entriegeln?\",\"confirm_open\":\"%s öffnen?\"},"
-    "\"alarm\":{\"state\":{\"disarmed\":\"Unscharf\",\"armed_home\":\"Scharf (Zuhause)\",\"armed_away\":\"Scharf (Abwesend)\",\"armed_night\":\"Scharf (Nacht)\",\"armed_vacation\":\"Scharf (Urlaub)\",\"armed_custom_bypass\":\"Scharf (Benutzerdef.)\",\"arming\":\"Schaltet scharf ...\",\"pending\":\"Verzögert\",\"disarming\":\"Schaltet unscharf ...\",\"triggered\":\"Ausgelöst\"},\"action\":{\"disarm\":\"Unscharf schalten\",\"arm_home\":\"Scharf (Zuhause)\",\"arm_away\":\"Scharf (Abwesend)\",\"arm_night\":\"Scharf (Nacht)\",\"arm_vacation\":\"Scharf (Urlaub)\",\"arm_custom_bypass\":\"Scharf (Benutzerdef.)\"},\"ok\":\"OK\",\"zones\":\"Zonen\",\"controls\":\"Bedienung\",\"history\":\"Verlauf\",\"refresh\":\"Aktualisieren\",\"hold\":\"2 s halten\",\"enter_code\":\"Code eingeben\",\"no_code\":\"Kein Code erforderlich\",\"text_code\":\"Textcode: Home Assistant verwenden\",\"btn\":{\"disarm\":\"Unscharf\",\"away\":\"Abwesend\",\"home\":\"Zuhause\",\"night\":\"Nacht\",\"vacation\":\"Urlaub\"},\"msg\":{\"sent\":\"Anfrage eingereiht\",\"failed\":\"Anfrage fehlgeschlagen\",\"accepted\":\"Anfrage angenommen\",\"rejected\":\"Anfrage fehlgeschlagen oder abgelehnt\",\"enter_code\":\"Zuerst Code eingeben\"},\"log\":{\"loading\":\"Lädt…\",\"failed\":\"Verlauf nicht verfügbar\",\"empty\":\"Keine Ereignisse\",\"no_clock\":\"Warte auf Zeitsynchronisation\"},\"pressed\":\"Gedrückt\",\"zone\":{\"detected\":\"Erkannt\",\"ok\":\"OK\",\"motion\":\"Bewegung\",\"clear\":\"Frei\",\"open\":\"Offen\",\"closed\":\"Geschlossen\",\"active\":\"Aktiv\",\"inactive\":\"Inaktiv\",\"not_ready\":\"Nicht bereit\"},\"zones_active\":\"aktive Zonen\",\"zones_ready\":\"Alle Zonen frei\"},"
-    "\"network\":{\"ethernet\":\"Ethernet\",\"interface\":\"Verbindung\"},"
-    "\"knx\":{\"preset\":{\"Auto\":\"Automatik\",\"Comfort\":\"Komfort\",\"Standby\":\"Bereitschaft\",\"Economy\":\"Sparbetrieb\",\"Building Protection\":\"Gebäudeschutz\"}},"
-    "\"price\":{\"today\":\"Heute\",\"tomorrow\":\"Morgen\",\"min\":\"min\",\"max\":\"max\",\"average\":\"Durchschnitt\",\"cheap\":\"Günstig\",\"no_cheap\":\"Kein günstiges Fenster mehr\",\"no_data\":\"Keine Preise\",\"no_today\":\"Keine Preise für heute\",\"no_tomorrow\":\"Morgen noch nicht veröffentlicht\",\"no_clock\":\"Uhrzeit fehlt\"},"
-    "\"parqet\":{\"xirr\":\"XIRR\",\"ttwror\":\"TTWROR\",\"dividends\":\"Dividenden\",\"realized\":\"Realisiert\",\"performance\":\"Performance\",\"holdings\":\"Positionen\",\"loading\":\"Lädt\",\"no_answer\":\"Keine Antwort (die Antwort ist evtl. zu groß)\",\"failed\":\"Nicht verfügbar\",\"no_data\":\"Keine Daten\",\"largest\":\"Größte\",\"top\":\"Top 5\",\"flop\":\"Flop 5\",\"pick_interval\":\"Zeitraum wählen\",\"unit_mismatch\":\"Einheit weicht ab\",\"period\":{\"1d\":\"1T\",\"1w\":\"1W\",\"1m\":\"1M\",\"ytd\":\"YTD\",\"max\":\"MAX\"}},"
-    "\"stock\":{\"title\":\"Aktien & ETFs\",\"lookup_failed\":\"Quelle unbekannt\",\"unsupported\":\"Kein Kurs\",\"period\":{\"1d\":\"1T\",\"1w\":\"1W\",\"30d\":\"1M\",\"ytd\":\"YTD\",\"1y\":\"1J\"},\"source\":{\"closes\":\"Schlusskurse\",\"recorded\":\"Aufgezeichnet\",\"averages\":\"HA-Mittelwerte\"},\"since\":\"seit\",\"start\":\"Start\",\"from\":\"ab\",\"prev_close\":\"Vortagesschluss\",\"trend\":\"Trend\",\"history_failed\":\"Verlauf nicht verfügbar\",\"history_empty\":\"Kein Verlauf für diesen Zeitraum\",\"market\":{\"open\":\"Börse offen\",\"pre\":\"Vorbörslich\",\"post\":\"Nachbörslich\",\"closed\":\"Börse geschlossen\"},\"updated\":\"aktualisiert\",\"last_price\":\"letzter Kurs\"},"
-    "\"vacmode\":{\"vacuum\":\"Saugen\",\"mop\":\"Wischen\",\"vac_and_mop\":\"Saugen & Wischen\",\"vacuum_and_mop\":\"Saugen & Wischen\",\"mop_after_vac\":\"Erst saugen, dann wischen\",\"mop_after_vacuum\":\"Erst saugen, dann wischen\",\"quick_vac\":\"Schnell saugen\",\"auto_vac\":\"Auto saugen\",\"deep_clean_vac\":\"Intensiv saugen\",\"quiet_vac\":\"Leise saugen\",\"quick_mop\":\"Schnell wischen\",\"auto_mop\":\"Auto wischen\",\"deep_clean_mop\":\"Intensiv wischen\",\"quick_vac_and_mop\":\"Schnell saugen & wischen\",\"auto_vac_and_mop\":\"Auto saugen & wischen\",\"deep_clean_vac_and_mop\":\"Intensiv saugen & wischen\",\"quiet_vac_and_mop\":\"Leise saugen & wischen\",\"custom\":\"Individuell\"},"
-    "\"car\":{\"precond\":\"Vorklimatisieren\",\"precond_pending\":\"Sendet...\"},"
-    "\"fan\":{\"oscillate\":\"Schwenken\"},"
-    "\"contact\":{\"open\":\"Offen\",\"opened\":\"Geöffnet\",\"closed\":\"Geschlossen\"},"
-    "\"climate\":{\"current\":\"Jetzt\",\"fan_short\":\"Lüfter\",\"fan_title\":\"Lüfter-Modus\",\"mode_title\":\"Betriebsmodus\",\"swing_short\":\"Schwenk\",\"swing_title\":\"Schwenk-Modus\",\"mode\":{\"off\":\"Aus\",\"heat\":\"Heizen\",\"cool\":\"Kühlen\",\"auto\":\"Auto\",\"dry\":\"Trocknen\",\"fan_only\":\"Lüfter\",\"heat_cool\":\"Heizen/Kühlen\",\"cooling\":\"Kühlt\",\"drying\":\"Trocknet\",\"idle\":\"Bereit\",\"fan\":\"Lüftet\",\"defrosting\":\"Enteist\",\"preheating\":\"Vorheizen\",\"vertical\":\"Vertikal\",\"horizontal\":\"Horizontal\",\"both\":\"Beide\"}},"
-    "\"roborock\":{\"send_failed\":\"Befehl nicht gesendet\",\"not_connected\":\"Home Assistant nicht verbunden\",\"fan_title\":\"Saugstufe\",\"ready\":\"Bereit\",\"cleaning\":\"Reinigt\",\"returning\":\"Kehrt zurück\",\"dock\":\"Station\",\"fan\":\"Saugstufe\",\"clean_selected_short\":\"Reinigen\",\"map_ready\":\"Karte verbunden\",\"map_loading\":\"Karte wird geladen\",\"map_waiting\":\"Warte auf Karte\",\"map_failed\":\"Kartenvorschau nicht verfügbar\",\"ready_to_charge\":\"In der Station\",\"mode\":\"Modus\",\"mode_title\":\"Reinigungsmodus\",\"state\":{\"cleaning\":\"Reinigt\",\"docked\":\"In der Station\",\"returning\":\"Kehrt zurück\",\"idle\":\"Bereit\",\"paused\":\"Pausiert\",\"error\":\"Fehler\",\"unavailable\":\"Nicht verfügbar\",\"unknown\":\"Unbekannt\",\"segment_cleaning\":\"Raumreinigung\",\"room_cleaning\":\"Raumreinigung\",\"zoned_cleaning\":\"Zonenreinigung\",\"spot_cleaning\":\"Punktreinigung\",\"going_to_target\":\"Fährt zum Ziel\",\"target_found\":\"Ziel erreicht\"}},"
-    "\"topbar\":{\"ha\":\"HA\",\"ap\":\"AP\"},"
-    "\"sensor\":{\"age\":{\"just_now\":\"gerade eben\",\"min_one\":\"vor 1 Min\",\"min_many\":\"vor %d Min\",\"hour_one\":\"vor 1 Std\",\"hour_many\":\"vor %d Std\",\"day_one\":\"vor 1 Tag\",\"day_many\":\"vor %d Tagen\"},\"in\":{\"now\":\"jetzt\",\"min_one\":\"in 1 Min\",\"min_many\":\"in %d Min\",\"hour_one\":\"in 1 Std\",\"hour_many\":\"in %d Std\",\"day_one\":\"in 1 Tag\",\"day_many\":\"in %d Tagen\"},\"day\":{\"today\":\"heute\",\"tomorrow\":\"morgen\",\"yesterday\":\"gestern\"},\"dur\":{\"d\":\"Tg\",\"h\":\"Std\",\"min\":\"Min\",\"s\":\"s\"}},"
-    "\"heating\":{\"target_format\":\"Soll %.1f°C\",\"active\":\"Heizen aktiv\"},"
-    "\"light\":{\"effect\":\"Effekt\",\"color_title\":\"Lichtfarbe\",\"white\":\"Weiß\",\"color_temperature\":\"Farbtemperatur\",\"warm\":\"Warm\",\"cool\":\"Kalt\",\"rgb_color\":\"RGB-Farbe\",\"presets\":\"Vorgaben\",\"hue\":\"Farbton\",\"saturation\":\"Sättigung\"},"
-    "\"weather\":{\"hourly_empty\":\"Keine stündliche Vorhersage\",\"hourly_loading\":\"Stündliche Vorhersage wird geladen...\",\"unavailable\":\"Nicht verfügbar\",\"humidity_format\":\"Luftfeuchte %d%%\",\"low_short\":\"Tief\",\"rain_short\":\"Regen\",\"now\":\"Jetzt\",\"today\":\"Heute\",\"view_days\":\"Tage\",\"report_title\":\"Wetterbericht\",\"day_full_0\":\"Sonntag\",\"day_full_1\":\"Montag\",\"day_full_2\":\"Dienstag\",\"day_full_3\":\"Mittwoch\",\"day_full_4\":\"Donnerstag\",\"day_full_5\":\"Freitag\",\"day_full_6\":\"Samstag\",\"pressure\":\"Luftdruck\",\"wind_gust\":\"Windböen\",\"uv_index\":\"UV-Index\",\"cloud_cover\":\"Bewölkung\",\"sunshine\":\"Sonnenstunden\",\"rain_duration\":\"Regendauer\",\"dew_point\":\"Taupunkt\",\"humidity\":\"Luftfeuchte\",\"wind\":\"Wind\",\"visibility\":\"Sichtweite\",\"rain_chance\":\"Regenwahrscheinlichkeit\",\"precipitation\":\"Niederschlag\",\"compass\":\"N,NO,O,SO,S,SW,W,NW\",\"weekday_0\":\"So\",\"weekday_1\":\"Mo\",\"weekday_2\":\"Di\",\"weekday_3\":\"Mi\",\"weekday_4\":\"Do\",\"weekday_5\":\"Fr\",\"weekday_6\":\"Sa\",\"condition\":{\"clear_night\":\"Klare Nacht\",\"cloudy\":\"Bewölkt\",\"exceptional\":\"Ungewöhnliches Wetter\",\"fog\":\"Nebel\",\"hail\":\"Hagel\",\"lightning\":\"Gewitter\",\"lightning_rainy\":\"Gewitter mit Regen\",\"partlycloudy\":\"Teilweise bewölkt\",\"pouring\":\"Starkregen\",\"rainy\":\"Regnerisch\",\"snowy\":\"Schnee\",\"snowy_rainy\":\"Schneeregen\",\"sunny\":\"Sonnig\",\"windy\":\"Windig\",\"windy_variant\":\"Windig, bewölkt\"}},"
-    "\"graph\":{\"no_history\":\"kein Verlauf\",\"no_data\":\"keine Daten\",\"min\":\"min\",\"max\":\"max\"},"
-    "\"notification\":{\"dismiss\":\"Schließen\",\"action\":\"Öffnen\",\"sent\":\"Gesendet\"},"
-    "\"conn\":{\"reconnect\":\"Erneut verbinden\",\"reconnecting\":\"Verbindung wird aufgebaut ...\",\"retry_hint\":\"Zugriff oder IP-Sperre zuerst in Home Assistant korrigieren, dann erneut verbinden.\",\"access\":\"Zugriff\",\"forbidden\":\"Abgelehnt (HTTP 403); HA-IP-Sperren prüfen\",\"token_rejected\":\"Zugangstoken abgelehnt\",\"no_rejection\":\"Keine Ablehnung gemeldet\",\"wifi\":\"WLAN\",\"ha\":\"Home Assistant\",\"mqtt\":\"MQTT\",\"status\":\"Status\",\"host\":\"Host\",\"broker\":\"Broker\",\"device_id\":\"Geräte-ID\",\"connected\":\"Verbunden\",\"disconnected\":\"Nicht verbunden\",\"syncing\":\"Verbunden, wird synchronisiert\",\"disabled\":\"Deaktiviert\",\"diag_reason\":\"Letzter Trennungsgrund\",\"diag_reconnects\":\"Reconnect-Versuche\",\"diag_hard_recover\":\"C6-Hardware-Resets\",\"firmware\":\"Firmware\",\"version\":\"Version\",\"built\":\"Erstellt\",\"update_available\":\"Update verfügbar\"},"
-    "\"wifi\":{\"info\":{\"ip\":\"IP-Adresse\",\"signal\":\"Signalstärke\",\"setup_ap\":\"Setup-AP aktiv\",\"signal_excellent\":\"Sehr gut\",\"signal_good\":\"Gut\",\"signal_fair\":\"Mäßig\",\"signal_weak\":\"Schwach\"}},"
-    "\"solar\":{\"details_title\":\"Solarprognose heute\",\"remaining\":\"Verbleibend\",\"total\":\"Gesamt\",\"rest\":\"Rest\",\"today\":\"Heute\",\"tomorrow\":\"Morgen\",\"day_3\":\"Tag 3\",\"day_4\":\"Tag 4\",\"day_5\":\"Tag 5\",\"day_6\":\"Tag 6\",\"day_7\":\"Tag 7\",\"day_generic\":\"Tag\",\"weekday_0\":\"So\",\"weekday_1\":\"Mo\",\"weekday_2\":\"Di\",\"weekday_3\":\"Mi\",\"weekday_4\":\"Do\",\"weekday_5\":\"Fr\",\"weekday_6\":\"Sa\"},"
-    "\"energy\":{\"title\":\"Energie\",\"waiting\":\"Warte auf Energiedaten\",\"ha_waiting\":\"Home-Assistant-Energiedaten\",\"today\":\"Heute\",\"grid\":\"Netz\",\"solar\":\"Solar\",\"home\":\"Haus\",\"battery\":\"Batterie\",\"grid_in\":\"Bezug\",\"grid_out\":\"Einspeisung\",\"battery_charge\":\"Laden\",\"battery_out\":\"Entladen\",\"home_now\":\"Haus jetzt\",\"water\":\"Wasser\",\"gas\":\"Gas\",\"autarky\":\"Autarkie\",\"details_prompt\":\"Gas, Wasser oder Solar wählen\"},"
-    "\"sonos_favorites\":{\"sensor_hint\":\"Benötigt die Sonos-Integration in Home Assistant und deren Favoriten-Sensor.\",\"setup_hint\":\"Sonos-Integration und sensor.sonos_favorites in Home Assistant aktivieren.\",\"empty\":\"Keine Favoriten gefunden.\"},"
-    "\"evcc\":{\"wallbox\":\"Wallbox\",\"header_power\":\"Ladeleistung\",\"flow_pv\":\"PV\",\"flow_battery\":\"Batterie\",\"flow_grid\":\"Netz\",\"flow_home\":\"Haus\",\"flow_car\":\"Auto\",\"flow_export\":\"Einspeisung\",\"add\":\"+ Wallbox (evcc)\",\"loadpoint\":\"Ladepunkt\",\"choose\":\"Ladepunkt wählen\",\"find\":\"Ladepunkte suchen\",\"finding\":\"Ladepunkte werden gesucht…\",\"failed\":\"Nicht bestätigt\",\"none_found\":\"Keine aktivierten evcc-Ladepunkte gefunden\",\"replace\":\"Vorhandene Entitätszuordnung durch diesen Ladepunkt ersetzen? Manuelle Zuordnungen werden ersetzt.\",\"missing\":\"Fehlende oder deaktivierte Entities\",\"bound\":\"Ladepunkt zugeordnet\",\"entities\":\"Erweiterte Entities\",\"hint\":\"Fehlende Entities in Home Assistant aktivieren. Erneute Suche erhält manuelle Zuordnungen.\",\"mode\":\"Lademodus\",\"vehicle\":\"Fahrzeug\",\"target\":\"Ziel-SOC\",\"power\":\"Ladeleistung (sensor)\",\"soc\":\"Fahrzeug-SOC (sensor)\",\"connected\":\"Verbunden\",\"charging\":\"Lädt\",\"disabled\":\"In Konfiguration deaktiviert (binary_sensor)\",\"effective\":\"Effektiv\",\"off\":\"Aus\",\"smart\":\"Smart\",\"fast\":\"Schnell\",\"none\":\"Kein Fahrzeug\",\"guest\":\"Gastfahrzeug\",\"ready\":\"Nicht verbunden\",\"unavailable\":\"Nicht verfügbar\",\"pending\":\"Warten…\",\"apply\":\"Übernehmen\",\"energy\":\"Geladene Energie (sensor)\",\"remaining\":\"Restzeit\",\"sessions\":\"Ladungen\",\"charged\":\"Geladen\",\"change\":\"Ändern\",\"last\":\"Letzte Ladung\",\"power_label\":\"Leistung\",\"soc_label\":\"Ladestand\",\"target_label\":\"Ladeziel\",\"car\":\"Auto\",\"start\":\"Start\",\"sessions_loading\":\"Ladungen werden geladen…\",\"sessions_error\":\"Ladungen konnten nicht geladen werden\",\"sessions_empty\":\"Keine abgeschlossenen Ladungen\",\"sessions_unsupported\":\"Ladungen nicht verfügbar\",\"sessions_preview\":\"Ladungen werden auf dem Panel geladen\"},"
-    "\"camera\":{\"snapshot_failed\":\"Kein Bild\",\"live\":\"Live-Kamera\",\"connecting\":\"Verbinde…\",\"paused\":\"Pausiert\",\"waiting\":\"Warte auf Kamera\",\"unsupported\":\"MJPEG nicht verfügbar\",\"failed\":\"Kameraverbindung unterbrochen\"},"
-    "\"bambu\":{\"step\":{\"filament_loading\":\"Filament wird geladen\",\"print_calibration_lines\":\"Kalibrierlinien\",\"preparing_ams\":\"AMS wird vorbereitet\",\"preparing_hotend\":\"Hotend wird vorbereitet\",\"moving_toolhead_above_purge_chute\":\"Fährt zum Abstreifer\",\"paused_nozzle_clog\":\"Pause: Düse verstopft\",\"check_plaform\":\"Plattform wird geprüft\",\"bed_level_phase_1\":\"Bettnivellierung 1\",\"bed_level_phase_2\":\"Bettnivellierung 2\",\"bed_level_high_temperature\":\"Bettnivellierung (heiß)\",\"auto_bed_leveling\":\"Automatische Bettnivellierung\",\"calibrating_detection_nozzle_clumping\":\"Klumpenerkennung kalibrieren\",\"calibrating_cutter_model_offset\":\"Schneider-Versatz kalibrieren\",\"scanning_bed_surface\":\"Druckbett wird gescannt\",\"inspecting_first_layer\":\"Erste Schicht wird geprüft\",\"hotend_type_detection\":\"Hotend-Typ wird erkannt\",\"check_material\":\"Material wird geprüft\",\"check_material_position\":\"Materialposition wird geprüft\",\"calibrating_extrusion\":\"Extrusion kalibrieren\",\"calibrating_extrusion_flow\":\"Durchfluss kalibrieren\",\"paused_skipped_step\":\"Pause: Schritt übersprungen\",\"cooling_chamber\":\"Kammer kühlt ab\",\"check_door_and_cover\":\"Tür und Abdeckung prüfen\",\"cleaning_nozzle_tip\":\"Düsenspitze wird gereinigt\",\"calibrating_micro_lidar\":\"Mikro-Lidar kalibrieren\",\"laser_calibration\":\"Laserkalibrierung\",\"cooling_nozzle\":\"Düse kühlt ab\",\"filament_unloading\":\"Filament wird entladen\",\"active_arc_fitting\":\"Bogenanpassung\",\"paused_ams_lost\":\"Pause: AMS getrennt\",\"absolute_accuracy_calibration\":\"Genauigkeitskalibrierung\",\"check_absolute_accuracy_before_calibration\":\"Genauigkeit wird geprüft\",\"check_absolute_accuracy_after_calibration\":\"Genauigkeit wird geprüft\",\"paused_user_gcode\":\"Pause durch G-Code\",\"calibrate_birdeye_camera\":\"Übersichtskamera kalibrieren\",\"check_birdeye_camera_position\":\"Übersichtskamera wird geprüft\",\"pre_extrusion_before_printing\":\"Vorextrusion\",\"changing_filament\":\"Filamentwechsel\",\"homing_blade_holder\":\"Messerhalter referenzieren\",\"calibrating_blade_holder_position\":\"Messerhalter kalibrieren\",\"hotend_pick_place_test\":\"Hotendwechsel wird getestet\",\"build_plate_alignment_detection\":\"Plattenausrichtung wird erkannt\",\"identifying_build_plate_type\":\"Druckplatte wird erkannt\",\"measuring_surface\":\"Oberfläche wird vermessen\",\"measuring_rotary_attachment\":\"Drehaufsatz wird vermessen\",\"motor_noise_showoff\":\"Motorgeräusch-Test\",\"calibrating_motor_noise\":\"Motorgeräusch kalibrieren\",\"paused_filament_runout\":\"Pause: Filament leer\",\"calibrating_live_view_camera\":\"Live-Kamera kalibrieren\",\"calibrating_camera_offset\":\"Kameraversatz kalibrieren\",\"check_quick_release\":\"Schnellverschluss wird geprüft\",\"m400_pause\":\"Pause (M400)\",\"paused_low_fan_speed_heat_break\":\"Pause: Heatbreak-Lüfter zu langsam\",\"heatbed_surface_foreign_object_detection\":\"Bett auf Fremdkörper prüfen\",\"heatbed_underside_foreign_object_detection\":\"Unter dem Bett prüfen\",\"heating_hotend\":\"Hotend heizt\",\"paused_first_layer_error\":\"Pause: Fehler erste Schicht\",\"moving_toolhead_to_center_of_heatbed\":\"Fährt zur Bettmitte\",\"waiting_for_heatbed_temperature\":\"Wartet auf Betttemperatur\",\"checking_extruder_temperature\":\"Extrudertemperatur wird geprüft\",\"calibrate_nozzle_offset\":\"Düsenversatz kalibrieren\",\"paused_chamber_temperature_control_error\":\"Pause: Fehler Kammertemperatur\",\"waiting_chamber_temperature_equalize\":\"Wartet auf Kammertemperatur\",\"paused_nozzle_temperature_malfunction\":\"Pause: Fehler Düsentemperatur\",\"homing_toolhead\":\"Druckkopf referenzieren\",\"paused_front_cover_falling\":\"Pause: Frontabdeckung gefallen\",\"heated_bedcooling\":\"Druckbett kühlt ab\",\"paused_heat_bed_temperature_malfunction\":\"Pause: Fehler Betttemperatur\",\"heating_chamber\":\"Kammer heizt\",\"paused_nozzle_filament_covered_detected\":\"Pause: Filament an der Düse\",\"paused_cutter_error\":\"Pause: Schneidefehler\",\"purifying_chamber_air\":\"Kammerluft wird gereinigt\",\"heatbed_preheating\":\"Druckbett heizt vor\",\"paused_user\":\"Pause durch Benutzer\",\"thermal_preconditioning\":\"Thermische Vorbereitung\",\"sweeping_xy_mech_mode\":\"XY-Mechanik wird geprüft\"},\"state\":{\"missing\":\"Keine Daten\",\"unavailable\":\"Nicht verfügbar\",\"other\":\"Unbekannt\",\"offline\":\"Offline\",\"idle\":\"Bereit\",\"init\":\"Startet\",\"prepare\":\"Vorbereitung\",\"slicing\":\"Slicing\",\"running\":\"Druckt\",\"pause\":\"Pausiert\",\"finish\":\"Fertig\",\"failed\":\"Fehlgeschlagen\"},\"pause\":\"Pause\",\"resume\":\"Weiter\",\"stop\":\"Abbruch\",\"abort_confirm\":\"Druck abbrechen\",\"status\":\"Status\",\"nozzle\":\"Düse\",\"bed\":\"Bett\",\"progress\":\"Fortschritt\",\"remaining\":\"Restzeit\",\"min\":\"Min\",\"stage\":\"Schritt\",\"job\":\"Auftrag\",\"stop_title\":\"Druck abbrechen?\",\"cancel\":\"Abbrechen\",\"not_confirmed\":\"Befehl nicht bestätigt\",\"send_failed\":\"Befehl nicht gesendet\",\"sending\":\"Sende...\",\"last_job\":\"Letzter Auftrag\",\"details\":\"Druckerstatus\",\"not_connected\":\"Home Assistant nicht verbunden\"},"
-    "\"autoupdate\":{\"rollback_title\":\"Update zurückgesetzt\",\"rollback_message\":\"Das automatische Update auf\",\"rollback_message2\":\"ist fehlgeschlagen. Das Panel ist zur vorherigen Firmware zurückgekehrt und versucht diese Version nicht noch einmal.\"},"
-    "\"todo\":{\"empty\":\"keine offenen Einträge\",\"loading\":\"lädt ...\"},"
-    "\"settings\":{\"wifi\":{\"ssid\":\"SSID\"}},"
-    "\"boot\":{\"initializing_system\":\"System wird initialisiert\",\"initializing_wifi\":\"WLAN wird initialisiert\",\"initializing_touch\":\"Touch wird initialisiert\",\"wifi_setup_title\":\"WLAN-Einrichtung\",\"wifi_connect_failed\":\"WLAN-Verbindung fehlgeschlagen\",\"wifi_credentials_missing\":\"WLAN-Zugangsdaten fehlen\",\"open_editor\":\"BETTA Editor öffnen:\",\"ha_setup_title\":\"Home-Assistant-Einrichtung\",\"wifi_connected\":\"WLAN verbunden\",\"ha_credentials_missing\":\"Home-Assistant-Zugangsdaten fehlen\",\"set_ha_url_token\":\"Home-Assistant-URL und Token eingeben\",\"loading_dashboard\":\"Dashboard wird geladen\",\"setup_ap_prefix\":\"Setup AP\",\"setup_ap_password\":\"Passwort\",\"offline_mode\":\"Offline-Modus\",\"wifi_unreachable\":\"WLAN nicht erreichbar\",\"wifi_auto_reconnect\":\"Verbindet automatisch, sobald es wieder da ist\",\"wifi_or_setup\":\"Oder neu einrichten, AP:\"}"
-    "}}";
+static const char *
+    I18N_BUILTIN_DE = "{\"lvgl\":{"
+                      "\"license_lcd\":{\"missing\":\"Keine Lizenz\",\"invalid\":\"Ungültige Lizenz\",\"unconfigured\":\"Aussteller nicht eingerichtet\",\"error\":\"Lizenzstatus nicht verfügbar\",\"compact\":\"Lizenzwarnung\"},"
+                      "\"alerts\":{\"title\":\"Warnungen\",\"empty\":\"Keine Warnungen\",\"unknown\":\"Unbekannt\",\"crash\":\"Gespeicherter Absturzbericht\",\"ppa\":\"Zeitüberschreitung der Grafikbeschleunigung\",\"lvgl\":\"Display-Task blockiert\",\"runtime\":\"UI-Task blockiert\",\"time\":\"Zeit\",\"task\":\"Task\",\"reason\":\"Ursache\",\"version\":\"Version\",\"build\":\"Build\",\"retained\":\"Historischer Bericht, nicht unbedingt ein aktueller Fehler. Unter Web-Einstellungen > Gerät herunterladen oder löschen.\",\"wifi\":\"WLAN getrennt\",\"wifi_detail\":\"Das Panel erreicht das WLAN nicht. Zugangspunkt und Netzwerkeinstellungen prüfen. Die Verbindung wird automatisch wiederhergestellt.\",\"ha\":\"Home Assistant getrennt\",\"ha_detail\":\"Dashboard-Daten können veraltet sein. Home Assistant und die Verbindung in den Web-Einstellungen prüfen.\",\"mqtt\":\"MQTT getrennt\",\"mqtt_detail\":\"MQTT-Mitteilungen sind nicht verfügbar. Broker und MQTT-Einstellungen prüfen. Die Verbindung wird automatisch wiederhergestellt.\",\"entity\":\"Entität\",\"state\":\"Zustand\",\"sensor\":\"Sensor- / Türklingelwarnung\"},"
+                      "\"screen\":{\"title\":\"Systemeinstellungen\",\"active\":\"Helligkeit\",\"dim\":\"Gedimmte Helligkeit\",\"dim_seconds\":\"Dimmen nach (Sekunden)\",\"mode\":\"Bei Inaktivität\",\"start_minutes\":\"Start nach (Minuten)\",\"clock_start\":\"Uhr starten nach (Sekunden)\",\"clock_brightness\":\"Uhrhelligkeit\",\"clock_off\":\"Nach der Uhr ausschalten\",\"clock_off_seconds\":\"Uhr anzeigen für (Sekunden)\",\"clock_24h\":\"24-Stunden-Uhr\",\"clock_seconds\":\"Sekunden anzeigen\",\"rotation\":\"Display drehen\",\"auto_rotation\":\"Automatisch drehen\",\"clock_analog\":\"Analoge Uhr\",\"clock_style\":\"Uhrenstil\",\"clock_digital\":\"Digitale Uhr\",\"clock_flip\":\"Klappzahlen-Uhr\",\"clock_date\":\"Datum anzeigen\",\"disabled\":\"Deaktiviert\",\"clock\":\"Uhr\",\"off\":\"Bildschirm aus\",\"weather\":\"Wetter\",\"pages\":\"Seitenwechsel\",\"cancel\":\"Abbrechen\",\"save\":\"Speichern\",\"hint\":\"Änderungen werden beim Speichern übernommen.\",\"saving\":\"Speichern...\",\"failed\":\"Speichern fehlgeschlagen. Erneut versuchen.\",\"load_failed\":\"Einstellungen nicht verfügbar. Schließen und erneut versuchen.\",\"preview\":\"Vorschau (30 s)\",\"xiaozhi_emoji\":\"KI-Emotionsstil\"},"
+                      "\"system\":{\"language\":\"Sprache\",\"timezone\":\"Zeitzone\",\"appearance\":\"Darstellung\",\"theme\":\"Farbthema\",\"page_animations\":\"Seitenanimationen\",\"on\":\"Ein\",\"off\":\"Aus\",\"flat\":\"Flach\",\"glow\":\"Leuchtend\",\"glass\":\"Glas\",\"matte\":\"Matt\",\"dark_v2\":\"Dunkel\",\"classic_v1\":\"Klassisch\",\"light\":\"Hell\",\"ocean\":\"Ozean\",\"contrast\":\"Hoher Kontrast\",\"black\":\"Reines Schwarz\"},"
+                      "\"ota\":{\"title\":\"Firmware-Update\",\"preparing\":\"Update wird vorbereitet\",\"downloading\":\"Firmware wird heruntergeladen ...\",\"receiving\":\"Firmware wird empfangen ...\",\"writing\":\"Firmware wird geschrieben\",\"success\":\"Update geschrieben. Neustart ...\",\"failed\":\"Update fehlgeschlagen\",\"writing_version\":\"Firmware %s wird geschrieben\",\"unknown_size\":\"%s / unbekannt\"},"
+                      "\"titles\":{\"car\":\"Auto\",\"solar\":\"Solarprognose\",\"sonos\":\"Sonos-Favoriten\",\"printer\":\"Bambu-Drucker\"},"
+                      "\"xiaozhi\":{\"title\":\"AI Assistant\",\"talk\":\"Zum Sprechen halten\",\"state\":{\"disabled\":\"Deaktiviert\",\"ready\":\"Bereit\",\"connecting\":\"Verbindung wird aufgebaut\",\"listening\":\"Hört zu\",\"waiting\":\"Warten auf Antwort\",\"speaking\":\"Spricht\",\"speaking_listening\":\"Spricht und hört zu\",\"pairing\":\"Code auf xiaozhi.me eingeben\",\"pairing_retry\":\"Kopplungsdienst nicht erreichbar; neuer Versuch\",\"pairing_error\":\"Kopplung fehlgeschlagen\",\"pairing_expired\":\"Kopplung abgelaufen\",\"pair_first\":\"Gerät zuerst koppeln\",\"connection_error\":\"Verbindung unterbrochen\",\"audio_or_connection_error\":\"Audio oder Verbindung nicht verfügbar\",\"storage_error\":\"Einstellungen konnten nicht gespeichert werden\",\"memory_error\":\"Nicht genügend Speicher\",\"unsupported\":\"Sprachaudio auf diesem Board nicht unterstützt\",\"wake_error\":\"Sprachaktivierung nicht verfügbar; Sprechtaste verwenden\"},\"wake\":\"Sprachaktivierung\",\"wake_hint\":\"Zum Start „Ni hao Xiao Zhi“ sagen. Das Aktivierungswort wird lokal erkannt.\",\"timeout\":\"Gespräche enden nach einer Verabschiedung oder 30 Sekunden ohne Sprache oder Wiedergabe.\",\"recognized\":\"Erkannte Sprache\",\"reply\":\"KI-Antwort\",\"privacy\":\"Standardmäßig aus. Die optionale Aktivierungsworterkennung läuft lokal. Nach Aktivierung oder Sprechtaste wird Gesprächsaudio an den gekoppelten Sprachdienst gesendet. Die Kopplung teilt die Gerätekennung.\",\"emoji_style\":\"KI-Emotionsstil\",\"emoji_otto\":\"Otto-Roboter\",\"emoji_classic\":\"Klassische Emojis\",\"you\":\"Du\",\"assistant\":\"AI Assistant\",\"hint_duplex\":\"Ich spreche und höre zu\",\"hint_listening\":\"Sprich weiter, ich höre zu\",\"hint_thinking\":\"Einen Moment\",\"hint_ready\":\"Starte ein Gespräch mit dem Aktivierungswort\",\"hint_error\":\"Aktiviere mich erneut, um es noch einmal zu versuchen\",\"hint_timeout\":\"In %u s zur Startseite · Zum Fortsetzen sprechen\",\"hint_manual_error\":\"Zum erneuten Sprechen gedrückt halten\",\"hint_timeout_manual\":\"In %u s zur Startseite · Zum Fortsetzen gedrückt halten\"},"
+                      "\"air\":{\"title\":\"Luftqualität\",\"humidity\":\"Luftfeuchte\",\"temperature\":\"Temperatur\",\"humidity_short\":\"Feuchte\",\"temperature_short\":\"Temp.\",\"co2\":\"CO₂\",\"pm25\":\"PM2.5\",\"voc\":\"VOC\",\"out_temperature\":\"Außentemperatur\",\"out_temperature_short\":\"Außentemp.\",\"out_humidity\":\"Außenfeuchte\",\"window\":\"Fensterkontakt\",\"rating\":\"Gerätebewertung\",\"good\":\"Gut\",\"fair\":\"Mäßig\",\"poor\":\"Schlecht\",\"not_evaluated\":\"Nicht bewertet\",\"partial\":\"Teildaten\",\"dry\":\"Luftfeuchte niedrig\",\"humid\":\"Luftfeuchte hoch · Lüften prüfen\",\"fresh_air\":\"Luftaustausch · CO₂ erhöht\",\"particles\":\"Partikel erhöht · Quellen reduzieren / filtern; Außenluftqualität unbekannt\",\"drying\":\"Referenzluft kann beim Trocknen helfen\",\"no_drying\":\"Referenzluft bietet zu wenig Trocknungsvorteil\",\"conflict\":\"Luftaustausch nötig; Referenzluft würde Feuchte eintragen\",\"conflict_short\":\"Lüften · Feuchtekonflikt\",\"co2_short\":\"Jetzt lüften · CO₂ erhöht\",\"humid_short\":\"Luftfeuchte hoch\",\"pm_short\":\"Partikel erhöht\",\"humidity_scope\":\"Nur Luftfeuchte\",\"no_advice\":\"Zu wenige bewertete Daten für einen Hinweis\",\"absolute\":\"Absolute Feuchte: innen / außen\",\"weather_reference\":\"Wetterdienst als Referenz; keine lokale Außenmessung. Messalter unbekannt.\",\"open\":\"Offen\",\"closed\":\"Geschlossen\",\"enum_extremely_poor\":\"Äußerst schlecht\",\"enum_very_poor\":\"Sehr schlecht\",\"enum_poor\":\"Schlecht\",\"enum_fair\":\"Mäßig\",\"enum_good\":\"Gut\",\"enum_moderate\":\"Mittelmäßig\",\"choose_humidity\":\"Feuchtesensor wählen\",\"blank\":\"Leeres Raumklima-Widget\",\"outdoor_enabled\":\"Außenvergleich verwenden\",\"sources_hint\":\"Luftfeuchte ist erforderlich. Weitere Rollen gezielt zuweisen. VOC wird nur angezeigt; Gerätebewertungen ändern den BETTA-Status nie. Außenquellen bewusst als Paar wählen.\",\"invalid_binding\":\"Ungültige Entität für {role}.\"},"
+                      "\"common\":{\"on\":\"AN\",\"off\":\"AUS\",\"unavailable\":\"nicht verfügbar\",\"paused\":\"pausiert\",\"playing\":\"spielt\",\"start\":\"Start\",\"pause\":\"Pause\",\"unknown\":\"Unbekannt\"},"
+                      "\"cover\":{\"open\":\"Offen\",\"closed\":\"Geschlossen\",\"opening\":\"Öffnet\",\"closing\":\"Schließt\",\"moving\":\"Fährt\"},"
+                      "\"datetime\":{\"date\":\"Datum\",\"time\":\"Uhrzeit\",\"save\":\"Speichern\",\"cancel\":\"Abbrechen\",\"invalid\":\"Ungültiges Datum oder Uhrzeit\",\"failed\":\"Speichern fehlgeschlagen\"},"
+                      "\"history\":{\"loading\":\"Verlauf wird geladen ...\",\"empty\":\"Kein Verlauf aufgezeichnet\",\"shortened\":\"Verlauf gekürzt\",\"error\":\"Verlauf konnte nicht geladen werden\",\"min\":\"Min\",\"max\":\"Max\",\"range_day\":\"24 Std\",\"range_week\":\"7 Tage\",\"range_30d\":\"30 T\",\"range_12m\":\"12 M\",\"daily_mean\":\"Tagesmittel\",\"weekly_mean\":\"Wochenmittel\",\"range_empty_30d\":\"Noch keine Statistik für 30 Tage\",\"range_empty_12m\":\"Noch keine Statistik für 12 Monate\",\"hourly_mean\":\"Stundenmittel\",\"week_empty\":\"Keine Statistik für die letzten 7 Tage\",\"week_error\":\"Statistik konnte nicht geladen werden\",\"days_total\":\"Letzte 7 Tage\",\"days_title\":\"Tagesverbrauch\",\"days_production\":\"Tagesproduktion\",\"days_partial\":\"Hellere Balken: Tag unvollständig\",\"days_sources\":\"Einige Quellen fehlen\",\"days_unsupported\":\"Keine Statistik für diese Quelle\"},"
+                      "\"energytl\":{\"home\":\"Verbrauch\",\"solar\":\"Aus Solar\",\"grid\":\"Aus Netz\",\"export\":\"Einspeisung\",\"battery\":\"Aus Batterie\",\"home_s\":\"Haus\",\"export_s\":\"Einspeis.\",\"solar_s\":\"Solar\",\"battery_s\":\"Batterie\",\"c_solar\":\"Solar\",\"c_battery\":\"Batterie\",\"c_grid\":\"Netz\",\"c_export\":\"Einspeisung\",\"c_charge\":\"Laden\",\"c_forecast\":\"Prognose\",\"loading\":\"Lädt ...\",\"stale\":\"Veraltet\",\"nostats\":\"Keine Statistik\",\"nostats_hint\":\"Home Assistant hat keine Langzeitstatistik für den Netzbezug-Zähler. Er braucht eine state_class total oder total_increasing.\",\"updated\":\"Stand %s\",\"partial\":\"%d von %d Zeitfenstern unvollständig\",\"measured\":\"Gemessen, letzte 24 Stunden\",\"import\":\"Netzbezug\",\"export_meter\":\"Netzeinspeisung\",\"solar_meter\":\"Solarerzeugung\",\"charge\":\"Batterie laden\",\"discharge\":\"Batterie entladen\",\"soc\":\"Batteriestand\",\"forecast\":\"Solarprognose\",\"mix_estimated\":\"Aufteilung (geschätzt)\",\"mix\":\"Aufteilung\",\"home_from_solar\":\"  aus Solar\",\"home_from_battery\":\"  aus Batterie\",\"home_from_grid\":\"  aus Netz\",\"export_from_solar\":\"  aus Solar\",\"export_from_battery\":\"  aus Batterie\",\"charge_from_solar\":\"  aus Solar\",\"charge_from_grid\":\"  aus Netz\",\"estimate_note\":\"Geschätzt: Summenzähler zeigen nicht, ob Netzstrom die Batterie geladen oder das Haus versorgt hat. Solar versorgt zuerst das Haus, dann die Batterie, dann das Netz; die Batterie deckt, was das Haus noch braucht. Die gemessenen Werte oben sind exakt.\"},"
+                      "\"room\":{\"switches_off\":\"Schalter aus\",\"switch_on\":\"Schalter an\",\"switches_on_n\":\"%d Schalter an\",\"idle\":\"Bereit\",\"closed\":\"Zu\",\"open_n\":\"%d offen\",\"lights_off\":\"Licht aus\",\"light_on\":\"Licht an\",\"lights_on_n\":\"%d Lichter an\",\"present\":\"Anwesend\",\"empty\":\"Niemand\",\"battery_n\":\"Schwache Batterien: %d\"},"
+                      "\"binary\":{\"just_now\":\"gerade eben\",\"ringing\":\"Ausgelöst\",\"last\":\"Zuletzt\",\"no_event\":\"Kein Ereignis\",\"home\":\"Zuhause\",\"away\":\"Unterwegs\",\"motion\":\"Bewegung\",\"clear\":\"Ruhig\",\"unlocked\":\"Entriegelt\",\"locked\":\"Verriegelt\",\"wet\":\"Nass\",\"dry\":\"Trocken\",\"alarm\":\"Alarm\",\"ok\":\"OK\",\"low\":\"Schwach\",\"connected\":\"Verbunden\",\"disconnected\":\"Getrennt\",\"on\":\"An\",\"off\":\"Aus\"},"
+                      "\"scene\":{\"scene\":\"Szene\",\"script\":\"Skript\",\"button\":\"Taste\",\"lock\":\"Entriegeln\"},"
+                      "\"lock\":{\"state\":{\"locked\":\"Verriegelt\",\"unlocked\":\"Entriegelt\",\"locking\":\"Verriegelt ...\",\"unlocking\":\"Entriegelt ...\",\"open\":\"Offen\",\"opening\":\"Öffnet ...\",\"jammed\":\"Blockiert\"},\"lock\":\"Verriegeln\",\"unlock\":\"Entriegeln\",\"open\":\"Öffnen\",\"confirm_unlock\":\"%s entriegeln?\",\"confirm_open\":\"%s öffnen?\"},"
+                      "\"alarm\":{\"state\":{\"disarmed\":\"Unscharf\",\"armed_home\":\"Scharf (Zuhause)\",\"armed_away\":\"Scharf (Abwesend)\",\"armed_night\":\"Scharf (Nacht)\",\"armed_vacation\":\"Scharf (Urlaub)\",\"armed_custom_bypass\":\"Scharf (Benutzerdef.)\",\"arming\":\"Schaltet scharf ...\",\"pending\":\"Verzögert\",\"disarming\":\"Schaltet unscharf ...\",\"triggered\":\"Ausgelöst\"},\"action\":{\"disarm\":\"Unscharf schalten\",\"arm_home\":\"Scharf (Zuhause)\",\"arm_away\":\"Scharf (Abwesend)\",\"arm_night\":\"Scharf (Nacht)\",\"arm_vacation\":\"Scharf (Urlaub)\",\"arm_custom_bypass\":\"Scharf (Benutzerdef.)\"},\"ok\":\"OK\",\"zones\":\"Zonen\",\"controls\":\"Bedienung\",\"history\":\"Verlauf\",\"refresh\":\"Aktualisieren\",\"hold\":\"2 s halten\",\"enter_code\":\"Code eingeben\",\"no_code\":\"Kein Code erforderlich\",\"text_code\":\"Textcode: Home Assistant verwenden\",\"btn\":{\"disarm\":\"Unscharf\",\"away\":\"Abwesend\",\"home\":\"Zuhause\",\"night\":\"Nacht\",\"vacation\":\"Urlaub\"},\"msg\":{\"sent\":\"Anfrage eingereiht\",\"failed\":\"Anfrage fehlgeschlagen\",\"accepted\":\"Anfrage angenommen\",\"rejected\":\"Anfrage fehlgeschlagen oder abgelehnt\",\"enter_code\":\"Zuerst Code eingeben\"},\"log\":{\"loading\":\"Lädt…\",\"failed\":\"Verlauf nicht verfügbar\",\"empty\":\"Keine Ereignisse\",\"no_clock\":\"Warte auf Zeitsynchronisation\"},\"pressed\":\"Gedrückt\",\"zone\":{\"detected\":\"Erkannt\",\"ok\":\"OK\",\"motion\":\"Bewegung\",\"clear\":\"Frei\",\"open\":\"Offen\",\"closed\":\"Geschlossen\",\"active\":\"Aktiv\",\"inactive\":\"Inaktiv\",\"not_ready\":\"Nicht bereit\"},\"zones_active\":\"aktive Zonen\",\"zones_ready\":\"Alle Zonen frei\"},"
+                      "\"network\":{\"ethernet\":\"Ethernet\",\"interface\":\"Verbindung\"},"
+                      "\"knx\":{\"preset\":{\"Auto\":\"Automatik\",\"Comfort\":\"Komfort\",\"Standby\":\"Bereitschaft\",\"Economy\":\"Sparbetrieb\",\"Building Protection\":\"Gebäudeschutz\"}},"
+                      "\"price\":{\"today\":\"Heute\",\"tomorrow\":\"Morgen\",\"min\":\"min\",\"max\":\"max\",\"average\":\"Durchschnitt\",\"cheap\":\"Günstig\",\"no_cheap\":\"Kein günstiges Fenster mehr\",\"no_data\":\"Keine Preise\",\"no_today\":\"Keine Preise für heute\",\"no_tomorrow\":\"Morgen noch nicht veröffentlicht\",\"no_clock\":\"Uhrzeit fehlt\"},"
+                      "\"parqet\":{\"xirr\":\"XIRR\",\"ttwror\":\"TTWROR\",\"dividends\":\"Dividenden\",\"realized\":\"Realisiert\",\"performance\":\"Performance\",\"holdings\":\"Positionen\",\"loading\":\"Lädt\",\"no_answer\":\"Keine Antwort (die Antwort ist evtl. zu groß)\",\"failed\":\"Nicht verfügbar\",\"no_data\":\"Keine Daten\",\"largest\":\"Größte\",\"top\":\"Top 5\",\"flop\":\"Flop 5\",\"pick_interval\":\"Zeitraum wählen\",\"unit_mismatch\":\"Einheit weicht ab\",\"period\":{\"1d\":\"1T\",\"1w\":\"1W\",\"1m\":\"1M\",\"ytd\":\"YTD\",\"max\":\"MAX\"}},"
+                      "\"stock\":{\"title\":\"Aktien & ETFs\",\"lookup_failed\":\"Quelle unbekannt\",\"unsupported\":\"Kein Kurs\",\"period\":{\"1d\":\"1T\",\"1w\":\"1W\",\"30d\":\"1M\",\"ytd\":\"YTD\",\"1y\":\"1J\"},\"source\":{\"closes\":\"Schlusskurse\",\"recorded\":\"Aufgezeichnet\",\"averages\":\"HA-Mittelwerte\"},\"since\":\"seit\",\"start\":\"Start\",\"from\":\"ab\",\"prev_close\":\"Vortagesschluss\",\"trend\":\"Trend\",\"history_failed\":\"Verlauf nicht verfügbar\",\"history_empty\":\"Kein Verlauf für diesen Zeitraum\",\"market\":{\"open\":\"Börse offen\",\"pre\":\"Vorbörslich\",\"post\":\"Nachbörslich\",\"closed\":\"Börse geschlossen\"},\"updated\":\"aktualisiert\",\"last_price\":\"letzter Kurs\"},"
+                      "\"vacmode\":{\"vacuum\":\"Saugen\",\"mop\":\"Wischen\",\"vac_and_mop\":\"Saugen & Wischen\",\"vacuum_and_mop\":\"Saugen & Wischen\",\"mop_after_vac\":\"Erst saugen, dann wischen\",\"mop_after_vacuum\":\"Erst saugen, dann wischen\",\"quick_vac\":\"Schnell saugen\",\"auto_vac\":\"Auto saugen\",\"deep_clean_vac\":\"Intensiv saugen\",\"quiet_vac\":\"Leise saugen\",\"quick_mop\":\"Schnell wischen\",\"auto_mop\":\"Auto wischen\",\"deep_clean_mop\":\"Intensiv wischen\",\"quick_vac_and_mop\":\"Schnell saugen & wischen\",\"auto_vac_and_mop\":\"Auto saugen & wischen\",\"deep_clean_vac_and_mop\":\"Intensiv saugen & wischen\",\"quiet_vac_and_mop\":\"Leise saugen & wischen\",\"custom\":\"Individuell\"},"
+                      "\"car\":{\"precond\":\"Vorklimatisieren\",\"precond_pending\":\"Sendet...\"},"
+                      "\"fan\":{\"oscillate\":\"Schwenken\"},"
+                      "\"contact\":{\"open\":\"Offen\",\"opened\":\"Geöffnet\",\"closed\":\"Geschlossen\"},"
+                      "\"climate\":{\"current\":\"Jetzt\",\"fan_short\":\"Lüfter\",\"fan_title\":\"Lüfter-Modus\",\"mode_title\":\"Betriebsmodus\",\"swing_short\":\"Schwenk\",\"swing_title\":\"Schwenk-Modus\",\"mode\":{\"off\":\"Aus\",\"heat\":\"Heizen\",\"cool\":\"Kühlen\",\"auto\":\"Auto\",\"dry\":\"Trocknen\",\"fan_only\":\"Lüfter\",\"heat_cool\":\"Heizen/Kühlen\",\"cooling\":\"Kühlt\",\"drying\":\"Trocknet\",\"idle\":\"Bereit\",\"fan\":\"Lüftet\",\"defrosting\":\"Enteist\",\"preheating\":\"Vorheizen\",\"vertical\":\"Vertikal\",\"horizontal\":\"Horizontal\",\"both\":\"Beide\"}},"
+                      "\"roborock\":{\"send_failed\":\"Befehl nicht gesendet\",\"not_connected\":\"Home Assistant nicht verbunden\",\"fan_title\":\"Saugstufe\",\"ready\":\"Bereit\",\"cleaning\":\"Reinigt\",\"returning\":\"Kehrt zurück\",\"dock\":\"Station\",\"fan\":\"Saugstufe\",\"clean_selected_short\":\"Reinigen\",\"map_ready\":\"Karte verbunden\",\"map_loading\":\"Karte wird geladen\",\"map_waiting\":\"Warte auf Karte\",\"map_failed\":\"Kartenvorschau nicht verfügbar\",\"ready_to_charge\":\"In der Station\",\"mode\":\"Modus\",\"mode_title\":\"Reinigungsmodus\",\"state\":{\"cleaning\":\"Reinigt\",\"docked\":\"In der Station\",\"returning\":\"Kehrt zurück\",\"idle\":\"Bereit\",\"paused\":\"Pausiert\",\"error\":\"Fehler\",\"unavailable\":\"Nicht verfügbar\",\"unknown\":\"Unbekannt\",\"segment_cleaning\":\"Raumreinigung\",\"room_cleaning\":\"Raumreinigung\",\"zoned_cleaning\":\"Zonenreinigung\",\"spot_cleaning\":\"Punktreinigung\",\"going_to_target\":\"Fährt zum Ziel\",\"target_found\":\"Ziel erreicht\"}},"
+                      "\"topbar\":{\"ha\":\"HA\",\"ap\":\"AP\"},"
+                      "\"sensor\":{\"age\":{\"just_now\":\"gerade eben\",\"min_one\":\"vor 1 Min\",\"min_many\":\"vor %d Min\",\"hour_one\":\"vor 1 Std\",\"hour_many\":\"vor %d Std\",\"day_one\":\"vor 1 Tag\",\"day_many\":\"vor %d Tagen\"},\"in\":{\"now\":\"jetzt\",\"min_one\":\"in 1 Min\",\"min_many\":\"in %d Min\",\"hour_one\":\"in 1 Std\",\"hour_many\":\"in %d Std\",\"day_one\":\"in 1 Tag\",\"day_many\":\"in %d Tagen\"},\"day\":{\"today\":\"heute\",\"tomorrow\":\"morgen\",\"yesterday\":\"gestern\"},\"dur\":{\"d\":\"Tg\",\"h\":\"Std\",\"min\":\"Min\",\"s\":\"s\"}},"
+                      "\"heating\":{\"target_format\":\"Soll %.1f°C\",\"active\":\"Heizen aktiv\"},"
+                      "\"light\":{\"effect\":\"Effekt\",\"color_title\":\"Lichtfarbe\",\"white\":\"Weiß\",\"color_temperature\":\"Farbtemperatur\",\"warm\":\"Warm\",\"cool\":\"Kalt\",\"rgb_color\":\"RGB-Farbe\",\"presets\":\"Vorgaben\",\"hue\":\"Farbton\",\"saturation\":\"Sättigung\"},"
+                      "\"weather\":{\"hourly_empty\":\"Keine stündliche Vorhersage\",\"hourly_loading\":\"Stündliche Vorhersage wird geladen...\",\"unavailable\":\"Nicht verfügbar\",\"humidity_format\":\"Luftfeuchte %d%%\",\"low_short\":\"Tief\",\"rain_short\":\"Regen\",\"now\":\"Jetzt\",\"today\":\"Heute\",\"view_days\":\"Tage\",\"report_title\":\"Wetterbericht\",\"day_full_0\":\"Sonntag\",\"day_full_1\":\"Montag\",\"day_full_2\":\"Dienstag\",\"day_full_3\":\"Mittwoch\",\"day_full_4\":\"Donnerstag\",\"day_full_5\":\"Freitag\",\"day_full_6\":\"Samstag\",\"pressure\":\"Luftdruck\",\"wind_gust\":\"Windböen\",\"uv_index\":\"UV-Index\",\"cloud_cover\":\"Bewölkung\",\"sunshine\":\"Sonnenstunden\",\"rain_duration\":\"Regendauer\",\"dew_point\":\"Taupunkt\",\"humidity\":\"Luftfeuchte\",\"wind\":\"Wind\",\"visibility\":\"Sichtweite\",\"rain_chance\":\"Regenwahrscheinlichkeit\",\"precipitation\":\"Niederschlag\",\"compass\":\"N,NO,O,SO,S,SW,W,NW\",\"weekday_0\":\"So\",\"weekday_1\":\"Mo\",\"weekday_2\":\"Di\",\"weekday_3\":\"Mi\",\"weekday_4\":\"Do\",\"weekday_5\":\"Fr\",\"weekday_6\":\"Sa\",\"condition\":{\"clear_night\":\"Klare Nacht\",\"cloudy\":\"Bewölkt\",\"exceptional\":\"Ungewöhnliches Wetter\",\"fog\":\"Nebel\",\"hail\":\"Hagel\",\"lightning\":\"Gewitter\",\"lightning_rainy\":\"Gewitter mit Regen\",\"partlycloudy\":\"Teilweise bewölkt\",\"pouring\":\"Starkregen\",\"rainy\":\"Regnerisch\",\"snowy\":\"Schnee\",\"snowy_rainy\":\"Schneeregen\",\"sunny\":\"Sonnig\",\"windy\":\"Windig\",\"windy_variant\":\"Windig, bewölkt\"}},"
+                      "\"graph\":{\"no_history\":\"kein Verlauf\",\"no_data\":\"keine Daten\",\"min\":\"min\",\"max\":\"max\"},"
+                      "\"notification\":{\"dismiss\":\"Schließen\",\"action\":\"Öffnen\",\"sent\":\"Gesendet\"},"
+                      "\"conn\":{\"reconnect\":\"Erneut verbinden\",\"reconnecting\":\"Verbindung wird aufgebaut ...\",\"retry_hint\":\"Zugriff oder IP-Sperre zuerst in Home Assistant korrigieren, dann erneut verbinden.\",\"access\":\"Zugriff\",\"forbidden\":\"Abgelehnt (HTTP 403); HA-IP-Sperren prüfen\",\"token_rejected\":\"Zugangstoken abgelehnt\",\"no_rejection\":\"Keine Ablehnung gemeldet\",\"wifi\":\"WLAN\",\"ha\":\"Home Assistant\",\"mqtt\":\"MQTT\",\"status\":\"Status\",\"host\":\"Host\",\"broker\":\"Broker\",\"device_id\":\"Geräte-ID\",\"connected\":\"Verbunden\",\"disconnected\":\"Nicht verbunden\",\"syncing\":\"Verbunden, wird synchronisiert\",\"disabled\":\"Deaktiviert\",\"diag_reason\":\"Letzter Trennungsgrund\",\"diag_reconnects\":\"Reconnect-Versuche\",\"diag_hard_recover\":\"C6-Hardware-Resets\",\"firmware\":\"Firmware\",\"version\":\"Version\",\"built\":\"Erstellt\",\"update_available\":\"Update verfügbar\"},"
+                      "\"wifi\":{\"info\":{\"ip\":\"IP-Adresse\",\"signal\":\"Signalstärke\",\"setup_ap\":\"Setup-AP aktiv\",\"signal_excellent\":\"Sehr gut\",\"signal_good\":\"Gut\",\"signal_fair\":\"Mäßig\",\"signal_weak\":\"Schwach\"}},"
+                      "\"solar\":{\"details_title\":\"Solarprognose heute\",\"remaining\":\"Verbleibend\",\"total\":\"Gesamt\",\"rest\":\"Rest\",\"today\":\"Heute\",\"tomorrow\":\"Morgen\",\"day_3\":\"Tag 3\",\"day_4\":\"Tag 4\",\"day_5\":\"Tag 5\",\"day_6\":\"Tag 6\",\"day_7\":\"Tag 7\",\"day_generic\":\"Tag\",\"weekday_0\":\"So\",\"weekday_1\":\"Mo\",\"weekday_2\":\"Di\",\"weekday_3\":\"Mi\",\"weekday_4\":\"Do\",\"weekday_5\":\"Fr\",\"weekday_6\":\"Sa\"},"
+                      "\"energy\":{\"title\":\"Energie\",\"waiting\":\"Warte auf Energiedaten\",\"ha_waiting\":\"Home-Assistant-Energiedaten\",\"today\":\"Heute\",\"grid\":\"Netz\",\"solar\":\"Solar\",\"home\":\"Haus\",\"battery\":\"Batterie\",\"grid_in\":\"Bezug\",\"grid_out\":\"Einspeisung\",\"battery_charge\":\"Laden\",\"battery_out\":\"Entladen\",\"home_now\":\"Haus jetzt\",\"water\":\"Wasser\",\"gas\":\"Gas\",\"autarky\":\"Autarkie\",\"details_prompt\":\"Gas, Wasser oder Solar wählen\"},"
+                      "\"sonos_favorites\":{\"sensor_hint\":\"Benötigt die Sonos-Integration in Home Assistant und deren Favoriten-Sensor.\",\"setup_hint\":\"Sonos-Integration und sensor.sonos_favorites in Home Assistant aktivieren.\",\"empty\":\"Keine Favoriten gefunden.\"},"
+                      "\"evcc\":{\"wallbox\":\"Wallbox\",\"header_power\":\"Ladeleistung\",\"flow_pv\":\"PV\",\"flow_battery\":\"Batterie\",\"flow_grid\":\"Netz\",\"flow_home\":\"Haus\",\"flow_car\":\"Auto\",\"flow_export\":\"Einspeisung\",\"add\":\"+ Wallbox (evcc)\",\"loadpoint\":\"Ladepunkt\",\"choose\":\"Ladepunkt wählen\",\"find\":\"Ladepunkte suchen\",\"finding\":\"Ladepunkte werden gesucht…\",\"failed\":\"Nicht bestätigt\",\"none_found\":\"Keine aktivierten evcc-Ladepunkte gefunden\",\"replace\":\"Vorhandene Entitätszuordnung durch diesen Ladepunkt ersetzen? Manuelle Zuordnungen werden ersetzt.\",\"missing\":\"Fehlende oder deaktivierte Entities\",\"bound\":\"Ladepunkt zugeordnet\",\"entities\":\"Erweiterte Entities\",\"hint\":\"Fehlende Entities in Home Assistant aktivieren. Erneute Suche erhält manuelle Zuordnungen.\",\"mode\":\"Lademodus\",\"vehicle\":\"Fahrzeug\",\"target\":\"Ziel-SOC\",\"power\":\"Ladeleistung (sensor)\",\"soc\":\"Fahrzeug-SOC (sensor)\",\"connected\":\"Verbunden\",\"charging\":\"Lädt\",\"disabled\":\"In Konfiguration deaktiviert (binary_sensor)\",\"effective\":\"Effektiv\",\"off\":\"Aus\",\"smart\":\"Smart\",\"fast\":\"Schnell\",\"none\":\"Kein Fahrzeug\",\"guest\":\"Gastfahrzeug\",\"ready\":\"Nicht verbunden\",\"unavailable\":\"Nicht verfügbar\",\"pending\":\"Warten…\",\"apply\":\"Übernehmen\",\"energy\":\"Geladene Energie (sensor)\",\"remaining\":\"Restzeit\",\"sessions\":\"Ladungen\",\"charged\":\"Geladen\",\"change\":\"Ändern\",\"last\":\"Letzte Ladung\",\"power_label\":\"Leistung\",\"soc_label\":\"Ladestand\",\"target_label\":\"Ladeziel\",\"car\":\"Auto\",\"start\":\"Start\",\"sessions_loading\":\"Ladungen werden geladen…\",\"sessions_error\":\"Ladungen konnten nicht geladen werden\",\"sessions_empty\":\"Keine abgeschlossenen Ladungen\",\"sessions_unsupported\":\"Ladungen nicht verfügbar\",\"sessions_preview\":\"Ladungen werden auf dem Panel geladen\"},"
+                      "\"camera\":{\"snapshot_failed\":\"Kein Bild\",\"live\":\"Live-Kamera\",\"connecting\":\"Verbinde…\",\"paused\":\"Pausiert\",\"waiting\":\"Warte auf Kamera\",\"unsupported\":\"MJPEG nicht verfügbar\",\"failed\":\"Kameraverbindung unterbrochen\"},"
+                      "\"bambu\":{\"step\":{\"filament_loading\":\"Filament wird geladen\",\"print_calibration_lines\":\"Kalibrierlinien\",\"preparing_ams\":\"AMS wird vorbereitet\",\"preparing_hotend\":\"Hotend wird vorbereitet\",\"moving_toolhead_above_purge_chute\":\"Fährt zum Abstreifer\",\"paused_nozzle_clog\":\"Pause: Düse verstopft\",\"check_plaform\":\"Plattform wird geprüft\",\"bed_level_phase_1\":\"Bettnivellierung 1\",\"bed_level_phase_2\":\"Bettnivellierung 2\",\"bed_level_high_temperature\":\"Bettnivellierung (heiß)\",\"auto_bed_leveling\":\"Automatische Bettnivellierung\",\"calibrating_detection_nozzle_clumping\":\"Klumpenerkennung kalibrieren\",\"calibrating_cutter_model_offset\":\"Schneider-Versatz kalibrieren\",\"scanning_bed_surface\":\"Druckbett wird gescannt\",\"inspecting_first_layer\":\"Erste Schicht wird geprüft\",\"hotend_type_detection\":\"Hotend-Typ wird erkannt\",\"check_material\":\"Material wird geprüft\",\"check_material_position\":\"Materialposition wird geprüft\",\"calibrating_extrusion\":\"Extrusion kalibrieren\",\"calibrating_extrusion_flow\":\"Durchfluss kalibrieren\",\"paused_skipped_step\":\"Pause: Schritt übersprungen\",\"cooling_chamber\":\"Kammer kühlt ab\",\"check_door_and_cover\":\"Tür und Abdeckung prüfen\",\"cleaning_nozzle_tip\":\"Düsenspitze wird gereinigt\",\"calibrating_micro_lidar\":\"Mikro-Lidar kalibrieren\",\"laser_calibration\":\"Laserkalibrierung\",\"cooling_nozzle\":\"Düse kühlt ab\",\"filament_unloading\":\"Filament wird entladen\",\"active_arc_fitting\":\"Bogenanpassung\",\"paused_ams_lost\":\"Pause: AMS getrennt\",\"absolute_accuracy_calibration\":\"Genauigkeitskalibrierung\",\"check_absolute_accuracy_before_calibration\":\"Genauigkeit wird geprüft\",\"check_absolute_accuracy_after_calibration\":\"Genauigkeit wird geprüft\",\"paused_user_gcode\":\"Pause durch G-Code\",\"calibrate_birdeye_camera\":\"Übersichtskamera kalibrieren\",\"check_birdeye_camera_position\":\"Übersichtskamera wird geprüft\",\"pre_extrusion_before_printing\":\"Vorextrusion\",\"changing_filament\":\"Filamentwechsel\",\"homing_blade_holder\":\"Messerhalter referenzieren\",\"calibrating_blade_holder_position\":\"Messerhalter kalibrieren\",\"hotend_pick_place_test\":\"Hotendwechsel wird getestet\",\"build_plate_alignment_detection\":\"Plattenausrichtung wird erkannt\",\"identifying_build_plate_type\":\"Druckplatte wird erkannt\",\"measuring_surface\":\"Oberfläche wird vermessen\",\"measuring_rotary_attachment\":\"Drehaufsatz wird vermessen\",\"motor_noise_showoff\":\"Motorgeräusch-Test\",\"calibrating_motor_noise\":\"Motorgeräusch kalibrieren\",\"paused_filament_runout\":\"Pause: Filament leer\",\"calibrating_live_view_camera\":\"Live-Kamera kalibrieren\",\"calibrating_camera_offset\":\"Kameraversatz kalibrieren\",\"check_quick_release\":\"Schnellverschluss wird geprüft\",\"m400_pause\":\"Pause (M400)\",\"paused_low_fan_speed_heat_break\":\"Pause: Heatbreak-Lüfter zu langsam\",\"heatbed_surface_foreign_object_detection\":\"Bett auf Fremdkörper prüfen\",\"heatbed_underside_foreign_object_detection\":\"Unter dem Bett prüfen\",\"heating_hotend\":\"Hotend heizt\",\"paused_first_layer_error\":\"Pause: Fehler erste Schicht\",\"moving_toolhead_to_center_of_heatbed\":\"Fährt zur Bettmitte\",\"waiting_for_heatbed_temperature\":\"Wartet auf Betttemperatur\",\"checking_extruder_temperature\":\"Extrudertemperatur wird geprüft\",\"calibrate_nozzle_offset\":\"Düsenversatz kalibrieren\",\"paused_chamber_temperature_control_error\":\"Pause: Fehler Kammertemperatur\",\"waiting_chamber_temperature_equalize\":\"Wartet auf Kammertemperatur\",\"paused_nozzle_temperature_malfunction\":\"Pause: Fehler Düsentemperatur\",\"homing_toolhead\":\"Druckkopf referenzieren\",\"paused_front_cover_falling\":\"Pause: Frontabdeckung gefallen\",\"heated_bedcooling\":\"Druckbett kühlt ab\",\"paused_heat_bed_temperature_malfunction\":\"Pause: Fehler Betttemperatur\",\"heating_chamber\":\"Kammer heizt\",\"paused_nozzle_filament_covered_detected\":\"Pause: Filament an der Düse\",\"paused_cutter_error\":\"Pause: Schneidefehler\",\"purifying_chamber_air\":\"Kammerluft wird gereinigt\",\"heatbed_preheating\":\"Druckbett heizt vor\",\"paused_user\":\"Pause durch Benutzer\",\"thermal_preconditioning\":\"Thermische Vorbereitung\",\"sweeping_xy_mech_mode\":\"XY-Mechanik wird geprüft\"},\"state\":{\"missing\":\"Keine Daten\",\"unavailable\":\"Nicht verfügbar\",\"other\":\"Unbekannt\",\"offline\":\"Offline\",\"idle\":\"Bereit\",\"init\":\"Startet\",\"prepare\":\"Vorbereitung\",\"slicing\":\"Slicing\",\"running\":\"Druckt\",\"pause\":\"Pausiert\",\"finish\":\"Fertig\",\"failed\":\"Fehlgeschlagen\"},\"pause\":\"Pause\",\"resume\":\"Weiter\",\"stop\":\"Abbruch\",\"abort_confirm\":\"Druck abbrechen\",\"status\":\"Status\",\"nozzle\":\"Düse\",\"bed\":\"Bett\",\"progress\":\"Fortschritt\",\"remaining\":\"Restzeit\",\"min\":\"Min\",\"stage\":\"Schritt\",\"job\":\"Auftrag\",\"stop_title\":\"Druck abbrechen?\",\"cancel\":\"Abbrechen\",\"not_confirmed\":\"Befehl nicht bestätigt\",\"send_failed\":\"Befehl nicht gesendet\",\"sending\":\"Sende...\",\"last_job\":\"Letzter Auftrag\",\"details\":\"Druckerstatus\",\"not_connected\":\"Home Assistant nicht verbunden\"},"
+                      "\"autoupdate\":{\"rollback_title\":\"Update zurückgesetzt\",\"rollback_message\":\"Das automatische Update auf\",\"rollback_message2\":\"ist fehlgeschlagen. Das Panel ist zur vorherigen Firmware zurückgekehrt und versucht diese Version nicht noch einmal.\"},"
+                      "\"todo\":{\"empty\":\"keine offenen Einträge\",\"loading\":\"lädt ...\"},"
+                      "\"settings\":{\"wifi\":{\"ssid\":\"SSID\"}},"
+                      "\"boot\":{\"initializing_system\":\"System wird initialisiert\",\"initializing_wifi\":\"WLAN wird initialisiert\",\"initializing_touch\":\"Touch wird initialisiert\",\"wifi_setup_title\":\"WLAN-Einrichtung\",\"wifi_connect_failed\":\"WLAN-Verbindung fehlgeschlagen\",\"wifi_credentials_missing\":\"WLAN-Zugangsdaten fehlen\",\"open_editor\":\"BETTA Editor öffnen:\",\"ha_setup_title\":\"Home-Assistant-Einrichtung\",\"wifi_connected\":\"WLAN verbunden\",\"ha_credentials_missing\":\"Home-Assistant-Zugangsdaten fehlen\",\"set_ha_url_token\":\"Home-Assistant-URL und Token eingeben\",\"loading_dashboard\":\"Dashboard wird geladen\",\"setup_ap_prefix\":\"Setup AP\",\"setup_ap_password\":\"Passwort\",\"offline_mode\":\"Offline-Modus\",\"wifi_unreachable\":\"WLAN nicht erreichbar\",\"wifi_auto_reconnect\":\"Verbindet automatisch, sobald es wieder da ist\",\"wifi_or_setup\":\"Oder neu einrichten, AP:\"}"
+                      "}}";
 
 static const char *I18N_BUILTIN_EN =
     "{\"lvgl\":{"
@@ -130,19 +136,23 @@ static const char *I18N_BUILTIN_EN =
 
 static bool i18n_store_is_valid_language_code(const char *code)
 {
-    if (code == NULL) {
+    if (code == NULL)
+    {
         return false;
     }
 
     size_t len = strlen(code);
-    if (len < 2 || len >= APP_UI_LANGUAGE_MAX_LEN) {
+    if (len < 2 || len >= APP_UI_LANGUAGE_MAX_LEN)
+    {
         return false;
     }
 
-    for (size_t i = 0; i < len; i++) {
+    for (size_t i = 0; i < len; i++)
+    {
         char c = code[i];
         bool ok = (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' || c == '_';
-        if (!ok) {
+        if (!ok)
+        {
             return false;
         }
     }
@@ -151,27 +161,32 @@ static bool i18n_store_is_valid_language_code(const char *code)
 
 bool i18n_store_normalize_language_code(const char *input, char *out_code, size_t out_len)
 {
-    if (input == NULL || out_code == NULL || out_len == 0) {
+    if (input == NULL || out_code == NULL || out_len == 0)
+    {
         return false;
     }
 
-    while (*input != '\0' && isspace((unsigned char)*input)) {
+    while (*input != '\0' && isspace((unsigned char) *input))
+    {
         input++;
     }
 
     size_t out = 0;
-    while (input[out] != '\0' && !isspace((unsigned char)input[out])) {
-        if (out + 1 >= out_len) {
+    while (input[out] != '\0' && !isspace((unsigned char) input[out]))
+    {
+        if (out + 1 >= out_len)
+        {
             return false;
         }
 
-        char c = (char)tolower((unsigned char)input[out]);
+        char c = (char) tolower((unsigned char) input[out]);
         out_code[out] = c;
         out++;
     }
     out_code[out] = '\0';
 
-    if (out == 0) {
+    if (out == 0)
+    {
         return false;
     }
     return i18n_store_is_valid_language_code(out_code);
@@ -179,30 +194,49 @@ bool i18n_store_normalize_language_code(const char *input, char *out_code, size_
 
 bool i18n_store_is_builtin_language(const char *language_code)
 {
-    if (language_code == NULL) {
+    if (language_code == NULL)
+    {
         return false;
     }
-    return strcmp(language_code, "de") == 0 || strcmp(language_code, "en") == 0 ||
-           strcmp(language_code, "es") == 0 || strcmp(language_code, "fr") == 0 || strcmp(language_code, "pl") == 0 ||
-           strcmp(language_code, "zh-cn") == 0 || strcmp(language_code, "zh-tw") == 0;
+    return strcmp(language_code, "de") == 0 || strcmp(language_code, "en") == 0 || strcmp(language_code, "es") == 0 ||
+           strcmp(language_code, "fr") == 0 || strcmp(language_code, "pl") == 0 || strcmp(language_code, "zh-cn") == 0 ||
+           strcmp(language_code, "zh-tw") == 0;
 }
 
 static const char *builtin_translation_json(const char *language_code)
 {
-    if (language_code == NULL) {
+    if (language_code == NULL)
+    {
         return NULL;
     }
-    if (strcmp(language_code, "en") == 0) {
+    if (strcmp(language_code, "en") == 0)
+    {
         return I18N_BUILTIN_EN;
     }
 #ifndef APP_I18N_COMPRESSED
-    if (strcmp(language_code, "es") == 0) return I18N_BUILTIN_ES;
-    if (strcmp(language_code, "fr") == 0) return I18N_BUILTIN_FR;
-    if (strcmp(language_code, "pl") == 0) return I18N_BUILTIN_PL;
-    if (strcmp(language_code, "zh-cn") == 0) return I18N_BUILTIN_ZH_CN;
-    if (strcmp(language_code, "zh-tw") == 0) return I18N_BUILTIN_ZH_TW;
+    if (strcmp(language_code, "es") == 0)
+    {
+        return I18N_BUILTIN_ES;
+    }
+    if (strcmp(language_code, "fr") == 0)
+    {
+        return I18N_BUILTIN_FR;
+    }
+    if (strcmp(language_code, "pl") == 0)
+    {
+        return I18N_BUILTIN_PL;
+    }
+    if (strcmp(language_code, "zh-cn") == 0)
+    {
+        return I18N_BUILTIN_ZH_CN;
+    }
+    if (strcmp(language_code, "zh-tw") == 0)
+    {
+        return I18N_BUILTIN_ZH_TW;
+    }
 #endif
-    if (strcmp(language_code, "de") == 0) {
+    if (strcmp(language_code, "de") == 0)
+    {
         return I18N_BUILTIN_DE;
     }
     return NULL;
@@ -210,12 +244,16 @@ static const char *builtin_translation_json(const char *language_code)
 
 cJSON *i18n_store_parse_builtin_translation(const char *language_code)
 {
-    if (!language_code) return NULL;
+    if (!language_code)
+    {
+        return NULL;
+    }
 #ifdef APP_I18N_COMPRESSED
-    for (size_t i = 0; i < sizeof(i18n_packed_catalogs) / sizeof(i18n_packed_catalogs[0]); i++) {
-        if (strcmp(language_code, i18n_packed_catalogs[i].code) == 0) {
-            return i18n_packed_parse(i18n_packed_catalogs[i].data, i18n_packed_catalogs[i].size,
-                                     i18n_packed_catalogs[i].json_size);
+    for (size_t i = 0; i < sizeof(i18n_packed_catalogs) / sizeof(i18n_packed_catalogs[0]); i++)
+    {
+        if (strcmp(language_code, i18n_packed_catalogs[i].code) == 0)
+        {
+            return i18n_packed_parse(i18n_packed_catalogs[i].data, i18n_packed_catalogs[i].size, i18n_packed_catalogs[i].json_size);
         }
     }
 #endif
@@ -226,12 +264,14 @@ cJSON *i18n_store_parse_builtin_translation(const char *language_code)
 static bool i18n_store_ensure_dir(void)
 {
     struct stat st = {0};
-    if (stat(APP_I18N_DIR, &st) == 0 && S_ISDIR(st.st_mode)) {
+    if (stat(APP_I18N_DIR, &st) == 0 && S_ISDIR(st.st_mode))
+    {
         return true;
     }
 
-    (void)mkdir(APP_I18N_DIR, 0775);
-    if (stat(APP_I18N_DIR, &st) == 0 && S_ISDIR(st.st_mode)) {
+    (void) mkdir(APP_I18N_DIR, 0775);
+    if (stat(APP_I18N_DIR, &st) == 0 && S_ISDIR(st.st_mode))
+    {
         return true;
     }
     return false;
@@ -239,55 +279,64 @@ static bool i18n_store_ensure_dir(void)
 
 static bool i18n_store_build_path(const char *language_code, char *out_path, size_t out_path_len)
 {
-    if (language_code == NULL || out_path == NULL || out_path_len == 0) {
+    if (language_code == NULL || out_path == NULL || out_path_len == 0)
+    {
         return false;
     }
     int written = snprintf(out_path, out_path_len, "%s/%s.json", APP_I18N_DIR, language_code);
-    return written > 0 && (size_t)written < out_path_len;
+    return written > 0 && (size_t) written < out_path_len;
 }
 
 esp_err_t i18n_store_load_custom_translation(const char *language_code, char **out_json)
 {
-    if (language_code == NULL || out_json == NULL) {
+    if (language_code == NULL || out_json == NULL)
+    {
         return ESP_ERR_INVALID_ARG;
     }
     *out_json = NULL;
 
     char lang[APP_UI_LANGUAGE_MAX_LEN] = {0};
-    if (!i18n_store_normalize_language_code(language_code, lang, sizeof(lang))) {
+    if (!i18n_store_normalize_language_code(language_code, lang, sizeof(lang)))
+    {
         return ESP_ERR_INVALID_ARG;
     }
 
     char path[96] = {0};
-    if (!i18n_store_build_path(lang, path, sizeof(path))) {
+    if (!i18n_store_build_path(lang, path, sizeof(path)))
+    {
         return ESP_ERR_INVALID_ARG;
     }
 
     FILE *f = fopen(path, "rb");
-    if (f == NULL) {
+    if (f == NULL)
+    {
         return ESP_ERR_NOT_FOUND;
     }
-    if (fseek(f, 0, SEEK_END) != 0) {
+    if (fseek(f, 0, SEEK_END) != 0)
+    {
         fclose(f);
         return ESP_FAIL;
     }
 
     long size = ftell(f);
-    if (size <= 0 || (size_t)size > APP_I18N_MAX_JSON_LEN) {
+    if (size <= 0 || (size_t) size > APP_I18N_MAX_JSON_LEN)
+    {
         fclose(f);
         return ESP_ERR_INVALID_SIZE;
     }
     rewind(f);
 
-    char *buf = calloc((size_t)size + 1U, sizeof(char));
-    if (buf == NULL) {
+    char *buf = calloc((size_t) size + 1U, sizeof(char));
+    if (buf == NULL)
+    {
         fclose(f);
         return ESP_ERR_NO_MEM;
     }
 
-    size_t read = fread(buf, 1U, (size_t)size, f);
+    size_t read = fread(buf, 1U, (size_t) size, f);
     fclose(f);
-    if (read != (size_t)size) {
+    if (read != (size_t) size)
+    {
         free(buf);
         return ESP_FAIL;
     }
@@ -298,20 +347,24 @@ esp_err_t i18n_store_load_custom_translation(const char *language_code, char **o
 
 esp_err_t i18n_store_save_custom_translation(const char *language_code, const char *json_payload, size_t payload_len)
 {
-    if (language_code == NULL || json_payload == NULL || payload_len == 0 || payload_len > APP_I18N_MAX_JSON_LEN) {
+    if (language_code == NULL || json_payload == NULL || payload_len == 0 || payload_len > APP_I18N_MAX_JSON_LEN)
+    {
         return ESP_ERR_INVALID_ARG;
     }
 
     char lang[APP_UI_LANGUAGE_MAX_LEN] = {0};
-    if (!i18n_store_normalize_language_code(language_code, lang, sizeof(lang))) {
+    if (!i18n_store_normalize_language_code(language_code, lang, sizeof(lang)))
+    {
         return ESP_ERR_INVALID_ARG;
     }
-    if (!i18n_store_ensure_dir()) {
+    if (!i18n_store_ensure_dir())
+    {
         return ESP_FAIL;
     }
 
     char path[96] = {0};
-    if (!i18n_store_build_path(lang, path, sizeof(path))) {
+    if (!i18n_store_build_path(lang, path, sizeof(path)))
+    {
         return ESP_ERR_INVALID_ARG;
     }
 
@@ -321,12 +374,14 @@ esp_err_t i18n_store_save_custom_translation(const char *language_code, const ch
 bool i18n_store_custom_translation_exists(const char *language_code)
 {
     char lang[APP_UI_LANGUAGE_MAX_LEN] = {0};
-    if (!i18n_store_normalize_language_code(language_code, lang, sizeof(lang))) {
+    if (!i18n_store_normalize_language_code(language_code, lang, sizeof(lang)))
+    {
         return false;
     }
 
     char path[96] = {0};
-    if (!i18n_store_build_path(lang, path, sizeof(path))) {
+    if (!i18n_store_build_path(lang, path, sizeof(path)))
+    {
         return false;
     }
 
@@ -334,21 +389,21 @@ bool i18n_store_custom_translation_exists(const char *language_code)
     return stat(path, &st) == 0 && S_ISREG(st.st_mode);
 }
 
-static bool i18n_store_add_language(
-    char (*out_codes)[APP_UI_LANGUAGE_MAX_LEN],
-    size_t max_codes,
-    size_t *count,
-    const char *code)
+static bool i18n_store_add_language(char (*out_codes)[APP_UI_LANGUAGE_MAX_LEN], size_t max_codes, size_t *count, const char *code)
 {
-    if (out_codes == NULL || count == NULL || code == NULL || code[0] == '\0') {
+    if (out_codes == NULL || count == NULL || code == NULL || code[0] == '\0')
+    {
         return false;
     }
-    for (size_t i = 0; i < *count; i++) {
-        if (strncmp(out_codes[i], code, APP_UI_LANGUAGE_MAX_LEN) == 0) {
+    for (size_t i = 0; i < *count; i++)
+    {
+        if (strncmp(out_codes[i], code, APP_UI_LANGUAGE_MAX_LEN) == 0)
+        {
             return false;
         }
     }
-    if (*count >= max_codes) {
+    if (*count >= max_codes)
+    {
         return false;
     }
     strlcpy(out_codes[*count], code, APP_UI_LANGUAGE_MAX_LEN);
@@ -356,63 +411,69 @@ static bool i18n_store_add_language(
     return true;
 }
 
-esp_err_t i18n_store_list_languages(
-    char (*out_codes)[APP_UI_LANGUAGE_MAX_LEN],
-    size_t max_codes,
-    size_t *out_count)
+esp_err_t i18n_store_list_languages(char (*out_codes)[APP_UI_LANGUAGE_MAX_LEN], size_t max_codes, size_t *out_count)
 {
-    if (out_codes == NULL || max_codes == 0 || out_count == NULL) {
+    if (out_codes == NULL || max_codes == 0 || out_count == NULL)
+    {
         return ESP_ERR_INVALID_ARG;
     }
 
     size_t count = 0;
-    (void)i18n_store_add_language(out_codes, max_codes, &count, "en");
-    (void)i18n_store_add_language(out_codes, max_codes, &count, "de");
-    (void)i18n_store_add_language(out_codes, max_codes, &count, "es");
-    (void)i18n_store_add_language(out_codes, max_codes, &count, "fr");
-    (void)i18n_store_add_language(out_codes, max_codes, &count, "pl");
-    (void)i18n_store_add_language(out_codes, max_codes, &count, "zh-cn");
-    (void)i18n_store_add_language(out_codes, max_codes, &count, "zh-tw");
+    (void) i18n_store_add_language(out_codes, max_codes, &count, "en");
+    (void) i18n_store_add_language(out_codes, max_codes, &count, "de");
+    (void) i18n_store_add_language(out_codes, max_codes, &count, "es");
+    (void) i18n_store_add_language(out_codes, max_codes, &count, "fr");
+    (void) i18n_store_add_language(out_codes, max_codes, &count, "pl");
+    (void) i18n_store_add_language(out_codes, max_codes, &count, "zh-cn");
+    (void) i18n_store_add_language(out_codes, max_codes, &count, "zh-tw");
 
-    if (!i18n_store_ensure_dir()) {
+    if (!i18n_store_ensure_dir())
+    {
         *out_count = count;
         return ESP_OK;
     }
 
     DIR *dir = opendir(APP_I18N_DIR);
-    if (dir == NULL) {
+    if (dir == NULL)
+    {
         *out_count = count;
         return (errno == ENOENT) ? ESP_OK : ESP_FAIL;
     }
 
     struct dirent *entry = NULL;
-    while ((entry = readdir(dir)) != NULL) {
+    while ((entry = readdir(dir)) != NULL)
+    {
         const char *name = entry->d_name;
         size_t len = strlen(name);
-        if (len <= strlen(".json")) {
+        if (len <= strlen(".json"))
+        {
             continue;
         }
-        if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0) {
+        if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0)
+        {
             continue;
         }
-        if (strcmp(name + (len - 5), ".json") != 0) {
+        if (strcmp(name + (len - 5), ".json") != 0)
+        {
             continue;
         }
 
         char code[APP_UI_LANGUAGE_MAX_LEN] = {0};
         size_t base_len = len - 5;
-        if (base_len >= sizeof(code)) {
+        if (base_len >= sizeof(code))
+        {
             continue;
         }
         memcpy(code, name, base_len);
         code[base_len] = '\0';
 
         char normalized[APP_UI_LANGUAGE_MAX_LEN] = {0};
-        if (!i18n_store_normalize_language_code(code, normalized, sizeof(normalized))) {
+        if (!i18n_store_normalize_language_code(code, normalized, sizeof(normalized)))
+        {
             continue;
         }
 
-        (void)i18n_store_add_language(out_codes, max_codes, &count, normalized);
+        (void) i18n_store_add_language(out_codes, max_codes, &count, normalized);
     }
     closedir(dir);
 

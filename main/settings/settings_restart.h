@@ -6,11 +6,14 @@
  * camera, screen protection, time zone, language, appearance, top bar, update check) the settings
  * API applies at once. PUT /api/settings with "reboot": "auto" restarts only when this says so.
  */
+/** @file
+ * @brief Reboot policy for changes to runtime settings.
+ */
 #pragma once
 
 #include <stdbool.h>
 
 #include "settings/runtime_settings.h"
 
-/* True when a setting that only takes effect at boot differs between `before` and `after`. */
+/** @return True if a boot-owned setting differs, or if either snapshot is unavailable. */
 bool settings_need_restart(const runtime_settings_t *before, const runtime_settings_t *after);

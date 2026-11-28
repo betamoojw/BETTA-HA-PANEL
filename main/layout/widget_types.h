@@ -5,38 +5,47 @@
  * domains their primary entity may come from. The layout validator and the runtime (clamping) both read it,
  * so a new type is one row here instead of a branch in each of them.
  */
+/** @file
+ * @brief Widget type registry, display-name policy and size constraints.
+ */
 #pragma once
 
 #include <stdbool.h>
 #include "cJSON.h"
 
-typedef struct {
+/** @brief Inclusive width and height bounds in logical pixels. */
+typedef struct
+{
     int min_w;
     int min_h;
     int max_w;
     int max_h;
 } widget_size_limits_t;
 
-/* True for a known type, including the legacy name "roborock_tile" of the vacuum tile. */
-/* Linear gauge, segmented look: number of LED blocks (layout field gauge_segment_count). */
+/** @brief Smallest LED block count accepted for a segmented linear gauge. */
 #define GAUGE_SEGMENT_COUNT_MIN 4
+/** @brief Largest LED block count accepted for a segmented linear gauge. */
 #define GAUGE_SEGMENT_COUNT_MAX 30
+/** @brief Default segmented gauge count when the layout has no override. */
 #define GAUGE_SEGMENT_COUNT_DEFAULT 10
 
+/** @return True for a known type, including the legacy roborock_tile alias. */
 bool widget_type_known(const char *type);
-/* Normalize retired widget formats in a parsed layout only; never writes storage.
- * Discard the parsed tree on false (allocation failure). Current formats stay unchanged. */
+/** @brief Normalize retired widget formats in a caller-owned tree without writing storage.
+ * @return False on allocation failure; discard the possibly partially normalized tree.
+ */
 bool widget_types_normalize_layout(cJSON *layout);
-/* All current widget types have a separable display name; unknown types do not. */
+/** @return True when the type is known and supports a separate display name. */
 bool widget_type_supports_name(const char *type);
-/* show_name defaults to true (false for the weather tiles). For legacy sensor layouts, sensor_show_label is the fallback. */
+/** @return Explicit name visibility, then the legacy sensor setting if present.
+ * Defaults to hidden for weather tiles and visible otherwise.
+ */
 bool widget_show_name(const cJSON *widget);
-/* The limits of a type; a generic 60x60 .. content box for an unknown one. */
+/** @return Board-clamped size bounds for a type, or generic bounds for an unknown type. */
 widget_size_limits_t widget_type_size_limits(const char *type);
-/* The limits for a widget with this look (style_variant, may be NULL): a look with a different shape,
- * such as the flat horizontal gauge, has its own; any other uses its type's. */
+/** @return Look-specific bounds when defined; otherwise the type's default bounds. */
 widget_size_limits_t widget_size_limits_for(const char *type, const char *style_variant);
-/* True when entity_id is in one of the domains the type accepts (always true for types that take any). */
+/** @return True for an accepted primary entity domain. Unknown types are checked separately by the validator. */
 bool widget_type_entity_domain_ok(const char *type, const char *entity_id);
-/* The accepted domains as "a.* or b.*" for an error message ("?" for an unknown type). */
+/** @brief Write accepted domain patterns for a diagnostic, using ?.* for an unknown type. */
 void widget_type_domain_hint(const char *type, char *out, unsigned out_len);

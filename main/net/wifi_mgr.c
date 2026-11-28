@@ -2,6 +2,9 @@
  * Copyright (c) 2026 Cpt_Kirk
  * Modified 2026 by andre68723 in the andre68723/BETTA-HA-PANEL fork, see docs/release-notes.md
  */
+/** @file
+ * @brief Station and setup AP lifecycle, scans, and recovery for native and Hosted Wi-Fi.
+ */
 #include "net/wifi_mgr.h"
 
 #include <ctype.h>
@@ -27,11 +30,11 @@
 #include "net/c6_memory.h"
 
 #if CONFIG_ESP_HOSTED
-#include "esp_app_desc.h"
-#include "esp_app_format.h"
-#include "esp_hosted.h"
-#include "esp_heap_caps.h"
-#include "net/c6_image.h"
+#  include "esp_app_desc.h"
+#  include "esp_app_format.h"
+#  include "esp_hosted.h"
+#  include "esp_heap_caps.h"
+#  include "net/c6_image.h"
 #endif
 
 #include "freertos/FreeRTOS.h"
@@ -77,22 +80,22 @@ static char s_wifi_country_code[APP_WIFI_COUNTRY_CODE_MAX_LEN] = {0};
 static bool s_hosted_transport_ready = false;
 #endif
 
-#define WIFI_CONNECTED_BIT BIT0
-#define WIFI_FAIL_BIT BIT1
-#define WIFI_SCAN_DONE_BIT BIT2
-#define WIFI_STA_STARTED_BIT BIT3
-#define WIFI_MAX_RETRIES_DEFAULT 8
+#define WIFI_CONNECTED_BIT                          BIT0
+#define WIFI_FAIL_BIT                               BIT1
+#define WIFI_SCAN_DONE_BIT                          BIT2
+#define WIFI_STA_STARTED_BIT                        BIT3
+#define WIFI_MAX_RETRIES_DEFAULT                    8
 #define WIFI_RECOVER_DISCONNECT_CONNECT_COOLDOWN_MS 5000
-#define WIFI_RECOVER_STOP_START_COOLDOWN_MS 20000
-#define WIFI_RECOVER_HARD_ATTEMPT_THRESHOLD 8
-#define WIFI_RECOVER_DISC_CONN_PERIOD 4
-#define WIFI_CONNECT_MIN_GAP_MS 1500
-#define WIFI_RECONNECT_DELAY_MIN_MS 500
-#define WIFI_RECONNECT_DELAY_HARD_MS 2000
-#define WIFI_RECONNECT_DELAY_MAX_MS 20000
-#define WIFI_SCAN_TIMEOUT_MS 8000
-#define WIFI_STA_START_WAIT_MS 2000
-#define WIFI_HOSTED_HARD_RECOVER_COOLDOWN_MS 20000
+#define WIFI_RECOVER_STOP_START_COOLDOWN_MS         20000
+#define WIFI_RECOVER_HARD_ATTEMPT_THRESHOLD         8
+#define WIFI_RECOVER_DISC_CONN_PERIOD               4
+#define WIFI_CONNECT_MIN_GAP_MS                     1500
+#define WIFI_RECONNECT_DELAY_MIN_MS                 500
+#define WIFI_RECONNECT_DELAY_HARD_MS                2000
+#define WIFI_RECONNECT_DELAY_MAX_MS                 20000
+#define WIFI_SCAN_TIMEOUT_MS                        8000
+#define WIFI_STA_START_WAIT_MS                      2000
+#define WIFI_HOSTED_HARD_RECOVER_COOLDOWN_MS        20000
 
 static int s_wifi_max_retries = WIFI_MAX_RETRIES_DEFAULT;
 static int64_t s_last_recover_disc_conn_ms = 0;
@@ -123,7 +126,8 @@ static int64_t s_diag_last_hard_recover_uptime_ms = 0;
 
 void wifi_mgr_get_diag(wifi_mgr_diag_t *out)
 {
-    if (out == NULL) {
+    if (out == NULL)
+    {
         return;
     }
     out->last_disconnect_reason = s_diag_last_disconnect_reason;
@@ -147,7 +151,7 @@ static void wifi_mgr_diag_persist(bool critical)
 static void wifi_mgr_diag_record_hard_recover(esp_err_t result)
 {
     s_diag_hard_recover_count++;
-    s_diag_last_hard_recover_err = (int32_t)result;
+    s_diag_last_hard_recover_err = (int32_t) result;
     s_diag_last_hard_recover_uptime_ms = esp_timer_get_time() / 1000;
     wifi_mgr_diag_persist(true);
 }
@@ -157,8 +161,9 @@ static esp_err_t wifi_mgr_force_reconnect_internal(bool allow_transport_escalati
 
 static void wifi_mgr_reset_reconnect_state(void)
 {
-    if (s_reconnect_timer != NULL && esp_timer_is_active(s_reconnect_timer)) {
-        (void)esp_timer_stop(s_reconnect_timer);
+    if (s_reconnect_timer != NULL && esp_timer_is_active(s_reconnect_timer))
+    {
+        (void) esp_timer_stop(s_reconnect_timer);
     }
     s_pending_reconnect_attempt = 0;
     s_pending_reconnect_reason = 0;
@@ -167,9 +172,12 @@ static void wifi_mgr_reset_reconnect_state(void)
 static void wifi_mgr_set_setup_ap_state(bool active, const char *ssid)
 {
     s_setup_ap_active = active;
-    if (active && ssid != NULL) {
+    if (active && ssid != NULL)
+    {
         strlcpy(s_setup_ap_ssid, ssid, sizeof(s_setup_ap_ssid));
-    } else {
+    }
+    else
+    {
         s_setup_ap_ssid[0] = '\0';
         s_setup_ap_password[0] = '\0';
     }
@@ -181,12 +189,13 @@ static void wifi_mgr_set_setup_ap_state(bool active, const char *ssid)
  * see docs/SECURITY.md). */
 static void wifi_mgr_generate_setup_password(char *out, size_t out_len)
 {
-    (void)setup_passphrase_format(out, out_len, esp_random(), esp_random(), esp_random());
+    (void) setup_passphrase_format(out, out_len, esp_random(), esp_random(), esp_random());
 }
 
 static void wifi_mgr_build_default_setup_ssid(char *out, size_t out_len)
 {
-    if (out == NULL || out_len == 0) {
+    if (out == NULL || out_len == 0)
+    {
         return;
     }
 
@@ -194,17 +203,21 @@ static void wifi_mgr_build_default_setup_ssid(char *out, size_t out_len)
      * which left every panel with the same plain SSID. The MAC from the radio itself is unique per unit. */
     uint8_t mac[6] = {0};
     esp_err_t mac_err = ESP_ERR_TIMEOUT;
-    if (wifi_mgr_api_lock(2000)) {
+    if (wifi_mgr_api_lock(2000))
+    {
         mac_err = esp_wifi_get_mac(WIFI_IF_AP, mac);
-        if (mac_err != ESP_OK) {
+        if (mac_err != ESP_OK)
+        {
             mac_err = esp_wifi_get_mac(WIFI_IF_STA, mac);
         }
         wifi_mgr_api_unlock();
     }
-    if (mac_err != ESP_OK) {
+    if (mac_err != ESP_OK)
+    {
         mac_err = esp_read_mac(mac, ESP_MAC_WIFI_SOFTAP);
     }
-    if (mac_err == ESP_OK) {
+    if (mac_err == ESP_OK)
+    {
         snprintf(out, out_len, "%s-%02X%02X", APP_SETUP_AP_SSID_PREFIX, mac[4], mac[5]);
         return;
     }
@@ -213,18 +226,21 @@ static void wifi_mgr_build_default_setup_ssid(char *out, size_t out_len)
 
 static bool wifi_mgr_normalize_country_code(const char *input, char *out, size_t out_len)
 {
-    if (input == NULL || out == NULL || out_len < APP_WIFI_COUNTRY_CODE_MAX_LEN) {
+    if (input == NULL || out == NULL || out_len < APP_WIFI_COUNTRY_CODE_MAX_LEN)
+    {
         return false;
     }
-    if (strlen(input) != 2) {
+    if (strlen(input) != 2)
+    {
         return false;
     }
-    if (!isalpha((unsigned char)input[0]) || !isalpha((unsigned char)input[1])) {
+    if (!isalpha((unsigned char) input[0]) || !isalpha((unsigned char) input[1]))
+    {
         return false;
     }
 
-    out[0] = (char)toupper((unsigned char)input[0]);
-    out[1] = (char)toupper((unsigned char)input[1]);
+    out[0] = (char) toupper((unsigned char) input[0]);
+    out[1] = (char) toupper((unsigned char) input[1]);
     out[2] = '\0';
     return true;
 }
@@ -234,7 +250,8 @@ static void wifi_mgr_set_country_code_from_input(const char *country_code)
     char normalized[APP_WIFI_COUNTRY_CODE_MAX_LEN] = {0};
     const char *source = (country_code != NULL && country_code[0] != '\0') ? country_code : APP_WIFI_COUNTRY_CODE;
 
-    if (!wifi_mgr_normalize_country_code(source, normalized, sizeof(normalized))) {
+    if (!wifi_mgr_normalize_country_code(source, normalized, sizeof(normalized)))
+    {
         strlcpy(normalized, "US", sizeof(normalized));
     }
     strlcpy(s_wifi_country_code, normalized, sizeof(s_wifi_country_code));
@@ -245,7 +262,8 @@ static void wifi_mgr_set_country_code_from_input(const char *country_code)
  * `dst` must be zeroed. */
 static void wifi_mgr_copy_field(uint8_t *dst, size_t dst_size, const char *src)
 {
-    if (dst == NULL || src == NULL) {
+    if (dst == NULL || src == NULL)
+    {
         return;
     }
     size_t n = strlen(src);
@@ -254,13 +272,16 @@ static void wifi_mgr_copy_field(uint8_t *dst, size_t dst_size, const char *src)
 
 static int wifi_mgr_hex_nibble(char c)
 {
-    if (c >= '0' && c <= '9') {
+    if (c >= '0' && c <= '9')
+    {
         return c - '0';
     }
-    if (c >= 'a' && c <= 'f') {
+    if (c >= 'a' && c <= 'f')
+    {
         return 10 + (c - 'a');
     }
-    if (c >= 'A' && c <= 'F') {
+    if (c >= 'A' && c <= 'F')
+    {
         return 10 + (c - 'A');
     }
     return -1;
@@ -268,27 +289,33 @@ static int wifi_mgr_hex_nibble(char c)
 
 static bool wifi_mgr_parse_bssid(const char *text, uint8_t out[6])
 {
-    if (text == NULL || out == NULL) {
+    if (text == NULL || out == NULL)
+    {
         return false;
     }
-    if (strlen(text) != 17U) {
+    if (strlen(text) != 17U)
+    {
         return false;
     }
 
     char sep = text[2];
-    if (sep != ':' && sep != '-') {
+    if (sep != ':' && sep != '-')
+    {
         return false;
     }
 
-    for (size_t i = 0; i < 6; i++) {
+    for (size_t i = 0; i < 6; i++)
+    {
         size_t idx = i * 3;
         int hi = wifi_mgr_hex_nibble(text[idx]);
         int lo = wifi_mgr_hex_nibble(text[idx + 1]);
-        if (hi < 0 || lo < 0) {
+        if (hi < 0 || lo < 0)
+        {
             return false;
         }
-        out[i] = (uint8_t)((hi << 4) | lo);
-        if (i < 5 && text[idx + 2] != sep) {
+        out[i] = (uint8_t) ((hi << 4) | lo);
+        if (i < 5 && text[idx + 2] != sep)
+        {
             return false;
         }
     }
@@ -297,13 +324,14 @@ static bool wifi_mgr_parse_bssid(const char *text, uint8_t out[6])
 
 static esp_err_t wifi_mgr_apply_country_code(void)
 {
-    if (s_wifi_country_code[0] == '\0') {
+    if (s_wifi_country_code[0] == '\0')
+    {
         wifi_mgr_set_country_code_from_input(NULL);
     }
     esp_err_t err = esp_wifi_set_country_code(s_wifi_country_code, true);
-    if (err != ESP_OK) {
-        ESP_LOGW(TAG_WIFI, "esp_wifi_set_country_code(%s) failed: %s",
-            s_wifi_country_code, esp_err_to_name(err));
+    if (err != ESP_OK)
+    {
+        ESP_LOGW(TAG_WIFI, "esp_wifi_set_country_code(%s) failed: %s", s_wifi_country_code, esp_err_to_name(err));
         return err;
     }
     ESP_LOGI(TAG_WIFI, "Wi-Fi country code set to %s", s_wifi_country_code);
@@ -312,31 +340,35 @@ static esp_err_t wifi_mgr_apply_country_code(void)
 
 const char *wifi_mgr_reason_to_str(uint8_t reason)
 {
-    switch (reason) {
-    case 2:
-        return "AUTH_EXPIRE";
-    case 8:
-        return "ASSOC_EXPIRE";
-    case 15:
-        return "4WAY_HANDSHAKE_TIMEOUT";
-    case 39:
-        return "BEACON_TIMEOUT";
-    case 205:
-        return "CONNECTION_FAIL";
-    default:
-        return "UNKNOWN";
+    switch (reason)
+    {
+        case 2:
+            return "AUTH_EXPIRE";
+        case 8:
+            return "ASSOC_EXPIRE";
+        case 15:
+            return "4WAY_HANDSHAKE_TIMEOUT";
+        case 39:
+            return "BEACON_TIMEOUT";
+        case 205:
+            return "CONNECTION_FAIL";
+        default:
+            return "UNKNOWN";
     }
 }
 
 static void wifi_mgr_try_reconnect(uint8_t reason, int attempt_no);
 
-#define WIFI_API_LOCK_STOP_START_MS 3000     /* wait for a scan or status RPC before a stop/start */
-#define WIFI_API_LOCK_HARD_RECOVER_MS 10000  /* a scan holds the lock for up to its timeout */
+#define WIFI_API_LOCK_STOP_START_MS   3000  /* wait for a scan or status RPC before a stop/start */
+#define WIFI_API_LOCK_HARD_RECOVER_MS 10000 /* a scan holds the lock for up to its timeout */
 
-/* The Wi-Fi RPCs that run on the C6 coprocessor are serialised by s_wifi_api_mutex (scan, AP info, RSSI). The recovery
+/** @brief Serialize Wi-Fi RPCs with scan and transport recovery operations.
+ *
+ * The Wi-Fi RPCs that run on the C6 coprocessor are serialized by s_wifi_api_mutex (scan, AP info, RSSI). The recovery
  * paths below stop and restart Wi-Fi and even re-initialise the whole ESP-Hosted transport, so they take it too:
  * otherwise a scan or the settings poll could be inside an RPC while the transport underneath it is torn down.
- * False only when the mutex exists and stays busy; before it exists there is nothing to wait for. */
+ * @return False only when the mutex exists and stays busy; before it exists there is nothing to wait for.
+ */
 static bool wifi_mgr_api_lock(uint32_t timeout_ms)
 {
     return s_wifi_api_mutex == NULL || xSemaphoreTake(s_wifi_api_mutex, pdMS_TO_TICKS(timeout_ms)) == pdTRUE;
@@ -344,7 +376,8 @@ static bool wifi_mgr_api_lock(uint32_t timeout_ms)
 
 static void wifi_mgr_api_unlock(void)
 {
-    if (s_wifi_api_mutex != NULL) {
+    if (s_wifi_api_mutex != NULL)
+    {
         xSemaphoreGive(s_wifi_api_mutex);
     }
 }
@@ -352,17 +385,18 @@ static void wifi_mgr_api_unlock(void)
 static bool wifi_mgr_request_connect(bool force, const char *ctx)
 {
     int64_t now_ms = esp_timer_get_time() / 1000;
-    if (!force && (now_ms - s_last_connect_request_ms) < WIFI_CONNECT_MIN_GAP_MS) {
-        ESP_LOGW(TAG_WIFI, "Skip esp_wifi_connect (%s): rate-limited (%" PRId64 " ms since last request)",
-            (ctx != NULL) ? ctx : "n/a", (now_ms - s_last_connect_request_ms));
+    if (!force && (now_ms - s_last_connect_request_ms) < WIFI_CONNECT_MIN_GAP_MS)
+    {
+        ESP_LOGW(TAG_WIFI, "Skip esp_wifi_connect (%s): rate-limited (%" PRId64 " ms since last request)", (ctx != NULL) ? ctx : "n/a",
+                 (now_ms - s_last_connect_request_ms));
         return false;
     }
 
     s_last_connect_request_ms = now_ms;
     esp_err_t err = esp_wifi_connect();
-    if (err != ESP_OK && err != ESP_ERR_WIFI_CONN) {
-        ESP_LOGW(TAG_WIFI, "esp_wifi_connect failed (%s): %s",
-            (ctx != NULL) ? ctx : "n/a", esp_err_to_name(err));
+    if (err != ESP_OK && err != ESP_ERR_WIFI_CONN)
+    {
+        ESP_LOGW(TAG_WIFI, "esp_wifi_connect failed (%s): %s", (ctx != NULL) ? ctx : "n/a", esp_err_to_name(err));
         return false;
     }
     return true;
@@ -370,20 +404,24 @@ static bool wifi_mgr_request_connect(bool force, const char *ctx)
 
 static esp_err_t wifi_mgr_get_ip_for_netif(esp_netif_t *netif, char *out, size_t out_len)
 {
-    if (out == NULL || out_len == 0) {
+    if (out == NULL || out_len == 0)
+    {
         return ESP_ERR_INVALID_ARG;
     }
     out[0] = '\0';
-    if (netif == NULL) {
+    if (netif == NULL)
+    {
         return ESP_ERR_INVALID_STATE;
     }
 
     esp_netif_ip_info_t ip_info = {0};
     esp_err_t err = esp_netif_get_ip_info(netif, &ip_info);
-    if (err != ESP_OK) {
+    if (err != ESP_OK)
+    {
         return err;
     }
-    if (ip_info.ip.addr == 0) {
+    if (ip_info.ip.addr == 0)
+    {
         return ESP_ERR_NOT_FOUND;
     }
 
@@ -393,14 +431,15 @@ static esp_err_t wifi_mgr_get_ip_for_netif(esp_netif_t *netif, char *out, size_t
 
 static bool wifi_reason_is_reconnect_hard(uint8_t reason)
 {
-    switch (reason) {
-    case 2:   /* AUTH_EXPIRE */
-    case 8:   /* ASSOC_EXPIRE */
-    case 15:  /* 4WAY_HANDSHAKE_TIMEOUT */
-    case 205: /* CONNECTION_FAIL */
-        return true;
-    default:
-        return false;
+    switch (reason)
+    {
+        case 2:   /* AUTH_EXPIRE */
+        case 8:   /* ASSOC_EXPIRE */
+        case 15:  /* 4WAY_HANDSHAKE_TIMEOUT */
+        case 205: /* CONNECTION_FAIL */
+            return true;
+        default:
+            return false;
     }
 }
 
@@ -408,16 +447,21 @@ static int64_t wifi_mgr_compute_reconnect_delay_ms(uint8_t reason, int attempt_n
 {
     bool hard_reason = wifi_reason_is_reconnect_hard(reason);
     int step = attempt_no;
-    if (step < 1) {
+    if (step < 1)
+    {
         step = 1;
-    } else if (step > 5) {
+    }
+    else if (step > 5)
+    {
         step = 5;
     }
 
     int64_t delay_ms = hard_reason ? WIFI_RECONNECT_DELAY_HARD_MS : WIFI_RECONNECT_DELAY_MIN_MS;
-    while (--step > 0) {
+    while (--step > 0)
+    {
         delay_ms *= 2;
-        if (delay_ms >= WIFI_RECONNECT_DELAY_MAX_MS) {
+        if (delay_ms >= WIFI_RECONNECT_DELAY_MAX_MS)
+        {
             delay_ms = WIFI_RECONNECT_DELAY_MAX_MS;
             break;
         }
@@ -427,8 +471,9 @@ static int64_t wifi_mgr_compute_reconnect_delay_ms(uint8_t reason, int attempt_n
 
 static void wifi_mgr_reconnect_timer_cb(void *arg)
 {
-    (void)arg;
-    if (s_wifi_connected) {
+    (void) arg;
+    if (s_wifi_connected)
+    {
         return;
     }
     wifi_mgr_try_reconnect(s_pending_reconnect_reason, s_pending_reconnect_attempt);
@@ -440,7 +485,8 @@ static int64_t wifi_mgr_schedule_reconnect(uint8_t reason, int attempt_no)
     s_pending_reconnect_reason = reason;
     s_pending_reconnect_attempt = attempt_no;
 
-    if (s_reconnect_timer == NULL) {
+    if (s_reconnect_timer == NULL)
+    {
         const esp_timer_create_args_t timer_args = {
             .callback = &wifi_mgr_reconnect_timer_cb,
             .arg = NULL,
@@ -449,22 +495,23 @@ static int64_t wifi_mgr_schedule_reconnect(uint8_t reason, int attempt_no)
             .skip_unhandled_events = true,
         };
         esp_err_t create_err = esp_timer_create(&timer_args, &s_reconnect_timer);
-        if (create_err != ESP_OK) {
-            ESP_LOGW(TAG_WIFI, "Failed to create reconnect timer (%s), reconnecting immediately",
-                esp_err_to_name(create_err));
+        if (create_err != ESP_OK)
+        {
+            ESP_LOGW(TAG_WIFI, "Failed to create reconnect timer (%s), reconnecting immediately", esp_err_to_name(create_err));
             wifi_mgr_try_reconnect(reason, attempt_no);
             return 0;
         }
     }
 
-    if (esp_timer_is_active(s_reconnect_timer)) {
-        (void)esp_timer_stop(s_reconnect_timer);
+    if (esp_timer_is_active(s_reconnect_timer))
+    {
+        (void) esp_timer_stop(s_reconnect_timer);
     }
 
-    esp_err_t start_err = esp_timer_start_once(s_reconnect_timer, (uint64_t)delay_ms * 1000ULL);
-    if (start_err != ESP_OK) {
-        ESP_LOGW(TAG_WIFI, "Failed to arm reconnect timer (%s), reconnecting immediately",
-            esp_err_to_name(start_err));
+    esp_err_t start_err = esp_timer_start_once(s_reconnect_timer, (uint64_t) delay_ms * 1000ULL);
+    if (start_err != ESP_OK)
+    {
+        ESP_LOGW(TAG_WIFI, "Failed to arm reconnect timer (%s), reconnecting immediately", esp_err_to_name(start_err));
         wifi_mgr_try_reconnect(reason, attempt_no);
         return 0;
     }
@@ -479,19 +526,21 @@ static void wifi_mgr_try_reconnect(uint8_t reason, int attempt_no)
     bool reason_known = (reason != 0);
 
     if (hard_reason && attempt_no >= WIFI_RECOVER_HARD_ATTEMPT_THRESHOLD &&
-        (now_ms - s_last_recover_stop_start_ms) >= WIFI_RECOVER_STOP_START_COOLDOWN_MS &&
-        wifi_mgr_api_lock(WIFI_API_LOCK_STOP_START_MS)) {
+        (now_ms - s_last_recover_stop_start_ms) >= WIFI_RECOVER_STOP_START_COOLDOWN_MS && wifi_mgr_api_lock(WIFI_API_LOCK_STOP_START_MS))
+    {
         esp_err_t stop_err = esp_wifi_stop();
-        if (stop_err != ESP_OK && stop_err != ESP_ERR_WIFI_NOT_INIT) {
+        if (stop_err != ESP_OK && stop_err != ESP_ERR_WIFI_NOT_INIT)
+        {
             ESP_LOGW(TAG_WIFI, "esp_wifi_stop failed in recovery step: %s", esp_err_to_name(stop_err));
         }
         esp_err_t start_err = esp_wifi_start();
-        if (start_err == ESP_OK || start_err == ESP_ERR_INVALID_STATE) {
-            (void)wifi_mgr_apply_country_code();
+        if (start_err == ESP_OK || start_err == ESP_ERR_INVALID_STATE)
+        {
+            (void) wifi_mgr_apply_country_code();
             s_last_recover_stop_start_ms = now_ms;
-            ESP_LOGW(TAG_WIFI, "Wi-Fi recovery step: stop/start (attempt %d, reason=%d)", attempt_no, (int)reason);
+            ESP_LOGW(TAG_WIFI, "Wi-Fi recovery step: stop/start (attempt %d, reason=%d)", attempt_no, (int) reason);
             wifi_mgr_api_unlock();
-            (void)wifi_mgr_request_connect(true, "after-stop-start");
+            (void) wifi_mgr_request_connect(true, "after-stop-start");
             return;
         }
         ESP_LOGW(TAG_WIFI, "esp_wifi_start failed in recovery step: %s", esp_err_to_name(start_err));
@@ -499,129 +548,152 @@ static void wifi_mgr_try_reconnect(uint8_t reason, int attempt_no)
     }
 
     if (reason_known && (attempt_no % WIFI_RECOVER_DISC_CONN_PERIOD) == 0 &&
-        (now_ms - s_last_recover_disc_conn_ms) >= WIFI_RECOVER_DISCONNECT_CONNECT_COOLDOWN_MS) {
+        (now_ms - s_last_recover_disc_conn_ms) >= WIFI_RECOVER_DISCONNECT_CONNECT_COOLDOWN_MS)
+    {
         s_last_recover_disc_conn_ms = now_ms;
-        if (wifi_mgr_request_connect(true, "periodic-connect-nudge")) {
-            ESP_LOGW(TAG_WIFI, "Wi-Fi recovery step: periodic connect nudge (attempt %d, reason=%d)",
-                attempt_no, (int)reason);
+        if (wifi_mgr_request_connect(true, "periodic-connect-nudge"))
+        {
+            ESP_LOGW(TAG_WIFI, "Wi-Fi recovery step: periodic connect nudge (attempt %d, reason=%d)", attempt_no, (int) reason);
         }
         return;
     }
 
-    (void)wifi_mgr_request_connect(false, "normal-recovery");
+    (void) wifi_mgr_request_connect(false, "normal-recovery");
 }
 
 #if CONFIG_ESP_HOSTED
-#define HOSTED_TRANSPORT_UP_BIT BIT0
-#define HOSTED_TRANSPORT_FAIL_BIT BIT1
-#define HOSTED_TRANSPORT_WAIT_MS 8000
+#  define HOSTED_TRANSPORT_UP_BIT   BIT0
+#  define HOSTED_TRANSPORT_FAIL_BIT BIT1
+#  define HOSTED_TRANSPORT_WAIT_MS  8000
 /* The 3.x host rejects a write above its per-RPC limit (EH_HOST_CP_OTA_CHUNK_MAX, 1488 bytes on SDIO) before sending it, so a fixed
  * 1500-byte chunk would fail every co-processor update (ESPHome hit the same in esphome#21394). 2.x had no such macro. */
-#ifdef EH_HOST_CP_OTA_CHUNK_MAX
-#define HOSTED_C6_OTA_CHUNK_SIZE ((uint32_t)EH_HOST_CP_OTA_CHUNK_MAX)
-#else
-#define HOSTED_C6_OTA_CHUNK_SIZE 1500U
-#endif
-#define HOSTED_C6_FWVER_QUERY_RETRIES 3
-#define HOSTED_C6_FWVER_QUERY_RETRY_DELAY_MS 300
+#  ifdef EH_HOST_CP_OTA_CHUNK_MAX
+#    define HOSTED_C6_OTA_CHUNK_SIZE ((uint32_t) EH_HOST_CP_OTA_CHUNK_MAX)
+#  else
+#    define HOSTED_C6_OTA_CHUNK_SIZE 1500U
+#  endif
+#  define HOSTED_C6_FWVER_QUERY_RETRIES        3
+#  define HOSTED_C6_FWVER_QUERY_RETRY_DELAY_MS 300
 
 static EventGroupHandle_t s_hosted_event_group = NULL;
 static esp_event_handler_instance_t s_hosted_event_instance = NULL;
 
-#if APP_HAVE_HOSTED_C6_FW_IMAGE
+#  if APP_HAVE_HOSTED_C6_FW_IMAGE
 extern const uint8_t _binary_hosted_c6_fw_bin_start[] asm("_binary_hosted_c6_fw_bin_start");
 extern const uint8_t _binary_hosted_c6_fw_bin_end[] asm("_binary_hosted_c6_fw_bin_end");
-#endif
+#  endif
 #endif
 
 static void wifi_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data)
 {
     static int retry_count = 0;
     static bool fail_notified = false;
-    (void)arg;
+    (void) arg;
 
-    if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_SCAN_DONE) {
-        wifi_event_sta_scan_done_t *scan_done = (wifi_event_sta_scan_done_t *)event_data;
+    if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_SCAN_DONE)
+    {
+        wifi_event_sta_scan_done_t *scan_done = (wifi_event_sta_scan_done_t *) event_data;
         s_wifi_scan_last_status = (scan_done != NULL) ? scan_done->status : 0;
-        if (s_wifi_event_group != NULL) {
+        if (s_wifi_event_group != NULL)
+        {
             xEventGroupSetBits(s_wifi_event_group, WIFI_SCAN_DONE_BIT);
         }
         return;
     }
 
-    if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
-        if (s_wifi_event_group != NULL) {
+    if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START)
+    {
+        if (s_wifi_event_group != NULL)
+        {
             xEventGroupSetBits(s_wifi_event_group, WIFI_STA_STARTED_BIT);
         }
-    } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_STOP) {
-        if (s_wifi_event_group != NULL) {
+    }
+    else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_STOP)
+    {
+        if (s_wifi_event_group != NULL)
+        {
             xEventGroupClearBits(s_wifi_event_group, WIFI_STA_STARTED_BIT);
         }
     }
 
-    if (s_setup_ap_active) {
-        if (event_base == IP_EVENT) {
+    if (s_setup_ap_active)
+    {
+        if (event_base == IP_EVENT)
+        {
             return;
         }
         if (event_base == WIFI_EVENT &&
-            (event_id == WIFI_EVENT_STA_START ||
-             event_id == WIFI_EVENT_STA_STOP ||
-             event_id == WIFI_EVENT_STA_DISCONNECTED)) {
+            (event_id == WIFI_EVENT_STA_START || event_id == WIFI_EVENT_STA_STOP || event_id == WIFI_EVENT_STA_DISCONNECTED))
+        {
             return;
         }
     }
 
-    if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
+    if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START)
+    {
         fail_notified = false;
-        if (s_reconnect_timer != NULL && esp_timer_is_active(s_reconnect_timer)) {
-            (void)esp_timer_stop(s_reconnect_timer);
+        if (s_reconnect_timer != NULL && esp_timer_is_active(s_reconnect_timer))
+        {
+            (void) esp_timer_stop(s_reconnect_timer);
         }
 #if APP_WIFI_DISABLE_POWER_SAVE
         esp_err_t ps_err = esp_wifi_set_ps(WIFI_PS_NONE);
-        if (ps_err != ESP_OK) {
+        if (ps_err != ESP_OK)
+        {
             ESP_LOGW(TAG_WIFI, "esp_wifi_set_ps(WIFI_PS_NONE) at STA_START failed: %s", esp_err_to_name(ps_err));
         }
 #endif
-        (void)wifi_mgr_request_connect(true, "sta-start");
-    } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
-        wifi_event_sta_disconnected_t *disc = (wifi_event_sta_disconnected_t *)event_data;
-        uint8_t reason = (disc != NULL) ? (uint8_t)disc->reason : 0;
+        (void) wifi_mgr_request_connect(true, "sta-start");
+    }
+    else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED)
+    {
+        wifi_event_sta_disconnected_t *disc = (wifi_event_sta_disconnected_t *) event_data;
+        uint8_t reason = (disc != NULL) ? (uint8_t) disc->reason : 0;
         s_wifi_connected = false;
-        if (disc != NULL) {
-            ESP_LOGW(TAG_WIFI, "Wi-Fi disconnected, reason=%d (%s)",
-                (int)disc->reason, wifi_mgr_reason_to_str((uint8_t)disc->reason));
+        if (disc != NULL)
+        {
+            ESP_LOGW(TAG_WIFI, "Wi-Fi disconnected, reason=%d (%s)", (int) disc->reason, wifi_mgr_reason_to_str((uint8_t) disc->reason));
         }
         s_diag_last_disconnect_reason = reason;
         s_diag_last_disconnect_uptime_ms = esp_timer_get_time() / 1000;
         s_diag_disconnect_count++;
         retry_count++;
-        s_diag_reconnect_attempts = (uint32_t)retry_count;
+        s_diag_reconnect_attempts = (uint32_t) retry_count;
         wifi_mgr_diag_persist(false);
         int64_t delay_ms = wifi_mgr_schedule_reconnect(reason, retry_count);
 
-        if (retry_count < s_wifi_max_retries) {
-            ESP_LOGW(TAG_WIFI, "Wi-Fi reconnect attempt %d/%d scheduled in %" PRId64 " ms (reason=%d)",
-                retry_count, s_wifi_max_retries, delay_ms, (int)reason);
-        } else {
-            if (!fail_notified && s_wifi_event_group != NULL) {
+        if (retry_count < s_wifi_max_retries)
+        {
+            ESP_LOGW(TAG_WIFI, "Wi-Fi reconnect attempt %d/%d scheduled in %" PRId64 " ms (reason=%d)", retry_count, s_wifi_max_retries,
+                     delay_ms, (int) reason);
+        }
+        else
+        {
+            if (!fail_notified && s_wifi_event_group != NULL)
+            {
                 xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
                 fail_notified = true;
             }
-            if ((retry_count % 10) == 0) {
+            if ((retry_count % 10) == 0)
+            {
                 ESP_LOGW(TAG_WIFI, "Wi-Fi still reconnecting (attempt %d, configured max %d)", retry_count, s_wifi_max_retries);
             }
         }
-    } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_LOST_IP) {
+    }
+    else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_LOST_IP)
+    {
         s_wifi_connected = false;
-        if (s_wifi_event_group != NULL) {
+        if (s_wifi_event_group != NULL)
+        {
             xEventGroupClearBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
         }
         retry_count++;
         int64_t delay_ms = wifi_mgr_schedule_reconnect(0, retry_count);
-        ESP_LOGW(TAG_WIFI, "Wi-Fi lost IP, reconnect attempt %d/%d scheduled in %" PRId64 " ms",
-            retry_count, s_wifi_max_retries, delay_ms);
-    } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
-        ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
+        ESP_LOGW(TAG_WIFI, "Wi-Fi lost IP, reconnect attempt %d/%d scheduled in %" PRId64 " ms", retry_count, s_wifi_max_retries, delay_ms);
+    }
+    else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP)
+    {
+        ip_event_got_ip_t *event = (ip_event_got_ip_t *) event_data;
         retry_count = 0;
         s_diag_reconnect_attempts = 0;
         fail_notified = false;
@@ -632,11 +704,13 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base, int32_t e
         wifi_mgr_reset_reconnect_state();
 #if APP_WIFI_DISABLE_POWER_SAVE
         esp_err_t ps_err = esp_wifi_set_ps(WIFI_PS_NONE);
-        if (ps_err != ESP_OK) {
+        if (ps_err != ESP_OK)
+        {
             ESP_LOGW(TAG_WIFI, "esp_wifi_set_ps(WIFI_PS_NONE) at GOT_IP failed: %s", esp_err_to_name(ps_err));
         }
 #endif
-        if (s_wifi_event_group != NULL) {
+        if (s_wifi_event_group != NULL)
+        {
             xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
         }
         ESP_LOGI(TAG_WIFI, "Wi-Fi connected, IP: " IPSTR, IP2STR(&event->ip_info.ip));
@@ -644,29 +718,31 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base, int32_t e
 }
 
 #if CONFIG_ESP_HOSTED
-#if CONFIG_ESP_HOSTED_HOST_TRANSPORT_BUS_SDIO
+#  if CONFIG_ESP_HOSTED_HOST_TRANSPORT_BUS_SDIO
 static void wifi_mgr_pulse_hosted_reset_gpio(void)
 {
-#if defined(CONFIG_ESP_HOSTED_HOST_RESET_GPIO)
+#    if defined(CONFIG_ESP_HOSTED_HOST_RESET_GPIO)
     const int reset_gpio = CONFIG_ESP_HOSTED_HOST_RESET_GPIO;
-    if (reset_gpio < 0) {
+    if (reset_gpio < 0)
+    {
         return;
     }
-    if ((uint32_t)reset_gpio >= GPIO_PIN_COUNT) {
+    if ((uint32_t) reset_gpio >= GPIO_PIN_COUNT)
+    {
         ESP_LOGW(TAG_WIFI, "Skip manual C6 reset pulse: invalid GPIO %d", reset_gpio);
         return;
     }
 
-    gpio_num_t reset_pin = (gpio_num_t)reset_gpio;
+    gpio_num_t reset_pin = (gpio_num_t) reset_gpio;
     esp_err_t cfg_err = gpio_reset_pin(reset_pin);
-    if (cfg_err != ESP_OK) {
-        ESP_LOGW(TAG_WIFI, "gpio_reset_pin(%d) failed before C6 reset pulse: %s",
-            reset_gpio, esp_err_to_name(cfg_err));
+    if (cfg_err != ESP_OK)
+    {
+        ESP_LOGW(TAG_WIFI, "gpio_reset_pin(%d) failed before C6 reset pulse: %s", reset_gpio, esp_err_to_name(cfg_err));
     }
     cfg_err = gpio_set_direction(reset_pin, GPIO_MODE_OUTPUT);
-    if (cfg_err != ESP_OK) {
-        ESP_LOGW(TAG_WIFI, "gpio_set_direction(%d) failed before C6 reset pulse: %s",
-            reset_gpio, esp_err_to_name(cfg_err));
+    if (cfg_err != ESP_OK)
+    {
+        ESP_LOGW(TAG_WIFI, "gpio_set_direction(%d) failed before C6 reset pulse: %s", reset_gpio, esp_err_to_name(cfg_err));
         return;
     }
 
@@ -674,16 +750,16 @@ static void wifi_mgr_pulse_hosted_reset_gpio(void)
     const int inactive_level = 1;
     const int active_level = 0;
 
-    (void)gpio_set_level(reset_pin, inactive_level);
+    (void) gpio_set_level(reset_pin, inactive_level);
     vTaskDelay(pdMS_TO_TICKS(2));
-    (void)gpio_set_level(reset_pin, active_level);
+    (void) gpio_set_level(reset_pin, active_level);
     vTaskDelay(pdMS_TO_TICKS(12));
-    (void)gpio_set_level(reset_pin, inactive_level);
+    (void) gpio_set_level(reset_pin, inactive_level);
 
     ESP_LOGW(TAG_WIFI, "Manual C6 reset pulse on GPIO[%d]", reset_gpio);
-#endif
+#    endif
 }
-#endif
+#  endif
 
 static uint32_t hosted_version_pack(uint32_t major, uint32_t minor, uint32_t patch)
 {
@@ -692,7 +768,8 @@ static uint32_t hosted_version_pack(uint32_t major, uint32_t minor, uint32_t pat
 
 static bool hosted_is_zero_version(const esp_hosted_coprocessor_fwver_t *fw)
 {
-    if (fw == NULL) {
+    if (fw == NULL)
+    {
         return false;
     }
     return (fw->major1 == 0U) && (fw->minor1 == 0U) && (fw->patch1 == 0U);
@@ -700,85 +777,98 @@ static bool hosted_is_zero_version(const esp_hosted_coprocessor_fwver_t *fw)
 
 static bool hosted_parse_version_text(const char *text, uint32_t *major, uint32_t *minor, uint32_t *patch)
 {
-    if (text == NULL || text[0] == '\0' || major == NULL || minor == NULL || patch == NULL) {
+    if (text == NULL || text[0] == '\0' || major == NULL || minor == NULL || patch == NULL)
+    {
         return false;
     }
     unsigned int m1 = 0;
     unsigned int m2 = 0;
     unsigned int m3 = 0;
-    if (sscanf(text, "%u.%u.%u", &m1, &m2, &m3) != 3) {
+    if (sscanf(text, "%u.%u.%u", &m1, &m2, &m3) != 3)
+    {
         return false;
     }
-    if (m1 > 255U || m2 > 255U || m3 > 255U) {
+    if (m1 > 255U || m2 > 255U || m3 > 255U)
+    {
         return false;
     }
-    *major = (uint32_t)m1;
-    *minor = (uint32_t)m2;
-    *patch = (uint32_t)m3;
+    *major = (uint32_t) m1;
+    *minor = (uint32_t) m2;
+    *patch = (uint32_t) m3;
     return true;
 }
 
-#if APP_HAVE_HOSTED_C6_FW_IMAGE
+#  if APP_HAVE_HOSTED_C6_FW_IMAGE
 static void hosted_release_embedded_c6_fw(const uint8_t *data)
 {
-#if APP_HOSTED_C6_FW_COMPRESSED
-    heap_caps_free((void *)data);
-#else
-    (void)data;
-#endif
+#    if APP_HOSTED_C6_FW_COMPRESSED
+    heap_caps_free((void *) data);
+#    else
+    (void) data;
+#    endif
 }
 
 static esp_err_t hosted_get_embedded_c6_fw(const uint8_t **out_data, size_t *out_len, char *out_version, size_t out_version_len)
 {
-    if (out_data == NULL || out_len == NULL) {
+    if (out_data == NULL || out_len == NULL)
+    {
         return ESP_ERR_INVALID_ARG;
     }
 
     const uint8_t *start = _binary_hosted_c6_fw_bin_start;
     const uint8_t *end = _binary_hosted_c6_fw_bin_end;
-    if (start == NULL || end == NULL || end <= start) {
+    if (start == NULL || end == NULL || end <= start)
+    {
         return ESP_ERR_NOT_FOUND;
     }
 
-#if APP_HOSTED_C6_FW_COMPRESSED
+#    if APP_HOSTED_C6_FW_COMPRESSED
     uint8_t *raw = NULL;
     size_t len = 0;
-    esp_err_t unpack_err = c6_image_unpack(start, (size_t)(end - start), &raw, &len);
-    if (unpack_err != ESP_OK) return unpack_err;
-#else
+    esp_err_t unpack_err = c6_image_unpack(start, (size_t) (end - start), &raw, &len);
+    if (unpack_err != ESP_OK)
+    {
+        return unpack_err;
+    }
+#    else
     const uint8_t *raw = start;
-    size_t len = (size_t)(end - start);
-#endif
-    if (len < (sizeof(esp_image_header_t) + sizeof(esp_image_segment_header_t) + sizeof(esp_app_desc_t))) {
+    size_t len = (size_t) (end - start);
+#    endif
+    if (len < (sizeof(esp_image_header_t) + sizeof(esp_image_segment_header_t) + sizeof(esp_app_desc_t)))
+    {
         hosted_release_embedded_c6_fw(raw);
         return ESP_ERR_INVALID_SIZE;
     }
 
-    const esp_image_header_t *image_header = (const esp_image_header_t *)raw;
-    if (image_header->magic != ESP_IMAGE_HEADER_MAGIC) {
+    const esp_image_header_t *image_header = (const esp_image_header_t *) raw;
+    if (image_header->magic != ESP_IMAGE_HEADER_MAGIC)
+    {
         hosted_release_embedded_c6_fw(raw);
         return ESP_ERR_INVALID_RESPONSE;
     }
-    if (image_header->chip_id != ESP_CHIP_ID_ESP32C6) {
+    if (image_header->chip_id != ESP_CHIP_ID_ESP32C6)
+    {
         hosted_release_embedded_c6_fw(raw);
         return ESP_ERR_INVALID_RESPONSE;
     }
 
     size_t app_desc_offset = sizeof(esp_image_header_t) + sizeof(esp_image_segment_header_t);
-    const esp_app_desc_t *app_desc = (const esp_app_desc_t *)(raw + app_desc_offset);
-    if (app_desc->magic_word != ESP_APP_DESC_MAGIC_WORD) {
+    const esp_app_desc_t *app_desc = (const esp_app_desc_t *) (raw + app_desc_offset);
+    if (app_desc->magic_word != ESP_APP_DESC_MAGIC_WORD)
+    {
         hosted_release_embedded_c6_fw(raw);
         return ESP_ERR_INVALID_RESPONSE;
     }
 
-    if (out_version != NULL && out_version_len > 0) {
+    if (out_version != NULL && out_version_len > 0)
+    {
         strlcpy(out_version, app_desc->version, out_version_len);
     }
     *out_data = raw;
     *out_len = len;
     return ESP_OK;
 }
-#endif
+#  endif
 
 static void wifi_mgr_remember_c6_version(const esp_hosted_coprocessor_fwver_t *fw)
 {
@@ -788,20 +878,23 @@ static void wifi_mgr_remember_c6_version(const esp_hosted_coprocessor_fwver_t *f
 bool wifi_mgr_get_c6_version(char *out, size_t out_len)
 {
     const uint32_t word = s_c6_version_word;
-    if (out == NULL || out_len == 0) {
+    if (out == NULL || out_len == 0)
+    {
         return false;
     }
     out[0] = '\0';
-    if ((word & 0x80000000U) == 0) {
+    if ((word & 0x80000000U) == 0)
+    {
         return false;
     }
-    snprintf(out, out_len, "%u.%u.%u", (unsigned)((word >> 16) & 0xFFU), (unsigned)((word >> 8) & 0xFFU), (unsigned)(word & 0xFFU));
+    snprintf(out, out_len, "%u.%u.%u", (unsigned) ((word >> 16) & 0xFFU), (unsigned) ((word >> 8) & 0xFFU), (unsigned) (word & 0xFFU));
     return true;
 }
 
 static void wifi_mgr_maybe_auto_update_c6_fw(const esp_hosted_coprocessor_fwver_t *running_fw)
 {
-    if (running_fw == NULL || !APP_HOSTED_AUTO_UPDATE_C6_FW) {
+    if (running_fw == NULL || !APP_HOSTED_AUTO_UPDATE_C6_FW)
+    {
         return;
     }
 
@@ -813,43 +906,47 @@ static void wifi_mgr_maybe_auto_update_c6_fw(const esp_hosted_coprocessor_fwver_
     uint32_t host_major = 0;
     uint32_t host_minor = 0;
     uint32_t host_patch = 0;
-    if (!hosted_parse_version_text(APP_HOSTED_C6_EXPECTED_VERSION, &host_major, &host_minor, &host_patch)) {
+    if (!hosted_parse_version_text(APP_HOSTED_C6_EXPECTED_VERSION, &host_major, &host_minor, &host_patch))
+    {
         ESP_LOGW(TAG_WIFI,
-            "Could not parse host esp_hosted component version '%s'; skipping auto update for safety",
-            APP_HOSTED_C6_EXPECTED_VERSION);
+                 "Could not parse host esp_hosted component version '%s'; skipping auto update for safety",
+                 APP_HOSTED_C6_EXPECTED_VERSION);
         return;
     }
     uint32_t host_version = hosted_version_pack(host_major, host_minor, host_patch);
     uint32_t running_version = hosted_version_pack(running_fw->major1, running_fw->minor1, running_fw->patch1);
     const bool running_version_is_zero = hosted_is_zero_version(running_fw);
 
-    if (running_version == host_version) {
+    if (running_version == host_version)
+    {
         return;
     }
 
-    if (running_version_is_zero) {
+    if (running_version_is_zero)
+    {
+        ESP_LOGW(TAG_WIFI, "C6 FW reports 0.0.0; forcing bundled firmware update check");
+    }
+    else if (running_version != host_version)
+    {
         ESP_LOGW(TAG_WIFI,
-            "C6 FW reports 0.0.0; forcing bundled firmware update check");
-    } else if (running_version != host_version) {
-        ESP_LOGW(TAG_WIFI,
-            "C6 FW mismatch: running %u.%u.%u, host expects " ESP_HOSTED_VERSION_PRINTF_FMT,
-            (unsigned int)running_fw->major1,
-            (unsigned int)running_fw->minor1,
-            (unsigned int)running_fw->patch1,
-            ESP_HOSTED_VERSION_PRINTF_ARGS(host_version));
+                 "C6 FW mismatch: running %u.%u.%u, host expects " ESP_HOSTED_VERSION_PRINTF_FMT,
+                 (unsigned int) running_fw->major1,
+                 (unsigned int) running_fw->minor1,
+                 (unsigned int) running_fw->patch1,
+                 ESP_HOSTED_VERSION_PRINTF_ARGS(host_version));
     }
 
-#if !APP_HAVE_HOSTED_C6_FW_IMAGE
+#  if !APP_HAVE_HOSTED_C6_FW_IMAGE
     ESP_LOGW(TAG_WIFI, "No embedded C6 firmware image available; skipping automatic C6 update");
     return;
-#else
+#  else
     const uint8_t *fw_data = NULL;
     size_t fw_len = 0;
     char fw_version_text[32] = {0};
     esp_err_t fw_meta_err = hosted_get_embedded_c6_fw(&fw_data, &fw_len, fw_version_text, sizeof(fw_version_text));
-    if (fw_meta_err != ESP_OK) {
-        ESP_LOGW(TAG_WIFI, "Embedded C6 firmware image invalid/unavailable (%s), skip auto update",
-            esp_err_to_name(fw_meta_err));
+    if (fw_meta_err != ESP_OK)
+    {
+        ESP_LOGW(TAG_WIFI, "Embedded C6 firmware image invalid/unavailable (%s), skip auto update", esp_err_to_name(fw_meta_err));
         return;
     }
 
@@ -858,52 +955,57 @@ static void wifi_mgr_maybe_auto_update_c6_fw(const esp_hosted_coprocessor_fwver_
     uint32_t bundled_patch = 0;
     /* esp_hosted 3.x images from esphome/esp-hosted-firmware carry app_desc.version "1" (no git describe); the file name
      * release/network_adapter_esp32c6_<version>.bin was already chosen by the host component's version, so use that. */
-    if (!hosted_parse_version_text(fw_version_text, &bundled_major, &bundled_minor, &bundled_patch)) {
+    if (!hosted_parse_version_text(fw_version_text, &bundled_major, &bundled_minor, &bundled_patch))
+    {
         ESP_LOGW(TAG_WIFI, "Bundled C6 image has no version ('%s'); assuming the host version %s", fw_version_text,
-            APP_HOSTED_C6_EXPECTED_VERSION);
-        (void)hosted_parse_version_text(APP_HOSTED_C6_EXPECTED_VERSION, &bundled_major, &bundled_minor, &bundled_patch);
+                 APP_HOSTED_C6_EXPECTED_VERSION);
+        (void) hosted_parse_version_text(APP_HOSTED_C6_EXPECTED_VERSION, &bundled_major, &bundled_minor, &bundled_patch);
     }
-    if (bundled_major != 0U || bundled_minor != 0U || bundled_patch != 0U) {
+    if (bundled_major != 0U || bundled_minor != 0U || bundled_patch != 0U)
+    {
         uint32_t bundled_version = hosted_version_pack(bundled_major, bundled_minor, bundled_patch);
-        ESP_LOGW(TAG_WIFI,
-            "Bundled C6 firmware version: %u.%u.%u (%u bytes)",
-            (unsigned int)bundled_major, (unsigned int)bundled_minor, (unsigned int)bundled_patch, (unsigned int)fw_len);
+        ESP_LOGW(TAG_WIFI, "Bundled C6 firmware version: %u.%u.%u (%u bytes)", (unsigned int) bundled_major, (unsigned int) bundled_minor,
+                 (unsigned int) bundled_patch, (unsigned int) fw_len);
 
-        if (bundled_version != host_version) {
-            if (!allow_version_mismatch) {
+        if (bundled_version != host_version)
+        {
+            if (!allow_version_mismatch)
+            {
                 ESP_LOGW(TAG_WIFI,
-                    "Bundled C6 version (%u.%u.%u) does not match host stack version ("
-                    ESP_HOSTED_VERSION_PRINTF_FMT "). Skipping auto update for safety.",
-                    (unsigned int)bundled_major,
-                    (unsigned int)bundled_minor,
-                    (unsigned int)bundled_patch,
-                    ESP_HOSTED_VERSION_PRINTF_ARGS(host_version));
+                         "Bundled C6 version (%u.%u.%u) does not match host stack version (" ESP_HOSTED_VERSION_PRINTF_FMT
+                         "). Skipping auto update for safety.",
+                         (unsigned int) bundled_major,
+                         (unsigned int) bundled_minor,
+                         (unsigned int) bundled_patch,
+                         ESP_HOSTED_VERSION_PRINTF_ARGS(host_version));
                 goto release_image;
             }
             ESP_LOGW(TAG_WIFI,
-                "Proceeding despite bundled/host version mismatch (bundled=%u.%u.%u host="
-                ESP_HOSTED_VERSION_PRINTF_FMT ") due to APP_HOSTED_ALLOW_BUNDLED_C6_VERSION_MISMATCH=1",
-                (unsigned int)bundled_major,
-                (unsigned int)bundled_minor,
-                (unsigned int)bundled_patch,
-                ESP_HOSTED_VERSION_PRINTF_ARGS(host_version));
+                     "Proceeding despite bundled/host version mismatch (bundled=%u.%u.%u host=" ESP_HOSTED_VERSION_PRINTF_FMT
+                     ") due to APP_HOSTED_ALLOW_BUNDLED_C6_VERSION_MISMATCH=1",
+                     (unsigned int) bundled_major,
+                     (unsigned int) bundled_minor,
+                     (unsigned int) bundled_patch,
+                     ESP_HOSTED_VERSION_PRINTF_ARGS(host_version));
         }
 
-        if (bundled_version == running_version) {
+        if (bundled_version == running_version)
+        {
             ESP_LOGW(TAG_WIFI, "Running C6 version already equals bundled image; skipping auto update");
             goto release_image;
         }
-    } else {
-        ESP_LOGW(TAG_WIFI,
-            "Could not parse bundled C6 version string '%s'; skipping auto update for safety",
-            fw_version_text);
+    }
+    else
+    {
+        ESP_LOGW(TAG_WIFI, "Could not parse bundled C6 version string '%s'; skipping auto update for safety", fw_version_text);
         goto release_image;
     }
 
     /* The update ends with a deliberate restart. A freshly installed image is still on probation (pending verify), and the bootloader returns to the
      * previous image on any reset before it is marked valid: updating now would undo the firmware update that needed the new C6 image, and the old
      * image would then flash the C6 back. Wait until the image is valid (util/ota_validate.c calls wifi_mgr_run_deferred_c6_update()). */
-    if (strcmp(ota_validate_image_state(), "pending_verify") == 0) {
+    if (strcmp(ota_validate_image_state(), "pending_verify") == 0)
+    {
         ESP_LOGW(TAG_WIFI, "C6 update needed, but this image is still pending verification: deferred until it is marked valid");
         s_c6_update_deferred = true;
         goto release_image;
@@ -911,7 +1013,8 @@ static void wifi_mgr_maybe_auto_update_c6_fw(const esp_hosted_coprocessor_fwver_
 
     /* Never two coprocessor updates in a row: if the version still differs right after one (the C6 reports 0.0.0 or
      * another number than the bundled image), repeating it would flash the C6 and restart the panel at every boot. */
-    if (reboot_log_last_cause() == REBOOT_CAUSE_C6_UPDATE) {
+    if (reboot_log_last_cause() == REBOOT_CAUSE_C6_UPDATE)
+    {
         ESP_LOGW(TAG_WIFI, "C6 firmware still differs right after a C6 update: not updating again until the next restart");
         goto release_image;
     }
@@ -919,15 +1022,15 @@ static void wifi_mgr_maybe_auto_update_c6_fw(const esp_hosted_coprocessor_fwver_
     ESP_LOGW(TAG_WIFI, "Starting automatic C6 OTA update over ESP-Hosted transport");
     /* The deferred update runs after the boot splash is gone (the new image must become valid first): show it again, or the
      * messages below land on a splash nobody sees. A failed update hides it again; a finished one restarts the host. */
-    (void)ui_boot_splash_show(NULL);
+    (void) ui_boot_splash_show(NULL);
     ui_boot_splash_set_title("C6 Firmware Update");
     ui_boot_splash_clear_status();
     ui_boot_splash_set_status("Updating Wi-Fi coprocessor");
     {
         char versions[40];
-        snprintf(versions, sizeof(versions), "%u.%u.%u -> %u.%u.%u", (unsigned int)running_fw->major1,
-            (unsigned int)running_fw->minor1, (unsigned int)running_fw->patch1, (unsigned int)bundled_major,
-            (unsigned int)bundled_minor, (unsigned int)bundled_patch);
+        snprintf(versions, sizeof(versions), "%u.%u.%u -> %u.%u.%u", (unsigned int) running_fw->major1, (unsigned int) running_fw->minor1,
+                 (unsigned int) running_fw->patch1, (unsigned int) bundled_major, (unsigned int) bundled_minor,
+                 (unsigned int) bundled_patch);
         ui_boot_splash_set_status(versions);
     }
     ui_boot_splash_set_status("Do not disconnect power");
@@ -935,7 +1038,8 @@ static void wifi_mgr_maybe_auto_update_c6_fw(const esp_hosted_coprocessor_fwver_
     ui_boot_splash_set_progress(0);
 
     esp_err_t err = esp_hosted_slave_ota_begin();
-    if (err != ESP_OK) {
+    if (err != ESP_OK)
+    {
         ESP_LOGW(TAG_WIFI, "esp_hosted_slave_ota_begin failed: %s", esp_err_to_name(err));
         ui_boot_splash_set_status("C6 update failed to start");
         ui_boot_splash_hide();
@@ -944,38 +1048,42 @@ static void wifi_mgr_maybe_auto_update_c6_fw(const esp_hosted_coprocessor_fwver_
 
     size_t offset = 0;
     uint8_t last_progress = 0;
-    while (offset < fw_len) {
+    while (offset < fw_len)
+    {
         size_t chunk_len = (fw_len - offset > HOSTED_C6_OTA_CHUNK_SIZE) ? HOSTED_C6_OTA_CHUNK_SIZE : (fw_len - offset);
-        err = esp_hosted_slave_ota_write((uint8_t *)(fw_data + offset), (uint32_t)chunk_len);
-        if (err != ESP_OK) {
-            ESP_LOGW(TAG_WIFI, "esp_hosted_slave_ota_write failed at offset %u: %s",
-                (unsigned int)offset, esp_err_to_name(err));
+        err = esp_hosted_slave_ota_write((uint8_t *) (fw_data + offset), (uint32_t) chunk_len);
+        if (err != ESP_OK)
+        {
+            ESP_LOGW(TAG_WIFI, "esp_hosted_slave_ota_write failed at offset %u: %s", (unsigned int) offset, esp_err_to_name(err));
             ui_boot_splash_set_status("C6 update write failed");
             ui_boot_splash_hide();
-            (void)esp_hosted_slave_ota_end();
+            (void) esp_hosted_slave_ota_end();
             goto release_image;
         }
         offset += chunk_len;
-        uint8_t progress = (uint8_t)((offset * 100U) / fw_len);
-        if (progress != last_progress) {
+        uint8_t progress = (uint8_t) ((offset * 100U) / fw_len);
+        if (progress != last_progress)
+        {
             last_progress = progress;
             ui_boot_splash_set_progress(progress);
         }
     }
 
     err = esp_hosted_slave_ota_end();
-    if (err != ESP_OK) {
+    if (err != ESP_OK)
+    {
         ESP_LOGW(TAG_WIFI, "esp_hosted_slave_ota_end failed: %s", esp_err_to_name(err));
         ui_boot_splash_set_status("C6 update finalize failed");
         ui_boot_splash_hide();
         goto release_image;
     }
 
-    bool activate_supported =
-        (running_fw->major1 > 2U) || ((running_fw->major1 == 2U) && (running_fw->minor1 > 5U));
-    if (activate_supported) {
+    bool activate_supported = (running_fw->major1 > 2U) || ((running_fw->major1 == 2U) && (running_fw->minor1 > 5U));
+    if (activate_supported)
+    {
         err = esp_hosted_slave_ota_activate();
-        if (err != ESP_OK) {
+        if (err != ESP_OK)
+        {
             ESP_LOGW(TAG_WIFI, "esp_hosted_slave_ota_activate failed: %s", esp_err_to_name(err));
             ui_boot_splash_set_status("C6 update activate failed");
             ui_boot_splash_hide();
@@ -993,22 +1101,24 @@ static void wifi_mgr_maybe_auto_update_c6_fw(const esp_hosted_coprocessor_fwver_
 
 release_image:
     hosted_release_embedded_c6_fw(fw_data);
-#endif
+#  endif
 }
 
-#if CONFIG_ESP_HOSTED
+#  if CONFIG_ESP_HOSTED
 static void c6_deferred_update_task(void *arg)
 {
-    (void)arg;
+    (void) arg;
     c6_memory_allow(false);
-    if (!wifi_mgr_api_lock(WIFI_API_LOCK_HARD_RECOVER_MS)) {
+    if (!wifi_mgr_api_lock(WIFI_API_LOCK_HARD_RECOVER_MS))
+    {
         ESP_LOGW(TAG_WIFI, "Deferred C6 update: Wi-Fi API busy, retry on next boot");
         s_c6_update_deferred = true;
         vTaskDelete(NULL);
         return;
     }
     esp_hosted_coprocessor_fwver_t fw = {0};
-    if (esp_hosted_get_coprocessor_fwversion(&fw) == ESP_OK) {
+    if (esp_hosted_get_coprocessor_fwversion(&fw) == ESP_OK)
+    {
         wifi_mgr_remember_c6_version(&fw);
         wifi_mgr_maybe_auto_update_c6_fw(&fw);
     }
@@ -1016,29 +1126,35 @@ static void c6_deferred_update_task(void *arg)
     c6_memory_allow(s_wifi_connected && !s_c6_update_deferred);
     vTaskDelete(NULL);
 }
-#endif
+#  endif
 
 void wifi_mgr_run_deferred_c6_update(void)
 {
-#if CONFIG_ESP_HOSTED
-    if (!s_c6_update_deferred) {
+#  if CONFIG_ESP_HOSTED
+    if (!s_c6_update_deferred)
+    {
         return;
     }
     s_c6_update_deferred = false;
-    if (xTaskCreate(c6_deferred_update_task, "c6_update", 8192, NULL, 4, NULL) != pdPASS) {
+    if (xTaskCreate(c6_deferred_update_task, "c6_update", 8192, NULL, 4, NULL) != pdPASS)
+    {
         ESP_LOGW(TAG_WIFI, "Could not start the deferred C6 update task");
     }
-#endif
+#  endif
 }
 
 /* The low-priority worker is the only caller. A busy scan/recovery postpones this
  * optional request, and teardown/OTA cannot race it while this lock is held. */
 static esp_err_t wifi_mgr_configure_c6_memory(c6_memory_values_t *out, bool *busy)
 {
-#if CONFIG_ESP_HOSTED_MEM_MONITOR
+#  if CONFIG_ESP_HOSTED_MEM_MONITOR
     *busy = true;
-    if (!wifi_mgr_api_lock(0)) return ESP_ERR_TIMEOUT;
-    if (!s_hosted_transport_ready || s_c6_update_deferred || !c6_memory_can_configure()) {
+    if (!wifi_mgr_api_lock(0))
+    {
+        return ESP_ERR_TIMEOUT;
+    }
+    if (!s_hosted_transport_ready || s_c6_update_deferred || !c6_memory_can_configure())
+    {
         wifi_mgr_api_unlock();
         return ESP_ERR_INVALID_STATE;
     }
@@ -1051,7 +1167,8 @@ static esp_err_t wifi_mgr_configure_c6_memory(c6_memory_values_t *out, bool *bus
     esp_hosted_curr_mem_info_t info = {0};
     esp_err_t err = esp_hosted_set_mem_monitor(&config, &info);
     wifi_mgr_api_unlock();
-    if (err == ESP_OK) {
+    if (err == ESP_OK)
+    {
         *out = (c6_memory_values_t) {
             /* The upstream name means FREE heap, not heap capacity. */
             .free_heap = info.curr_total_heap_size,
@@ -1062,35 +1179,44 @@ static esp_err_t wifi_mgr_configure_c6_memory(c6_memory_values_t *out, bool *bus
         };
     }
     return err;
-#else
-    (void)out;
+#  else
+    (void) out;
     *busy = false;
     return ESP_ERR_NOT_SUPPORTED;
-#endif
+#  endif
 }
 
 static void hosted_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data)
 {
-    (void)arg;
-    (void)event_data;
+    (void) arg;
+    (void) event_data;
 
-    if (event_base != ESP_HOSTED_EVENT || s_hosted_event_group == NULL) {
+    if (event_base != ESP_HOSTED_EVENT || s_hosted_event_group == NULL)
+    {
         return;
     }
 
-    if (event_id == ESP_HOSTED_EVENT_TRANSPORT_UP) {
+    if (event_id == ESP_HOSTED_EVENT_TRANSPORT_UP)
+    {
         c6_memory_transport(true);
         xEventGroupSetBits(s_hosted_event_group, HOSTED_TRANSPORT_UP_BIT);
-    } else if (event_id == ESP_HOSTED_EVENT_TRANSPORT_DOWN || event_id == ESP_HOSTED_EVENT_TRANSPORT_FAILURE) {
+    }
+    else if (event_id == ESP_HOSTED_EVENT_TRANSPORT_DOWN || event_id == ESP_HOSTED_EVENT_TRANSPORT_FAILURE)
+    {
         c6_memory_transport(false);
         xEventGroupSetBits(s_hosted_event_group, HOSTED_TRANSPORT_FAIL_BIT);
-    } else if (event_id == ESP_HOSTED_EVENT_CP_INIT) {
+    }
+    else if (event_id == ESP_HOSTED_EVENT_CP_INIT)
+    {
         c6_memory_cp_init();
-        esp_hosted_event_init_t *event = (esp_hosted_event_init_t *)event_data;
-        if (event != NULL) {
-            ESP_LOGI(TAG_WIFI, "ESP-Hosted coprocessor init event, reset reason=%d", (int)event->reason);
+        esp_hosted_event_init_t *event = (esp_hosted_event_init_t *) event_data;
+        if (event != NULL)
+        {
+            ESP_LOGI(TAG_WIFI, "ESP-Hosted coprocessor init event, reset reason=%d", (int) event->reason);
         }
-    } else if (event_id == ESP_HOSTED_EVENT_MEM_MONITOR && event_data != NULL) {
+    }
+    else if (event_id == ESP_HOSTED_EVENT_MEM_MONITOR && event_data != NULL)
+    {
         const esp_hosted_event_mem_info_t *info = event_data;
         const c6_memory_values_t values = {
             .free_heap = info->curr_total_free_heap_size,
@@ -1108,75 +1234,85 @@ static void hosted_event_handler(void *arg, esp_event_base_t event_base, int32_t
 static esp_err_t wifi_mgr_init_hosted_transport(void)
 {
     c6_memory_init(wifi_mgr_configure_c6_memory);
-    if (s_hosted_transport_ready) {
+    if (s_hosted_transport_ready)
+    {
         return ESP_OK;
     }
 
-    if (s_hosted_event_group == NULL) {
+    if (s_hosted_event_group == NULL)
+    {
         s_hosted_event_group = xEventGroupCreate();
     }
-    if (s_hosted_event_group == NULL) {
+    if (s_hosted_event_group == NULL)
+    {
         return ESP_ERR_NO_MEM;
     }
 
-    if (s_hosted_event_instance == NULL) {
+    if (s_hosted_event_instance == NULL)
+    {
         ESP_RETURN_ON_ERROR(
-            esp_event_handler_instance_register(
-                ESP_HOSTED_EVENT, ESP_EVENT_ANY_ID, &hosted_event_handler, NULL, &s_hosted_event_instance),
+            esp_event_handler_instance_register(ESP_HOSTED_EVENT, ESP_EVENT_ANY_ID, &hosted_event_handler, NULL, &s_hosted_event_instance),
             TAG_WIFI, "register ESP_HOSTED_EVENT");
     }
 
     int ret = esp_hosted_init();
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG_WIFI, "esp_hosted_init failed: %s", esp_err_to_name((esp_err_t)ret));
-        return (esp_err_t)ret;
+    if (ret != ESP_OK)
+    {
+        ESP_LOGE(TAG_WIFI, "esp_hosted_init failed: %s", esp_err_to_name((esp_err_t) ret));
+        return (esp_err_t) ret;
     }
 
     xEventGroupClearBits(s_hosted_event_group, HOSTED_TRANSPORT_UP_BIT | HOSTED_TRANSPORT_FAIL_BIT);
     ret = esp_hosted_connect_to_slave();
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG_WIFI, "esp_hosted_connect_to_slave failed: %s", esp_err_to_name((esp_err_t)ret));
+    if (ret != ESP_OK)
+    {
+        ESP_LOGE(TAG_WIFI, "esp_hosted_connect_to_slave failed: %s", esp_err_to_name((esp_err_t) ret));
         esp_hosted_deinit();
-        return (esp_err_t)ret;
+        return (esp_err_t) ret;
     }
 
-    EventBits_t hosted_bits = xEventGroupWaitBits(
-        s_hosted_event_group,
-        HOSTED_TRANSPORT_UP_BIT | HOSTED_TRANSPORT_FAIL_BIT,
-        pdFALSE,
-        pdFALSE,
-        pdMS_TO_TICKS(HOSTED_TRANSPORT_WAIT_MS));
+    EventBits_t hosted_bits = xEventGroupWaitBits(s_hosted_event_group,
+                                                  HOSTED_TRANSPORT_UP_BIT | HOSTED_TRANSPORT_FAIL_BIT,
+                                                  pdFALSE,
+                                                  pdFALSE,
+                                                  pdMS_TO_TICKS(HOSTED_TRANSPORT_WAIT_MS));
 
-    if (hosted_bits & HOSTED_TRANSPORT_FAIL_BIT) {
+    if (hosted_bits & HOSTED_TRANSPORT_FAIL_BIT)
+    {
         ESP_LOGE(TAG_WIFI, "ESP-Hosted transport failure event while bringing link up");
         return ESP_FAIL;
     }
-    if (!(hosted_bits & HOSTED_TRANSPORT_UP_BIT)) {
+    if (!(hosted_bits & HOSTED_TRANSPORT_UP_BIT))
+    {
         ESP_LOGE(TAG_WIFI, "ESP-Hosted transport did not come up within %d ms", HOSTED_TRANSPORT_WAIT_MS);
         return ESP_ERR_TIMEOUT;
     }
 
     esp_hosted_coprocessor_fwver_t fw = {0};
     esp_err_t fw_err = ESP_FAIL;
-    for (int attempt = 1; attempt <= HOSTED_C6_FWVER_QUERY_RETRIES; attempt++) {
+    for (int attempt = 1; attempt <= HOSTED_C6_FWVER_QUERY_RETRIES; attempt++)
+    {
         fw_err = esp_hosted_get_coprocessor_fwversion(&fw);
-        if (fw_err == ESP_OK) {
+        if (fw_err == ESP_OK)
+        {
             break;
         }
-        ESP_LOGW(TAG_WIFI,
-                 "Coprocessor FW version query failed (%s), attempt %d/%d",
-                 esp_err_to_name(fw_err), attempt, HOSTED_C6_FWVER_QUERY_RETRIES);
-        if (attempt < HOSTED_C6_FWVER_QUERY_RETRIES) {
+        ESP_LOGW(TAG_WIFI, "Coprocessor FW version query failed (%s), attempt %d/%d", esp_err_to_name(fw_err), attempt,
+                 HOSTED_C6_FWVER_QUERY_RETRIES);
+        if (attempt < HOSTED_C6_FWVER_QUERY_RETRIES)
+        {
             vTaskDelay(pdMS_TO_TICKS(HOSTED_C6_FWVER_QUERY_RETRY_DELAY_MS));
         }
     }
 
-    if (fw_err == ESP_OK) {
-        ESP_LOGI(TAG_WIFI, "ESP-Hosted connected to C6 FW %" PRIu32 ".%" PRIu32 ".%" PRIu32,
-                 fw.major1, fw.minor1, fw.patch1);
+    if (fw_err == ESP_OK)
+    {
+        ESP_LOGI(TAG_WIFI, "ESP-Hosted connected to C6 FW %" PRIu32 ".%" PRIu32 ".%" PRIu32, fw.major1, fw.minor1, fw.patch1);
         wifi_mgr_remember_c6_version(&fw);
         wifi_mgr_maybe_auto_update_c6_fw(&fw);
-    } else {
+    }
+    else
+    {
         // Treat unknown version as 0.0.0 so blank/legacy co-processors are auto-recovered.
         ESP_LOGW(TAG_WIFI,
                  "ESP-Hosted connected, but coprocessor FW version is unavailable (%s). "
@@ -1191,7 +1327,10 @@ static esp_err_t wifi_mgr_init_hosted_transport(void)
 #else
 bool wifi_mgr_get_c6_version(char *out, size_t out_len)
 {
-    if (out != NULL && out_len > 0) out[0] = '\0';
+    if (out != NULL && out_len > 0)
+    {
+        out[0] = '\0';
+    }
     return false; /* Native Wi-Fi boards have no hosted coprocessor. */
 }
 
@@ -1202,25 +1341,31 @@ void wifi_mgr_run_deferred_c6_update(void)
 
 static esp_err_t wifi_mgr_ensure_stack_initialized(void)
 {
-    if (s_wifi_event_group == NULL) {
+    if (s_wifi_event_group == NULL)
+    {
         s_wifi_event_group = xEventGroupCreate();
     }
-    if (s_wifi_event_group == NULL) {
+    if (s_wifi_event_group == NULL)
+    {
         return ESP_ERR_NO_MEM;
     }
-    if (s_wifi_api_mutex == NULL) {
+    if (s_wifi_api_mutex == NULL)
+    {
         s_wifi_api_mutex = xSemaphoreCreateMutex();
     }
-    if (s_wifi_api_mutex == NULL) {
+    if (s_wifi_api_mutex == NULL)
+    {
         return ESP_ERR_NO_MEM;
     }
 
     esp_err_t err = esp_netif_init();
-    if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
+    if (err != ESP_OK && err != ESP_ERR_INVALID_STATE)
+    {
         return err;
     }
     err = esp_event_loop_create_default();
-    if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
+    if (err != ESP_OK && err != ESP_ERR_INVALID_STATE)
+    {
         return err;
     }
 
@@ -1230,27 +1375,29 @@ static esp_err_t wifi_mgr_ensure_stack_initialized(void)
 
     /* STA timeout can enter setup AP without deinitializing the driver.
      * Native S3 Wi-Fi reports an error if it is initialized again. */
-    if (!s_wifi_driver_initialized) {
+    if (!s_wifi_driver_initialized)
+    {
         wifi_init_config_t wifi_init_cfg = WIFI_INIT_CONFIG_DEFAULT();
         err = esp_wifi_init(&wifi_init_cfg);
-        if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
+        if (err != ESP_OK && err != ESP_ERR_INVALID_STATE)
+        {
             ESP_LOGE(TAG_WIFI, "esp_wifi_init failed: %s", esp_err_to_name(err));
             return err;
         }
         s_wifi_driver_initialized = true;
     }
 
-    if (s_wifi_event_instance == NULL) {
+    if (s_wifi_event_instance == NULL)
+    {
         ESP_RETURN_ON_ERROR(
-            esp_event_handler_instance_register(
-                WIFI_EVENT, ESP_EVENT_ANY_ID, &wifi_event_handler, NULL, &s_wifi_event_instance),
-            TAG_WIFI, "register WIFI_EVENT");
+            esp_event_handler_instance_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &wifi_event_handler, NULL, &s_wifi_event_instance), TAG_WIFI,
+            "register WIFI_EVENT");
     }
-    if (s_ip_event_instance == NULL) {
+    if (s_ip_event_instance == NULL)
+    {
         ESP_RETURN_ON_ERROR(
-            esp_event_handler_instance_register(
-                IP_EVENT, ESP_EVENT_ANY_ID, &wifi_event_handler, NULL, &s_ip_event_instance),
-            TAG_WIFI, "register IP_EVENT");
+            esp_event_handler_instance_register(IP_EVENT, ESP_EVENT_ANY_ID, &wifi_event_handler, NULL, &s_ip_event_instance), TAG_WIFI,
+            "register IP_EVENT");
     }
 
     return ESP_OK;
@@ -1258,10 +1405,12 @@ static esp_err_t wifi_mgr_ensure_stack_initialized(void)
 
 esp_err_t wifi_mgr_init(const wifi_mgr_config_t *cfg)
 {
-    if (cfg == NULL || cfg->ssid == NULL || cfg->ssid[0] == '\0') {
+    if (cfg == NULL || cfg->ssid == NULL || cfg->ssid[0] == '\0')
+    {
         return ESP_ERR_INVALID_ARG;
     }
-    if (cfg->max_retries < 0) {
+    if (cfg->max_retries < 0)
+    {
         return ESP_ERR_INVALID_ARG;
     }
 
@@ -1272,20 +1421,22 @@ esp_err_t wifi_mgr_init(const wifi_mgr_config_t *cfg)
 
     s_wifi_connected = false;
     s_wifi_max_retries = (cfg->max_retries > 0) ? cfg->max_retries : WIFI_MAX_RETRIES_DEFAULT;
-    ESP_LOGI(TAG_WIFI,
-        "Wi-Fi recovery policy: hard stop/start >=%d attempts, periodic connect nudge every %d attempts (reason!=0)",
-        WIFI_RECOVER_HARD_ATTEMPT_THRESHOLD, WIFI_RECOVER_DISC_CONN_PERIOD);
+    ESP_LOGI(TAG_WIFI, "Wi-Fi recovery policy: hard stop/start >=%d attempts, periodic connect nudge every %d attempts (reason!=0)",
+             WIFI_RECOVER_HARD_ATTEMPT_THRESHOLD, WIFI_RECOVER_DISC_CONN_PERIOD);
 
     esp_err_t err = wifi_mgr_ensure_stack_initialized();
-    if (err != ESP_OK) {
+    if (err != ESP_OK)
+    {
         return err;
     }
     wifi_mgr_set_country_code_from_input(cfg->country_code);
     xEventGroupClearBits(s_wifi_event_group, WIFI_CONNECTED_BIT | WIFI_FAIL_BIT);
 
-    if (s_wifi_sta_netif == NULL) {
+    if (s_wifi_sta_netif == NULL)
+    {
         s_wifi_sta_netif = esp_netif_create_default_wifi_sta();
-        if (s_wifi_sta_netif == NULL) {
+        if (s_wifi_sta_netif == NULL)
+        {
             return ESP_FAIL;
         }
     }
@@ -1294,19 +1445,22 @@ esp_err_t wifi_mgr_init(const wifi_mgr_config_t *cfg)
     wifi_mgr_copy_field(wifi_cfg.sta.ssid, sizeof(wifi_cfg.sta.ssid), cfg->ssid);
     wifi_mgr_copy_field(wifi_cfg.sta.password, sizeof(wifi_cfg.sta.password), cfg->password);
     wifi_cfg.sta.bssid_set = false;
-    if (cfg->bssid != NULL && cfg->bssid[0] != '\0') {
+    if (cfg->bssid != NULL && cfg->bssid[0] != '\0')
+    {
         uint8_t bssid[6] = {0};
-        if (wifi_mgr_parse_bssid(cfg->bssid, bssid)) {
+        if (wifi_mgr_parse_bssid(cfg->bssid, bssid))
+        {
             memcpy(wifi_cfg.sta.bssid, bssid, sizeof(bssid));
             wifi_cfg.sta.bssid_set = true;
-            ESP_LOGI(TAG_WIFI, "Wi-Fi BSSID lock enabled: %02X:%02X:%02X:%02X:%02X:%02X",
-                bssid[0], bssid[1], bssid[2], bssid[3], bssid[4], bssid[5]);
-        } else {
+            ESP_LOGI(TAG_WIFI, "Wi-Fi BSSID lock enabled: %02X:%02X:%02X:%02X:%02X:%02X", bssid[0], bssid[1], bssid[2], bssid[3], bssid[4],
+                     bssid[5]);
+        }
+        else
+        {
             ESP_LOGW(TAG_WIFI, "Ignoring invalid Wi-Fi BSSID lock value: %s", cfg->bssid);
         }
     }
-    wifi_cfg.sta.threshold.authmode =
-        (cfg->password != NULL && cfg->password[0] != '\0') ? WIFI_AUTH_WPA2_PSK : WIFI_AUTH_OPEN;
+    wifi_cfg.sta.threshold.authmode = (cfg->password != NULL && cfg->password[0] != '\0') ? WIFI_AUTH_WPA2_PSK : WIFI_AUTH_OPEN;
     wifi_cfg.sta.pmf_cfg.capable = true;
     wifi_cfg.sta.pmf_cfg.required = false;
     /* Default scan_method (WIFI_FAST_SCAN) stops at the first AP that
@@ -1325,30 +1479,36 @@ esp_err_t wifi_mgr_init(const wifi_mgr_config_t *cfg)
     wifi_mgr_set_setup_ap_state(false, NULL);
     ESP_RETURN_ON_ERROR(esp_wifi_set_config(WIFI_IF_STA, &wifi_cfg), TAG_WIFI, "esp_wifi_set_config");
     err = esp_wifi_start();
-    if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
+    if (err != ESP_OK && err != ESP_ERR_INVALID_STATE)
+    {
         ESP_LOGE(TAG_WIFI, "esp_wifi_start failed: %s", esp_err_to_name(err));
         return err;
     }
-    (void)wifi_mgr_apply_country_code();
+    (void) wifi_mgr_apply_country_code();
 
 #if APP_WIFI_DISABLE_POWER_SAVE
     err = esp_wifi_set_ps(WIFI_PS_NONE);
-    if (err != ESP_OK) {
+    if (err != ESP_OK)
+    {
         ESP_LOGW(TAG_WIFI, "esp_wifi_set_ps(WIFI_PS_NONE) failed: %s", esp_err_to_name(err));
-    } else {
+    }
+    else
+    {
         ESP_LOGI(TAG_WIFI, "Wi-Fi power save disabled (WIFI_PS_NONE)");
     }
 #endif
 
-    if (cfg->wait_for_ip) {
+    if (cfg->wait_for_ip)
+    {
         const TickType_t timeout = pdMS_TO_TICKS((cfg->connect_timeout_ms > 0) ? cfg->connect_timeout_ms : 15000);
-        EventBits_t bits = xEventGroupWaitBits(
-            s_wifi_event_group, WIFI_CONNECTED_BIT | WIFI_FAIL_BIT, pdFALSE, pdFALSE, timeout);
+        EventBits_t bits = xEventGroupWaitBits(s_wifi_event_group, WIFI_CONNECTED_BIT | WIFI_FAIL_BIT, pdFALSE, pdFALSE, timeout);
 
-        if (bits & WIFI_CONNECTED_BIT) {
+        if (bits & WIFI_CONNECTED_BIT)
+        {
             return ESP_OK;
         }
-        if (bits & WIFI_FAIL_BIT) {
+        if (bits & WIFI_FAIL_BIT)
+        {
             return ESP_FAIL;
         }
         return ESP_ERR_TIMEOUT;
@@ -1368,12 +1528,14 @@ static esp_err_t wifi_mgr_force_hosted_hard_recover_locked(int64_t now_ms);
 static esp_err_t wifi_mgr_force_hosted_hard_recover(void)
 {
     int64_t now_ms = esp_timer_get_time() / 1000;
-    if ((now_ms - s_last_hosted_hard_recover_ms) < WIFI_HOSTED_HARD_RECOVER_COOLDOWN_MS) {
+    if ((now_ms - s_last_hosted_hard_recover_ms) < WIFI_HOSTED_HARD_RECOVER_COOLDOWN_MS)
+    {
         ESP_LOGW(TAG_WIFI, "Skip C6 hard recover: cooldown active (%" PRId64 " ms since last), fallback to Wi-Fi reconnect",
-            now_ms - s_last_hosted_hard_recover_ms);
+                 now_ms - s_last_hosted_hard_recover_ms);
         return wifi_mgr_force_reconnect_internal(false);
     }
-    if (!wifi_mgr_api_lock(WIFI_API_LOCK_HARD_RECOVER_MS)) {
+    if (!wifi_mgr_api_lock(WIFI_API_LOCK_HARD_RECOVER_MS))
+    {
         ESP_LOGW(TAG_WIFI, "Skip C6 hard recover: a Wi-Fi RPC (scan or status) still holds the API lock");
         return ESP_ERR_TIMEOUT;
     }
@@ -1392,30 +1554,32 @@ static esp_err_t wifi_mgr_force_hosted_hard_recover_locked(int64_t now_ms)
     s_last_recover_disc_conn_ms = 0;
     s_last_recover_stop_start_ms = 0;
     wifi_mgr_reset_reconnect_state();
-    if (s_wifi_event_group != NULL) {
+    if (s_wifi_event_group != NULL)
+    {
         xEventGroupClearBits(s_wifi_event_group, WIFI_CONNECTED_BIT | WIFI_FAIL_BIT);
     }
 
     esp_err_t stop_err = esp_wifi_stop();
-    if (stop_err != ESP_OK &&
-        stop_err != ESP_ERR_WIFI_NOT_INIT &&
-        stop_err != ESP_ERR_WIFI_NOT_STARTED &&
-        stop_err != ESP_ERR_INVALID_STATE) {
+    if (stop_err != ESP_OK && stop_err != ESP_ERR_WIFI_NOT_INIT && stop_err != ESP_ERR_WIFI_NOT_STARTED &&
+        stop_err != ESP_ERR_INVALID_STATE)
+    {
         ESP_LOGW(TAG_WIFI, "esp_wifi_stop failed during hard recover: %s", esp_err_to_name(stop_err));
     }
 
     int deinit_ret = esp_hosted_deinit();
-    if (deinit_ret != ESP_OK) {
-        ESP_LOGW(TAG_WIFI, "esp_hosted_deinit during hard recover returned: %s", esp_err_to_name((esp_err_t)deinit_ret));
+    if (deinit_ret != ESP_OK)
+    {
+        ESP_LOGW(TAG_WIFI, "esp_hosted_deinit during hard recover returned: %s", esp_err_to_name((esp_err_t) deinit_ret));
     }
     s_hosted_transport_ready = false;
 
-#if CONFIG_ESP_HOSTED_HOST_TRANSPORT_BUS_SDIO
+#  if CONFIG_ESP_HOSTED_HOST_TRANSPORT_BUS_SDIO
     wifi_mgr_pulse_hosted_reset_gpio();
-#endif
+#  endif
 
     esp_err_t hosted_err = wifi_mgr_init_hosted_transport();
-    if (hosted_err != ESP_OK) {
+    if (hosted_err != ESP_OK)
+    {
         ESP_LOGE(TAG_WIFI, "C6 hard recover failed: ESP-Hosted re-init failed (%s)", esp_err_to_name(hosted_err));
         wifi_mgr_diag_record_hard_recover(hosted_err);
         return hosted_err;
@@ -1424,35 +1588,41 @@ static esp_err_t wifi_mgr_force_hosted_hard_recover_locked(int64_t now_ms)
     wifi_mode_t restore_mode = s_setup_ap_active ? WIFI_MODE_APSTA : WIFI_MODE_STA;
 
     esp_err_t mode_err = esp_wifi_set_mode(restore_mode);
-    if (mode_err != ESP_OK && mode_err != ESP_ERR_INVALID_STATE) {
+    if (mode_err != ESP_OK && mode_err != ESP_ERR_INVALID_STATE)
+    {
         ESP_LOGE(TAG_WIFI, "esp_wifi_set_mode failed during hard recover: %s", esp_err_to_name(mode_err));
         wifi_mgr_diag_record_hard_recover(mode_err);
         return mode_err;
     }
 
-    if (s_cached_sta_cfg_valid) {
+    if (s_cached_sta_cfg_valid)
+    {
         esp_err_t cfg_err = esp_wifi_set_config(WIFI_IF_STA, &s_cached_sta_cfg);
-        if (cfg_err != ESP_OK) {
+        if (cfg_err != ESP_OK)
+        {
             ESP_LOGW(TAG_WIFI, "esp_wifi_set_config(STA) failed during hard recover: %s", esp_err_to_name(cfg_err));
         }
     }
 
     esp_err_t start_err = esp_wifi_start();
-    if (start_err != ESP_OK && start_err != ESP_ERR_INVALID_STATE) {
+    if (start_err != ESP_OK && start_err != ESP_ERR_INVALID_STATE)
+    {
         ESP_LOGE(TAG_WIFI, "esp_wifi_start failed during hard recover: %s", esp_err_to_name(start_err));
         wifi_mgr_diag_record_hard_recover(start_err);
         return start_err;
     }
-    (void)wifi_mgr_apply_country_code();
+    (void) wifi_mgr_apply_country_code();
 
-#if APP_WIFI_DISABLE_POWER_SAVE
+#  if APP_WIFI_DISABLE_POWER_SAVE
     esp_err_t ps_err = esp_wifi_set_ps(WIFI_PS_NONE);
-    if (ps_err != ESP_OK) {
+    if (ps_err != ESP_OK)
+    {
         ESP_LOGW(TAG_WIFI, "esp_wifi_set_ps(WIFI_PS_NONE) failed during hard recover: %s", esp_err_to_name(ps_err));
     }
-#endif
+#  endif
 
-    if (!wifi_mgr_request_connect(true, "after-c6-hard-recover")) {
+    if (!wifi_mgr_request_connect(true, "after-c6-hard-recover"))
+    {
         wifi_mgr_diag_record_hard_recover(ESP_FAIL);
         return ESP_FAIL;
     }
@@ -1467,51 +1637,58 @@ static esp_err_t wifi_mgr_force_hosted_hard_recover_locked(int64_t now_ms)
 static esp_err_t wifi_mgr_force_reconnect_internal(bool allow_transport_escalation)
 {
 #if !SOC_WIFI_SUPPORTED && !CONFIG_ESP_HOSTED
-    (void)allow_transport_escalation;
+    (void) allow_transport_escalation;
     return ESP_ERR_NOT_SUPPORTED;
 #else
-    if (s_wifi_sta_netif == NULL) {
+    if (s_wifi_sta_netif == NULL)
+    {
         return ESP_ERR_INVALID_STATE;
     }
 
     s_wifi_connected = false;
     s_last_connect_request_ms = 0;
     wifi_mgr_reset_reconnect_state();
-    if (s_wifi_event_group != NULL) {
+    if (s_wifi_event_group != NULL)
+    {
         xEventGroupClearBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
     }
 
-    if (!wifi_mgr_request_connect(true, "force-reconnect")) {
+    if (!wifi_mgr_request_connect(true, "force-reconnect"))
+    {
         int64_t now_ms = esp_timer_get_time() / 1000;
         if ((now_ms - s_last_recover_stop_start_ms) >= WIFI_RECOVER_STOP_START_COOLDOWN_MS &&
-            wifi_mgr_api_lock(WIFI_API_LOCK_STOP_START_MS)) {
+            wifi_mgr_api_lock(WIFI_API_LOCK_STOP_START_MS))
+        {
             esp_err_t stop_err = esp_wifi_stop();
-            if (stop_err != ESP_OK && stop_err != ESP_ERR_WIFI_NOT_INIT &&
-                stop_err != ESP_ERR_WIFI_NOT_STARTED && stop_err != ESP_ERR_INVALID_STATE) {
-                ESP_LOGW(TAG_WIFI, "esp_wifi_stop failed during forced reconnect fallback: %s",
-                    esp_err_to_name(stop_err));
+            if (stop_err != ESP_OK && stop_err != ESP_ERR_WIFI_NOT_INIT && stop_err != ESP_ERR_WIFI_NOT_STARTED &&
+                stop_err != ESP_ERR_INVALID_STATE)
+            {
+                ESP_LOGW(TAG_WIFI, "esp_wifi_stop failed during forced reconnect fallback: %s", esp_err_to_name(stop_err));
             }
             esp_err_t start_err = esp_wifi_start();
             wifi_mgr_api_unlock();
-            if (start_err == ESP_OK || start_err == ESP_ERR_INVALID_STATE) {
-                (void)wifi_mgr_apply_country_code();
+            if (start_err == ESP_OK || start_err == ESP_ERR_INVALID_STATE)
+            {
+                (void) wifi_mgr_apply_country_code();
                 s_last_recover_stop_start_ms = now_ms;
-                if (wifi_mgr_request_connect(true, "force-reconnect-after-stop-start")) {
+                if (wifi_mgr_request_connect(true, "force-reconnect-after-stop-start"))
+                {
                     ESP_LOGW(TAG_WIFI, "Forced Wi-Fi reconnect fallback: stop/start + connect");
                     return ESP_OK;
                 }
-            } else {
-                ESP_LOGW(TAG_WIFI, "esp_wifi_start failed during forced reconnect fallback: %s",
-                    esp_err_to_name(start_err));
+            }
+            else
+            {
+                ESP_LOGW(TAG_WIFI, "esp_wifi_start failed during forced reconnect fallback: %s", esp_err_to_name(start_err));
             }
         }
-#if CONFIG_ESP_HOSTED
-        if (allow_transport_escalation) {
-            ESP_LOGW(TAG_WIFI,
-                "Escalating forced reconnect failure to C6 hard recover");
+#  if CONFIG_ESP_HOSTED
+        if (allow_transport_escalation)
+        {
+            ESP_LOGW(TAG_WIFI, "Escalating forced reconnect failure to C6 hard recover");
             return wifi_mgr_force_hosted_hard_recover();
         }
-#endif
+#  endif
         return ESP_FAIL;
     }
 
@@ -1542,48 +1719,58 @@ esp_err_t wifi_mgr_start_setup_ap(const wifi_mgr_ap_config_t *cfg)
     return ESP_ERR_NOT_SUPPORTED;
 #else
     esp_err_t err = wifi_mgr_ensure_stack_initialized();
-    if (err != ESP_OK) {
+    if (err != ESP_OK)
+    {
         return err;
     }
     wifi_mgr_set_country_code_from_input((cfg != NULL) ? cfg->country_code : NULL);
 
-    if (s_wifi_ap_netif == NULL) {
+    if (s_wifi_ap_netif == NULL)
+    {
         s_wifi_ap_netif = esp_netif_create_default_wifi_ap();
-        if (s_wifi_ap_netif == NULL) {
+        if (s_wifi_ap_netif == NULL)
+        {
             return ESP_FAIL;
         }
     }
 
     char ap_ssid[APP_WIFI_SSID_MAX_LEN] = {0};
-    if (cfg != NULL && cfg->ssid != NULL && cfg->ssid[0] != '\0') {
+    if (cfg != NULL && cfg->ssid != NULL && cfg->ssid[0] != '\0')
+    {
         strlcpy(ap_ssid, cfg->ssid, sizeof(ap_ssid));
-    } else {
+    }
+    else
+    {
         wifi_mgr_build_default_setup_ssid(ap_ssid, sizeof(ap_ssid));
     }
 
-    if (cfg != NULL && cfg->password != NULL && cfg->password[0] != '\0') {
+    if (cfg != NULL && cfg->password != NULL && cfg->password[0] != '\0')
+    {
         strlcpy(s_setup_ap_password, cfg->password, sizeof(s_setup_ap_password));
-    } else {
+    }
+    else
+    {
         wifi_mgr_generate_setup_password(s_setup_ap_password, sizeof(s_setup_ap_password));
     }
     const char *ap_password = s_setup_ap_password;
-    uint8_t ap_channel =
-        (cfg != NULL && cfg->channel > 0U) ? cfg->channel : (uint8_t)APP_SETUP_AP_CHANNEL;
-    uint8_t ap_max_conn =
-        (cfg != NULL && cfg->max_connection > 0U) ? cfg->max_connection : (uint8_t)APP_SETUP_AP_MAX_CONNECTIONS;
+    uint8_t ap_channel = (cfg != NULL && cfg->channel > 0U) ? cfg->channel : (uint8_t) APP_SETUP_AP_CHANNEL;
+    uint8_t ap_max_conn = (cfg != NULL && cfg->max_connection > 0U) ? cfg->max_connection : (uint8_t) APP_SETUP_AP_MAX_CONNECTIONS;
 
     wifi_config_t ap_cfg = {0};
     wifi_mgr_copy_field(ap_cfg.ap.ssid, sizeof(ap_cfg.ap.ssid), ap_ssid);
-    ap_cfg.ap.ssid_len = (uint8_t)strnlen(ap_ssid, sizeof(ap_cfg.ap.ssid));
+    ap_cfg.ap.ssid_len = (uint8_t) strnlen(ap_ssid, sizeof(ap_cfg.ap.ssid));
     ap_cfg.ap.channel = ap_channel;
     ap_cfg.ap.max_connection = ap_max_conn;
     ap_cfg.ap.pmf_cfg.capable = true;
     ap_cfg.ap.pmf_cfg.required = false;
 
-    if (ap_password != NULL && ap_password[0] != '\0') {
+    if (ap_password != NULL && ap_password[0] != '\0')
+    {
         wifi_mgr_copy_field(ap_cfg.ap.password, sizeof(ap_cfg.ap.password), ap_password);
         ap_cfg.ap.authmode = WIFI_AUTH_WPA2_PSK;
-    } else {
+    }
+    else
+    {
         ap_cfg.ap.password[0] = '\0';
         ap_cfg.ap.authmode = WIFI_AUTH_OPEN;
     }
@@ -1594,14 +1781,16 @@ esp_err_t wifi_mgr_start_setup_ap(const wifi_mgr_ap_config_t *cfg)
     ESP_RETURN_ON_ERROR(esp_wifi_set_config(WIFI_IF_AP, &ap_cfg), TAG_WIFI, "esp_wifi_set_config(AP)");
 
     err = esp_wifi_start();
-    if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
+    if (err != ESP_OK && err != ESP_ERR_INVALID_STATE)
+    {
         ESP_LOGE(TAG_WIFI, "esp_wifi_start failed in AP setup mode: %s", esp_err_to_name(err));
         return err;
     }
-    (void)wifi_mgr_apply_country_code();
+    (void) wifi_mgr_apply_country_code();
 
     s_wifi_connected = false;
-    if (s_wifi_event_group != NULL) {
+    if (s_wifi_event_group != NULL)
+    {
         xEventGroupClearBits(s_wifi_event_group, WIFI_CONNECTED_BIT | WIFI_FAIL_BIT);
     }
     wifi_mgr_set_setup_ap_state(true, ap_ssid);
@@ -1612,42 +1801,56 @@ esp_err_t wifi_mgr_start_setup_ap(const wifi_mgr_ap_config_t *cfg)
 }
 
 #define WIFI_RECOVERY_INTERVAL_MS 60000U
-#define WIFI_RECOVERY_PROBE_MS 20000U
+#define WIFI_RECOVERY_PROBE_MS    20000U
 
-/* One attempt to join the saved network from the setup access point mode; true once the station has an IP address. */
+/** @brief Probe the saved network only while no client is using the setup AP.
+ * @return True when the station obtains an IP address during the probe.
+ */
 static bool wifi_mgr_recovery_probe(void)
 {
-    if (!wifi_mgr_api_lock(2000)) return false;
+    if (!wifi_mgr_api_lock(2000))
+    {
+        return false;
+    }
     wifi_sta_list_t clients = {0};
-    if (!s_setup_ap_active || !s_cached_sta_cfg_valid ||
-        (esp_wifi_ap_get_sta_list(&clients) == ESP_OK && clients.num > 0)) {
+    if (!s_setup_ap_active || !s_cached_sta_cfg_valid || (esp_wifi_ap_get_sta_list(&clients) == ESP_OK && clients.num > 0))
+    {
         wifi_mgr_api_unlock();
         return false; /* Keep the access point stable while somebody is configuring the panel. */
     }
-    if (esp_wifi_set_config(WIFI_IF_STA, &s_cached_sta_cfg) != ESP_OK) {
+    if (esp_wifi_set_config(WIFI_IF_STA, &s_cached_sta_cfg) != ESP_OK)
+    {
         wifi_mgr_api_unlock();
         return false;
     }
     esp_err_t err = esp_wifi_connect();
     wifi_mgr_api_unlock(); /* Do not block scans/status RPCs during the bounded IP wait. */
-    if (err != ESP_OK && err != ESP_ERR_WIFI_CONN) {
+    if (err != ESP_OK && err != ESP_ERR_WIFI_CONN)
+    {
         ESP_LOGW(TAG_WIFI, "Wi-Fi recovery: connect failed: %s", esp_err_to_name(err));
         return false;
     }
     char ip[16];
-    for (uint32_t waited = 0; waited < WIFI_RECOVERY_PROBE_MS; waited += 250U) {
+    for (uint32_t waited = 0; waited < WIFI_RECOVERY_PROBE_MS; waited += 250U)
+    {
         vTaskDelay(pdMS_TO_TICKS(250));
-        if (!s_setup_ap_active) return false;
-        if (wifi_mgr_get_ip_for_netif(s_wifi_sta_netif, ip, sizeof(ip)) == ESP_OK) {
+        if (!s_setup_ap_active)
+        {
+            return false;
+        }
+        if (wifi_mgr_get_ip_for_netif(s_wifi_sta_netif, ip, sizeof(ip)) == ESP_OK)
+        {
             return true;
         }
     }
-    if (wifi_mgr_api_lock(2000)) {
-        if (s_setup_ap_active) {
+    if (wifi_mgr_api_lock(2000))
+    {
+        if (s_setup_ap_active)
+        {
             wifi_ap_record_t ap = {0};
             ESP_LOGI(TAG_WIFI, "Wi-Fi recovery: saved network not usable yet (%s)",
                      esp_wifi_sta_get_ap_info(&ap) == ESP_OK ? "joined but no IP address" : "not joined");
-            (void)esp_wifi_disconnect();
+            (void) esp_wifi_disconnect();
         }
         wifi_mgr_api_unlock();
     }
@@ -1656,13 +1859,16 @@ static bool wifi_mgr_recovery_probe(void)
 
 static void wifi_mgr_recovery_task(void *arg)
 {
-    (void)arg;
-    for (;;) {
+    (void) arg;
+    for (;;)
+    {
         vTaskDelay(pdMS_TO_TICKS(WIFI_RECOVERY_INTERVAL_MS));
-        if (!s_setup_ap_active) {
+        if (!s_setup_ap_active)
+        {
             break;
         }
-        if (wifi_mgr_recovery_probe()) {
+        if (wifi_mgr_recovery_probe())
+        {
             ESP_LOGW(TAG_WIFI, "Wi-Fi recovery: the saved network answers, restarting");
             reboot_log_mark(REBOOT_CAUSE_WIFI_RECOVERED);
             vTaskDelay(pdMS_TO_TICKS(500));
@@ -1678,13 +1884,16 @@ esp_err_t wifi_mgr_start_recovery(void)
     return ESP_ERR_NOT_SUPPORTED;
 #else
     static bool started = false;
-    if (started) {
+    if (started)
+    {
         return ESP_OK;
     }
-    if (!s_setup_ap_active || !s_cached_sta_cfg_valid) {
+    if (!s_setup_ap_active || !s_cached_sta_cfg_valid)
+    {
         return ESP_ERR_INVALID_STATE;
     }
-    if (xTaskCreate(wifi_mgr_recovery_task, "wifi_recover", 4096, NULL, 3, NULL) != pdPASS) {
+    if (xTaskCreate(wifi_mgr_recovery_task, "wifi_recover", 4096, NULL, 3, NULL) != pdPASS)
+    {
         return ESP_ERR_NO_MEM;
     }
     started = true;
@@ -1697,18 +1906,23 @@ esp_err_t wifi_mgr_stop_setup_ap(void)
 #if !SOC_WIFI_SUPPORTED && !CONFIG_ESP_HOSTED
     return ESP_ERR_NOT_SUPPORTED;
 #else
-    if (!s_setup_ap_active) {
+    if (!s_setup_ap_active)
+    {
         return ESP_OK;
     }
 
     wifi_mode_t mode = WIFI_MODE_NULL;
     esp_err_t mode_err = esp_wifi_get_mode(&mode);
-    if (mode_err == ESP_OK && (mode == WIFI_MODE_AP || mode == WIFI_MODE_APSTA)) {
+    if (mode_err == ESP_OK && (mode == WIFI_MODE_AP || mode == WIFI_MODE_APSTA))
+    {
         esp_err_t err = esp_wifi_set_mode(WIFI_MODE_STA);
-        if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
+        if (err != ESP_OK && err != ESP_ERR_INVALID_STATE)
+        {
             return err;
         }
-    } else if (mode_err != ESP_OK && mode_err != ESP_ERR_WIFI_NOT_INIT) {
+    }
+    else if (mode_err != ESP_OK && mode_err != ESP_ERR_WIFI_NOT_INIT)
+    {
         return mode_err;
     }
 
@@ -1735,8 +1949,8 @@ const char *wifi_mgr_get_setup_ap_ssid(void)
 esp_err_t wifi_mgr_get_sta_ip(char *out, size_t out_len)
 {
 #if !SOC_WIFI_SUPPORTED && !CONFIG_ESP_HOSTED
-    (void)out;
-    (void)out_len;
+    (void) out;
+    (void) out_len;
     return ESP_ERR_NOT_SUPPORTED;
 #else
     return wifi_mgr_get_ip_for_netif(s_wifi_sta_netif, out, out_len);
@@ -1747,7 +1961,8 @@ bool wifi_mgr_get_sta_gateway(uint32_t *out_addr)
 {
     esp_netif_ip_info_t ip_info = {0};
     if (out_addr == NULL || s_wifi_sta_netif == NULL || esp_netif_get_ip_info(s_wifi_sta_netif, &ip_info) != ESP_OK ||
-        ip_info.ip.addr == 0 || ip_info.gw.addr == 0) {
+        ip_info.ip.addr == 0 || ip_info.gw.addr == 0)
+    {
         return false;
     }
     *out_addr = ip_info.gw.addr;
@@ -1757,8 +1972,8 @@ bool wifi_mgr_get_sta_gateway(uint32_t *out_addr)
 esp_err_t wifi_mgr_get_ap_ip(char *out, size_t out_len)
 {
 #if !SOC_WIFI_SUPPORTED && !CONFIG_ESP_HOSTED
-    (void)out;
-    (void)out_len;
+    (void) out;
+    (void) out_len;
     return ESP_ERR_NOT_SUPPORTED;
 #else
     return wifi_mgr_get_ip_for_netif(s_wifi_ap_netif, out, out_len);
@@ -1768,27 +1983,30 @@ esp_err_t wifi_mgr_get_ap_ip(char *out, size_t out_len)
 esp_err_t wifi_mgr_get_sta_ap_info(wifi_mgr_sta_ap_info_t *out_info)
 {
 #if !SOC_WIFI_SUPPORTED && !CONFIG_ESP_HOSTED
-    (void)out_info;
+    (void) out_info;
     return ESP_ERR_NOT_SUPPORTED;
 #else
-    if (out_info == NULL) {
+    if (out_info == NULL)
+    {
         return ESP_ERR_INVALID_ARG;
     }
-    if (s_wifi_api_mutex == NULL || xSemaphoreTake(s_wifi_api_mutex, pdMS_TO_TICKS(2000)) != pdTRUE) {
+    if (s_wifi_api_mutex == NULL || xSemaphoreTake(s_wifi_api_mutex, pdMS_TO_TICKS(2000)) != pdTRUE)
+    {
         return ESP_ERR_TIMEOUT;
     }
 
     wifi_ap_record_t ap_info = {0};
     esp_err_t err = esp_wifi_sta_get_ap_info(&ap_info);
     xSemaphoreGive(s_wifi_api_mutex);
-    if (err != ESP_OK) {
+    if (err != ESP_OK)
+    {
         return err;
     }
 
     memset(out_info, 0, sizeof(*out_info));
-    strlcpy(out_info->ssid, (const char *)ap_info.ssid, sizeof(out_info->ssid));
+    strlcpy(out_info->ssid, (const char *) ap_info.ssid, sizeof(out_info->ssid));
     out_info->rssi = ap_info.rssi;
-    out_info->authmode = (uint8_t)ap_info.authmode;
+    out_info->authmode = (uint8_t) ap_info.authmode;
     out_info->channel = ap_info.primary;
     memcpy(out_info->bssid, ap_info.bssid, sizeof(out_info->bssid));
     return ESP_OK;
@@ -1798,21 +2016,24 @@ esp_err_t wifi_mgr_get_sta_ap_info(wifi_mgr_sta_ap_info_t *out_info)
 esp_err_t wifi_mgr_try_get_sta_rssi(int8_t *out_rssi_dbm)
 {
 #if !SOC_WIFI_SUPPORTED && !CONFIG_ESP_HOSTED
-    (void)out_rssi_dbm;
+    (void) out_rssi_dbm;
     return ESP_ERR_NOT_SUPPORTED;
 #else
-    if (out_rssi_dbm == NULL) {
+    if (out_rssi_dbm == NULL)
+    {
         return ESP_ERR_INVALID_ARG;
     }
     /* Never waits: the caller is the UI task, and the Wi-Fi API may be busy with a scan or a
      * reconnect for seconds (ESP-Hosted RPCs are serialized by this mutex). */
-    if (s_wifi_api_mutex == NULL || xSemaphoreTake(s_wifi_api_mutex, 0) != pdTRUE) {
+    if (s_wifi_api_mutex == NULL || xSemaphoreTake(s_wifi_api_mutex, 0) != pdTRUE)
+    {
         return ESP_ERR_TIMEOUT;
     }
     wifi_ap_record_t ap_info = {0};
     esp_err_t err = esp_wifi_sta_get_ap_info(&ap_info);
     xSemaphoreGive(s_wifi_api_mutex);
-    if (err == ESP_OK) {
+    if (err == ESP_OK)
+    {
         *out_rssi_dbm = ap_info.rssi;
     }
     return err;
@@ -1822,16 +2043,18 @@ esp_err_t wifi_mgr_try_get_sta_rssi(int8_t *out_rssi_dbm)
 esp_err_t wifi_mgr_get_sta_rssi(int8_t *out_rssi_dbm)
 {
 #if !SOC_WIFI_SUPPORTED && !CONFIG_ESP_HOSTED
-    (void)out_rssi_dbm;
+    (void) out_rssi_dbm;
     return ESP_ERR_NOT_SUPPORTED;
 #else
-    if (out_rssi_dbm == NULL) {
+    if (out_rssi_dbm == NULL)
+    {
         return ESP_ERR_INVALID_ARG;
     }
 
     wifi_mgr_sta_ap_info_t ap_info = {0};
     esp_err_t err = wifi_mgr_get_sta_ap_info(&ap_info);
-    if (err != ESP_OK) {
+    if (err != ESP_OK)
+    {
         return err;
     }
     *out_rssi_dbm = ap_info.rssi;
@@ -1842,35 +2065,42 @@ esp_err_t wifi_mgr_get_sta_rssi(int8_t *out_rssi_dbm)
 esp_err_t wifi_mgr_scan(wifi_mgr_scan_result_t *results, size_t max_results, size_t *out_count)
 {
 #if !SOC_WIFI_SUPPORTED && !CONFIG_ESP_HOSTED
-    (void)results;
-    (void)max_results;
-    if (out_count != NULL) {
+    (void) results;
+    (void) max_results;
+    if (out_count != NULL)
+    {
         *out_count = 0;
     }
     return ESP_ERR_NOT_SUPPORTED;
 #else
-    if (out_count == NULL) {
+    if (out_count == NULL)
+    {
         return ESP_ERR_INVALID_ARG;
     }
     *out_count = 0;
-    if (results == NULL || max_results == 0) {
+    if (results == NULL || max_results == 0)
+    {
         return ESP_ERR_INVALID_ARG;
     }
 
     esp_err_t err = wifi_mgr_ensure_stack_initialized();
-    if (err != ESP_OK) {
+    if (err != ESP_OK)
+    {
         return err;
     }
-    if (s_wifi_scan_in_progress) {
+    if (s_wifi_scan_in_progress)
+    {
         return ESP_ERR_INVALID_STATE;
     }
-    if (s_wifi_api_mutex == NULL || xSemaphoreTake(s_wifi_api_mutex, pdMS_TO_TICKS(2000)) != pdTRUE) {
+    if (s_wifi_api_mutex == NULL || xSemaphoreTake(s_wifi_api_mutex, pdMS_TO_TICKS(2000)) != pdTRUE)
+    {
         return ESP_ERR_TIMEOUT;
     }
 
     wifi_mode_t original_mode = WIFI_MODE_NULL;
     err = esp_wifi_get_mode(&original_mode);
-    if (err != ESP_OK) {
+    if (err != ESP_OK)
+    {
         xSemaphoreGive(s_wifi_api_mutex);
         return err;
     }
@@ -1879,51 +2109,58 @@ esp_err_t wifi_mgr_scan(wifi_mgr_scan_result_t *results, size_t max_results, siz
 
     bool restore_mode = false;
     wifi_mode_t scan_mode = original_mode;
-    if (original_mode == WIFI_MODE_AP) {
+    if (original_mode == WIFI_MODE_AP)
+    {
         scan_mode = WIFI_MODE_APSTA;
         restore_mode = true;
-    } else if (original_mode == WIFI_MODE_NULL) {
+    }
+    else if (original_mode == WIFI_MODE_NULL)
+    {
         scan_mode = WIFI_MODE_STA;
         restore_mode = true;
     }
     bool wait_for_sta_start = (original_mode == WIFI_MODE_AP);
     EventBits_t clear_bits = WIFI_SCAN_DONE_BIT;
-    if (wait_for_sta_start) {
+    if (wait_for_sta_start)
+    {
         clear_bits |= WIFI_STA_STARTED_BIT;
     }
 
-    if (s_wifi_event_group != NULL) {
+    if (s_wifi_event_group != NULL)
+    {
         xEventGroupClearBits(s_wifi_event_group, clear_bits);
     }
     s_wifi_scan_last_status = 0;
 
     bool scan_started = false;
-    if (restore_mode) {
+    if (restore_mode)
+    {
         err = esp_wifi_set_mode(scan_mode);
-        if (err != ESP_OK) {
+        if (err != ESP_OK)
+        {
             goto cleanup;
         }
     }
 
     err = esp_wifi_start();
-    if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
+    if (err != ESP_OK && err != ESP_ERR_INVALID_STATE)
+    {
         goto cleanup;
     }
-    (void)wifi_mgr_apply_country_code();
+    (void) wifi_mgr_apply_country_code();
     err = ESP_OK;
 
-    if (wait_for_sta_start) {
-        if (s_wifi_event_group == NULL) {
+    if (wait_for_sta_start)
+    {
+        if (s_wifi_event_group == NULL)
+        {
             err = ESP_ERR_INVALID_STATE;
             goto cleanup;
         }
-        EventBits_t sta_bits = xEventGroupWaitBits(
-            s_wifi_event_group,
-            WIFI_STA_STARTED_BIT,
-            pdFALSE,
-            pdFALSE,
-            pdMS_TO_TICKS(WIFI_STA_START_WAIT_MS));
-        if ((sta_bits & WIFI_STA_STARTED_BIT) == 0) {
+        EventBits_t sta_bits =
+            xEventGroupWaitBits(s_wifi_event_group, WIFI_STA_STARTED_BIT, pdFALSE, pdFALSE, pdMS_TO_TICKS(WIFI_STA_START_WAIT_MS));
+        if ((sta_bits & WIFI_STA_STARTED_BIT) == 0)
+        {
             ESP_LOGW(TAG_WIFI, "Wi-Fi scan aborted: STA did not start within %d ms", WIFI_STA_START_WAIT_MS);
             err = ESP_ERR_TIMEOUT;
             goto cleanup;
@@ -1939,29 +2176,28 @@ esp_err_t wifi_mgr_scan(wifi_mgr_scan_result_t *results, size_t max_results, siz
     };
 
     err = esp_wifi_scan_start(&scan_cfg, false);
-    if (err != ESP_OK) {
+    if (err != ESP_OK)
+    {
         goto cleanup;
     }
     scan_started = true;
 
-    if (s_wifi_event_group == NULL) {
+    if (s_wifi_event_group == NULL)
+    {
         err = ESP_ERR_INVALID_STATE;
         goto cleanup;
     }
 
-    EventBits_t bits = xEventGroupWaitBits(
-        s_wifi_event_group,
-        WIFI_SCAN_DONE_BIT,
-        pdTRUE,
-        pdFALSE,
-        pdMS_TO_TICKS(WIFI_SCAN_TIMEOUT_MS));
-    if ((bits & WIFI_SCAN_DONE_BIT) == 0) {
+    EventBits_t bits = xEventGroupWaitBits(s_wifi_event_group, WIFI_SCAN_DONE_BIT, pdTRUE, pdFALSE, pdMS_TO_TICKS(WIFI_SCAN_TIMEOUT_MS));
+    if ((bits & WIFI_SCAN_DONE_BIT) == 0)
+    {
         ESP_LOGW(TAG_WIFI, "Wi-Fi scan timed out after %d ms", WIFI_SCAN_TIMEOUT_MS);
         err = ESP_ERR_TIMEOUT;
         goto cleanup;
     }
 
-    if (s_wifi_scan_last_status != 0) {
+    if (s_wifi_scan_last_status != 0)
+    {
         ESP_LOGW(TAG_WIFI, "Wi-Fi scan failed (status=%d)", s_wifi_scan_last_status);
         err = ESP_FAIL;
         goto cleanup;
@@ -1969,13 +2205,16 @@ esp_err_t wifi_mgr_scan(wifi_mgr_scan_result_t *results, size_t max_results, siz
 
     uint16_t found = 0;
     err = esp_wifi_scan_get_ap_num(&found);
-    if (err != ESP_OK) {
+    if (err != ESP_OK)
+    {
         goto cleanup;
     }
 
-    if (found > 0) {
+    if (found > 0)
+    {
         wifi_ap_record_t *records = calloc(found, sizeof(wifi_ap_record_t));
-        if (records == NULL) {
+        if (records == NULL)
+        {
             err = ESP_ERR_NO_MEM;
             goto cleanup;
         }
@@ -1985,30 +2224,35 @@ esp_err_t wifi_mgr_scan(wifi_mgr_scan_result_t *results, size_t max_results, siz
 
         uint16_t fetch_count = found;
         err = esp_wifi_scan_get_ap_records(&fetch_count, records);
-        if (err == ESP_OK) {
+        if (err == ESP_OK)
+        {
             size_t out_idx = 0;
-            for (uint16_t i = 0; i < fetch_count && out_idx < max_results; i++) {
-                if (records[i].ssid[0] == '\0') {
+            for (uint16_t i = 0; i < fetch_count && out_idx < max_results; i++)
+            {
+                if (records[i].ssid[0] == '\0')
+                {
                     continue;
                 }
                 bool duplicate = false;
-                for (size_t j = 0; j < out_idx; j++) {
-                    if (memcmp(results[j].bssid, records[i].bssid, sizeof(results[j].bssid)) == 0) {
+                for (size_t j = 0; j < out_idx; j++)
+                {
+                    if (memcmp(results[j].bssid, records[i].bssid, sizeof(results[j].bssid)) == 0)
+                    {
                         duplicate = true;
                         break;
                     }
                 }
-                if (duplicate) {
+                if (duplicate)
+                {
                     continue;
                 }
-                strlcpy(results[out_idx].ssid, (const char *)records[i].ssid, sizeof(results[out_idx].ssid));
+                strlcpy(results[out_idx].ssid, (const char *) records[i].ssid, sizeof(results[out_idx].ssid));
                 results[out_idx].rssi = records[i].rssi;
-                results[out_idx].authmode = (uint8_t)records[i].authmode;
+                results[out_idx].authmode = (uint8_t) records[i].authmode;
                 results[out_idx].channel = records[i].primary;
                 memcpy(results[out_idx].bssid, records[i].bssid, sizeof(results[out_idx].bssid));
                 results[out_idx].connected =
-                    has_connected_ap &&
-                    (memcmp(records[i].bssid, connected_ap.bssid, sizeof(records[i].bssid)) == 0);
+                    has_connected_ap && (memcmp(records[i].bssid, connected_ap.bssid, sizeof(records[i].bssid)) == 0);
                 out_idx++;
             }
             *out_count = out_idx;
@@ -2017,18 +2261,22 @@ esp_err_t wifi_mgr_scan(wifi_mgr_scan_result_t *results, size_t max_results, siz
     }
 
 cleanup:
-    if (scan_started && err != ESP_OK) {
-        (void)esp_wifi_scan_stop();
+    if (scan_started && err != ESP_OK)
+    {
+        (void) esp_wifi_scan_stop();
     }
 
-    if (restore_mode) {
+    if (restore_mode)
+    {
         esp_err_t restore_err = esp_wifi_set_mode(original_mode);
-        if (err == ESP_OK && restore_err != ESP_OK) {
+        if (err == ESP_OK && restore_err != ESP_OK)
+        {
             err = restore_err;
         }
     }
 
-    if (s_wifi_event_group != NULL) {
+    if (s_wifi_event_group != NULL)
+    {
         xEventGroupClearBits(s_wifi_event_group, clear_bits);
     }
     s_wifi_scan_in_progress = false;

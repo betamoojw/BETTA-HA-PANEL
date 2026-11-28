@@ -1,9 +1,11 @@
 /* SPDX-License-Identifier: LicenseRef-FNCL-1.1
  * Copyright (c) 2026 andre68723 -- file added in the andre68723/BETTA-HA-PANEL fork, see docs/release-notes.md
+ */
+/** @file
+ * @brief Device-side OTA confirmation after the running image meets the health policy.
  *
- * Rollback protection for OTA updates. With CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE the bootloader starts a new
- * image once "pending verify"; if the panel resets before the image is marked valid, the next boot returns to the
- * previous image. This marks the running image valid after util/ota_health.h says it is healthy.
+ * An image started as pending verification can roll back if the panel resets
+ * before the running image is marked valid.
  */
 #pragma once
 
@@ -11,13 +13,16 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* Call at the end of app_main. Starts a small task that checks every few seconds and ends once the image is valid;
- * without a pending image (normal boots, or a bootloader without rollback support) it ends at once. */
+/** @brief Start health polling at the end of app_main, only for a pending image. */
 void ota_validate_start(void);
 
-/* The bootloader in flash (not the running app): its version number (CONFIG_BOOTLOADER_PROJECT_VER) and build date/time. False when
- * it cannot be read, for example a bootloader that predates the description. /api/version reports it as "bootloader". */
+/** @brief Read the flashed bootloader's version and optional build timestamp.
+ * @param[out] version Required destination for the bootloader project version.
+ * @param[out] built Optional destination for the build timestamp.
+ * @param built_len Size of the timestamp buffer in bytes.
+ * @return True when the bootloader description could be read.
+ */
 bool ota_validate_bootloader_info(uint32_t *version, char *built, size_t built_len);
 
-/* "valid", "pending_verify", "new", "invalid", "aborted" or "undefined" for the running image (/api/version). */
+/** @return Static state name for the running image, or `undefined` if not available. */
 const char *ota_validate_image_state(void);

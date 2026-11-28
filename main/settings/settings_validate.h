@@ -4,15 +4,20 @@
  * Content checks for runtime settings strings that the length limits in api_settings.c do not cover.
  * Pure functions, host-tested. An empty string is accepted by every check: it means "use the default" or "unset".
  */
+/** @file
+ * @brief Pure input checks for persisted connection targets and display text.
+ *
+ * Empty strings are accepted; a NULL pointer is not.
+ */
 #pragma once
 
 #include <stdbool.h>
 
-/* NTP server or MQTT broker host: a host name, IPv4 or bracket-free IPv6 literal ([A-Za-z0-9._:-], no spaces). */
+/** @brief Check the allowed hostname/address characters without resolving the host. */
 bool settings_host_valid(const char *host);
-/* POSIX TZ string (e.g. "CET-1CEST,M3.5.0,M10.5.0/3", "<+03>-3"): printable ASCII only. */
+/** @brief Require printable ASCII in a timezone string; does not parse the timezone rules. */
 bool settings_timezone_valid(const char *tz);
-/* MQTT topic prefix: printable ASCII without spaces, no '+' or '#' wildcards, no leading, trailing or doubled '/'. */
+/** @brief Check a topic prefix for printable non-space ASCII, no wildcards and no empty path components. */
 bool settings_topic_prefix_valid(const char *prefix);
-/* Free text shown to people (room, device name): no control characters. */
+/** @brief Reject ASCII control bytes in display text without restricting non-ASCII text. */
 bool settings_text_valid(const char *text);

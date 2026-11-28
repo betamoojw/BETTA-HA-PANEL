@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: LicenseRef-FNCL-1.1
  * Copyright (c) 2026 andre68723 -- file added in the andre68723/BETTA-HA-PANEL fork, see docs/release-notes.md
  */
+/** @file
+ * @brief Serialize background flash writes and OTA verification with a lazily created mutex.
+ */
 #include "util/flash_gate.h"
 
 #include <stdatomic.h>
@@ -8,27 +11,31 @@
 #include "freertos/semphr.h"
 
 #if CONFIG_APP_PANEL_VARIANT_S3_480
-#include "drivers/display_panels3_dma.h"
+#  include "drivers/display_panels3_dma.h"
 #endif
 
 static _Atomic(SemaphoreHandle_t) s_gate;
 
 bool flash_gate_enter(uint32_t timeout_ms)
 {
-    if (s_gate == NULL) {
+    if (s_gate == NULL)
+    {
         /* First use: create under a critical section so two callers do not each make one. */
         static portMUX_TYPE lock = portMUX_INITIALIZER_UNLOCKED;
         SemaphoreHandle_t fresh = xSemaphoreCreateMutex();
-        if (fresh == NULL) {
+        if (fresh == NULL)
+        {
             return false; /* No flash operation may bypass mutual exclusion. */
         }
         taskENTER_CRITICAL(&lock);
-        if (s_gate == NULL) {
+        if (s_gate == NULL)
+        {
             s_gate = fresh;
             fresh = NULL;
         }
         taskEXIT_CRITICAL(&lock);
-        if (fresh != NULL) {
+        if (fresh != NULL)
+        {
             vSemaphoreDelete(fresh);
         }
     }
@@ -37,7 +44,8 @@ bool flash_gate_enter(uint32_t timeout_ms)
 
 void flash_gate_leave(void)
 {
-    if (s_gate != NULL) {
+    if (s_gate != NULL)
+    {
 #if CONFIG_APP_PANEL_VARIANT_S3_480
         display_panels3_flash_complete();
 #endif

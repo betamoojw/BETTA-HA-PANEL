@@ -78,6 +78,11 @@ descriptions 192 and units 32. Group addresses use main/middle/sub with ranges
 0–31, 0–7 and 0–255. Individual addresses use area.line.member with ranges
 0–15, 0–15 and 0–255. At least one permission must be true.
 Unknown/duplicate fields and unsupported DPTs reject the entire import.
+If a save reports an unrecognized DPT, check the **Build** in the editor sidebar.
+The repository's `tests/knx/knxConfig.json` uses `DPT-7.010` and `DPT-20.1000`,
+which the firmware first accepted in `b09ddf0`. Use firmware with that change
+to import the original file with both subtypes intact. For example, saving
+`DPT-7.10` gives the expected spelling `DPT-7.010`.
 
 ## Dashboard widgets
 

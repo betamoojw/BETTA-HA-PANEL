@@ -21,6 +21,8 @@ extern "C" {
 #include <deque>
 #include <vector>
 #include <functional>
+#include <iostream>
+#include <iterator>
 
 bool test_online=true, test_storage_failure=false;
 uint32_t test_ip=1;
@@ -717,7 +719,44 @@ static void exercise_registry_capacity() {
     assert(step==4);
 }
 
+static void check_installed_registry(const char* configuration) {
+    cJSON* registry = cJSON_Parse(configuration);
+    const cJSON* entries = cJSON_GetObjectItemCaseSensitive(registry, "comObjects");
+    assert(cJSON_IsArray(entries));
+    cJSON* status = knx_status();
+    assert(cJSON_GetNumberValue(cJSON_GetObjectItemCaseSensitive(status, "object_count")) == cJSON_GetArraySize(entries));
+    cJSON_Delete(status);
+    const cJSON* entry;
+    cJSON_ArrayForEach(entry, entries) {
+        const char* id = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(entry, "id"));
+        cJSON* installed = knx_object(id);
+        assert(installed && cJSON_Compare(cJSON_GetObjectItemCaseSensitive(installed, "datapoint_type"),
+                                          cJSON_GetObjectItemCaseSensitive(entry, "datapoint_type"), true));
+        cJSON_Delete(installed);
+    }
+    cJSON_Delete(registry);
+}
+
 int main(int argc, char **argv) {
+    if (argc == 2 && !strcmp(argv[1], "--save-registry")) {
+        // The first line is the existing store. The rest is the editor's PUT body.
+        assert(std::getline(std::cin, persisted));
+        knx_init();
+        const std::string previous = persisted;
+        const std::string draft{std::istreambuf_iterator<char>(std::cin), std::istreambuf_iterator<char>()};
+        char error[256]{};
+        const bool saved = knx_configure(draft.c_str(), error, sizeof(error));
+        if (!saved) {
+            assert(persisted == previous);
+            std::cerr << error;
+        }
+        char *active = knx_configuration();
+        assert(active && persisted == active);
+        check_installed_registry(active);
+        std::cout << active;
+        free(active);
+        return saved ? 0 : 1;
+    }
     if(argc==2 && !strcmp(argv[1],"--registry-capacity")) {exercise_registry_capacity();return 0;}
     assert(argc == 1 || argc == 3 || argc == 4);
     persisted=kKnxDefaultConfiguration;

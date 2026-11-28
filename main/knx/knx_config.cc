@@ -268,11 +268,15 @@ bool KnxParseConfiguration(std::string_view json_text,
         } else if (!JsonString(item, "group_address", object.group_address, true, 10) ||
                    !KnxParseGroupAddress(object.group_address, object.parsed_group_address)) {
             error = ObjectFieldError(index, "group_address");
-        } else if (!JsonString(item, "datapoint_type", datapoint_type, true, 16) ||
-                   !KnxParseDpt(datapoint_type, object.datapoint_type) ||
-                   KnxDptName(object.datapoint_type) != datapoint_type) {
+        } else if (!JsonString(item, "datapoint_type", datapoint_type, true, 16)) {
             error = ObjectFieldError(index, "datapoint_type") + ": object '" + object.id +
-                    "', '" + datapoint_type + "': expected a canonical supported DPT";
+                    "': expected a non-empty DPT string of at most 16 bytes";
+        } else if (!KnxParseDpt(datapoint_type, object.datapoint_type)) {
+            error = ObjectFieldError(index, "datapoint_type") + ": object '" + object.id +
+                    "', '" + datapoint_type + "': DPT not recognized by this firmware";
+        } else if (const auto canonical = KnxDptName(object.datapoint_type); canonical != datapoint_type) {
+            error = ObjectFieldError(index, "datapoint_type") + ": object '" + object.id +
+                    "', '" + datapoint_type + "': use '" + canonical + "'";
         } else if (!JsonBoolean(item, "readable", object.readable)) {
             error = ObjectFieldError(index, "readable");
         } else if (!JsonBoolean(item, "writable", object.writable)) {

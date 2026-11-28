@@ -146,6 +146,7 @@ nav = [
       { "AI Assistant conversation display" = "development/xiaozhi-spectrum.md" },
       { "AI Assistant MCP tools" = "development/xiaozhi-mcp-tools.md" },
       { "KNX" = "development/knx.md" },
+      { "KNX datapoint coverage" = "development/knx-dpt-coverage.md" },
       { "AI Assistant resources" = "development/xiaozhi-resources.md" },
       { "Camera streaming" = "development/camera-streaming.md" },
       { "Local camera" = "development/local-camera.md" },

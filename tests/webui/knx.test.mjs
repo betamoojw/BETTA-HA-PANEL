@@ -2,10 +2,12 @@
 // Copyright (c) 2026 andre68723
 import {test} from "node:test";
 import assert from "node:assert/strict";
+import {spawnSync} from "node:child_process";
 import fs from "node:fs";
 import vm from "node:vm";
 import {loadEditor} from "./load_editor.mjs";
 const source = fs.readFileSync(new URL("../../components/webui/www/js/knx.js",import.meta.url),"utf8");
+const shippedRegistry = fs.readFileSync(new URL("../knx/knxConfig.json", import.meta.url), "utf8");
 const config = {media_type:"knx_ip",media_parameters:{multicast_address:"224.0.23.12",udp_port:3671,transport_mode:"routing",interface_identifier:"KNX-IP-Interface",nat:false},
   physical_address:"15.15.199",comObjects:[{id:"sensor",name:"温度",description:"Living room",group_address:"1/0/1",datapoint_type:"DPT-9.001",readable:true,writable:false},
   {id:"lamp",name:"Lamp",group_address:"1/0/2",datapoint_type:"DPT-1.001",readable:true,writable:true}]};
@@ -58,13 +60,74 @@ test("load, edit, save, disable/re-enable and reload preserve the whole configur
   assert.equal(reload.node("knxEnabled").checked,true);
   assert.deepEqual(JSON.parse(reload.node("knxConfig").value),s.model.configuration);
 });
-test("import is a draft until save; export uses knxConfig.json",async()=>{
-  const s=setup();await s.poll();
-  s.node("knxFile").files=[{size:200,text:async()=>JSON.stringify({...config,physical_address:"2.2.2"})}];
-  await s.fire("knxFile","change");
-  assert.equal(s.model.configuration.physical_address,"15.15.199");
-  await s.fire("knxExport","click");assert.deepEqual(s.downloads,["knxConfig.json"]);
-  await s.fire("knxSave","click");assert.equal(s.model.configuration.physical_address,"2.2.2");
+test("the example is a draft until save, exports as knxConfig.json and reloads intact", async () => {
+  const s = setup();
+  await s.poll();
+  s.node("knxFile").files = [{size: Buffer.byteLength(shippedRegistry), text: async () => shippedRegistry}];
+  await s.fire("knxFile", "change");
+  assert.deepEqual(s.model.configuration, config);
+  await s.fire("knxExport", "click");
+  assert.deepEqual(s.downloads, ["knxConfig.json"]);
+  await s.fire("knxSave", "click");
+  await s.fire("knxReload", "click");
+  const reloaded = JSON.parse(s.node("knxConfig").value);
+  assert.deepEqual(reloaded, JSON.parse(shippedRegistry));
+  const types = new Map(reloaded.comObjects.map(o => [o.id, o.datapoint_type]));
+  assert.ok(types.size >= 302);
+  assert.equal(types.get("dpt_7_010"), "DPT-7.010");
+  assert.equal(types.get("dpt_20_1000"), "DPT-20.1000");
+});
+test("shipped registry survives editor import, worker save and reload", {
+  skip: !process.env.BETTA_KNX_SERVICE_TEST && "run knx_editor_registry_import with CTest"
+}, async () => {
+  const registry = JSON.parse(shippedRegistry);
+
+  let stored = JSON.stringify(config);
+  const writes = [];
+  const s = setup({}, {fetch: async (url, {method, body}) => {
+    if (url === "/api/knx/config" && method === "GET") return {ok: true, text: async () => stored};
+    if (url === "/api/knx/config" && method === "PUT") {
+      writes.push(body);
+      const result = spawnSync(process.env.BETTA_KNX_SERVICE_TEST, ["--save-registry"], {
+        input: stored + "\n" + body, encoding: "utf8"
+      });
+      assert.ifError(result.error);
+      assert.ok(result.status === 0 || result.status === 1, result.stderr);
+      stored = result.stdout;
+      if (result.status === 1) return {ok: false, text: async () => result.stderr};
+    } else {
+      assert.equal(url, "/api/knx");
+      assert.equal(method, "GET");
+    }
+    return {ok: true, json: async () => ({enabled: false, state: "disabled", object_count: JSON.parse(stored).comObjects.length})};
+  }});
+  await s.poll();
+  s.node("knxFile").files = [{size: Buffer.byteLength(shippedRegistry), text: async () => shippedRegistry}];
+  await s.fire("knxFile", "change");
+  assert.equal(writes.length, 0);
+  await s.fire("knxSave", "click");
+  assert.equal(writes.length, 1);
+  assert.deepEqual(JSON.parse(writes[0]), registry);
+  assert.equal(s.node("knxMessage").textContent, "knx.saved");
+  const accepted = stored;
+  assert.deepEqual(JSON.parse(accepted), registry);
+  for (const [dpt, message] of [
+    ["DPT-7.099", /dpt_7_010.*DPT-7\.099.*not recognized by this firmware/],
+    ["DPT-7.10", /dpt_7_010.*DPT-7\.10'.*use 'DPT-7\.010'/],
+    [null, /dpt_7_010.*expected a non-empty DPT string/]
+  ]) {
+    const draft = structuredClone(registry);
+    draft.comObjects.find(o => o.id === "dpt_7_010").datapoint_type = dpt;
+    s.node("knxConfig").value = JSON.stringify(draft);
+    await s.fire("knxConfig", "input");
+    await s.fire("knxSave", "click");
+    assert.match(s.node("knxMessage").textContent, message);
+    assert.deepEqual(JSON.parse(s.node("knxConfig").value), draft);
+    assert.equal(stored, accepted);
+    await s.fire("knxReload", "click");
+    assert.deepEqual(JSON.parse(s.node("knxConfig").value), registry);
+    assert.equal(s.node("knxObject").children.length, registry.comObjects.length);
+  }
 });
 test("oversized/invalid imports and invalid edits never send a configuration write",async()=>{
   const s=setup();await s.poll();

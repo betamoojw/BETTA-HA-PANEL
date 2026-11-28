@@ -71,6 +71,9 @@ if(KNX_NODE)
   add_test(NAME knx_editor_worker COMMAND ${CMAKE_COMMAND} -E env
     "BETTA_KNX_SERVICE_TEST=$<TARGET_FILE:knx_service_test>" ${KNX_NODE}
     --test "--test-name-pattern=agree with the KNX worker" "${ROOT}/tests/webui/knx_widget_picker.test.mjs")
+  add_test(NAME knx_editor_registry_import COMMAND ${CMAKE_COMMAND} -E env
+    "BETTA_KNX_SERVICE_TEST=$<TARGET_FILE:knx_service_test>" ${KNX_NODE}
+    --test "--test-name-pattern=shipped registry" "${ROOT}/tests/webui/knx.test.mjs")
 endif()
 add_executable(knx_api_test test_api.c "${KNX}/knx_api.c" "${CJSON_DIR}/cJSON.c")
 target_include_directories(knx_api_test PRIVATE "${ROOT}/main" "${ROOT}/tests/host/stubs" "${CJSON_DIR}" stubs)

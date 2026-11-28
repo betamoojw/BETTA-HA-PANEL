@@ -148,31 +148,8 @@ temperature invalidation, reconnects, partial bindings and feedback independence
 the SDL controls suite exercises real Slider, Select, Cover, Climate and Fan event handlers with
 synthetic KNX adapters while Home Assistant is offline. Editor tests cover role changes,
 save/reload, all seven translations and real-cache previews without sample state.
-The capacity regression exercises 512 distinct groups, the last HTTP/MCP pages,
-last-object feedback and a write, and rejection of a 513th object. The 352-row
-reference in `tests/knx/KNX-Datapoint-Types.md` includes 264 subtypes accepted
-by the current codecs; the fixture covers those supported reference types.
-These 88 listed types remain unsupported and must not be added to the valid fixture
-until their typed codecs and validation rules are implemented:
+See [KNX datapoint coverage](knx-dpt-coverage.md) for registry capacity, fixture coverage and unsupported types.
 
-~~~text
-200.100 200.101
-201.100 201.102 201.104 201.105 201.107 201.108 201.109
-202.001 202.002
-203.002 203.003 203.004 203.005 203.006 203.007 203.011 203.012 203.013 203.014
-203.015 203.017 203.100 203.101 203.102 203.104
-204.001
-205.002 205.003 205.004 205.005 205.006 205.007 205.017 205.100 205.101 205.102
-206.100 206.102 206.104 206.105
-207.100 207.101 207.102 207.104 207.105 207.600
-209.100 209.101 209.102 209.103
-210.100 211.100 212.100 212.101 213.100 213.101 213.102
-214.100 214.101 215.100 215.101 216.100
-217.001 218.001 218.002 219.001 220.100 221.001
-222.100 222.101 223.100 224.100 225.001 225.002 225.003
-229.001 230.1000 231.001 235.001 236.001 237.600
-238.001 238.600 239.001 240.800 241.800
-~~~
 Real Routing reception, reconnect, voice-to-actuator operation and concurrent
 audio/display stability require a separate authorized device trial.
 

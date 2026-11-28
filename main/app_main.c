@@ -241,8 +241,6 @@ void app_main(void)
         if (wifi_err != ESP_OK) {
             ESP_LOGW(TAG_WIFI, "Wi-Fi init failed: %s", esp_err_to_name(wifi_err));
             ui_boot_splash_set_status(ui_i18n_get("boot.wifi_connect_failed", "Wi-Fi connect failed"));
-        } else {
-            ui_boot_splash_set_status(ui_i18n_get("boot.wifi_connected", "Wi-Fi connected"));
         }
     } else {
         ESP_LOGW(TAG_WIFI, "No Wi-Fi credentials configured, starting setup AP");

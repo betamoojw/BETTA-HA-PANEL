@@ -1,6 +1,6 @@
 // Adapted from betamoojw/xiaozhi-esp32, feat/knx_ip at 61fc9d0b619f39ed20356b8de2f9c0edd954472d.
 // See README.md for provenance and third-party terms.
-// Allowed values, in catalogue order; KNX sections 3.21, 4.3, 6.3, 7.2, 8.1, 9.5.
+// Allowed-value bitsets in catalogue order; KNX sections 3.21, 4.3, 6.3, 7.2, 8.1, 9.5.
     {0x00000007U, 0x00000000U, 0x00000000U, 0x00000000U, 0x00000000U, 0x00000000U, 0x00000000U, 0x00000000U},
     {0x00000007U, 0x00000000U, 0x00000000U, 0x00000000U, 0x00000000U, 0x00000000U, 0x00000000U, 0x00000000U},
     {0x00000007U, 0x00000000U, 0x00000000U, 0x00000000U, 0x00000000U, 0x00000000U, 0x00000000U, 0x00000000U},

@@ -1,5 +1,9 @@
 // Adapted from betamoojw/xiaozhi-esp32, feat/knx_ip at 61fc9d0b619f39ed20356b8de2f9c0edd954472d.
 // See README.md for provenance and third-party terms.
+
+/** @file
+ * @brief Bounded JSON parsing and validation of the KNX registry.
+ */
 #include "knx_config.h"
 #include <cJSON.h>
 
@@ -11,196 +15,268 @@
 #include <set>
 #include <utility>
 
-namespace {
+namespace
+{
 
-bool Fields(const cJSON* object, const std::set<std::string>& allowed) {
+bool Fields(const cJSON *object, const std::set<std::string> &allowed)
+{
     std::set<std::string> seen;
-    for (auto* p = object->child; p; p = p->next)
-        if (!p->string || !allowed.count(p->string) || !seen.insert(p->string).second) return false;
+    for (auto *p = object->child; p; p = p->next)
+    {
+        if (!p->string || !allowed.count(p->string) || !seen.insert(p->string).second)
+        {
+            return false;
+        }
+    }
     return true;
 }
 
-bool Multicast(const std::string& text) {
-    unsigned a, b, c, d; int used = 0;
-    if (std::sscanf(text.c_str(), "%u.%u.%u.%u%n", &a, &b, &c, &d, &used) != 4 ||
-        static_cast<size_t>(used) != text.size()) return false;
+bool Multicast(const std::string &text)
+{
+    unsigned a, b, c, d;
+    int used = 0;
+    if (std::sscanf(text.c_str(), "%u.%u.%u.%u%n", &a, &b, &c, &d, &used) != 4 || static_cast<size_t>(used) != text.size())
+    {
+        return false;
+    }
     return a >= 224 && a <= 239 && b <= 255 && c <= 255 && d <= 255 &&
-        text == std::to_string(a)+"."+std::to_string(b)+"."+std::to_string(c)+"."+std::to_string(d);
+           text == std::to_string(a) + "." + std::to_string(b) + "." + std::to_string(c) + "." + std::to_string(d);
 }
 
-bool BoundedJson(std::string_view text) {
-    // Bound cJSON tree allocation as well as recursion before parsing. A valid
-    // object has at most nine fields, plus the separators in the two headers.
+/**
+ * @brief Bound cJSON tree allocation and recursion before parsing.
+ * A valid object has at most nine fields; also allow separators in the two headers.
+ */
+bool BoundedJson(std::string_view text)
+{
     size_t commas = 0;
-    unsigned depth=0; bool quoted=false, escaped=false;
-    for (char c : text) {
-        if (quoted) {
-            if (escaped) escaped=false;
-            else if (c=='\\') escaped=true;
-            else if (c=='"') quoted=false;
-        } else if (c=='"') quoted=true;
-        else if (c==',' && ++commas > 9 * KNX_MAX_OBJECTS + 7) return false;
-        else if (c=='{' || c=='[') { if (++depth>12) return false; }
-        else if (c=='}' || c==']') { if (!depth) return false; --depth; }
+    unsigned depth = 0;
+    bool quoted = false, escaped = false;
+    for (char c : text)
+    {
+        if (quoted)
+        {
+            if (escaped)
+            {
+                escaped = false;
+            }
+            else if (c == '\\')
+            {
+                escaped = true;
+            }
+            else if (c == '"')
+            {
+                quoted = false;
+            }
+        }
+        else if (c == '"')
+        {
+            quoted = true;
+        }
+        else if (c == ',' && ++commas > 9 * KNX_MAX_OBJECTS + 7)
+        {
+            return false;
+        }
+        else if (c == '{' || c == '[')
+        {
+            if (++depth > 12)
+            {
+                return false;
+            }
+        }
+        else if (c == '}' || c == ']')
+        {
+            if (!depth)
+            {
+                return false;
+            }
+            --depth;
+        }
     }
-    return !quoted && depth==0;
+    return !quoted && depth == 0;
 }
 
 constexpr size_t kMaximumIdLength = 48;
 constexpr size_t kMaximumNameLength = 80;
 constexpr size_t kMaximumDescriptionLength = 192;
 
-
-bool IsKnownField(const char* name) {
-    constexpr const char* kFields[] = {
-        "id", "name", "description", "group_address", "datapoint_type", "readable", "writable",
-        "unit", "display_precision",
+bool IsKnownField(const char *name)
+{
+    constexpr const char *kFields[] = {
+        "id", "name", "description", "group_address", "datapoint_type", "readable", "writable", "unit", "display_precision",
     };
     return name != nullptr &&
-           std::any_of(std::begin(kFields), std::end(kFields),
-                       [name](const char* field) { return std::strcmp(name, field) == 0; });
+           std::any_of(std::begin(kFields), std::end(kFields), [name](const char *field) { return std::strcmp(name, field) == 0; });
 }
 
-std::string ObjectFieldError(size_t index, const char* field) {
-    return "Invalid KNX communication object " + std::to_string(index) + " field '" + field +
-           "'";
+std::string ObjectFieldError(size_t index, const char *field)
+{
+    return "Invalid KNX communication object " + std::to_string(index) + " field '" + field + "'";
 }
 
-bool JsonString(const cJSON* object, const char* name, std::string& value, bool required,
-                size_t maximum_length) {
-    const cJSON* item = cJSON_GetObjectItemCaseSensitive(object, name);
-    if (item == nullptr && !required) {
+bool JsonString(const cJSON *object, const char *name, std::string &value, bool required, size_t maximum_length)
+{
+    const cJSON *item = cJSON_GetObjectItemCaseSensitive(object, name);
+    if (item == nullptr && !required)
+    {
         value.clear();
         return true;
     }
-    if (!required && cJSON_IsNull(item)) {
+    if (!required && cJSON_IsNull(item))
+    {
         value.clear();
         return true;
     }
-    if (!cJSON_IsString(item) || item->valuestring == nullptr) {
+    if (!cJSON_IsString(item) || item->valuestring == nullptr)
+    {
         return false;
     }
     const size_t length = std::strlen(item->valuestring);
-    if ((required && !length) || length > maximum_length) return false;
+    if ((required && !length) || length > maximum_length)
+    {
+        return false;
+    }
     value.assign(item->valuestring, length);
     return true;
 }
 
-bool JsonBoolean(const cJSON* object, const char* name, bool& value) {
-    const cJSON* item = cJSON_GetObjectItemCaseSensitive(object, name);
-    if (!cJSON_IsBool(item)) {
+bool JsonBoolean(const cJSON *object, const char *name, bool &value)
+{
+    const cJSON *item = cJSON_GetObjectItemCaseSensitive(object, name);
+    if (!cJSON_IsBool(item))
+    {
         return false;
     }
     value = cJSON_IsTrue(item);
     return true;
 }
 
-bool ValidateObject(const KnxCommunicationObject& object,
-                    const std::vector<KnxCommunicationObject>& objects, size_t index,
-                    std::string& error) {
-    if (!object.readable && !object.writable) {
+bool ValidateObject(const KnxCommunicationObject &object, const std::vector<KnxCommunicationObject> &objects, size_t index,
+                    std::string &error)
+{
+    if (!object.readable && !object.writable)
+    {
         error = ObjectFieldError(index, "readable/writable") + ": at least one must be true";
         return false;
     }
-    if (std::any_of(objects.begin(), objects.end(),
-                    [&object](const auto& existing) { return existing.id == object.id; })) {
+    if (std::any_of(objects.begin(), objects.end(), [&object](const auto &existing) { return existing.id == object.id; }))
+    {
         error = ObjectFieldError(index, "id") + ": duplicate ID '" + object.id + "'";
         return false;
     }
-    if (std::any_of(objects.begin(), objects.end(), [&object](const auto& existing) {
-            return existing.parsed_group_address == object.parsed_group_address &&
-                   !(existing.datapoint_type == object.datapoint_type);
-        })) {
-        error = ObjectFieldError(index, "group_address") + ": conflicting DPT at address '" +
-            object.group_address + "'";
+    if (std::any_of(objects.begin(), objects.end(),
+                    [&object](const auto &existing)
+                    {
+                        return existing.parsed_group_address == object.parsed_group_address &&
+                               !(existing.datapoint_type == object.datapoint_type);
+                    }))
+    {
+        error = ObjectFieldError(index, "group_address") + ": conflicting DPT at address '" + object.group_address + "'";
         return false;
     }
     return true;
 }
 
-}  // namespace
+} // namespace
 
-
-
-bool KnxParseConfiguration(std::string_view json_text,
-                           std::vector<KnxCommunicationObject>& objects,
-                           std::string& canonical_json, std::string& error,
-                           KnxRoutingParameters* routing) {
+bool KnxParseConfiguration(std::string_view json_text, std::vector<KnxCommunicationObject> &objects, std::string &canonical_json,
+                           std::string &error, KnxRoutingParameters *routing)
+{
     objects.clear();
     canonical_json.clear();
     error.clear();
-    if (json_text.empty() || json_text.size() > KNX_MAX_CONFIG_BYTES) {
+    if (json_text.empty() || json_text.size() > KNX_MAX_CONFIG_BYTES)
+    {
         error = "KNX configuration is empty or exceeds the size limit";
         return false;
     }
-    if (!BoundedJson(json_text)) { error = "Invalid or excessive KNX JSON structure"; return false; }
+    if (!BoundedJson(json_text))
+    {
+        error = "Invalid or excessive KNX JSON structure";
+        return false;
+    }
     // cJSON strings use NUL termination: reject embedded or escaped NULs rather
     // than silently authorizing an ID truncated at that byte.
-    if (json_text.find('\0') != std::string::npos ||
-        json_text.find("\\u0000") != std::string::npos) {
-        error = "NUL characters are not allowed"; return false;
+    if (json_text.find('\0') != std::string::npos || json_text.find("\\u0000") != std::string::npos)
+    {
+        error = "NUL characters are not allowed";
+        return false;
     }
 
-    const char* end = nullptr;
-    cJSON* root = cJSON_ParseWithLengthOpts(json_text.data(), json_text.size(), &end, false);
-    if (!root || json_text.find_first_not_of(" \r\n\t", end - json_text.data()) != std::string_view::npos) {
+    const char *end = nullptr;
+    cJSON *root = cJSON_ParseWithLengthOpts(json_text.data(), json_text.size(), &end, false);
+    if (!root || json_text.find_first_not_of(" \r\n\t", end - json_text.data()) != std::string_view::npos)
+    {
         cJSON_Delete(root);
         error = "Invalid JSON in KNX configuration";
         return false;
     }
 
-    if (!cJSON_IsObject(root)) {
+    if (!cJSON_IsObject(root))
+    {
         cJSON_Delete(root);
         error = "KNX configuration root must be a JSON object";
         return false;
     }
-    if (!Fields(root, {"media_type", "media_parameters", "physical_address", "comObjects"})) {
-        cJSON_Delete(root); error = "Unknown or duplicate KNX root field"; return false;
+    if (!Fields(root, {"media_type", "media_parameters", "physical_address", "comObjects"}))
+    {
+        cJSON_Delete(root);
+        error = "Unknown or duplicate KNX root field";
+        return false;
     }
     std::string media_type;
-    if (!JsonString(root, "media_type", media_type, true, 16) || media_type != "knx_ip") {
+    if (!JsonString(root, "media_type", media_type, true, 16) || media_type != "knx_ip")
+    {
         cJSON_Delete(root);
         error = "Invalid KNX root field 'media_type': expected 'knx_ip'";
         return false;
     }
-    const cJSON* media_parameters = cJSON_GetObjectItemCaseSensitive(root, "media_parameters");
-    if (!cJSON_IsObject(media_parameters)) {
+    const cJSON *media_parameters = cJSON_GetObjectItemCaseSensitive(root, "media_parameters");
+    if (!cJSON_IsObject(media_parameters))
+    {
         cJSON_Delete(root);
         error = "Invalid KNX root field 'media_parameters': expected an object";
         return false;
     }
-    if (!Fields(media_parameters, {"multicast_address", "udp_port", "transport_mode", "interface_identifier", "nat"})) {
-        cJSON_Delete(root); error = "Unknown or duplicate KNX media field"; return false;
+    if (!Fields(media_parameters, {"multicast_address", "udp_port", "transport_mode", "interface_identifier", "nat"}))
+    {
+        cJSON_Delete(root);
+        error = "Unknown or duplicate KNX media field";
+        return false;
     }
     std::string multicast_address;
     std::string transport_mode;
     std::string interface_identifier;
-    const cJSON* udp_port = cJSON_GetObjectItemCaseSensitive(media_parameters, "udp_port");
-    if (!JsonString(media_parameters, "multicast_address", multicast_address, true, 15) || !Multicast(multicast_address)) {
+    const cJSON *udp_port = cJSON_GetObjectItemCaseSensitive(media_parameters, "udp_port");
+    if (!JsonString(media_parameters, "multicast_address", multicast_address, true, 15) || !Multicast(multicast_address))
+    {
         cJSON_Delete(root);
         error = "Invalid KNX root field 'media_parameters.multicast_address'";
         return false;
     }
     if (!cJSON_IsNumber(udp_port) || udp_port->valuedouble < 1 || udp_port->valuedouble > 65535 ||
-        udp_port->valuedouble != udp_port->valueint) {
+        udp_port->valuedouble != udp_port->valueint)
+    {
         cJSON_Delete(root);
         error = "Invalid KNX root field 'media_parameters.udp_port'";
         return false;
     }
     const auto port = static_cast<uint16_t>(udp_port->valueint);
-    if (!JsonString(media_parameters, "transport_mode", transport_mode, true, 16) ||
-        transport_mode != "routing") {
+    if (!JsonString(media_parameters, "transport_mode", transport_mode, true, 16) || transport_mode != "routing")
+    {
         cJSON_Delete(root);
         error = "Invalid KNX root field 'media_parameters.transport_mode': expected 'routing'";
         return false;
     }
-    if (!JsonString(media_parameters, "interface_identifier", interface_identifier, true, 80)) {
+    if (!JsonString(media_parameters, "interface_identifier", interface_identifier, true, 80))
+    {
         cJSON_Delete(root);
         error = "Invalid KNX root field 'media_parameters.interface_identifier'";
         return false;
     }
     bool nat = false;
-    if (!JsonBoolean(media_parameters, "nat", nat) || nat) {
+    if (!JsonBoolean(media_parameters, "nat", nat) || nat)
+    {
         cJSON_Delete(root);
         error = "Routing requires media_parameters.nat=false";
         return false;
@@ -208,90 +284,123 @@ bool KnxParseConfiguration(std::string_view json_text,
     std::string parsed_physical_address;
     knx_address_t parsed_physical_address_value = 0;
     if (!JsonString(root, "physical_address", parsed_physical_address, true, 10) ||
-        !KnxParsePhysicalAddress(parsed_physical_address, parsed_physical_address_value)) {
+        !KnxParsePhysicalAddress(parsed_physical_address, parsed_physical_address_value))
+    {
         cJSON_Delete(root);
         error = "Invalid KNX root field 'physical_address'";
         return false;
     }
-    cJSON* objects_array = cJSON_GetObjectItemCaseSensitive(root, "comObjects");
-    if (!cJSON_IsArray(objects_array)) {
+    cJSON *objects_array = cJSON_GetObjectItemCaseSensitive(root, "comObjects");
+    if (!cJSON_IsArray(objects_array))
+    {
         cJSON_Delete(root);
         error = "Invalid KNX root field 'comObjects': expected an array";
         return false;
     }
 
     const int count = cJSON_GetArraySize(objects_array);
-    if (count > KNX_MAX_OBJECTS) {
+    if (count > KNX_MAX_OBJECTS)
+    {
         cJSON_Delete(root);
         error = "Too many KNX communication objects";
         return false;
     }
     objects.reserve(count);
     bool valid = true;
-    const cJSON* item = nullptr;
+    const cJSON *item = nullptr;
     size_t index = 0;
-    cJSON_ArrayForEach (item, objects_array) {
-        if (!cJSON_IsObject(item)) {
+    cJSON_ArrayForEach(item, objects_array)
+    {
+        if (!cJSON_IsObject(item))
+        {
             error = ObjectFieldError(index, "object") + ": expected an object";
             valid = false;
             break;
         }
         std::set<std::string> fields;
-        for (const cJSON* field = item->child; field != nullptr; field = field->next) {
-            if (!IsKnownField(field->string)) {
-                error = ObjectFieldError(index,
-                                         field->string == nullptr ? "<unnamed>" : field->string) +
-                        ": unknown field";
+        for (const cJSON *field = item->child; field != nullptr; field = field->next)
+        {
+            if (!IsKnownField(field->string))
+            {
+                error = ObjectFieldError(index, field->string == nullptr ? "<unnamed>" : field->string) + ": unknown field";
                 valid = false;
                 break;
             }
-            if (!fields.insert(field->string).second) {
+            if (!fields.insert(field->string).second)
+            {
                 error = ObjectFieldError(index, field->string) + ": duplicate field";
                 valid = false;
                 break;
             }
         }
-        if (!valid) {
+        if (!valid)
+        {
             break;
         }
 
         KnxCommunicationObject object;
         std::string datapoint_type;
         const cJSON *precision = cJSON_GetObjectItemCaseSensitive(item, "display_precision");
-        if (!JsonString(item, "id", object.id, true, kMaximumIdLength)) {
+        if (!JsonString(item, "id", object.id, true, kMaximumIdLength))
+        {
             error = ObjectFieldError(index, "id");
-        } else if (!JsonString(item, "name", object.name, true, kMaximumNameLength)) {
+        }
+        else if (!JsonString(item, "name", object.name, true, kMaximumNameLength))
+        {
             error = ObjectFieldError(index, "name");
-        } else if (!JsonString(item, "description", object.description, false,
-                               kMaximumDescriptionLength)) {
+        }
+        else if (!JsonString(item, "description", object.description, false, kMaximumDescriptionLength))
+        {
             error = ObjectFieldError(index, "description");
-        } else if (!JsonString(item, "group_address", object.group_address, true, 10) ||
-                   !KnxParseGroupAddress(object.group_address, object.parsed_group_address)) {
+        }
+        else if (!JsonString(item, "group_address", object.group_address, true, 10) ||
+                 !KnxParseGroupAddress(object.group_address, object.parsed_group_address))
+        {
             error = ObjectFieldError(index, "group_address");
-        } else if (!JsonString(item, "datapoint_type", datapoint_type, true, 16)) {
+        }
+        else if (!JsonString(item, "datapoint_type", datapoint_type, true, 16))
+        {
             error = ObjectFieldError(index, "datapoint_type") + ": object '" + object.id +
                     "': expected a non-empty DPT string of at most 16 bytes";
-        } else if (!KnxParseDpt(datapoint_type, object.datapoint_type)) {
-            error = ObjectFieldError(index, "datapoint_type") + ": object '" + object.id +
-                    "', '" + datapoint_type + "': DPT not recognized by this firmware";
-        } else if (const auto canonical = KnxDptName(object.datapoint_type); canonical != datapoint_type) {
-            error = ObjectFieldError(index, "datapoint_type") + ": object '" + object.id +
-                    "', '" + datapoint_type + "': use '" + canonical + "'";
-        } else if (!JsonBoolean(item, "readable", object.readable)) {
+        }
+        else if (!KnxParseDpt(datapoint_type, object.datapoint_type))
+        {
+            error = ObjectFieldError(index, "datapoint_type") + ": object '" + object.id + "', '" + datapoint_type +
+                    "': DPT not recognized by this firmware";
+        }
+        else if (const auto canonical = KnxDptName(object.datapoint_type); canonical != datapoint_type)
+        {
+            error = ObjectFieldError(index, "datapoint_type") + ": object '" + object.id + "', '" + datapoint_type + "': use '" +
+                    canonical + "'";
+        }
+        else if (!JsonBoolean(item, "readable", object.readable))
+        {
             error = ObjectFieldError(index, "readable");
-        } else if (!JsonBoolean(item, "writable", object.writable)) {
+        }
+        else if (!JsonBoolean(item, "writable", object.writable))
+        {
             error = ObjectFieldError(index, "writable");
-        } else if (!JsonString(item, "unit", object.unit, false, 32)) {
+        }
+        else if (!JsonString(item, "unit", object.unit, false, 32))
+        {
             error = ObjectFieldError(index, "unit");
-        } else if (precision && (!cJSON_IsNumber(precision) || precision->valueint != precision->valuedouble ||
-                                 precision->valueint < 0 || precision->valueint > 6)) {
+        }
+        else if (precision && (!cJSON_IsNumber(precision) || precision->valueint != precision->valuedouble || precision->valueint < 0 ||
+                               precision->valueint > 6))
+        {
             error = ObjectFieldError(index, "display_precision");
-        } else {
-            if (precision) object.display_precision = precision->valueint;
+        }
+        else
+        {
+            if (precision)
+            {
+                object.display_precision = precision->valueint;
+            }
             object.group_address = KnxFormatGroupAddress(object.parsed_group_address);
             valid = ValidateObject(object, objects, index, error);
         }
-        if (!error.empty()) {
+        if (!error.empty())
+        {
             valid = false;
             break;
         }
@@ -299,25 +408,33 @@ bool KnxParseConfiguration(std::string_view json_text,
         ++index;
     }
 
-    if (valid) {
-        char* printed = cJSON_PrintUnformatted(root);
-        if (printed == nullptr) {
+    if (valid)
+    {
+        char *printed = cJSON_PrintUnformatted(root);
+        if (printed == nullptr)
+        {
             error = "Could not serialize KNX configuration";
             valid = false;
-        } else {
+        }
+        else
+        {
             canonical_json = printed;
             cJSON_free(printed);
-            if (canonical_json.size() > KNX_MAX_CONFIG_BYTES) {
+            if (canonical_json.size() > KNX_MAX_CONFIG_BYTES)
+            {
                 error = "Canonical KNX configuration exceeds the size limit";
                 valid = false;
             }
         }
     }
     cJSON_Delete(root);
-    if (!valid) {
+    if (!valid)
+    {
         objects.clear();
         canonical_json.clear();
-    } else if (routing) {
+    }
+    else if (routing)
+    {
         *routing = {std::move(multicast_address), port, parsed_physical_address_value};
     }
     return valid;

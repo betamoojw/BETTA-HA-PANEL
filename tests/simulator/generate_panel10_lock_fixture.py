@@ -3,7 +3,6 @@
 """Compile the production lock and refresh paths without a device SDK."""
 from pathlib import Path
 import sys
-from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tools"))
@@ -25,10 +24,8 @@ def main(output):
     refresh = runtime.index("static ui_periodic_refresh_t s_periodic_refresh")
     refresh_end = runtime.index(";", refresh) + 1
 
-    # Use the replacement payload when managed_components is absent in host CI.
-    with patch.object(apply_component_patches, "replace") as replace:
-        apply_component_patches.patch_panel10_lock_context(None)
-        _, _, adapter = replace.call_args.args
+    # Use the same lock code as firmware without requiring managed components.
+    _, adapter = apply_component_patches.panel10_lock_context_sources()
 
     parts = [
         adapter,

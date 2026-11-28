@@ -49,7 +49,8 @@ def replace_ppa_legacy(path, old, new):
     return replace(path, old, new)
 
 
-def patch_panel10_lock_context(path):
+def panel10_lock_context_sources():
+    """Return the upstream and patched lock code without reading component files."""
     old = '''esp_err_t esp_lv_adapter_lock(int32_t timeout_ms)
 {
     ESP_RETURN_ON_FALSE(s_ctx.lvgl_mutex, ESP_ERR_INVALID_STATE, TAG, "Adapter LVGL mutex not initialized");
@@ -150,6 +151,11 @@ void esp_lv_adapter_unlock(void)
         xSemaphoreGiveRecursive(s_ctx.lvgl_mutex);
     }
 }'''
+    return old, new
+
+
+def patch_panel10_lock_context(path):
+    old, new = panel10_lock_context_sources()
     text = path.read_text(encoding="utf-8")
     if new in text:
         return "present", None

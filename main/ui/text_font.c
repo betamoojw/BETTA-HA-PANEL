@@ -6,8 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "ui/fonts/ttf_data.h"
-#include "ui/cjk_font_data.h"
+#include "ui/font_data.h"
 #include "ui/reply_font_file.h"
 
 /* lv_tiny_ttf puts the base line one pixel lower than the converter did: re-applied after every create (see text_scale.h) */
@@ -102,7 +101,7 @@ static int s_fail_creates;
 void ui_fonts_test_fail_creates(int count) { s_fail_creates = count; }
 #endif
 
-static lv_font_t *make_font(const unsigned char *data, unsigned int size, int px, lv_font_kerning_t kerning, size_t cache_entries)
+static lv_font_t *make_font(ui_ttf_id_t id, int px, lv_font_kerning_t kerning, size_t cache_entries)
 {
 #ifdef UI_FONTS_TEST_HOOKS
     if (s_fail_creates > 0) {
@@ -111,7 +110,9 @@ static lv_font_t *make_font(const unsigned char *data, unsigned int size, int px
         return NULL;
     }
 #endif
-    lv_font_t *font = lv_tiny_ttf_create_data_ex(data, size, px, kerning, cache_entries);
+    unsigned int size;
+    const unsigned char *data = ui_font_data(id, &size);
+    lv_font_t *font = data ? lv_tiny_ttf_create_data_ex(data, size, px, kerning, cache_entries) : NULL;
     if (font == NULL) s_stats.create_failures++;
     return font;
 }
@@ -150,7 +151,7 @@ const lv_font_t *ui_font_emoji_for_text(int text_px)
     const icon_metrics_t m = text_scale_emoji_metrics(text_px);
     font_instance_t *inst = find_instance(FAMILY_EMOJI, m.px);
     if (inst != NULL) return inst->font;
-    lv_font_t *font = make_font(ttf_emoji_data, ttf_emoji_size, m.px, LV_FONT_KERNING_NONE, 32);
+    lv_font_t *font = make_font(UI_TTF_EMOJI, m.px, LV_FONT_KERNING_NONE, 32);
     if (font == NULL) return NULL;
     apply_metrics(font, m.line_height, m.base_line);
     inst = add_instance(FAMILY_EMOJI, m.px, font);
@@ -168,7 +169,7 @@ const lv_font_t *ui_font_emotion(int max_height)
     px = LV_MAX(16, (px / 8) * 8);
     font_instance_t *inst = find_instance(FAMILY_EMOJI, px);
     if (inst) return inst->font;
-    lv_font_t *font = make_font(ttf_emoji_data, ttf_emoji_size, px, LV_FONT_KERNING_NONE, 24);
+    lv_font_t *font = make_font(UI_TTF_EMOJI, px, LV_FONT_KERNING_NONE, 24);
     if (!font) return ui_font_emoji_for_text(32);
     apply_metrics(font, px * 11 / 10, (px * 2 + 5) / 10);
     if (!add_instance(FAMILY_EMOJI, px, font)) {
@@ -199,7 +200,7 @@ const lv_font_t *ui_font_clock(int max_width, int max_height, bool format_24h, b
     /* Measure without filling glyph caches or creating large fallback fonts.
      * Only the chosen 16-pixel step becomes an immutable drawing instance. */
     if (!s_clock_probe)
-        s_clock_probe = make_font(ttf_poppins_data, ttf_poppins_size, 32, LV_FONT_KERNING_NONE, 0);
+        s_clock_probe = make_font(UI_TTF_POPPINS, 32, LV_FONT_KERNING_NONE, 0);
     if (!s_clock_probe) return ui_font_role(UI_TEXT_HERO);
     for (int px = 256; px >= 32; px -= 16) {
         lv_tiny_ttf_set_size(s_clock_probe, px);
@@ -208,7 +209,7 @@ const lv_font_t *ui_font_clock(int max_width, int max_height, bool format_24h, b
         font_instance_t *inst = find_instance(FAMILY_CLOCK, px);
         if (inst) return inst->font;
         if (s_count >= UI_FONT_MAX_INSTANCES) { s_stats.budget_hits++; break; }
-        lv_font_t *font = make_font(ttf_poppins_data, ttf_poppins_size, px, LV_FONT_KERNING_NONE, 16);
+        lv_font_t *font = make_font(UI_TTF_POPPINS, px, LV_FONT_KERNING_NONE, 16);
         if (!font) break;
         add_instance(FAMILY_CLOCK, px, font);
         return font;
@@ -224,10 +225,7 @@ static const lv_font_t *cjk_for_text(int px)
     if (inst != NULL) return inst->font;
     const lv_font_t *emoji = ui_font_emoji_for_text(px);
     if (s_count >= UI_FONT_MAX_INSTANCES - 1) { s_stats.budget_hits++; return emoji; }
-    unsigned int cjk_size = 0;
-    const unsigned char *cjk_data = ui_cjk_font_data(&cjk_size);
-    if (!cjk_data) { s_stats.create_failures++; return emoji; }
-    lv_font_t *font = make_font(cjk_data, cjk_size, px, LV_FONT_KERNING_NONE, 32);
+    lv_font_t *font = make_font(UI_TTF_CJK, px, LV_FONT_KERNING_NONE, 32);
     if (font == NULL) return emoji;
     int line_height, base_line;
     text_scale_text_metrics(px, &line_height, &base_line);
@@ -272,7 +270,7 @@ const lv_font_t *ui_font_text_px(int px)
         const lv_font_t *near = nearest_text(px);
         if (near != NULL) return near;
     }
-    lv_font_t *font = make_font(ttf_poppins_data, ttf_poppins_size, px, LV_FONT_KERNING_NORMAL, 128);
+    lv_font_t *font = make_font(UI_TTF_POPPINS, px, LV_FONT_KERNING_NORMAL, 128);
     if (font == NULL) return text_or_default(px);
     int line_height = 0, base_line = 0;
     text_scale_text_metrics(px, &line_height, &base_line);
@@ -294,7 +292,7 @@ const lv_font_t *ui_font_emphasis(const lv_font_t *base)
     font_instance_t *inst = find_instance(FAMILY_BOLD, px);
     if (inst) return inst->font;
     if (s_count >= UI_FONT_MAX_INSTANCES) { s_stats.budget_hits++; return base; }
-    lv_font_t *font = make_font(ttf_poppins_bold_data, ttf_poppins_bold_size, px, LV_FONT_KERNING_NORMAL, 64);
+    lv_font_t *font = make_font(UI_TTF_BOLD, px, LV_FONT_KERNING_NORMAL, 64);
     if (!font) return base;
     font->line_height = base->line_height;
     font->base_line = base->base_line;
@@ -344,7 +342,7 @@ const lv_font_t *ui_font_icon(ui_icon_font_t kind)
     font_instance_t *inst = find_instance(FAMILY_ICON, (int)kind);
     if (inst != NULL) return inst->font;
     const icon_metrics_t m = text_scale_icon_metrics(kind);
-    lv_font_t *font = make_font(ttf_mdi_data, ttf_mdi_size, m.px, LV_FONT_KERNING_NONE, m.px >= 42 ? 32 : 64);
+    lv_font_t *font = make_font(UI_TTF_MDI, m.px, LV_FONT_KERNING_NONE, m.px >= 42 ? 32 : 64);
     if (font == NULL) return FALLBACK_FONT; /* the glyphs show as the placeholder box, the screen stays usable */
     apply_metrics(font, m.line_height, m.base_line);
     const int fallback_px = icon_fallback_text_px(kind);
@@ -362,7 +360,7 @@ const lv_font_t *ui_font_probe(int px)
     if (px < 8) px = 8;
     if (px > text_scale_max_px()) px = text_scale_max_px();
     if (s_probe == NULL) {
-        s_probe = make_font(ttf_poppins_data, ttf_poppins_size, px, LV_FONT_KERNING_NORMAL, 0); /* 0 entries: no caches */
+        s_probe = make_font(UI_TTF_POPPINS, px, LV_FONT_KERNING_NORMAL, 0); /* 0 entries: no caches */
         if (s_probe == NULL) return ui_font_text_px(px);
         s_probe_px = px;
     } else if (s_probe_px != px) {

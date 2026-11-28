@@ -122,6 +122,10 @@ by the SPDX/license header at the top of each such file. Notably:
   from it (mdi_subset.ttf, ttf_mdi_data.c): Material Design Icons by
   Pictogrammers, Apache-2.0 (notice and license text in
   main/ui/fonts/MDI-APACHE-2.0.txt).
+- The five main/ui/fonts/*_subset.ttf.zlib files are losslessly compressed
+  copies of the corresponding TrueType subsets. The MDI stream is Apache-2.0.
+  The Poppins Medium, Poppins Bold, Noto Emoji and Noto Sans SC streams are
+  SIL OFL 1.1. Their notices and license texts accompany the source fonts.
 - main/ui/fonts/POPPINS-OFL.txt: license text for the Poppins font (SIL Open
   Font License 1.1) from which poppins_medium_subset.ttf and ttf_poppins_data.c
   are generated.

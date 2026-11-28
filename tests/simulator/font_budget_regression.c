@@ -14,6 +14,23 @@
 static unsigned checks;
 #define CHECK(c) do { checks++; if (!(c)) { fprintf(stderr, "Font budget regression line %d: %s\n", __LINE__, #c); exit(1); } } while (0)
 
+void sim_font_cold_start_regression(void)
+{
+    CHECK(ui_fonts_stats().instances == 0);
+    ui_fonts_test_fail_creates(1);
+    CHECK(ui_font_text_px(20) == LV_FONT_DEFAULT);
+    CHECK(ui_fonts_stats().instances == 0);
+    const lv_font_t *regular = ui_font_text_px(20);
+    CHECK(regular != LV_FONT_DEFAULT && ui_font_text_px_of(regular) == 20);
+    ui_fonts_test_fail_creates(1);
+    CHECK(ui_font_emphasis(regular) == regular);
+    CHECK(ui_font_emphasis(regular) != regular);
+    ui_fonts_test_fail_creates(1);
+    CHECK(ui_font_icon(ICON_TILE_42) == LV_FONT_DEFAULT);
+    CHECK(ui_font_icon(ICON_TILE_42) != LV_FONT_DEFAULT);
+    CHECK(ui_font_text_px(20) == regular);
+}
+
 int sim_font_budget_regression(void)
 {
     const lv_font_t *kept = ui_font_text_px(20);

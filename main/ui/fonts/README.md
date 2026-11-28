@@ -1,11 +1,10 @@
 <!-- SPDX-License-Identifier: LicenseRef-FNCL-1.1 | Copyright (c) 2026 Cpt_Kirk | Modified 2026 by andre68723 in the andre68723/BETTA-HA-PANEL fork, see docs/release-notes.md -->
 # Fonts of the panel
 
-Text, font symbols and monochrome emoji are drawn by LVGL's `lv_tiny_ttf` from **five TrueType subsets** that are
-embedded in the image as const arrays (`lv_tiny_ttf` reads them in place; S3 XIP also copies read-only data to PSRAM).
-Panel10 alone compresses the Chinese array at build time and shares one restored PSRAM copy, as described below. No bitmap font is generated per size and
-`lv_font_conv` is not used: a size is an integer given at run time, so the text size can follow the board, the role and the user's setting
-(`docs/appearance.md`, "Text size") without regenerating anything.
+LVGL's `lv_tiny_ttf` draws text, symbols and monochrome emoji from **five TrueType subsets**.
+Panel10 embeds verified zlib streams and restores each font on first use. Other boards and the simulator read the original const arrays.
+The same font bytes serve every size selected by the board, text role or user's setting
+(`docs/appearance.md`, "Text size").
 
 | Subset | File | Source | Codepoints | License |
 | --- | --- | --- | --- | --- |
@@ -31,42 +30,39 @@ Each requested size has a 32-glyph cache;
 the shared font budget is 96 instances, including text, icons and emoji.
 Regular, bold and measurement fonts share the same CJK fallback at a given size.
 
-On Panel10, the build embeds the checked-in `noto_cjk_subset.ttf.zlib` stream.
-Zopfli reduced the stream from 192,227 to 188,752 bytes; the decoder and expanded
-286,900-byte font are unchanged. Normal builds do not need Zopfli. To regenerate
-the stream after updating the TTF and raw array, use the
-[Zopfli 1.0.3 CLI](https://github.com/google/zopfli/tree/zopfli-1.0.3) from the
-repository root, then run the packer test:
-
-```sh
-zopfli --zlib --i15 main/ui/fonts/noto_cjk_subset.ttf
-python tests/tools/test_pack_cjk_font.py
-```
-
-Commit the refreshed stream with the font sources. The packer rejects missing,
-stale, corrupt or trailing data rather than silently using a different compressor.
-Initial text-font setup requests
-the CJK fallback even with English selected; it restores
-one 286,900-byte PSRAM buffer shared by every size for the rest of the boot.
-This does not change glyph coverage, metrics, cache size or the generated source
-font/array. Other boards and SDL use the original raw array.
-`tools/pack_cjk_font.py` produces the build-only data; `ui/cjk_font_data.c` checks
-stream completion, exact length, full input consumption and the TrueType header.
-Decoder/output allocations use PSRAM. Failure frees them, publishes no partial
-cache and keeps the emoji fallback; later font requests can retry. The successful
-buffer is immutable and must outlive every `lv_tiny_ttf` instance that borrows it.
-Panel10's read-only-data-in-PSRAM profile retains the compressed bytes too;
-the estimated steady PSRAM increase is 188,752 bytes plus alignment, with extra
-temporary decoder allocations. This is not a device measurement. See
-[storage budgets](../../../docs/hardware/storage.md#panel10-chinese-font-compression)
-for the tradeoff and pending hardware checks.
-
 Source: [Noto Sans SC variable TrueType](https://github.com/notofonts/noto-cjk/tree/main/Sans/Variable/TTF/Subset),
 version 2.004, source SHA256
 `d68bafcb48a2707749396aa12bbbd833cb70401f3a9a689fd2902c7e0d295964`.
 Regenerate with `python3 tools/generate_widget_fonts.py --cjk-manifest --cjk NotoSansSC-VF.ttf`,
 then run `--check`. Extend `cjk_extra.txt` for additional characters; keep the
 resulting app within each board's OTA slot. The browser uses installed CJK fonts.
+
+## Panel10 font storage
+
+Each subset has a checked-in `.ttf.zlib` with the same license as the original.
+At configure time `tools/pack_ui_fonts.py` uses Python's standard library to verify the
+complete stream against the TTF byte for byte before generating the C header.
+To update a stream after regenerating its TTF and raw array, use the
+[Zopfli 1.0.3 CLI](https://github.com/google/zopfli/tree/zopfli-1.0.3) on the changed TTF, for example:
+
+```sh
+zopfli --zlib --i15 main/ui/fonts/mdi_subset.ttf
+python tests/tools/test_pack_cjk_font.py
+```
+
+Keep the three representations together. Normal builds use the checked-in streams.
+`ui/font_data.c` uses the existing zlib decoder and PSRAM for both output and scratch
+space. A successful decode checks the zlib checksum, exact length, full input
+consumption and TrueType signature. The UI task or display-lock holder publishes
+one immutable buffer per face for the rest of the boot. Font sizes, probes and
+fallback chains can all borrow it. On failure the decoder releases its allocations
+and leaves the slot available for retry. A failed Poppins Medium request uses a cached
+text size or LVGL's built-in font. Bold uses its regular base, MDI uses the built-in
+placeholder and text can render without the optional emoji face.
+
+The first regular text size also requests CJK and emoji in every language. MDI and
+Bold load on demand. The [Panel10 font storage validation](../../../docs/development/panel10-font-storage-validation.md)
+records flash savings, host timings and the PSRAM tradeoff.
 
 ## How the firmware uses them
 

@@ -7,13 +7,20 @@
 #include "ui/fonts/ttf_data.h"
 
 static unsigned allocations, live, fail_at, checks;
+static size_t live_bytes, peak_bytes;
+typedef union { max_align_t align; size_t bytes; } allocation_t;
+
 void *heap_caps_malloc(size_t size, uint32_t caps)
 {
     assert(caps == (MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
     if (++allocations == fail_at) return NULL;
-    void *memory = malloc(size);
-    if (memory) live++;
-    return memory;
+    allocation_t *block = malloc(sizeof(*block) + size);
+    if (!block) return NULL;
+    block->bytes = size;
+    live++;
+    live_bytes += size;
+    if (live_bytes > peak_bytes) peak_bytes = live_bytes;
+    return block + 1;
 }
 void *heap_caps_calloc(size_t count, size_t size, uint32_t caps)
 {
@@ -23,12 +30,18 @@ void *heap_caps_calloc(size_t count, size_t size, uint32_t caps)
 }
 void heap_caps_free(void *memory)
 {
-    if (memory) { assert(live); live--; free(memory); }
+    if (memory) {
+        allocation_t *block = (allocation_t *)memory - 1;
+        assert(live && live_bytes >= block->bytes);
+        live_bytes -= block->bytes;
+        live--;
+        free(block);
+    }
 }
 
 /* Exercise the production decoder, including rejection paths before cache publication. */
-#include "../../main/ui/cjk_font_data.c"
-#define CHECK(expr) do { checks++; if (!(expr)) { fprintf(stderr, "CJK line %d: %s\n", __LINE__, #expr); exit(1); } } while (0)
+#include "../../main/ui/font_data.c"
+#define CHECK(expr) do { checks++; if (!(expr)) { fprintf(stderr, "Font data line %d: %s\n", __LINE__, #expr); exit(1); } } while (0)
 
 static void reject(const unsigned char *data, size_t size, size_t raw)
 {
@@ -50,9 +63,9 @@ int main(void)
     CHECK(live == 0);
 
     reject(NULL, packed_size, raw); reject(packed, 0, raw);
-    reject(packed, CJK_FONT_MAX_BYTES + 1, raw);
+    reject(packed, FONT_MAX_BYTES + 1, raw);
     reject(packed, packed_size, 0); reject(packed, packed_size, 11);
-    reject(packed, packed_size, CJK_FONT_MAX_BYTES + 1);
+    reject(packed, packed_size, FONT_MAX_BYTES + 1);
     reject(packed, packed_size - 1, raw);
     reject(packed, packed_size, raw - 1);
     reject(packed, packed_size, raw + 1);
@@ -66,28 +79,39 @@ int main(void)
     CHECK(compress2(invalid_archive, &invalid_size, invalid_font, sizeof(invalid_font), 9) == Z_OK);
     reject(invalid_archive, invalid_size, sizeof(invalid_font));
 
-    for (unsigned failure = 1; failure <= successful_allocations; failure++) {
-        fail_at = failure; allocations = 0;
-        unsigned int size = 99;
-        CHECK(ui_cjk_font_data(&size) == NULL);
-        CHECK(size == 0 && s_font_data == NULL && live == 0);
+    const unsigned char *originals[] = {ttf_poppins_data, ttf_poppins_bold_data, ttf_mdi_data, ttf_emoji_data, ttf_cjk_data};
+    unsigned int sizes[] = {ttf_poppins_size, ttf_poppins_bold_size, ttf_mdi_size, ttf_emoji_size, ttf_cjk_size};
+    unsigned int size = 99;
+    CHECK(!ui_font_data(UI_TTF_COUNT, &size) && !size);
+    size_t retained = 0;
+    for (unsigned id = 0; id < UI_TTF_COUNT; id++) {
+        for (unsigned failure = 1; failure <= successful_allocations; failure++) {
+            fail_at = failure; allocations = 0;
+            CHECK(ui_font_data(id, &size) == NULL);
+            CHECK(size == 0 && s_font_data[id] == NULL && live == id);
+            CHECK(live_bytes == retained);
+        }
+        fail_at = 0;
+        peak_bytes = live_bytes;
+        const unsigned char *font = ui_font_data(id, &size);
+        CHECK(font && size == sizes[id] && memcmp(font, originals[id], size) == 0);
+        CHECK(live == id + 1);
+        retained += size;
+        CHECK(live_bytes == retained && peak_bytes > live_bytes);
+        printf("Face %u retained %u bytes, temporary %zu bytes\n", id, size, peak_bytes - live_bytes);
     }
-    fail_at = 0; allocations = 0;
-    unsigned int size = 0;
-    const unsigned char *font = ui_cjk_font_data(&size);
-    CHECK(font && size == raw && memcmp(font, ttf_cjk_data, raw) == 0);
-    CHECK(live == 1);
     unsigned cached_allocations = allocations;
-    fail_at = cached_allocations + 1;
-    for (unsigned i = 0; i < 96; i++) {
-        size = 0;
-        CHECK(ui_cjk_font_data(&size) == font && size == raw);
+    fail_at = allocations + 1;
+    for (unsigned id = 0; id < UI_TTF_COUNT; id++) {
+        for (unsigned i = 0; i < 96; i++) {
+            CHECK(ui_font_data(id, &size) == s_font_data[id] && size == sizes[id]);
+        }
+        CHECK(memcmp(s_font_data[id], originals[id], size) == 0);
     }
-    CHECK(allocations == cached_allocations && live == 1);
-    CHECK(memcmp(font, ttf_cjk_data, raw) == 0);
-    /* Only the test process teardown frees it; firmware intentionally retains it. */
-    heap_caps_free(s_font_data); s_font_data = NULL;
-    CHECK(live == 0);
+    CHECK(allocations == cached_allocations && live == UI_TTF_COUNT);
+    /* Only the test teardown frees these. Firmware retains all successful decodes. */
+    for (unsigned id = 0; id < UI_TTF_COUNT; id++) heap_caps_free(s_font_data[id]);
+    CHECK(live == 0 && live_bytes == 0);
     printf("test_cjk_font_data: %u checks passed\n", checks);
     return 0;
 }

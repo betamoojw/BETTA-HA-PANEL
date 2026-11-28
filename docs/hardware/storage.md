@@ -176,7 +176,7 @@ original font array. Source attribution and the SIL OFL license are in
 The first text-font setup requests its CJK fallback, even with English selected,
 and expands one 286,900-byte PSRAM buffer shared by every size for the boot
 lifetime. With Panel10's read-only-data-in-PSRAM profile the compressed copy
-also occupies PSRAM. Its estimated steady overhead is 188,752 bytes plus
+also occupies PSRAM. The CJK face alone adds an estimated 188,752 bytes plus
 alignment, with temporary zlib work memory during decoding.
 
 The decoder requires a complete zlib stream, exact expanded length, no trailing
@@ -202,6 +202,17 @@ unmeasured for this merged image. Recheck capacity after any source or asset cha
 The November 27 Windows build with the Zopfli font left 4,224 bytes in each
 OTA slot. The [Panel10 CJK font validation](../development/panel10-cjk-font-validation.md)
 records the paired builds, COM24 slot readback and physical display checks.
+
+## Additional Panel10 fonts
+
+Panel10 also stores Poppins Medium, Poppins Bold, MDI and Noto Emoji as
+preverified zlib streams. Together they use 91,003 flash bytes for 148,528
+bytes of original font data. Each decoded face stays in PSRAM for all sizes.
+With all four loaded, the estimated additional steady PSRAM for those font
+payloads is 91,003 bytes compared with the CJK-only configuration.
+The paired Windows builds gained 57,472 application bytes and left 61,696
+bytes free in each OTA slot. Board timing and available heap still need a
+device measurement. See [Panel10 font storage validation](../development/panel10-font-storage-validation.md).
 
 ## Crash diagnostics (coredump partition)
 

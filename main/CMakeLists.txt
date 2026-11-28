@@ -756,29 +756,25 @@ target_compile_definitions(
 
 # Every text, symbol, icon and emoji is rendered at run time by lv_tiny_ttf from five committed subsets,
 # see ui/text_font.c and tools/generate_widget_fonts.py. No bitmap font is compiled any more.
-target_sources(${COMPONENT_LIB} PRIVATE
-    "${CMAKE_CURRENT_LIST_DIR}/ui/fonts/ttf_poppins_data.c"
-    "${CMAKE_CURRENT_LIST_DIR}/ui/fonts/ttf_poppins_bold_data.c"
-    "${CMAKE_CURRENT_LIST_DIR}/ui/fonts/ttf_mdi_data.c"
-    "${CMAKE_CURRENT_LIST_DIR}/ui/fonts/ttf_emoji_data.c")
-
-# Keep every CJK glyph and metric while preserving Panel10's existing OTA slots.
-# Other boards and SDL continue to use the original read-only array.
 if(CONFIG_APP_PANEL_VARIANT_10INCH_1280)
-    set(PACKED_CJK_DIR "${CMAKE_CURRENT_BINARY_DIR}/packed_cjk")
-    set(CJK_FONT_SOURCE "${CMAKE_CURRENT_LIST_DIR}/ui/fonts/noto_cjk_subset.ttf")
-    set(CJK_FONT_ZLIB "${CJK_FONT_SOURCE}.zlib")
+    set(FONT_DIR "${CMAKE_CURRENT_LIST_DIR}/ui/fonts")
+    set(PACKED_FONT_DIR "${CMAKE_CURRENT_BINARY_DIR}/packed_fonts")
+    foreach(stem poppins_medium poppins_bold mdi noto_emoji noto_cjk)
+        set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+            "${FONT_DIR}/${stem}_subset.ttf" "${FONT_DIR}/${stem}_subset.ttf.zlib")
+    endforeach()
     set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
-        "${CJK_FONT_SOURCE}" "${CJK_FONT_ZLIB}" "${CMAKE_SOURCE_DIR}/tools/pack_cjk_font.py")
-    execute_process(COMMAND "${PYTHON}" "${CMAKE_SOURCE_DIR}/tools/pack_cjk_font.py"
-        "${CJK_FONT_SOURCE}" "${PACKED_CJK_DIR}/cjk_font_packed.h"
-        --packed-source "${CJK_FONT_ZLIB}" COMMAND_ERROR_IS_FATAL ANY)
-    target_include_directories(${COMPONENT_LIB} PRIVATE "${PACKED_CJK_DIR}")
-    target_compile_definitions(${COMPONENT_LIB} PRIVATE APP_CJK_COMPRESSED=1)
-    target_sources(${COMPONENT_LIB} PRIVATE "ui/cjk_font_data.c")
+        "${CMAKE_SOURCE_DIR}/tools/pack_ui_fonts.py" "${CMAKE_SOURCE_DIR}/tools/generate_widget_fonts.py")
+    execute_process(COMMAND "${PYTHON}" "${CMAKE_SOURCE_DIR}/tools/pack_ui_fonts.py"
+        "${FONT_DIR}" "${PACKED_FONT_DIR}" COMMAND_ERROR_IS_FATAL ANY)
+    target_include_directories(${COMPONENT_LIB} PRIVATE "${PACKED_FONT_DIR}")
+    target_compile_definitions(${COMPONENT_LIB} PRIVATE APP_TTF_COMPRESSED=1)
+    target_sources(${COMPONENT_LIB} PRIVATE "ui/font_data.c")
     idf_component_optional_requires(PRIVATE zlib)
 else()
-    target_sources(${COMPONENT_LIB} PRIVATE "${CMAKE_CURRENT_LIST_DIR}/ui/fonts/ttf_cjk_data.c")
+    target_sources(${COMPONENT_LIB} PRIVATE
+        "ui/fonts/ttf_poppins_data.c" "ui/fonts/ttf_poppins_bold_data.c"
+        "ui/fonts/ttf_mdi_data.c" "ui/fonts/ttf_emoji_data.c" "ui/fonts/ttf_cjk_data.c")
 endif()
 
 set(APP_UI_WEATHER_LOTTIE_ASSETS 0)

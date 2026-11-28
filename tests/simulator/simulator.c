@@ -1212,6 +1212,10 @@ int main(int argc, char **argv)
         }
     }
     lv_init();
+    if (font_budget_regression) {
+        extern void sim_font_cold_start_regression(void);
+        sim_font_cold_start_regression();
+    }
     if (!check_text_font_coverage()) {
         cJSON_Delete(root);
         return 1;

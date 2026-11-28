@@ -143,6 +143,10 @@ Do not add routine stress tests; the owner declined the 10-inch stress test. A h
 ## Repository rules
 
 Read git status before edits; preserve unrelated tracked/untracked work. Keep local plans/build artifacts out of commits.
+Apply the root `.clang-format` to C/C++ source and header files under `main/` when editing them.
+Limit formatting to changed code; do not reformat unrelated code, generated assets or third-party sources.
+Use the root `doxygen.conf` to generate API documentation for C/C++ source and header files under `main/`.
+Run `doxygen doxygen.conf` from the repository root.
 Retain SPDX headers/third-party attribution (LICENSE section12). Code/commits/comments/docs are English; maintainer conversation German.
 Use andre68723 for fork authorship; one logical change per commit; when commits are separately authorized, use Conventional Commits and an English rationale.
 With shared checkouts, coordinate path/index ownership and prefer separate worktrees; explicit git add paths, inspect staged diff, git commit --only owned paths.
